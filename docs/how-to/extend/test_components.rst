@@ -26,7 +26,9 @@ What ``drevalpy.testing`` provides
    * - ``observed_pairs(dataset)``
      - Every measured sample-drug pair, as a ``ResponseBatch``.
    * - ``FEATURIZER_CHECKS`` / ``PREDICTOR_CHECKS``
-     - A tuple of three conformance checks each, ready to parametrize over.
+     - A tuple of three conformance checks each, ready to parametrize over. The third check of
+       each is a pickle round trip (``check_featurizer_state_round_trip``,
+       ``check_predictor_pickle_round_trip``).
    * - ``check_plugin(name)``
      - Assert that an installed plugin's entry point is declared and loads, and that its
        components resolve through the registries.
@@ -35,34 +37,35 @@ Check a featurizer
 ------------------
 
 Each check takes ``(cls, fixture, **kwargs)``. For featurizers the fixture is a dataset. The
-three checks verify that the component instantiates, that ``output_dim`` agrees with the width
-``transform`` actually produced, and that a fresh instance restored from ``get_state``
-reproduces the original's output. The last one catches the expensive bug: a fitted attribute
-left out of ``get_state`` makes a reloaded checkpoint silently predict something else. A
-failing check raises ``ConformanceError``, which subclasses ``AssertionError``.
+three checks verify that the component instantiates, that ``transform`` emits the blocks
+``output_blocks`` declares, and that a fitted instance dumped and loaded with joblib reproduces
+the original's output. The last one catches the expensive bug: a saved model pickles its fitted
+components, so a fitted attribute that does not pickle breaks a reloaded model. A failing check
+raises ``ConformanceError``, which subclasses ``AssertionError``.
 
 .. code-block:: python
 
+   from typing import ClassVar
+
    import numpy as np
 
-   from drevalpy.plugin import (
-       DenseViewSampleFeaturizer,
-       FeatureFormat,
-       register_sample_featurizer,
-   )
+   from drevalpy.plugin import Featurizer, Side, dense_result, register_featurizer, view_matrix
    from drevalpy.testing import FEATURIZER_CHECKS, build_synthetic_dataset
 
 
-   @register_sample_featurizer(
-       "logExpression",
-       description="log1p of the gene_expression view.",
-       output_format=FeatureFormat.NUMERIC_MATRIX,
-   )
-   class LogExpressionFeaturizer(DenseViewSampleFeaturizer):
-       input_views = ("gene_expression",)
+   @register_featurizer("logExpression", description="log1p of the gene_expression view.")
+   class LogExpressionFeaturizer(Featurizer):
+       sides: ClassVar[frozenset[Side]] = frozenset({"sample"})
+       input_views: ClassVar[tuple[str, ...]] = ("gene_expression",)
 
-       def _compute_matrix(self, source, matrix):
-           return np.log1p(np.clip(matrix, 0.0, None))
+       def fit(self, source, train_ids, *, train_pair_ids=None, es_pair_ids=None):
+           names = source.get_feature_names("gene_expression")
+           self._names = None if names is None else tuple(names)
+           return self
+
+       def transform(self, source, ids):
+           matrix = view_matrix(source, "gene_expression", ids, self._names)
+           return dense_result(ids, "gene_expression", np.log1p(np.clip(matrix, 0.0, None)), self._names)
 
 
    dataset = build_synthetic_dataset(omics=["gene_expression"])
@@ -76,33 +79,22 @@ Check a predictor
 -----------------
 
 For predictors the fixture is a batch. Ask ``build_synthetic_batch`` for the sample and drug
-blocks the predictor requires by name; a matrix predictor only needs some features.
+blocks the predictor requires by name; a matrix predictor only needs some features. The third
+check trains the predictor, pickles it and requires the loaded copy to predict the same values.
 
 .. code-block:: python
 
-   from drevalpy.plugin import FeatureFormat, FeatureFreePredictor, register_predictor
+   from drevalpy.plugin import FeatureFreePredictor, register_predictor
    from drevalpy.testing import PREDICTOR_CHECKS, build_synthetic_batch
 
 
-   @register_predictor(
-       "meanBaseline",
-       description="Predict the mean training response.",
-       sample_input_format=FeatureFormat.NUMERIC_MATRIX,
-       drug_input_format=FeatureFormat.NUMERIC_MATRIX,
-   )
+   @register_predictor("meanBaseline", description="Predict the mean training response.")
    class MeanBaseline(FeatureFreePredictor):
        def _fit(self, batch):
            self._mean = float(np.mean(batch.response))
 
        def _predict(self, batch):
            return np.full(batch.n_pairs, self._mean)
-
-       def get_state(self):
-           return {"mean": self._mean} if hasattr(self, "_mean") else {}
-
-       def set_state(self, state):
-           if "mean" in state:
-               self._mean = state["mean"]
 
 
    batch = build_synthetic_batch(dataset, sample_block_names=("gene_expression",))
@@ -125,8 +117,8 @@ This block uses the built-in ``LSO``; substitute your own mode name.
    folds = splitter.get("LSO")(build_synthetic_dataset(), n_splits=3, quality=CurveQuality.default())
    assert len(folds) == 3
 
-Visualizations are checked the same manual way: call ``compute`` first, then the renderers (see
-:doc:`write_visualization`).
+Plots have no conformance check either: call ``sections(result)`` on a result and save each
+figure (see :doc:`write_visualization`).
 
 Put the checks in your test suite
 ---------------------------------

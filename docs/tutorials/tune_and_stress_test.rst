@@ -141,7 +141,7 @@ Every run keeps the trials of its tuning. Look at fold 0 of ``ElasticNet``.
          for number, trial in enumerate(fold_0.trials):
              print(number, round(trial.metrics[trial.optimization_metric], 3), round(trial.hyperparameters["predictor.elasticNet.alpha"], 4))
          best = fold_0.best_hyperparameters
-         print("best:", {key: round(best[key], 4) for key in ("alpha", "l1_ratio")})
+         print("best:", {key: round(best[f"predictor.elasticNet.{key}"], 4) for key in ("alpha", "l1_ratio")})
 
    .. tab-item:: Python
       :sync: python
@@ -156,7 +156,7 @@ Every run keeps the trials of its tuning. Look at fold 0 of ``ElasticNet``.
          for number, trial in enumerate(fold_0.trials):
              print(number, round(trial.metrics[trial.optimization_metric], 3), round(trial.hyperparameters["predictor.elasticNet.alpha"], 4))
          best = fold_0.best_hyperparameters
-         print("best:", {key: round(best[key], 4) for key in ("alpha", "l1_ratio")})
+         print("best:", {key: round(best[f"predictor.elasticNet.{key}"], 4) for key in ("alpha", "l1_ratio")})
 
 Both print the same lines:
 

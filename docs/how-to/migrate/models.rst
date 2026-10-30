@@ -108,11 +108,12 @@ Where each part goes
      - The class attributes ``supports_early_stopping`` or
        ``requires_early_stopping`` on the predictor.
    * - ``save`` and ``load`` of your own
-     - ``get_state`` and ``set_state`` return and restore the fitted state. The
-       checkpoint format is the same for every model.
+     - Nothing: ``DRPModel.save`` pickles the fitted predictor, so keep its fitted
+       state in plain, picklable attributes. The archive format is the same for
+       every model.
    * - ``MODEL_FACTORY``, ``MULTI_DRUG_MODEL_FACTORY``,
        ``SINGLE_DRUG_MODEL_FACTORY`` entry
-     - The decorator ``register_predictor`` or ``register_sample_featurizer``.
+     - The decorator ``register_predictor`` or ``register_featurizer``.
        No file in the package is edited.
    * - ``drevalpy --models YourModel``
      - ``drevalpy -e DIR run YourModel ...``, after the predictor and a zoo
@@ -133,14 +134,12 @@ under the name ``migratedRidge``, which must be unique.
    import numpy as np
    from sklearn.linear_model import Ridge
 
-   from drevalpy.plugin import FeatureFormat, MatrixPredictor, register_predictor
+   from drevalpy.plugin import MatrixPredictor, register_predictor
 
 
    @register_predictor(
        "migratedRidge",
        description="Ridge regression on concatenated dense sample and drug features.",
-       sample_input_format=FeatureFormat.NUMERIC_MATRIX,
-       drug_input_format=FeatureFormat.NUMERIC_MATRIX,
    )
    class MigratedRidge(MatrixPredictor):
        def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
@@ -157,18 +156,6 @@ under the name ``migratedRidge``, which must be unique.
 
        def _predict_matrix(self, x: np.ndarray) -> np.ndarray:
            return np.asarray(self._estimator.predict(x), dtype=np.float64)
-
-       def get_state(self) -> dict[str, object]:
-           if self._estimator is None:
-               return {}
-           return {"estimator": self._estimator, "hyperparameters": dict(self._hyperparameters)}
-
-       def set_state(self, state: dict[str, object]) -> None:
-           self._estimator = state.get("estimator")
-           self._hyperparameters = dict(state.get("hyperparameters", self._hyperparameters))
-
-       def is_fitted(self) -> bool:
-           return self._estimator is not None
 
 The shipped example ``docs/examples/toy_ridge_predictor.py`` is the same
 predictor with docstrings, and :doc:`/how-to/extend/write_predictor` explains
@@ -191,10 +178,10 @@ one-hot encodes each drug.
 
    import drevalpy
    from drevalpy import ModelSpec
-   from drevalpy.models.config import from_spec
+   from drevalpy.models.config import from_recipe
 
    dataset = drevalpy.synthetic(n_samples=60, n_drugs=8, seed=3)
-   spec = ModelSpec("MigratedRidge", from_spec("tissue:identity:migratedRidge"))
+   spec = ModelSpec("MigratedRidge", from_recipe("tissue:identity:migratedRidge"))
    baseline = ModelSpec.from_name("NaiveMeanEffectsPredictor")
 
    result = drevalpy.run([spec, baseline], dataset, "LSO", hyperparameter_tuning=False)

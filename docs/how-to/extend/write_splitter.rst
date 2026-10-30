@@ -10,7 +10,7 @@ a mode name. Once registered, the mode works anywhere a split mode is accepted: 
 Register a splitter function
 ----------------------------
 
-Decorate a function with ``register_splitter(mode, description, validation, *, override=False,
+Decorate a function with ``register_splitter(mode, description, validation, *, replace=False,
 aliases=())``. The registry calls it as
 ``fn(dataset, n_splits, validation_ratio, random_state, quality=quality)`` and expects a list
 of ``SplitMasks``, one per fold. The ``quality`` keyword is required: registering a function
@@ -51,7 +51,7 @@ accepts a legacy alias for ``"LSO"`` here.
 Avoid name clashes and keep old names working
 ---------------------------------------------
 
-Registering a mode that already exists raises ``ValueError``. Pass ``override=True`` when you
+Registering a mode that already exists raises ``ValueError``. Pass ``replace=True`` when you
 mean to replace it, so one package cannot quietly change another package's split semantics.
 
 Pass ``aliases=("OLD_NAME",)`` to keep a renamed mode reachable under its former name. An alias

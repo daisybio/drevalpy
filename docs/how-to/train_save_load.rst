@@ -30,10 +30,10 @@ model, so the predictions are in the units of the response.
       :sync: cli
 
       ``drevalpy train MODEL --dataset DATASET --output MODEL_DIR`` trains the model and writes the
-      directory ``MODEL_DIR``. It holds ``model.zip``, the checkpoint that ``DRPModel.save`` writes,
+      directory ``MODEL_DIR``. It holds ``model.zip``, the archive that ``DRPModel.save`` writes,
       and ``metadata.json``, which records the model, the dataset, the seed, the response
       transformation and the version of DrEvalPy. ``drevalpy predict MODEL_DIR --dataset DATASET
-      --output PREDICTIONS`` loads the checkpoint and predicts every pair of the dataset that has an
+      --output PREDICTIONS`` loads the archive and predicts every pair of the dataset that has an
       observed response.
 
       .. code-block:: bash
@@ -232,8 +232,8 @@ same values:
    .. tab-item:: CLI
       :sync: cli
 
-      ``drevalpy predict`` loads the checkpoint in a model directory. It also takes the path of a
-      checkpoint file, such as one written by ``DRPModel.save``. A path that does not exist, or a
+      ``drevalpy predict`` loads the archive in a model directory. It also takes the path of an
+      archive file, such as one written by ``DRPModel.save``. A path that does not exist, or a
       directory without ``model.zip``, is reported as an ``Error:`` line.
 
    .. tab-item:: Python
@@ -248,22 +248,23 @@ same values:
 
          True
 
-Three things to know before you share or keep a checkpoint:
+Three things to know before you share or keep a saved model:
 
-**Load only files you trust.** A checkpoint is a pickle. Loading one can run arbitrary code, so
-load only checkpoints you made yourself or got from a source you trust. This applies to
+**Load only files you trust.** The archive holds pickled components. Loading one can run
+arbitrary code, so load only archives you made yourself or got from a source you trust. This applies to
 ``drevalpy predict`` too.
 
-**Register your own components first.** The checkpoint stores the names of the model's
-components and their fitted state, not their code. If the model uses a featurizer or a predictor
-that you wrote, register it before you call ``load``, for example by loading your extension
+**Register your own components first.** The archive stores the model specification, which names
+the components, and the pickled fitted components, which refer to their classes by module path;
+it does not store their code. If the model uses a featurizer or a predictor that you wrote, make
+its module importable and register it before you call ``load``, for example by loading your extension
 directory; see :doc:`/how-to/extend/load_extensions`. On the command line, give the directory with
 ``drevalpy --extensions-dir DIR predict ...``.
 
-**Checkpoints do not cross format versions.** A checkpoint records the format version that wrote it,
-and ``load`` refuses a checkpoint whose version differs from the one your DrEvalPy reads, with an
+**Archives do not cross format versions.** An archive records the format version that wrote it,
+and ``load`` refuses an archive whose version differs from the one your DrEvalPy reads, with an
 ``UnsupportedCheckpointFormatError`` that asks you to retrain the model and save it again. Keep
-checkpoints for the DrEvalPy version that wrote them.
+archives for the DrEvalPy version that wrote them.
 
 Control where training checkpoints go
 -------------------------------------

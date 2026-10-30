@@ -79,7 +79,7 @@ environment variables or profile for ``s3://``.
 
 Registering the same entry again is a no-op. Registering a different entry under a name that is
 already taken, including a built-in name such as ``GDSC1``, raises ``ValueError``; pass
-``override=True`` to replace your own entry. A dataset whose ``source`` is unknown raises
+``replace=True`` to replace your own entry. A dataset whose ``source`` is unknown raises
 ``KeyError``.
 
 Check what is registered
@@ -105,7 +105,7 @@ Entries are saved, so commands after the first registration do not need ``-e`` a
 
       .. code-block:: python
 
-         assert "MyScreen" in registry.dataset.list()
+         assert "MyScreen" in registry.dataset.dataset_registry.names()
 
 Load a registered dataset
 -------------------------

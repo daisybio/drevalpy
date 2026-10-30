@@ -223,9 +223,9 @@ PCA of the ``gene_expression`` view, Morgan fingerprints of the drugs, and a rid
 
       .. code-block:: python
 
-         from drevalpy.models.config import from_spec
+         from drevalpy.models.config import from_recipe
 
-         ridge = ModelSpec("PcaRidge", from_spec("pca[gene_expression]:fingerprints:ridge"))
+         ridge = ModelSpec("PcaRidge", from_recipe("pca[gene_expression]:fingerprints:ridge"))
          results = drevalpy.run([baselines[0], ridge], dataset, "LDO", hyperparameter_tuning=False)
          print(results)
 

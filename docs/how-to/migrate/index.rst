@@ -68,9 +68,8 @@ checks when you try:
      - A single ``.zip`` archive of format ``drevalpy-model``.
      - ``DRPModel.load`` raises ``ValueError``: the checkpoint path "must be an
        archive file path, not a directory".
-   * - A model checkpoint of another format version
-     - Format version 1 (``FORMAT_VERSION`` in
-       ``drevalpy/models/mixins/_persistence_io.py``).
+   * - A saved model of another format version
+     - Format version 2 (``FORMAT_VERSION`` in ``drevalpy/models/_archive.py``).
      - ``UnsupportedCheckpointFormatError`` naming the stored version and the
        one this release reads; retrain the model and save it again.
 

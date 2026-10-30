@@ -212,7 +212,8 @@ The 1.x result files map to these calls:
 - ``true_vs_pred.csv``: the arrays on each ``RunResult``, shown below.
 - ``predictions/predictions_split_N.csv``: one ``RunResult`` per fold in
   ``result.models[i].runs``.
-- ``best_hpams/best_hpams_split_N.json``: ``RunResult.best_hyperparameters``.
+- ``best_hpams/best_hpams_split_N.json``: ``RunResult.best_hyperparameters``, under qualified keys
+  such as ``predictor.elasticNet.alpha``.
 
 .. code-block:: python
 

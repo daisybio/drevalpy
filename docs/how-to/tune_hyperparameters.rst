@@ -284,12 +284,15 @@ tuned ``ElasticNet``:
 
          run = results.models[0].select_runs()[0]
          print(len(run.trials), "trials, scored by", run.trials[0].optimization_metric)
-         print({key: round(run.best_hyperparameters[key], 4) for key in ("alpha", "l1_ratio")})
+         print({key: round(run.best_hyperparameters[f"predictor.elasticNet.{key}"], 4) for key in ("alpha", "l1_ratio")})
 
       .. code-block:: text
 
          4 trials, scored by RMSE
          {'alpha': 0.1091, 'l1_ratio': 0.1705}
+
+``best_hyperparameters`` holds every hyperparameter of the model under its qualified key, such as
+``predictor.elasticNet.alpha``; see :doc:`/reference/hyperparameters`.
 
 Each fold tunes on its own validation pairs, so different folds can choose different values. A
 run without tuning has no trials. A big spread between folds, or a best value at the edge of the

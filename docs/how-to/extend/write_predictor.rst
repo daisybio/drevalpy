@@ -4,43 +4,51 @@ Write a predictor
 .. interface: python
 
 A predictor is the model proper: it learns from a batch of sample-drug pairs and scores new
-pairs. This page shows how to write one for each of the three input interfaces and how to
-declare its hyperparameters, state and provenance. For the featurizers that feed it, see
-:doc:`write_featurizer`.
+pairs. This page shows how to write one for each kind of input and how to declare its
+hyperparameters and provenance. For the featurizers that feed it, see :doc:`write_featurizer`.
 
-Pick the input interface
-------------------------
+Declare what the predictor reads
+--------------------------------
 
-A predictor inherits **exactly one** of three bases from ``drevalpy.plugin`` and registers with
-``register_predictor``:
+A predictor subclasses one of three bases from ``drevalpy.plugin`` and registers with
+``register_predictor(name, *, description, tags=None, reference=None)``. What it reads from each
+side is its ``sample_inputs`` and ``drug_inputs`` declaration, an ``Inputs``:
+
+``Inputs.none()``
+   No features on that side; config validation rejects a featurizer there.
+``Inputs.matrix()``
+   The side's numeric output, flattened into one design matrix.
+``Inputs.blocks(*specs)``
+   Named blocks, each a ``BlockSpec(name, format)``. A tuple of specs means that one of them
+   must be emitted, and ``Inputs.blocks()`` without specs takes the featurizer's blocks as they
+   are.
 
 .. list-table::
    :header-rows: 1
    :widths: 24 38 38
 
    * - Base
-     - The predictor sees
+     - Declares
      - You implement
    * - ``FeatureFreePredictor``
-     - Pair identifiers and responses only.
+     - ``Inputs.none()`` on both sides
      - ``_fit(batch)``, ``_predict(batch)``
    * - ``MatrixPredictor``
-     - One dense pair-level design matrix.
+     - ``Inputs.matrix()`` on both sides
      - ``_fit_matrix(x, y)``, ``_predict_matrix(x)``
-   * - ``BlockPredictor``
-     - The named featurizer blocks of each side, kept apart.
+   * - ``Predictor``
+     - Nothing: set ``sample_inputs`` and ``drug_inputs`` yourself
      - ``_fit(batch)``, ``_predict(batch)``
+
+Override either declaration on a subclass, for example ``drug_inputs = Inputs.none()`` for a
+matrix predictor that fits one model per drug. Registration rejects a predictor that declares
+neither. When a configuration is built, each side's declaration is checked against what its
+featurizer emits, so a recipe that cannot work fails before training. A grid skips such a
+combination and reports the reason; see :doc:`/how-to/evaluate_component_grids`.
 
 The public ``fit`` and ``predict`` are implemented on the base class. ``fit`` raises
 ``ValueError`` for a batch without responses and drops pairs whose features are NaN;
-``predict`` returns NaN for those pairs. Your hooks never see them.
-
-Every predictor declares ``sample_input_format`` and ``drug_input_format``, each a
-``FeatureFormat``. Pass them to the decorator or set them on the class body; the decorator wins
-when both are given. A missing or wrong-typed format raises ``TypeError``. ``MatrixPredictor``
-requires ``numeric_matrix`` for both. A feature-free predictor still needs both formats because
-the composition checker compares them before it knows the interface, but composition then
-forbids sample and drug featurizers for it.
+``predict`` returns NaN for those pairs. Your methods never see them.
 
 .. tab-set::
 
@@ -62,21 +70,12 @@ forbids sample and drug featurizers for it.
          :language: python
          :caption: docs/examples/toy_ridge_predictor.py
 
-   .. tab-item:: Block
+   .. tab-item:: Blocks
 
-      ``BlockPredictor`` reads named blocks from ``batch.sample`` and ``batch.drug`` (each a
+      A block predictor reads named blocks from ``batch.sample`` and ``batch.drug`` (each a
       ``FeaturizerResult``) instead of one flattened matrix. Blocks are indexed by entity, so
       expand them to one row per pair with ``batch.sample_pair_idx`` and
       ``batch.drug_pair_idx``, as the example does.
-
-      The input formats constrain the **format** of each side. To also require named blocks, set
-      ``required_sample_block_specs`` or ``required_drug_block_specs`` to a tuple of
-      ``BlockSpec(name, format)``. Composition rejects a recipe whose featurizer does not emit
-      them. ``required_sample_block_alternatives`` accepts any one of several blocks. The
-      attributes ``required_sample_blocks`` and ``required_drug_blocks`` list block names only,
-      and are enforced too: a recipe whose featurizer does not emit a named block is rejected
-      when the configuration is built, not when the model trains. A grid skips such a
-      combination and reports the reason; see :doc:`/how-to/evaluate_component_grids`.
 
       .. literalinclude:: /examples/toy_block_predictor.py
          :language: python
@@ -92,15 +91,10 @@ matrix and declares one tunable hyperparameter.
 
    import numpy as np
 
-   from drevalpy.plugin import FeatureFormat, MatrixPredictor, register_predictor
+   from drevalpy.plugin import MatrixPredictor, register_predictor
 
 
-   @register_predictor(
-       "leastSquares",
-       description="Penalised least squares on the design matrix.",
-       sample_input_format=FeatureFormat.NUMERIC_MATRIX,
-       drug_input_format=FeatureFormat.NUMERIC_MATRIX,
-   )
+   @register_predictor("leastSquares", description="Penalised least squares on the design matrix.")
    class LeastSquaresPredictor(MatrixPredictor):
        """Fit weights with the normal equations."""
 
@@ -117,44 +111,36 @@ matrix and declares one tunable hyperparameter.
        def _predict_matrix(self, x):
            return np.hstack([x, np.ones((len(x), 1))]) @ self._weights
 
-       def get_state(self):
-           return {"weights": self._weights} if hasattr(self, "_weights") else {}
-
-       def set_state(self, state):
-           if "weights" in state:
-               self._weights = state["weights"]
-
-       def is_fitted(self):
-           return hasattr(self, "_weights")
-
 Declare hyperparameters
 -----------------------
 
-Override the class method ``get_hyperparameter_space`` to declare what is tunable. Every entry
-needs a ``default``: that value is used when nothing is tuned, and registration rejects a space
-without one. A float entry also takes ``low``, ``high`` and ``log``, as in both examples above.
-The hyperparameters in effect are available as ``self._hyperparameters``, with your overrides
-merged onto the defaults.
+Override the class method ``get_hyperparameter_space`` to declare the hyperparameters. Every
+entry needs a ``default``: that value is used when nothing is tuned, and registration rejects a
+space without one. A float entry also takes ``low``, ``high`` and ``log``, as in both examples
+above. A setting that HPO must not draw is a ``{"type": "fixed", "default": value}`` entry, like
+``fit_intercept`` of ``toyRidge``. The space is the only place defaults are declared:
+``default_hyperparameters()`` reads them from it. The values in effect are available as
+``self._hyperparameters``. The entry types are listed in :doc:`/reference/hyperparameters`.
 
-Persist the fitted state
-------------------------
+Keep the fitted state in attributes
+-----------------------------------
 
-A checkpoint stores the mapping from ``get_state`` and hands it to ``set_state`` on a fresh
-instance. Both default to no-ops, and ``is_fitted()`` is true when ``get_state()`` is not empty.
-Include everything ``_predict`` reads. A fitted attribute left out of ``get_state`` makes a
-reloaded checkpoint silently predict something else; :doc:`test_components` shows the check
-that catches it.
+A saved model pickles the fitted predictor, so whatever ``_fit`` stores on ``self`` is saved and
+restored with it; there is nothing to implement. ``is_fitted()`` is true once ``fit`` has
+completed. An attribute that cannot be pickled, such as an open file or a training loop
+object, has to be dropped in ``__getstate__``. :doc:`test_components` shows the check that a
+predictor predicts the same after a pickle round trip.
 
 .. warning::
 
-   Checkpoints are serialized with joblib and pickle. Load only checkpoints you trust.
+   Saved models are serialized with joblib and pickle. Load only files you trust.
 
 Credit the source of a ported model
 -----------------------------------
 
 ``LiteratureReference`` is optional provenance metadata for components ported from a paper or
 repository. Pass it as ``reference=`` to the register decorator, as ``toyRidge`` does above. It
-does not change training, composition or checkpoints. ``repo_url`` is required;
+does not change training, composition or saved models. ``repo_url`` is required;
 ``citation_text``, ``citation_doi`` and ``deviations`` are optional strings.
 
 .. code-block:: python
@@ -170,14 +156,15 @@ does not change training, composition or checkpoints. ``repo_url`` is required;
 Fit one model per drug
 ----------------------
 
-A single-drug predictor fits one model per drug. With ``--n-jobs`` (``n_jobs`` in Python) above 1
-it fits them in parallel worker processes, one drug per worker, and
-``batch.training_context.n_jobs`` tells a predictor how many it may use. The helper
-``run_per_drug`` in ``drevalpy.components.predictors.single_drug_routing`` does the fan-out for
-the built-in single-drug predictors: it seeds each drug from the run seed and the drug id, so the
-fitted models do not depend on ``n_jobs``. If you write a predictor that fits per drug, call it
-with the per-drug fit function, the tasks (one per drug) and ``n_jobs``, and make sure that the
-fit works inside a worker:
+A single-drug predictor fits one model per drug. It declares ``drug_inputs = Inputs.none()``
+and its ``scope`` as ``ModelScope.SINGLE_DRUG``, and routes pairs by ``batch.drug_ids``. With
+``--n-jobs`` (``n_jobs`` in Python) above 1 it fits the drugs in parallel worker processes, one
+drug per worker, and ``batch.training_context.n_jobs`` tells a predictor how many it may use.
+The helper ``run_per_drug`` in ``drevalpy.components.predictors.single_drug_routing`` does the
+fan-out for the built-in single-drug predictors: it seeds each drug from the run seed and the
+drug ID, so the fitted models do not depend on ``n_jobs``. If you write a predictor that fits
+per drug, call it with the per-drug fit function, the tasks (one per drug) and ``n_jobs``, and
+make sure that the fit works inside a worker:
 
 - **Do not start processes yourself.** Nested workers multiply the number of processes beyond
   ``n_jobs``. Use ``num_workers=0`` for a PyTorch ``DataLoader``, and leave the thread count of
@@ -191,7 +178,7 @@ fit works inside a worker:
   tracking run is active.
 - **Return the fitted model instead of storing it on ``self``.** A worker fits a copy of the
   predictor, so an attribute that the fit function sets is lost. Collect the returned models in
-  the parent and keep them in the state that ``get_state`` returns.
+  the parent and store them on the parent predictor.
 
 Check that it works
 -------------------
@@ -215,16 +202,10 @@ feature-free baseline defined below through the Python API.
 
    import drevalpy
    from drevalpy import ModelSpec
-   from drevalpy.models.config import from_spec
-   from drevalpy.plugin import FeatureFormat, FeatureFreePredictor, register_predictor
+   from drevalpy.plugin import FeatureFreePredictor, register_predictor
 
 
-   @register_predictor(
-       "meanBaseline",
-       description="Predict the mean training response.",
-       sample_input_format=FeatureFormat.NUMERIC_MATRIX,
-       drug_input_format=FeatureFormat.NUMERIC_MATRIX,
-   )
+   @register_predictor("meanBaseline", description="Predict the mean training response.")
    class MeanBaseline(FeatureFreePredictor):
        def _fit(self, batch):
            self._mean = float(np.mean(batch.response))
@@ -232,20 +213,14 @@ feature-free baseline defined below through the Python API.
        def _predict(self, batch):
            return np.full(batch.n_pairs, self._mean)
 
-       def get_state(self):
-           return {"mean": self._mean} if hasattr(self, "_mean") else {}
 
-       def set_state(self, state):
-           if "mean" in state:
-               self._mean = state["mean"]
-
-
-   spec = ModelSpec("MeanBaseline", from_spec("meanBaseline"))
+   spec = ModelSpec.from_name("meanBaseline")
    results = drevalpy.run([spec], dataset, "LSO", hyperparameter_tuning=False)
 
-``ModelSpec`` takes a name and a ``ModelConfig``. ``from_spec`` builds the config from a
-recipe string; a feature-free predictor is just its own name. Passing a plain dict raises
-``TypeError``.
+``ModelSpec.from_name`` reads a name that is not a zoo preset as a recipe; a feature-free
+predictor is a recipe of its own name. To report the model under another name, build the spec
+as ``ModelSpec("MeanBaseline", from_recipe("meanBaseline"))`` with ``from_recipe`` from
+``drevalpy.models.config``.
 
 Next steps
 ----------

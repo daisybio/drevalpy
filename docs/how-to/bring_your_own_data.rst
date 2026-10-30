@@ -369,7 +369,7 @@ selection, and the error names the list, the view and the number of missing gene
 
          from drevalpy import ModelSpec
          from drevalpy.errors import InvalidInputError
-         from drevalpy.models.config import from_spec
+         from drevalpy.models.config import from_recipe
 
          dataset = drevalpy.load("my_screen_expression.h5mu")
          try:
@@ -377,7 +377,7 @@ selection, and the error names the list, the view and the number of missing gene
          except InvalidInputError as error:
              print(error)
 
-         ridge = ModelSpec("RawRidge", from_spec("scaledGeneExpression:fingerprints:ridge"))
+         ridge = ModelSpec("RawRidge", from_recipe("scaledGeneExpression:fingerprints:ridge"))
          print(drevalpy.run([ridge], dataset, "LPO", hyperparameter_tuning=False))
 
       The first call prints the error:

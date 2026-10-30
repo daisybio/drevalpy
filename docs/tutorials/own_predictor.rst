@@ -40,23 +40,24 @@ the standard deviation of each feature, both learned on the training samples onl
 
 These parts matter:
 
+``sides``
+   The sides the featurizer can be used on, here only the samples.
+
 ``input_views``
-   Names the view the featurizer reads. Registration is rejected without it.
+   Names the view the featurizer reads.
 
-``_fit``
-   Learns one mean and one standard deviation per feature from the training samples.
+``fit``
+   Learns one mean and one standard deviation per feature from the training samples, and
+   records the feature names. The statistics are plain attributes, so a saved model pickles
+   them with the featurizer.
 
-``_transform_features``
-   Standardizes the requested samples with those statistics and returns them as a named
-   numeric block. A predictor asks for a block by its name.
+``transform``
+   Standardizes the requested samples with those statistics and returns them as one numeric
+   block named ``gene_expression``. A predictor asks for a block by its name.
 
-``@register_sample_featurizer("toySample", ...)``
+``@register_featurizer("toySample", ...)``
    Adds the class to the registry under the name ``toySample``, which is how a recipe refers
-   to it. ``output_format=FeatureFormat.NUMERIC_MATRIX`` declares that the output is a matrix of
-   numbers.
-
-``get_state`` and ``set_state``
-   Carry the fitted statistics into a saved model.
+   to it.
 
 :doc:`/how-to/extend/write_featurizer` covers the other hooks and the drug side.
 
@@ -76,16 +77,15 @@ The rest of the class declares what DrEvalPy needs to know:
 ``get_hyperparameter_space``
    Declares ``alpha``, the strength of the ridge penalty, with a search range and a default.
    Tuning draws from the range; without tuning the predictor uses the default of 1.0.
+   ``fit_intercept`` is a ``fixed`` entry, a setting that tuning never changes.
 
 ``@register_predictor("toyRidge", ...)``
-   Registers the predictor. ``sample_input_format`` and ``drug_input_format`` are both
-   ``NUMERIC_MATRIX``, so it accepts any
-   featurizer that outputs numeric blocks on both sides.
+   Registers the predictor. ``MatrixPredictor`` reads a matrix on both sides, so it accepts any
+   featurizer that outputs numeric blocks.
 
-``get_state``, ``set_state`` and ``is_fitted``
-   Let DrEvalPy save, restore and check the trained estimator.
+The trained estimator is a plain attribute, so DrEvalPy saves the predictor by pickling it.
 
-:doc:`/how-to/extend/write_predictor` shows the other predictor interfaces.
+:doc:`/how-to/extend/write_predictor` shows the other predictor inputs.
 
 Register the components
 -----------------------
@@ -129,9 +129,9 @@ under.
 .. code-block:: python
 
    from drevalpy import ModelSpec
-   from drevalpy.models.config import from_spec
+   from drevalpy.models.config import from_recipe
 
-   config = from_spec("toySample:fingerprints:toyRidge")
+   config = from_recipe("toySample:fingerprints:toyRidge")
    toy_ridge = ModelSpec("ToyRidge", config)
    print(config.model_id)
 

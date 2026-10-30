@@ -3,11 +3,10 @@ Write a featurizer
 
 .. interface: python
 
-A featurizer turns the raw views of a dataset (or just the identifiers) into the
-numeric, graph or ragged payload a predictor consumes. This page shows how to write one,
-register it, and bind it to both entity sides when its logic does not depend on the side.
-The components in ``docs/examples/`` are imported and checked on every docs build, so the
-code shown here keeps working. The toy names they register are listed in
+A featurizer turns the views of one side of a dataset (or just the identifiers) into the
+numeric, graph or ragged blocks a predictor consumes. This page shows how to write one and
+register it. The components in ``docs/examples/`` are imported and checked on every docs
+build, so the code shown here keeps working. The toy names they register are listed in
 :doc:`/reference/examples`.
 
 Import from ``drevalpy.plugin``
@@ -21,74 +20,84 @@ without a deprecation cycle.
 .. code-block:: python
 
    from drevalpy.plugin import (
-       FeatureFormat,
-       SampleFeaturizer,
-       register_sample_featurizer,
+       FeatureSource,
+       Featurizer,
+       FeaturizerResult,
+       register_featurizer,
    )
 
-Choose the base class
----------------------
+Implement ``fit`` and ``transform``
+-----------------------------------
 
-Subclass ``SampleFeaturizer`` or ``DrugFeaturizer`` and register with
-``register_sample_featurizer`` or ``register_drug_featurizer``. Two shortcuts cover most cases:
-
-- :ref:`Dense one-view featurizers <write-featurizer-dense>` subclass
-  ``DenseViewSampleFeaturizer`` / ``DenseViewDrugFeaturizer`` and override one method.
-- :ref:`A featurizer whose logic is the same for samples and drugs <write-featurizer-sides>` is
-  written once and bound to both sides with ``register_for_sides``.
-
-Implement the hooks
--------------------
-
-The public ``fit``, ``transform`` and ``transform_blocks`` methods are implemented on the base
-class. They find the entities whose feature rows are entirely NaN, run your code on the rest,
-and splice NaN rows back into the result. You implement the hooks underneath:
+Subclass ``Featurizer`` and register the class with ``register_featurizer(name, *,
+description, tags=None, reference=None)``. A featurizer is registered once, whichever sides it
+supports. It implements two methods:
 
 .. list-table::
    :header-rows: 1
-   :widths: 34 66
+   :widths: 40 60
 
-   * - Member
+   * - Method
      - Responsibility
-   * - ``_fit(source, *, entity_ids=None, ...)``
-     - Learn whatever ``_transform_features`` needs from pre-validated entity ids. Return ``self``.
-   * - ``_transform_features(source, entity_ids)``
-     - Return a ``FeaturizerResult(entity_ids, blocks, projection)``: the entity ids, a mapping of
+   * - ``fit(source, train_ids, *, train_pair_ids=None, es_pair_ids=None)``
+     - Learn whatever ``transform`` needs from the training entities. ``train_ids`` are unique;
+       ``train_pair_ids`` and ``es_pair_ids`` repeat an entity once per training or
+       early-stopping pair, for a featurizer that weights entities by their pairs. Return
+       ``self``.
+   * - ``transform(source, ids)``
+     - Return a ``FeaturizerResult(ids, blocks, projection)``: the entity IDs, a mapping of
        block name to ``FeatureBlock``, and the names of the blocks that make up the flat matrix.
-       ``FeaturizerResult.matrix`` is a property derived from those, not a constructor argument.
-   * - ``_empty_transform_features(source)``
-     - Optional. The default calls ``_transform_features`` with no entity ids, which gives a zero-row
-       ``FeaturizerResult`` with the fitted output schema. Override it only when that call cannot work.
-   * - ``output_dim`` (property)
-     - Feature width after fitting.
-   * - ``get_state`` / ``set_state``
-     - Optional, but required for a fitted featurizer to survive a checkpoint: the checkpoint
-       stores the state mapping, not the object. The default implementations are no-ops.
+       Keep the order of ``ids``, which may be empty.
 
-Registration is rejected without two declarations:
+``source`` is a ``FeatureSource`` for the featurizer's side. ``source.side`` is ``"sample"`` or
+``"drug"``, ``source.get_view_matrix(view, ids)`` reads rows of a view and
+``source.has_view(view)`` tells whether the dataset holds it.
 
-**The output format.** A ``FeatureFormat`` (``numeric_matrix``, ``graph`` or
-``ragged_sequence``) naming the payload this featurizer produces. Composition compares it with
-the predictor's ``sample_input_format`` or ``drug_input_format`` and rejects stacks whose
-formats disagree. Set ``output_format`` on the class body or pass ``output_format=`` to the
-decorator; when both are present the decorator wins.
+Model training calls both methods only with usable entity IDs: it drops the entities whose
+input row is entirely NaN (``valid_mask``) beforehand and pads NaN rows back in afterwards. The
+featurizer itself never sees them, and never sees stored outputs either (see
+:ref:`below <write-featurizer-stored>`). A fitted featurizer is saved with the model by pickling
+it, so keep its fitted state in ordinary attributes.
 
-**The input views.** The raw views the featurizer reads, so the data layer never needs a
-name-to-view lookup table. Any one of these satisfies the check:
+Declare what it reads and emits
+-------------------------------
 
-- ``input_views = ("gene_expression",)`` for a fixed set of views.
-- ``entity_id_only = True`` for no view at all, just the identifiers.
-- ``requires_view = True`` when the view comes from the config as a ``view=`` argument.
-- Overriding ``resolve_input_views`` when the views depend on other hyperparameters.
+These class attributes and class methods are read without fitting anything, so a model that
+cannot work is rejected when its configuration is built:
 
-Registration also rejects a class that still has unimplemented abstract methods and names the
-missing members, so a forgotten ``_fit`` fails next to its cause.
+``sides``
+   The sides the featurizer can be used on: ``frozenset({"sample"})``,
+   ``frozenset({"drug"})`` or, the default, both. A model that uses it on another side is
+   rejected.
+``input_views``
+   The views the featurizer reads, such as ``("gene_expression",)``. Leave it empty for a
+   featurizer that needs only entity IDs. ``valid_mask`` checks the first of them for all-NaN
+   rows.
+``output_blocks(config)``
+   The blocks the featurizer emits, as ``BlockSpec(name, format)``. The default is one
+   ``numeric_matrix`` block named after the configured ``view``, else after the first input
+   view. Override it when your blocks are named otherwise or are not numeric. Config validation
+   compares these blocks with what the predictor reads.
+
+A featurizer that takes the view from the config declares no ``input_views`` and gives
+``__init__`` a ``view`` parameter without a default; the config must then name the view, as in
+``myFeaturizer[methylation]``. Such a featurizer overrides ``valid_mask`` to return
+``all_nan_rows_mask(source, self._view, ids)``, so the configured view is the one checked for
+NaN rows. Its hyperparameters are declared like a predictor's, with
+``get_hyperparameter_space`` (see :doc:`write_predictor`), and are passed to ``__init__`` as
+keyword arguments.
+
+Registration rejects a class that is not a ``Featurizer``, still has unimplemented abstract
+methods, declares malformed ``sides`` or views, or has a hyperparameter entry without a
+``default``.
 
 A featurizer that reads a view
 ------------------------------
 
 This sample featurizer standardizes the ``gene_expression`` view with statistics learned on
-the training samples. It declares ``input_views`` and returns a named numeric block.
+the training samples. ``view_matrix`` reads the view with its columns in the order recorded
+at fit, and raises ``FeatureMismatchError`` when a fitted feature is missing. ``dense_result``
+wraps a matrix as a result with one numeric block.
 
 .. literalinclude:: /examples/toy_sample_featurizer.py
    :language: python
@@ -97,70 +106,24 @@ the training samples. It declares ``input_views`` and returns a named numeric bl
 A featurizer that reads only identifiers
 ----------------------------------------
 
-This drug featurizer declares its ``output_format`` on the class body and uses ``entity_id_only``
-instead of ``input_views``. It works against any dataset, including a response-only one.
+This drug featurizer reads no view and overrides ``output_blocks``, because its block is not
+named after a view. It works against any dataset, including a response-only one.
 
 .. literalinclude:: /examples/toy_drug_featurizer.py
    :language: python
    :caption: docs/examples/toy_drug_featurizer.py
 
-.. _write-featurizer-dense:
+Use one featurizer on both sides
+--------------------------------
 
-Compute a dense matrix from one view
-------------------------------------
-
-``DenseViewFeaturizer`` implements ``_fit`` and ``_transform_features`` for the shape every
-dense featurizer shares: use a pre-computed
-matrix when the dataset carries one, otherwise compute it from the view, then emit one numeric
-block. A subclass overrides only its own step, usually ``_compute_matrix``. Other hooks are
-``_fit_state`` (learn state and return the output width), ``_fit_entity_ids``,
-``_fetch_hyperparameters``, ``_block_name`` and ``_block_feature_names``.
-
-Subclass the side-bound ``DenseViewSampleFeaturizer`` or ``DenseViewDrugFeaturizer`` for a
-one-sided featurizer. Subclass bare ``DenseViewFeaturizer`` when the logic is side-agnostic and
-you bind it with ``register_for_sides``.
+A featurizer whose logic does not depend on the side keeps the default ``sides`` and reads
+``source.side`` if it needs to. The built-in ``identity``, ``constant`` and
+``concatFeaturizers`` featurizers work this way.
 
 .. code-block:: python
 
-   import numpy as np
-
-   from drevalpy.plugin import (
-       DenseViewSampleFeaturizer,
-       FeatureFormat,
-       register_sample_featurizer,
-   )
-
-
-   @register_sample_featurizer(
-       "logExpression",
-       description="log1p of the gene_expression view.",
-       output_format=FeatureFormat.NUMERIC_MATRIX,
-   )
-   class LogExpressionFeaturizer(DenseViewSampleFeaturizer):
-       """Compress the dynamic range of the gene-expression view."""
-
-       input_views = ("gene_expression",)
-
-       def _compute_matrix(self, source, matrix):
-           return np.log1p(np.clip(matrix, 0.0, None))
-
-The class needs no ``output_dim`` or state handling: the base class measures the width while
-fitting and restores it from a checkpoint.
-
-.. _write-featurizer-sides:
-
-Bind one implementation to both sides
--------------------------------------
-
-Write a side-agnostic featurizer once and bind it with ``register_for_sides``. Do not write a
-sample copy and a drug copy. The registry stamps the entity side onto the class, so one class
-registered twice would have its side overwritten; the decorator therefore derives one subclass
-per side. The built-in ``identity``, ``constant`` and ``concatFeaturizers`` featurizers are
-built this way.
-
-.. code-block:: python
-
-   from typing import ClassVar
+   from collections.abc import Mapping
+   from typing import Any
 
    import numpy as np
 
@@ -168,60 +131,51 @@ built this way.
        BlockSpec,
        FeatureFormat,
        Featurizer,
-       FeaturizerResult,
-       numeric_feature_block,
-       register_for_sides,
+       dense_result,
+       register_featurizer,
    )
 
 
-   @register_for_sides(
-       "myOnes",
-       description={
-           "sample": "A constant column per sample.",
-           "drug": "A constant column per drug.",
-       },
-       output_format=FeatureFormat.NUMERIC_MATRIX,
-   )
-   class SharedOnesFeaturizer(Featurizer):
+   @register_featurizer("myOnes", description="A constant column per sample or drug.")
+   class OnesFeaturizer(Featurizer):
        """Emit one column of ones per entity."""
 
-       entity_id_only: ClassVar[bool] = True
-       output_block_specs: ClassVar[tuple[BlockSpec, ...]] = (
-           BlockSpec("ones", FeatureFormat.NUMERIC_MATRIX),
-       )
+       @classmethod
+       def output_blocks(cls, config: Mapping[str, Any]) -> tuple[BlockSpec, ...]:
+           return (BlockSpec("ones", FeatureFormat.NUMERIC_MATRIX),)
 
-       def _fit(self, source, **kwargs):
+       def fit(self, source, train_ids, *, train_pair_ids=None, es_pair_ids=None):
            return self
 
-       def _transform_features(self, source, entity_ids):
-           ones = np.ones((len(entity_ids), 1), dtype=np.float32)
-           return FeaturizerResult(entity_ids, {"ones": numeric_feature_block(ones)}, ("ones",))
-
-       @property
-       def output_dim(self):
-           return 1
-
-``description`` also accepts a plain string used for every side, and ``sides=("sample",)``
-binds one side only. The decorator returns the undecorated class, so ``SharedOnesFeaturizer``
-stays importable as the shared logic. What lands in the registries are the derived
-``SampleOnesFeaturizer`` and ``DrugOnesFeaturizer``, named by stripping a leading ``Shared``
-and prefixing the side. Both are injected into your module's namespace, which keeps them
-findable when the registries are rebuilt.
+       def transform(self, source, ids):
+           return dense_result(ids, "ones", np.ones((len(ids), 1)), None)
 
 .. code-block:: python
 
-   from drevalpy.registry import drug_featurizer, sample_featurizer
+   from drevalpy.registry.featurizer import names_for_side
 
-   assert "myOnes" in sample_featurizer.list()
-   assert "myOnes" in drug_featurizer.list()
+   assert "myOnes" in names_for_side("sample")
+   assert "myOnes" in names_for_side("drug")
+
+.. _write-featurizer-stored:
 
 Reuse pre-computed features
 ---------------------------
 
-``fetch``, ``fetch_precomputed``, ``store`` and ``list_stored_variants`` come from
-``FeaturizerStorageMixin``, which ``Featurizer`` already includes, so every featurizer has them.
-Name the mixin only to annotate against it, or to override ``_fetch_by_key`` and
-``_store_by_key`` when you need storage of your own.
+A featurizer whose output depends only on the entity, not on the training entities, can have
+its output stored in the dataset by ``drevalpy.data.precompute`` (see
+:doc:`/reference/components`). To take part, override two methods:
+
+``stored_params()``
+   Return the hyperparameters a stored output must have been computed with, or ``{}`` when it
+   has none. The default, ``None``, means that stored outputs are never looked up.
+``from_stored(source, ids, matrix)``
+   Wrap a stored matrix as the result ``transform`` would have returned, usually with
+   ``dense_result``.
+
+When the dataset stores a matching output, model training calls ``from_stored`` instead of
+``fit`` and ``transform``. Outputs are stored under the class attribute ``storage_key``, which
+defaults to the registry name.
 
 Next steps
 ----------

@@ -21,7 +21,7 @@ them, so importing it triggers every ``register_*`` decorator:
      src/my_plugin/
        __init__.py
        components.py        # imports the modules below
-       featurizers.py       # @register_sample_featurizer(...)
+       featurizers.py       # @register_featurizer(...)
        predictors.py        # @register_predictor(...)
 
 .. snippet: skip

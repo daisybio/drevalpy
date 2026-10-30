@@ -113,8 +113,8 @@ Save a plot as an image
 -----------------------
 
 For a figure in a paper or slides, save plots as PNG files. The plot classes are in
-``drevalpy.visualization.plots``, one module per plot. A plot is computed from a result and
-written with ``to_png``:
+``drevalpy.visualization.plots``, one module per plot. ``save_png(plot, result, path)`` from
+``drevalpy.visualization`` draws a plot for a result and writes it:
 
 .. tab-set::
    :sync-group: interface
@@ -131,11 +131,10 @@ written with ``to_png``:
 
       .. code-block:: python
 
-         from drevalpy.visualization.plots.heatmap import HeatmapVisualization
+         from drevalpy.visualization import save_png
+         from drevalpy.visualization.plots.heatmap import HeatmapPlot
 
-         heatmap = HeatmapVisualization()
-         heatmap.compute(results)
-         heatmap.to_png("heatmap.png")
+         save_png(HeatmapPlot(), results, "heatmap.png")
 
 ``save_all_png(results, "plots", reference_model=...)`` from ``drevalpy.visualization`` writes every
 plot of the report as a PNG file into one directory, which takes about as long as building the
@@ -144,7 +143,7 @@ report.
 .. note::
 
    On Windows, plots drawn with Plotly cannot be saved as PNG files: Kaleido 0.2.1, the version
-   MultiQC requires, hangs there. ``to_png`` of those plots raises an error, and ``save_all_png``
+   MultiQC requires, hangs there. ``save_png`` raises an error for those plots, and ``save_all_png``
    skips them with a warning. Plots drawn with Matplotlib, such as the critical difference
    diagram, are saved as usual, and the HTML report works.
 

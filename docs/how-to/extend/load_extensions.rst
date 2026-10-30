@@ -36,45 +36,34 @@ only, so a predictor needs a preset before ``drevalpy run`` can use it.
          import numpy as np
 
          from drevalpy.plugin import (
-             DenseViewSampleFeaturizer,
-             FeatureFormat,
+             Featurizer,
              FeatureFreePredictor,
+             dense_result,
+             register_featurizer,
              register_predictor,
-             register_sample_featurizer,
          )
 
 
-         @register_sample_featurizer(
-             "logExpression",
-             description="log1p of the gene_expression view.",
-             output_format=FeatureFormat.NUMERIC_MATRIX,
-         )
-         class LogExpressionFeaturizer(DenseViewSampleFeaturizer):
+         @register_featurizer("logExpression", description="log1p of the gene_expression view.")
+         class LogExpressionFeaturizer(Featurizer):
+             sides = frozenset({"sample"})
              input_views = ("gene_expression",)
 
-             def _compute_matrix(self, source, matrix):
-                 return np.log1p(np.clip(matrix, 0.0, None))
+             def fit(self, source, train_ids, *, train_pair_ids=None, es_pair_ids=None):
+                 return self
+
+             def transform(self, source, ids):
+                 matrix = source.get_view_matrix("gene_expression", ids)
+                 return dense_result(ids, "gene_expression", np.log1p(np.clip(matrix, 0.0, None)), None)
 
 
-         @register_predictor(
-             "meanBaseline",
-             description="Predict the mean training response.",
-             sample_input_format=FeatureFormat.NUMERIC_MATRIX,
-             drug_input_format=FeatureFormat.NUMERIC_MATRIX,
-         )
+         @register_predictor("meanBaseline", description="Predict the mean training response.")
          class MeanBaseline(FeatureFreePredictor):
              def _fit(self, batch):
                  self._mean = float(np.mean(batch.response))
 
              def _predict(self, batch):
                  return np.full(batch.n_pairs, self._mean)
-
-             def get_state(self):
-                 return {"mean": self._mean} if hasattr(self, "_mean") else {}
-
-             def set_state(self, state):
-                 if "mean" in state:
-                     self._mean = state["mean"]
 
       Create ``my_extensions/zoo.yaml``:
 
@@ -101,45 +90,34 @@ only, so a predictor needs a preset before ``drevalpy run`` can use it.
          import numpy as np
 
          from drevalpy.plugin import (
-             DenseViewSampleFeaturizer,
-             FeatureFormat,
+             Featurizer,
              FeatureFreePredictor,
+             dense_result,
+             register_featurizer,
              register_predictor,
-             register_sample_featurizer,
          )
 
 
-         @register_sample_featurizer(
-             "logExpression",
-             description="log1p of the gene_expression view.",
-             output_format=FeatureFormat.NUMERIC_MATRIX,
-         )
-         class LogExpressionFeaturizer(DenseViewSampleFeaturizer):
+         @register_featurizer("logExpression", description="log1p of the gene_expression view.")
+         class LogExpressionFeaturizer(Featurizer):
+             sides = frozenset({"sample"})
              input_views = ("gene_expression",)
 
-             def _compute_matrix(self, source, matrix):
-                 return np.log1p(np.clip(matrix, 0.0, None))
+             def fit(self, source, train_ids, *, train_pair_ids=None, es_pair_ids=None):
+                 return self
+
+             def transform(self, source, ids):
+                 matrix = source.get_view_matrix("gene_expression", ids)
+                 return dense_result(ids, "gene_expression", np.log1p(np.clip(matrix, 0.0, None)), None)
 
 
-         @register_predictor(
-             "meanBaseline",
-             description="Predict the mean training response.",
-             sample_input_format=FeatureFormat.NUMERIC_MATRIX,
-             drug_input_format=FeatureFormat.NUMERIC_MATRIX,
-         )
+         @register_predictor("meanBaseline", description="Predict the mean training response.")
          class MeanBaseline(FeatureFreePredictor):
              def _fit(self, batch):
                  self._mean = float(np.mean(batch.response))
 
              def _predict(self, batch):
                  return np.full(batch.n_pairs, self._mean)
-
-             def get_state(self):
-                 return {"mean": self._mean} if hasattr(self, "_mean") else {}
-
-             def set_state(self, state):
-                 if "mean" in state:
-                     self._mean = state["mean"]
          ''')
 
          (extensions / "zoo.yaml").write_text("""
@@ -185,10 +163,11 @@ Load the directory
 
       .. code-block:: python
 
-         from drevalpy.registry import load_extensions, predictor
+         from drevalpy.registry import load_extensions
+         from drevalpy.registry.predictor import predictor_registry
 
          load_extensions(directories=["my_extensions"])
-         assert "meanBaseline" in predictor.list()
+         assert "meanBaseline" in predictor_registry
 
 Loading the same file again is a no-op while its registrations remain. If a file fails part-way,
 the registries are rolled back, so a module that registers two components and then raises
@@ -216,7 +195,7 @@ Run a model from the extension
 
       A ``ModelSpec`` pairs a name with a ``ModelConfig``. ``ModelSpec.from_name`` resolves a
       preset loaded from a zoo file; to build a configuration yourself, use
-      ``ModelSpec(name, from_spec(recipe))``.
+      ``ModelSpec(name, from_recipe(recipe))``.
 
       .. code-block:: python
 
@@ -306,11 +285,11 @@ too.
 Save and load a model with custom components
 --------------------------------------------
 
-A checkpoint is a ZIP archive that stores the resolved ``ModelConfig`` (component **names**)
-and the fitted state, not the Python classes. On load, DrEvalPy looks the names up in the
-registries again. A custom component that is not registered in the loading process makes
-``DRPModel.load`` fail, so load the same extensions first. Built-in components need no extra
-step.
+A saved model is a ``.zip`` archive with a joblib payload that holds the model spec and the pickled fitted
+components. Pickle stores a class by its module path, and the spec names components by their
+registry names, so the module that defines a custom component must be importable in the loading
+process, and its components registered: load the same extensions first. Built-in components need
+no extra step.
 
 .. tab-set::
    :sync-group: interface
@@ -318,7 +297,7 @@ step.
    .. tab-item:: CLI
       :sync: cli
 
-      The command line does not write or read single-model checkpoints. Use the Python tab for
+      The command line does not save or load single models. Use the Python tab for
       this task.
 
    .. tab-item:: Python
@@ -338,7 +317,7 @@ step.
 
 .. warning::
 
-   Checkpoints are unpickled when loaded, which can execute arbitrary code. Load only
-   checkpoints you trust.
+   Saved models are unpickled when loaded, which can execute arbitrary code. Load only
+   archives you trust.
 
 The general save and load workflow is in :doc:`/how-to/train_save_load`.

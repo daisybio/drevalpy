@@ -96,9 +96,10 @@ syntax.
    .. tab-item:: Python
       :sync: python
 
-      The registries are in ``drevalpy.registry``. Each has ``list()`` for the names, ``table()``
-      for a pandas data frame, and ``metadata(name)`` for one entry. The zoo is in
-      ``drevalpy.models.zoo``.
+      The registries are in ``drevalpy.registry``. Each has ``names()`` for the names,
+      ``to_dataframe()`` for a pandas data frame, and ``metadata(name)`` for one entry. One
+      featurizer registry serves both sides; ``names_for_side(side)`` lists the featurizers one
+      side can use. The zoo is in ``drevalpy.models.zoo``.
 
       .. code-block:: python
 
@@ -106,18 +107,18 @@ syntax.
          from drevalpy.models import zoo
 
          print(len(zoo.list_zoo_names()), zoo.list_zoo_names()[:4])
-         print(registry.predictor.list()[:4])
-         print(registry.sample_featurizer.list()[:4])
-         print(registry.drug_featurizer.list()[:4])
+         print(registry.predictor.predictor_registry.names()[:4])
+         print(registry.featurizer.names_for_side("sample")[:4])
+         print(registry.featurizer.names_for_side("drug")[:4])
 
       The calls print:
 
       .. code-block:: text
 
          33 ['AdaBoostDecisionTree', 'DIPK', 'DrugGNN', 'ElasticNet']
-         ['naiveMeanEffects', 'naiveDrugMean', 'naiveSampleMean', 'naiveMean']
-         ['constant', 'identity', 'concatFeaturizers', 'dipkGeneExpression']
-         ['constant', 'identity', 'concatFeaturizers', 'bpePharmaformer']
+         ('naiveMeanEffects', 'naiveDrugMean', 'naiveSampleMean', 'naiveMean')
+         ('constant', 'identity', 'concatFeaturizers', 'dipkGeneExpression')
+         ('constant', 'identity', 'concatFeaturizers', 'bpePharmaformer')
 
 Naive baselines appear twice: as zoo names such as ``NaiveDrugMeanPredictor``, which you pass to
 ``run``, and as the ``naive*`` predictors, such as ``naiveDrugMean``, which are the components
@@ -160,15 +161,15 @@ List split modes and plots
 
       .. code-block:: python
 
-         print(registry.splitter.list())
-         print(registry.visualization.list())
+         print(registry.splitter.splitter_registry.names())
+         print(registry.visualization.visualization_registry.names())
 
       The calls print:
 
       .. code-block:: text
 
-         ['LDO', 'LPO', 'LSO', 'LStO', 'LTO']
-         ['comparison_scatter', 'critical_difference', 'heatmap', 'leaderboard', 'regression_scatter', 'violin']
+         ('LDO', 'LPO', 'LSO', 'LStO', 'LTO')
+         ('comparison_scatter', 'critical_difference', 'heatmap', 'leaderboard', 'regression_scatter', 'violin')
 
 List datasets and plugins
 -------------------------
@@ -197,7 +198,7 @@ List datasets and plugins
           ...
           TOYv1       orakl    TOYv1.h5mu       built-in
 
-          7 entries
+          10 entries
 
       Without installed plugins, ``drevalpy list plugins`` says that no package declares a
       ``drevalpy.plugins`` entry point. With plugins, it lists each loaded one, and the ones
@@ -208,14 +209,14 @@ List datasets and plugins
 
       .. code-block:: python
 
-         print(registry.dataset.list())
+         print(registry.dataset.dataset_registry.names())
          print(registry.get_loaded_plugins(), registry.get_failed_plugins())
 
-      The calls print the seven names and then two empty mappings, when no plugin is installed:
+      The calls print the ten names and then two empty mappings, when no plugin is installed:
 
       .. code-block:: text
 
-         ['BeatAML2', 'CTRPv1', 'CTRPv2', 'GDSC1', 'GDSC2', 'PDX_Bruna', 'TOYv1']
+         ('BeatAML2', 'CCLE', 'CTRPv1', 'CTRPv2', 'GDSC1', 'GDSC2', 'PDX_Bruna', 'PRISM_19Q4', 'PRISM_20Q2', 'TOYv1')
          {} {}
 
 Look at one entry
@@ -255,8 +256,8 @@ of a split mode, the URL of a dataset.
       .. code-block:: python
 
          print(zoo.get_zoo_config("ElasticNet").predictor.name)
-         print(registry.predictor.metadata("elasticNet")["description"])
-         print(registry.splitter.metadata("LSO"))
+         print(registry.predictor.predictor_registry.metadata("elasticNet")["description"])
+         print(registry.splitter.splitter_registry.metadata("LSO"))
 
       The first two calls print:
 
