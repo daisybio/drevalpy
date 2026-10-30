@@ -1,6 +1,6 @@
 """Validate structured hyperparameter search-space specs, read their defaults, and the tunable-component hooks.
 
-:class:`TunableComponentMixin` lives beside the validator it calls rather than in
+:class:`TunableComponent` lives beside the validator it calls rather than in
 either component package: ``Featurizer`` and ``Predictor`` are siblings under
 ``components/``, so a home inside one of them would make the other depend on it.
 """
@@ -11,34 +11,74 @@ from collections.abc import Mapping
 from typing import Any
 
 __all__ = [
-    "TunableComponentMixin",
+    "FIXED",
+    "TunableComponent",
     "default_values",
+    "fixed_entries",
+    "is_fixed",
+    "tunable_entries",
     "validate_component_hyperparameter_space",
     "validate_hyperparameter_space",
 ]
 
 
-def _classify_specs(space: Mapping[str, Any]) -> tuple[list[str], list[str]]:
-    """Split *space* into the entries that are not mappings and those without a default.
+FIXED = "fixed"
+_SEARCH_KEYS = ("low", "high", "choices", "log")
+
+
+def is_fixed(spec: Mapping[str, Any]) -> bool:
+    """Return whether *spec* is a ``{"type": "fixed", "default": v}`` entry that HPO never draws.
+
+    :param spec: One search-space entry.
+    :returns: ``True`` for a fixed entry.
+    """
+    return spec.get("type") == FIXED
+
+
+def fixed_entries(values: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
+    """Declare each of *values* as a fixed search-space entry.
+
+    :param values: Parameter names mapped to the value HPO must leave untouched.
+    :returns: ``{"type": "fixed", "default": value}`` per name.
+    """
+    return {name: {"type": FIXED, "default": value} for name, value in values.items()}
+
+
+def tunable_entries(space: Mapping[str, Any] | None) -> dict[str, Any]:
+    """Return the entries of *space* that HPO draws, dropping fixed ones.
+
+    :param space: Hyperparameter space, or ``None`` / empty.
+    :returns: The non-fixed entries, in declaration order.
+    """
+    return {name: spec for name, spec in (space or {}).items() if not is_fixed(spec)}
+
+
+def _classify_specs(space: Mapping[str, Any]) -> tuple[list[str], list[str], list[str]]:
+    """Split *space* into the entries that are not mappings, lack a default, or are malformed fixed entries.
 
     :param space: Hyperparameter space to inspect.
-    :returns: ``(invalid, missing)`` name lists.
+    :returns: ``(invalid, missing, bad_fixed)`` name lists.
     """
     invalid: list[str] = []
     missing: list[str] = []
+    bad_fixed: list[str] = []
     for name, spec in space.items():
         if not isinstance(spec, Mapping):
             invalid.append(str(name))
-        elif "default" not in spec:
+            continue
+        if "default" not in spec:
             missing.append(str(name))
-    return invalid, missing
+        if is_fixed(spec) and any(key in spec for key in _SEARCH_KEYS):
+            bad_fixed.append(str(name))
+    return invalid, missing, bad_fixed
 
 
-def _describe_problems(invalid: list[str], missing: list[str]) -> str:
+def _describe_problems(invalid: list[str], missing: list[str], bad_fixed: list[str]) -> str:
     """Phrase the offending names, sorted, for the error message.
 
     :param invalid: Names whose spec is not a mapping.
     :param missing: Names whose spec declares no ``default``.
+    :param bad_fixed: Names of fixed specs that also declare search keys.
     :returns: The problem clauses joined for interpolation into the message.
     """
     parts: list[str] = []
@@ -46,6 +86,11 @@ def _describe_problems(invalid: list[str], missing: list[str]) -> str:
         parts.append("non-mapping specs for " + ", ".join(repr(name) for name in sorted(invalid)))
     if missing:
         parts.append("missing 'default' for " + ", ".join(repr(name) for name in sorted(missing)))
+    if bad_fixed:
+        parts.append(
+            "'fixed' specs must not declare low/high/choices/log for "
+            + ", ".join(repr(name) for name in sorted(bad_fixed))
+        )
     return "; ".join(parts)
 
 
@@ -56,18 +101,20 @@ def validate_hyperparameter_space(
 ) -> None:
     """Reject search-space entries that are not mappings with a ``default``.
 
-    Every tunable parameter must declare a concrete ``default`` so model
-    construction without overrides can resolve a complete value mapping.
+    Every parameter must declare a concrete ``default`` so model construction
+    without overrides can resolve a complete value mapping. A ``{"type": "fixed",
+    "default": v}`` entry declares a value HPO never draws; it may not carry
+    ``low``/``high``/``choices``/``log``.
 
     :param space: Local or merged hyperparameter space, or ``None`` / empty.
     :param context: Label included in error messages (class or config field).
-    :raises ValueError: If any entry is not a mapping or lacks ``default``.
+    :raises ValueError: If any entry is not a mapping, lacks ``default`` or is a malformed fixed entry.
     """
     if not space:
         return
-    invalid, missing = _classify_specs(space)
-    if invalid or missing:
-        msg = f"Invalid hyperparameter space in {context}: " + _describe_problems(invalid, missing)
+    invalid, missing, bad_fixed = _classify_specs(space)
+    if invalid or missing or bad_fixed:
+        msg = f"Invalid hyperparameter space in {context}: " + _describe_problems(invalid, missing, bad_fixed)
         raise ValueError(msg)
 
 
@@ -97,7 +144,7 @@ def validate_component_hyperparameter_space(name: str, cls: type[Any]) -> None:
     )
 
 
-class TunableComponentMixin:
+class TunableComponent:
     """The HPO hooks every component kind declares identically.
 
     Both ``Featurizer`` and ``Predictor`` are tuned by the same search-space
@@ -105,8 +152,8 @@ class TunableComponentMixin:
     nothing to tune returns an empty space.
 
     Subclasses override ``get_hyperparameter_space`` to declare what is tunable.
-    ``get_default_hyperparameters`` is not an override point - it reads whatever the
-    space declares.
+    ``default_hyperparameters`` is not an override point - it reads whatever the
+    space declares, including its ``fixed`` entries.
     """
 
     @classmethod
@@ -118,7 +165,7 @@ class TunableComponentMixin:
         return {}
 
     @classmethod
-    def get_default_hyperparameters(cls) -> dict[str, object]:
+    def default_hyperparameters(cls) -> dict[str, object]:
         """Return default hyperparameter values from the HP space.
 
         :returns: Parameter names mapped to their declared ``default`` values.

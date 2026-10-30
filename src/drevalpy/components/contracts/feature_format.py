@@ -1,15 +1,15 @@
-"""The runtime payload format a featurizer emits and a predictor consumes.
+"""The runtime payload format of a feature block.
 
-A featurizer declares ``output_format``; a predictor declares ``sample_input_format`` and
-``drug_input_format``. Each may be set on the class body or passed to the registration
-decorator, which wins when both are given. A predictor accepts a featurizer when the two
-formats are equal.
+A featurizer declares the format of each block it emits in
+:meth:`~drevalpy.components.featurizers.featurizer.Featurizer.output_blocks`, and a
+predictor the format of each block it reads in its ``sample_inputs`` / ``drug_inputs``
+(:mod:`drevalpy.components.predictors.inputs`). Config validation accepts a featurizer
+for a predictor when the formats of the required blocks are equal.
 """
 
 from __future__ import annotations
 
 from enum import StrEnum
-from typing import Any
 
 
 class FeatureFormat(StrEnum):
@@ -18,23 +18,3 @@ class FeatureFormat(StrEnum):
     NUMERIC_MATRIX = "numeric_matrix"
     GRAPH = "graph"
     RAGGED_SEQUENCE = "ragged_sequence"
-
-
-def check_format(cls: type[Any], attr: str) -> FeatureFormat:
-    """Return the ``FeatureFormat`` that *cls* declares under *attr*.
-
-    :param cls: Featurizer or predictor class.
-    :param attr: ``"output_format"``, ``"sample_input_format"`` or ``"drug_input_format"``.
-
-    :returns: The declared format.
-
-    :raises TypeError: If *cls* does not declare *attr*, or it is not a ``FeatureFormat``.
-    """
-    value = getattr(cls, attr, None)
-    if not isinstance(value, FeatureFormat):
-        msg = (
-            f"{cls.__name__}.{attr} must be a FeatureFormat, got {value!r}; "
-            f"set it on the class body or pass {attr}= to the registration decorator"
-        )
-        raise TypeError(msg)
-    return value
