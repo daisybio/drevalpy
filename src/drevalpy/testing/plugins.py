@@ -12,25 +12,22 @@ from __future__ import annotations
 import importlib.metadata
 from collections.abc import Mapping
 from dataclasses import dataclass
-from types import ModuleType
+from typing import Any
 
-from drevalpy.registry import (
-    drug_featurizer,
-    get_failed_plugins,
-    predictor,
-    sample_featurizer,
-    splitter,
-    visualization,
-)
+from drevalpy.registry import get_failed_plugins
 from drevalpy.registry._plugins import ENTRY_POINT_GROUP
+from drevalpy.registry._registry import Registry
+from drevalpy.registry.featurizer import featurizers
+from drevalpy.registry.predictor import predictor_registry
+from drevalpy.registry.splitter import splitter_registry
+from drevalpy.registry.visualization import visualization_registry
 
 #: The registries a plugin can contribute to, keyed by the name used in reports.
-_REGISTRIES: Mapping[str, ModuleType] = {
-    "sample_featurizer": sample_featurizer,
-    "drug_featurizer": drug_featurizer,
-    "predictor": predictor,
-    "splitter": splitter,
-    "visualization": visualization,
+_REGISTRIES: Mapping[str, Registry[Any]] = {
+    "featurizer": featurizers,
+    "predictor": predictor_registry,
+    "splitter": splitter_registry,
+    "visualization": visualization_registry,
 }
 
 
@@ -108,17 +105,12 @@ def _load(entry_point: importlib.metadata.EntryPoint) -> str:
 def _contributed(root_package: str) -> dict[str, tuple[str, ...]]:
     """Return every registered name whose implementation lives in *root_package*.
 
-    Resolution goes through each registry's public ``get``, so a name that is
-    listed but cannot be retrieved surfaces here rather than at model build time.
-
     :param root_package: Top-level import package of the plugin.
     :returns: Mapping of registry name to the sorted names it holds for the plugin.
     """
     contributed: dict[str, tuple[str, ...]] = {}
-    for registry_name, module in _REGISTRIES.items():
-        owned = [
-            name for name in module.list() if getattr(module.get(name), "__module__", "").split(".")[0] == root_package
-        ]
+    for registry_name, registry in _REGISTRIES.items():
+        owned = [name for name, obj in registry.items() if getattr(obj, "__module__", "").split(".")[0] == root_package]
         if owned:
             contributed[registry_name] = tuple(sorted(owned))
     return contributed

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib
 import sys
+import textwrap
 import tomllib
 
 import pytest
@@ -16,60 +17,56 @@ from tests._trusted_subprocess import run_trusted_python
 REPO_ROOT = UPath(__file__).resolve().parents[2]
 
 EXPECTED_ORIGINS: dict[str, str] = {
-    "BlockPredictor": "drevalpy.components.predictors.abstract.block",
     "BlockSpec": "drevalpy.types.data.batch.feature_block",
     "CurveQuality": "drevalpy.data.quality",
     "Dataset": "drevalpy.types.data.dataset._dataset",
-    "DenseViewDrugFeaturizer": "drevalpy.components.featurizers.drug.base",
-    "DenseViewFeaturizer": "drevalpy.components.featurizers._dense_view",
-    "DenseViewSampleFeaturizer": "drevalpy.components.featurizers.sample.base",
-    "DrugFeatureSource": "drevalpy.types.data.feature_source",
-    "DrugFeaturizer": "drevalpy.components.featurizers.drug.base",
-    "ExperimentResult": "drevalpy.types.results",
+    "DrEvalError": "drevalpy.errors",
+    "ExperimentResult": "drevalpy.types.results.experiment",
     "FeatureBlock": "drevalpy.types.data.batch.feature_block",
     "FeatureFormat": "drevalpy.components.contracts.feature_format",
     "FeatureFreePredictor": "drevalpy.components.predictors.abstract.feature_free",
+    "FeatureMismatchError": "drevalpy.components.featurizers._dense",
     "FeatureSource": "drevalpy.types.data.feature_source",
-    "Featurizer": "drevalpy.components.featurizers.base",
+    "Featurizer": "drevalpy.components.featurizers.featurizer",
     "FeaturizerResult": "drevalpy.types.data.batch.feature_block",
-    "FeaturizerStorageMixin": "drevalpy.components.featurizers.storage",
-    "HPOStrategy": "drevalpy.components.featurizers.base",
-    "ImageVisualization": "drevalpy.visualization.base",
+    "Inputs": "drevalpy.components.predictors.inputs",
+    "InvalidInputError": "drevalpy.errors",
     "LiteratureReference": "drevalpy.registry.components._metadata",
     "MatrixPredictor": "drevalpy.components.predictors.abstract.matrix",
     "ModelInputBatch": "drevalpy.types.data.batch.model_input_batch",
-    "ModelResult": "drevalpy.types.results",
+    "ModelResult": "drevalpy.types.results.model",
     "ModelScope": "drevalpy.types.enums.model_scope",
+    "Plot": "drevalpy.visualization.base",
     "PlotRequirement": "drevalpy.visualization.requirements",
     "PredictionMode": "drevalpy.types.enums.prediction_mode",
     "Predictor": "drevalpy.components.predictors.abstract.base",
-    "ResponseBatch": "drevalpy.types.data.batch.response_batch",
-    "RunResult": "drevalpy.types.results",
-    "SampleFeatureSource": "drevalpy.types.data.feature_source",
-    "SampleFeaturizer": "drevalpy.components.featurizers.sample.base",
     "Section": "drevalpy.visualization.base",
+    "Side": "drevalpy.types.data.feature_source",
     "SplitMask": "drevalpy.types.data.split_mask",
     "SplitMasks": "drevalpy.types.data.split_masks",
-    "SplitValidationError": "drevalpy.registry.splitter",
-    "Splitter": "drevalpy.registry.splitter",
-    "TrainingContext": "drevalpy.components.contracts.training_context",
-    "Validation": "drevalpy.registry.splitter",
-    "Visualization": "drevalpy.visualization.base",
+    "SplitValidationError": "drevalpy.registry.splitter._validation",
+    "Splitter": "drevalpy.registry.splitter._registry",
+    "UnknownNameError": "drevalpy.errors",
+    "Validation": "drevalpy.registry.splitter._validation",
+    "all_nan_rows_mask": "drevalpy.components.featurizers.featurizer",
     "curve_quality_mask": "drevalpy.data.quality",
-    "graph_feature_block": "drevalpy.types.data.batch.feature_block",
-    "merge_feature_blocks": "drevalpy.types.data.batch.feature_block",
+    "dense_result": "drevalpy.components.featurizers._dense",
     "global_feature_block": "drevalpy.types.data.batch.feature_block",
+    "graph_feature_block": "drevalpy.types.data.batch.feature_block",
+    "load_extensions": "drevalpy.registry._extensions",
+    "merge_feature_blocks": "drevalpy.types.data.batch.feature_block",
     "numeric_feature_block": "drevalpy.types.data.batch.feature_block",
     "observed_mask": "drevalpy.data.splitters._folds",
     "ragged_feature_block": "drevalpy.types.data.batch.feature_block",
-    "register_for_sides": "drevalpy.components.featurizers._side_binding",
+    "save_png": "drevalpy.visualization.base",
+    "show": "drevalpy.visualization.base",
+    "view_matrix": "drevalpy.components.featurizers._dense",
 }
 
 RENAMED_ORIGINS: dict[str, tuple[str, str]] = {
-    "register_sample_featurizer": ("drevalpy.registry.sample_featurizer", "register"),
-    "register_drug_featurizer": ("drevalpy.registry.drug_featurizer", "register"),
+    "register_featurizer": ("drevalpy.registry.featurizer._base", "register"),
     "register_predictor": ("drevalpy.registry.predictor", "register"),
-    "register_splitter": ("drevalpy.registry.splitter", "register"),
+    "register_splitter": ("drevalpy.registry.splitter._registry", "register"),
     "register_visualization": ("drevalpy.registry.visualization", "register"),
 }
 
@@ -151,34 +148,28 @@ class TestFacadeIsSelfContained:
     pytestmark = pytest.mark.slow
 
     def test_importing_only_the_facade_is_enough_to_subclass(self):
-        script = (
-            "from drevalpy.plugin import (\n"
-            "    SampleFeaturizer, FeatureFormat, BlockSpec, FeaturizerResult, numeric_feature_block,\n"
-            "    register_sample_featurizer,\n"
-            ")\n"
-            "import numpy as np\n"
-            "from typing import ClassVar\n"
-            "\n"
-            "@register_sample_featurizer(\n"
-            "    'facadeProbe', description='probe', output_format=FeatureFormat.NUMERIC_MATRIX\n"
-            ")\n"
-            "class Probe(SampleFeaturizer):\n"
-            "    '''Probe.'''\n"
-            "    entity_id_only: ClassVar[bool] = True\n"
-            "    output_block_specs: ClassVar[tuple[BlockSpec, ...]] = (\n"
-            "        BlockSpec('probe', FeatureFormat.NUMERIC_MATRIX),\n"
-            "    )\n"
-            "    def _fit(self, source, **kwargs):\n"
-            "        return self\n"
-            "    def _transform_features(self, source, entity_ids):\n"
-            "        values = np.zeros((len(entity_ids), 1), dtype=np.float32)\n"
-            "        return FeaturizerResult(values, {'probe': numeric_feature_block(values)})\n"
-            "    @property\n"
-            "    def output_dim(self):\n"
-            "        return 1\n"
-            "\n"
-            "from drevalpy.registry import sample_featurizer\n"
-            "print('facadeProbe' in sample_featurizer.list())\n"
+        script = textwrap.dedent(
+            """
+            import numpy as np
+
+            from drevalpy.plugin import Featurizer, dense_result, register_featurizer
+
+            @register_featurizer("facadeProbe", description="probe")
+            class Probe(Featurizer):
+                '''Probe.'''
+
+                sides = frozenset({"sample"})
+                input_views = ("probe",)
+
+                def fit(self, source, train_ids, *, train_pair_ids=None, es_pair_ids=None):
+                    return self
+
+                def transform(self, source, ids):
+                    return dense_result(ids, "probe", np.zeros((len(ids), 1)), None)
+
+            from drevalpy.registry.featurizer import names_for_side
+            print("facadeProbe" in names_for_side("sample"))
+            """
         )
 
         result = run_trusted_python(script)

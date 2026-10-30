@@ -1,10 +1,10 @@
 """Reusable conformance checks for third-party featurizers and predictors.
 
 Registration validates a component's declarations, not its behaviour: a class
-missing ``_fit`` registers happily and only fails when instantiated, and a
-``get_state``/``set_state`` pair that drops a fitted attribute is invisible until
-a checkpoint is reloaded. The checks below close that gap by actually running the
-component, and are what a plugin's test suite parametrizes over.
+missing ``transform`` registers happily and only fails when instantiated, and a
+fitted attribute that does not pickle is invisible until a saved model is reloaded.
+The checks below close that gap by actually running the component, and are what a
+plugin's test suite parametrizes over.
 
 Each ``check_*`` function raises :class:`ConformanceError` with a message naming
 the component and the broken expectation, and otherwise returns ``None``.
@@ -21,20 +21,18 @@ be omitted - so a suite can parametrize over :data:`FEATURIZER_CHECKS` or
 
 from __future__ import annotations
 
-from collections.abc import Callable
+import io
+from collections.abc import Callable, Mapping
 from typing import Any
 
 import numpy as np
 
-from drevalpy.components.featurizers.base import Featurizer
+from drevalpy.components.featurizers.featurizer import Featurizer
 from drevalpy.components.predictors.abstract.base import Predictor
+from drevalpy.types.data.batch.feature_block import FeaturizerResult
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.types.data.dataset import Dataset
-from drevalpy.types.data.feature_source import (
-    DrugFeatureSource,
-    FeatureSource,
-    SampleFeatureSource,
-)
+from drevalpy.types.data.feature_source import FeatureSource, Side
 
 from .batch import build_synthetic_batch
 from .synthetic import build_synthetic_dataset
@@ -54,21 +52,34 @@ def _require(condition: object, message: str) -> None:
         raise ConformanceError(message)
 
 
-def feature_source_for(cls: type[Featurizer], dataset: Dataset) -> FeatureSource:
-    """Return the feature source matching the featurizer's registered side.
+def _side(cls: type[Any]) -> Side:
+    """Return the side the checks run *cls* on: ``"sample"`` when it supports it, else ``"drug"``.
 
-    :param cls: Featurizer class. Its ``side`` is set by the registry to
-        ``"sample"`` or ``"drug"``.
-    :param dataset: Dataset to wrap.
-    :returns: A source for the featurizer's own entity side.
+    :param cls: Featurizer class.
+    :returns: A side among the class's ``sides``.
     """
-    if getattr(cls, "side", "") == "drug":
-        return DrugFeatureSource(dataset, np.asarray(dataset.drug_ids))
-    return SampleFeatureSource(dataset, np.asarray(dataset.sample_ids))
+    return "sample" if "sample" in cls.sides else "drug"
+
+
+def feature_source_for(cls: type[Featurizer], dataset: Dataset) -> FeatureSource:
+    """Return a feature source over every entity of a side the featurizer supports.
+
+    :param cls: Featurizer class; the sample side is used when it is among its ``sides``.
+    :param dataset: Dataset to wrap.
+    :returns: A source for that side.
+    """
+    side = _side(cls)
+    return FeatureSource(dataset, side, _entity_ids(cls, dataset))
 
 
 def _entity_ids(cls: type[Featurizer], dataset: Dataset) -> np.ndarray:
-    return np.asarray(dataset.drug_ids if getattr(cls, "side", "") == "drug" else dataset.sample_ids)
+    return np.asarray(dataset.drug_ids if _side(cls) == "drug" else dataset.sample_ids)
+
+
+def _features(featurizer: Featurizer, source: FeatureSource, ids: np.ndarray, *, fit: bool) -> FeaturizerResult:
+    from drevalpy.models._feature_preparation import FitIds, prepare_features
+
+    return prepare_features(featurizer, source, ids, fit=FitIds(ids) if fit else None)
 
 
 def check_featurizer_instantiates(
@@ -79,8 +90,8 @@ def check_featurizer_instantiates(
     r"""Check that *cls* can be constructed with its declared defaults.
 
     This is the check registration cannot make: ``ABCMeta`` only enforces
-    abstract methods at instantiation, so a featurizer missing ``_fit`` or
-    ``_transform_features`` registers cleanly and fails here.
+    abstract methods at instantiation, so a featurizer missing ``fit`` or
+    ``transform`` registers cleanly and fails here.
 
     :param cls: Featurizer class to instantiate.
     :param dataset: Unused; accepted so every entry of :data:`FEATURIZER_CHECKS`
@@ -89,7 +100,7 @@ def check_featurizer_instantiates(
         featurizer must be constructible with no arguments.
     :returns: The constructed instance.
     :raises ConformanceError: If construction fails, or the result is not a
-        :class:`~drevalpy.plugin.Featurizer`.
+        :class:`~drevalpy.components.featurizers.featurizer.Featurizer`.
     """
     _ = dataset
     try:
@@ -106,17 +117,17 @@ def check_featurizer_fit_transform(
     dataset: Dataset | None = None,
     **kwargs: Any,
 ) -> None:
-    r"""Check that *cls* fits, transforms and reports a matching ``output_dim``.
+    r"""Check that *cls* fits, transforms and emits the blocks ``output_blocks`` declares.
 
-    Raises ``ConformanceError`` if fitting or transforming fails, the blocks are not
-    aligned with the entity ids, or ``output_dim`` disagrees with the
-    produced width.
+    Raises ``ConformanceError`` if fitting or transforming fails, no block is
+    produced, an entity-aligned block is not aligned with the entity IDs, or the
+    produced entity-aligned block names differ from the declared ones (global
+    metadata blocks such as ``identity_categories`` are not declared).
 
     :param cls: Featurizer class to exercise.
     :param dataset: Dataset to featurize. Defaults to
-        :func:`~drevalpy.testing.build_synthetic_dataset`, which suffices for
-        an ``entity_id_only`` featurizer; pass a dataset carrying the
-        required views otherwise.
+        :func:`~drevalpy.testing.build_synthetic_dataset`, which suffices for a
+        featurizer that reads no view; pass a dataset carrying the required views otherwise.
     :param \*\*kwargs: Constructor keyword arguments.
     """
     dataset = dataset if dataset is not None else build_synthetic_dataset()
@@ -124,9 +135,9 @@ def check_featurizer_fit_transform(
     source = feature_source_for(cls, dataset)
     entity_ids = _entity_ids(cls, dataset)
 
-    instance.fit(source, entity_ids=entity_ids)
-    blocks = instance.transform_blocks(source, entity_ids)
-    _require(blocks, f"{cls.__name__}.transform_blocks returned no blocks")
+    result = _features(instance, source, entity_ids, fit=True)
+    blocks = result.blocks
+    _require(blocks, f"{cls.__name__}.transform returned no blocks")
     for name, block in blocks.items():
         if not block.entity_aligned:
             continue
@@ -134,57 +145,70 @@ def check_featurizer_fit_transform(
             len(block.values) == len(entity_ids),
             f"{cls.__name__} block {name!r} has {len(block.values)} rows for {len(entity_ids)} entities",
         )
-
-    matrix = instance.transform(source, entity_ids)
+    config = dict(kwargs)
+    for key, spec in cls.get_hyperparameter_space().items():
+        if isinstance(spec, Mapping) and "default" in spec:
+            config.setdefault(key, spec["default"])
+    declared = {spec.name for spec in cls.output_blocks(config)}
+    aligned = {name for name, block in blocks.items() if block.entity_aligned}
     _require(
-        matrix.shape[0] == len(entity_ids),
-        f"{cls.__name__}.transform returned {matrix.shape[0]} rows for {len(entity_ids)} entities",
-    )
-    _require(
-        instance.output_dim == matrix.shape[1],
-        f"{cls.__name__}.output_dim is {instance.output_dim} but transform produced {matrix.shape[1]} columns",
+        not declared or declared == aligned,
+        f"{cls.__name__} produced entity-aligned blocks {sorted(aligned)} "
+        f"but output_blocks declares {sorted(declared)}",
     )
 
 
-def check_featurizer_state_round_trip(
+def check_featurizer_pickle_round_trip(
     cls: type[Featurizer],
     dataset: Dataset | None = None,
     **kwargs: Any,
 ) -> None:
-    r"""Check that a fitted featurizer survives ``get_state``/``set_state``.
+    r"""Check that a fitted featurizer survives a joblib dump and load.
 
-    A checkpoint stores the state mapping, not the object, so a fitted attribute
-    left out of ``get_state`` makes a reloaded model silently produce different
-    features. This transforms through a fresh instance restored from the state
-    and requires identical output.
-
-    Raises ``ConformanceError`` if the restored featurizer produces different features.
+    A saved model pickles its fitted featurizer, so its fitted state must live in
+    picklable attributes. This transforms through the loaded copy and requires
+    identical output.
 
     :param cls: Featurizer class to exercise.
     :param dataset: Dataset to featurize; defaults to the synthetic one.
     :param \*\*kwargs: Constructor keyword arguments.
+    :raises ConformanceError: If the featurizer cannot be pickled or the loaded copy
+        produces different features.
     """
+    import joblib
+
     dataset = dataset if dataset is not None else build_synthetic_dataset()
     source = feature_source_for(cls, dataset)
     entity_ids = _entity_ids(cls, dataset)
 
     fitted = check_featurizer_instantiates(cls, **kwargs)
-    fitted.fit(source, entity_ids=entity_ids)
-    expected = fitted.transform(source, entity_ids)
+    expected = _features(fitted, source, entity_ids, fit=True)
 
-    restored = check_featurizer_instantiates(cls, **kwargs)
-    restored.set_state(fitted.get_state())
-    actual = restored.transform(source, entity_ids)
+    buffer = io.BytesIO()
+    try:
+        joblib.dump(fitted, buffer)
+    except Exception as exc:
+        raise ConformanceError(f"{cls.__name__} could not be pickled: {exc}") from exc
+    buffer.seek(0)
+    restored = joblib.load(buffer)
+    actual = _features(restored, source, entity_ids, fit=False)
 
     _require(
-        actual.shape == expected.shape,
-        f"{cls.__name__} restored from get_state produced shape {actual.shape}, expected {expected.shape}",
+        set(actual.blocks) == set(expected.blocks),
+        f"{cls.__name__} loaded from a pickle produced blocks {sorted(actual.blocks)}, "
+        f"expected {sorted(expected.blocks)}",
     )
-    _require(
-        np.allclose(actual, expected, equal_nan=True),
-        f"{cls.__name__} restored from get_state produced different features; "
-        "check that get_state covers every attribute _transform_features reads",
-    )
+    for name, block in expected.blocks.items():
+        got = np.asarray(actual.blocks[name].values)
+        want = np.asarray(block.values)
+        same = got.shape == want.shape and (
+            np.allclose(got, want, equal_nan=True) if want.dtype.kind in "biufc" else bool(np.all(got == want))
+        )
+        _require(
+            same,
+            f"{cls.__name__} loaded from a pickle produced different features in block {name!r}; "
+            "check that every attribute transform reads is picklable",
+        )
 
 
 def check_predictor_instantiates(
@@ -249,19 +273,24 @@ def check_predictor_fit_predict(
     )
 
 
-def check_predictor_state_round_trip(
+def check_predictor_pickle_round_trip(
     cls: type[Predictor],
     batch: ModelInputBatch | None = None,
     **kwargs: Any,
 ) -> None:
-    r"""Check that a trained predictor survives ``get_state``/``set_state``.
+    r"""Check that a trained predictor survives a joblib dump and load.
 
-    Raises ``ConformanceError`` if the restored predictor predicts differently.
+    A fitted predictor is persisted by pickling it, so its fitted state must live in
+    picklable attributes.
 
     :param cls: Predictor class to exercise.
     :param batch: Featurized batch; defaults to the synthetic one.
     :param \*\*kwargs: Constructor keyword arguments.
+    :raises ConformanceError: If the predictor cannot be pickled or the loaded copy
+        predicts differently.
     """
+    import joblib
+
     batch = batch if batch is not None else build_synthetic_batch(build_synthetic_dataset())
 
     trained = check_predictor_instantiates(cls, **kwargs)
@@ -272,14 +301,19 @@ def check_predictor_state_round_trip(
         f"{cls.__name__} produced non-finite predictions before the round trip, so it cannot be compared",
     )
 
-    restored = check_predictor_instantiates(cls, **kwargs)
-    restored.set_state(trained.get_state())
+    buffer = io.BytesIO()
+    try:
+        joblib.dump(trained, buffer)
+    except Exception as exc:
+        raise ConformanceError(f"{cls.__name__} could not be pickled: {exc}") from exc
+    buffer.seek(0)
+    restored = joblib.load(buffer)
     actual = np.asarray(restored.predict(batch))
 
     _require(
         np.allclose(actual, expected, equal_nan=False),
-        f"{cls.__name__} restored from get_state predicted differently; "
-        "check that get_state covers every attribute _predict reads",
+        f"{cls.__name__} loaded from a pickle predicted differently; "
+        "check that __getstate__/__setstate__ keep every attribute _predict reads",
     )
 
 
@@ -288,12 +322,12 @@ def check_predictor_state_round_trip(
 FEATURIZER_CHECKS: tuple[Callable[..., Any], ...] = (
     check_featurizer_instantiates,
     check_featurizer_fit_transform,
-    check_featurizer_state_round_trip,
+    check_featurizer_pickle_round_trip,
 )
 
 #: Every predictor check; see :data:`FEATURIZER_CHECKS`.
 PREDICTOR_CHECKS: tuple[Callable[..., Any], ...] = (
     check_predictor_instantiates,
     check_predictor_fit_predict,
-    check_predictor_state_round_trip,
+    check_predictor_pickle_round_trip,
 )

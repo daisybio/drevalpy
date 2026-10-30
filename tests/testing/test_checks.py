@@ -13,10 +13,10 @@ import numpy as np
 import pytest
 
 from drevalpy.components.contracts.feature_format import FeatureFormat
-from drevalpy.components.featurizers.drug.base import DrugFeaturizer
-from drevalpy.components.featurizers.sample.base import SampleFeaturizer
+from drevalpy.components.featurizers.featurizer import Featurizer
 from drevalpy.components.predictors.abstract.matrix import MatrixPredictor
-from drevalpy.registry import predictor, sample_featurizer
+from drevalpy.registry import predictor
+from drevalpy.registry.featurizer import featurizers, get_featurizer, register
 from drevalpy.testing import plugins as plugins_module
 from drevalpy.testing.batch import build_synthetic_batch
 from drevalpy.testing.conformance import (
@@ -25,10 +25,10 @@ from drevalpy.testing.conformance import (
     ConformanceError,
     check_featurizer_fit_transform,
     check_featurizer_instantiates,
-    check_featurizer_state_round_trip,
+    check_featurizer_pickle_round_trip,
     check_predictor_fit_predict,
     check_predictor_instantiates,
-    check_predictor_state_round_trip,
+    check_predictor_pickle_round_trip,
     feature_source_for,
 )
 from drevalpy.testing.plugins import (
@@ -39,48 +39,39 @@ from drevalpy.testing.plugins import (
 )
 from drevalpy.testing.synthetic import build_synthetic_dataset
 from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult, numeric_feature_block
-from drevalpy.types.data.feature_source import DrugFeatureSource, SampleFeatureSource
+from drevalpy.types.data.feature_source import FeatureSource
 
 BLOCK = "probe"
 
 
-class GoodFeaturizer(SampleFeaturizer):
+class GoodFeaturizer(Featurizer):
     """Conforming featurizer."""
 
-    entity_id_only: ClassVar[bool] = True
-    output_block_specs: ClassVar[tuple[BlockSpec, ...]] = (BlockSpec(BLOCK, FeatureFormat.NUMERIC_MATRIX),)
+    sides: ClassVar[frozenset[str]] = frozenset({"sample"})
 
     def __init__(self, *, n_features: int = 4) -> None:
         """Initialise the stub."""
         self._n_features = n_features
         self._offset = 0.0
 
-    def _fit(self, source, **kwargs):
-        entity_ids = kwargs.get("entity_ids")
-        self._offset = float(len(entity_ids)) if entity_ids is not None else 0.0
+    @classmethod
+    def output_blocks(cls, config) -> tuple[BlockSpec, ...]:
+        return (BlockSpec(BLOCK, FeatureFormat.NUMERIC_MATRIX),)
+
+    def fit(self, source, train_ids, *, train_pair_ids=None, es_pair_ids=None):
+        self._offset = float(len(train_ids))
         return self
 
-    def _transform_features(self, source, entity_ids):
-        values = np.arange(len(entity_ids) * self._n_features, dtype=np.float32)
-        values = values.reshape(len(entity_ids), self._n_features) + self._offset
-        return FeaturizerResult(entity_ids, {BLOCK: numeric_feature_block(values)}, (BLOCK,))
-
-    @property
-    def output_dim(self) -> int:
-        return self._n_features
-
-    def get_state(self) -> dict[str, object]:
-        return {"n_features": self._n_features, "offset": self._offset}
-
-    def set_state(self, state: dict[str, object]) -> None:
-        self._n_features = int(state["n_features"])
-        self._offset = float(state["offset"])
+    def transform(self, source, ids):
+        values = np.arange(len(ids) * self._n_features, dtype=np.float32)
+        values = values.reshape(len(ids), self._n_features) + self._offset
+        return FeaturizerResult(ids, {BLOCK: numeric_feature_block(values)}, (BLOCK,))
 
 
-class GoodDrugFeaturizer(GoodFeaturizer, DrugFeaturizer):
-    """Same logic on the drug side, so ``side`` dispatch can be exercised."""
+class GoodDrugFeaturizer(GoodFeaturizer):
+    """Same logic on the drug side, so the side choice can be exercised."""
 
-    side: ClassVar[str] = "drug"
+    sides: ClassVar[frozenset[str]] = frozenset({"drug"})
 
 
 class RequiresAnArgumentFeaturizer(GoodFeaturizer):
@@ -91,19 +82,19 @@ class RequiresAnArgumentFeaturizer(GoodFeaturizer):
         super().__init__(n_features=n_features)
 
 
-class MisreportsOutputDimFeaturizer(GoodFeaturizer):
-    """Defect: ``output_dim`` disagrees with the produced width."""
+class MisdeclaredBlocksFeaturizer(GoodFeaturizer):
+    """Defect: ``output_blocks`` names a block the featurizer does not emit."""
 
-    @property
-    def output_dim(self) -> int:
-        return self._n_features + 1
+    @classmethod
+    def output_blocks(cls, config) -> tuple[BlockSpec, ...]:
+        return (BlockSpec("other", FeatureFormat.NUMERIC_MATRIX),)
 
 
 class MisalignedBlockFeaturizer(GoodFeaturizer):
     """Defect: emits fewer rows than there are entities."""
 
-    def _transform_features(self, source, entity_ids):
-        result = super()._transform_features(source, entity_ids)
+    def transform(self, source, ids):
+        result = super().transform(source, ids)
         return FeaturizerResult(
             result.entity_ids[:-1], {BLOCK: numeric_feature_block(result.blocks[BLOCK].values[:-1])}, (BLOCK,)
         )
@@ -112,19 +103,32 @@ class MisalignedBlockFeaturizer(GoodFeaturizer):
 class EmptyBlocksFeaturizer(GoodFeaturizer):
     """Defect: produces no blocks at all."""
 
-    def _transform_features(self, source, entity_ids):
-        return FeaturizerResult(np.asarray(entity_ids), {}, ())
+    @classmethod
+    def output_blocks(cls, config) -> tuple[BlockSpec, ...]:
+        return ()
+
+    def transform(self, source, ids):
+        return FeaturizerResult(np.asarray(ids), {}, ())
 
 
 class ForgetfulStateFeaturizer(GoodFeaturizer):
-    """Defect: ``get_state`` omits an attribute ``_transform_features`` reads."""
+    """Defect: ``__getstate__`` drops an attribute ``transform`` reads."""
 
-    def get_state(self) -> dict[str, object]:
-        return {"n_features": self._n_features, "offset": 0.0}
+    def __getstate__(self) -> dict[str, object]:
+        """Drop the fitted offset from the pickled state."""
+        return {**self.__dict__, "_offset": 0.0}
+
+
+class UnpicklableFeaturizer(GoodFeaturizer):
+    """Defect: holds a lambda, which pickle cannot serialize."""
+
+    def fit(self, source, train_ids, *, train_pair_ids=None, es_pair_ids=None):
+        self._hook = lambda: None
+        return super().fit(source, train_ids)
 
 
 class GoodPredictor(MatrixPredictor):
-    """Conforming predictor: ordinary least squares with honest state."""
+    """Conforming predictor: ordinary least squares with picklable state."""
 
     def __init__(self, hyperparameters: dict[str, object] | None = None) -> None:
         """Initialise the stub."""
@@ -139,13 +143,6 @@ class GoodPredictor(MatrixPredictor):
             return np.full(len(x), np.nan)
         return _with_intercept(x) @ self._coefficients
 
-    def get_state(self) -> dict[str, object]:
-        return {"coefficients": None if self._coefficients is None else self._coefficients.tolist()}
-
-    def set_state(self, state: dict[str, object]) -> None:
-        coefficients = state.get("coefficients")
-        self._coefficients = None if coefficients is None else np.asarray(coefficients, dtype=np.float64)
-
 
 def _with_intercept(x: np.ndarray) -> np.ndarray:
     return np.hstack([x, np.ones((len(x), 1), dtype=x.dtype)])
@@ -158,14 +155,20 @@ class NeverFitsPredictor(GoodPredictor):
         return None
 
 
-class ForgetfulStatePredictor(GoodPredictor):
-    """Defect: ``get_state`` drops the fitted coefficients."""
+class ForgetfulPicklePredictor(GoodPredictor):
+    """Defect: ``__getstate__`` drops the fitted coefficients."""
 
-    def get_state(self) -> dict[str, object]:
-        return {"trained": True}
+    def __getstate__(self) -> dict[str, object]:
+        """Drop the coefficients from the pickled state."""
+        return {**self.__dict__, "_coefficients": None}
 
-    def set_state(self, state: dict[str, object]) -> None:
-        return None
+
+class UnpicklablePredictor(GoodPredictor):
+    """Defect: holds a lambda, which pickle cannot serialize."""
+
+    def _fit_matrix(self, x: np.ndarray, y: np.ndarray) -> None:
+        super()._fit_matrix(x, y)
+        self._hook = lambda: None
 
 
 class RequiresAnArgumentPredictor(GoodPredictor):
@@ -187,9 +190,11 @@ def batch(dataset):
 
 
 def test_feature_source_for_matches_the_featurizer_side(dataset):
-    assert isinstance(feature_source_for(GoodFeaturizer, dataset), SampleFeatureSource)
+    sample_source = feature_source_for(GoodFeaturizer, dataset)
+    assert isinstance(sample_source, FeatureSource)
+    assert sample_source.side == "sample"
     source = feature_source_for(GoodDrugFeaturizer, dataset)
-    assert isinstance(source, DrugFeatureSource)
+    assert source.side == "drug"
     assert len(source.identifiers) == len(dataset.drug_ids)
 
 
@@ -217,10 +222,11 @@ def test_checks_default_to_synthetic_data_forward_kwargs_and_return_instances(da
     [
         (check_featurizer_instantiates, RequiresAnArgumentFeaturizer, ConformanceError, "could not be constructed"),
         (check_featurizer_instantiates, dict, ConformanceError, "not a Featurizer"),
-        (check_featurizer_fit_transform, MisreportsOutputDimFeaturizer, ConformanceError, "output_dim"),
+        (check_featurizer_fit_transform, MisdeclaredBlocksFeaturizer, ConformanceError, "output_blocks declares"),
         (check_featurizer_fit_transform, MisalignedBlockFeaturizer, ValueError, "must preserve requested entity order"),
         (check_featurizer_fit_transform, EmptyBlocksFeaturizer, ConformanceError, "returned no blocks"),
-        (check_featurizer_state_round_trip, ForgetfulStateFeaturizer, ConformanceError, "different features"),
+        (check_featurizer_pickle_round_trip, ForgetfulStateFeaturizer, ConformanceError, "different features"),
+        (check_featurizer_pickle_round_trip, UnpicklableFeaturizer, ConformanceError, "could not be pickled"),
     ],
 )
 def test_featurizer_defects_are_rejected(check, cls, error, match, dataset):
@@ -234,8 +240,9 @@ def test_featurizer_defects_are_rejected(check, cls, error, match, dataset):
         (check_predictor_instantiates, RequiresAnArgumentPredictor, "could not be constructed"),
         (check_predictor_instantiates, dict, "not a Predictor"),
         (check_predictor_fit_predict, NeverFitsPredictor, "non-finite"),
-        (check_predictor_state_round_trip, ForgetfulStatePredictor, "predicted differently"),
-        (check_predictor_state_round_trip, NeverFitsPredictor, "before the round trip"),
+        (check_predictor_pickle_round_trip, ForgetfulPicklePredictor, "predicted differently"),
+        (check_predictor_pickle_round_trip, UnpicklablePredictor, "could not be pickled"),
+        (check_predictor_pickle_round_trip, NeverFitsPredictor, "before the round trip"),
     ],
 )
 def test_predictor_defects_are_rejected(check, cls, match, batch):
@@ -247,12 +254,12 @@ def test_check_tuples_name_every_check_with_two_positional_arguments():
     assert set(FEATURIZER_CHECKS) == {
         check_featurizer_instantiates,
         check_featurizer_fit_transform,
-        check_featurizer_state_round_trip,
+        check_featurizer_pickle_round_trip,
     }
     assert set(PREDICTOR_CHECKS) == {
         check_predictor_instantiates,
         check_predictor_fit_predict,
-        check_predictor_state_round_trip,
+        check_predictor_pickle_round_trip,
     }
     for check in FEATURIZER_CHECKS + PREDICTOR_CHECKS:
         kinds = [p.kind for p in inspect.signature(check).parameters.values()]
@@ -262,7 +269,7 @@ def test_check_tuples_name_every_check_with_two_positional_arguments():
 @pytest.mark.parametrize("check", FEATURIZER_CHECKS)
 @pytest.mark.parametrize("name", ["identity", "tissue"])
 def test_builtin_sample_featurizers_conform(check, name, dataset):
-    check(sample_featurizer.get(name), dataset)
+    check(get_featurizer(name, "sample"), dataset)
 
 
 @pytest.mark.parametrize("check", PREDICTOR_CHECKS)
@@ -280,42 +287,34 @@ _REGISTRY_NAME_COUNTER = itertools.count()
 @pytest.fixture
 def fake_plugin_package(monkeypatch):
     """Install a throwaway package holding one registered featurizer under a unique name."""
-    from drevalpy.registry import sample_featurizer
-    from drevalpy.registry.sample_featurizer import sample_featurizer_registry
-
     registry_name = f"fakePluginFeaturizer{next(_REGISTRY_NAME_COUNTER)}"
     package = types.ModuleType(PLUGIN_NAME)
     components = types.ModuleType(f"{PLUGIN_NAME}.components")
     monkeypatch.setitem(sys.modules, PLUGIN_NAME, package)
     monkeypatch.setitem(sys.modules, f"{PLUGIN_NAME}.components", components)
+    snapshot = featurizers.snapshot()
 
-    @sample_featurizer.register(
-        registry_name,
-        description="Registered by the fake plugin package.",
-        output_format=FeatureFormat.NUMERIC_MATRIX,
-        tags=("fake",),
-    )
-    class FakeFeaturizer(SampleFeaturizer):
-        entity_id_only: ClassVar[bool] = True
-        output_block_specs: ClassVar[tuple[BlockSpec, ...]] = (BlockSpec("fake", FeatureFormat.NUMERIC_MATRIX),)
+    @register(registry_name, description="Registered by the fake plugin package.", tags=("fake",))
+    class FakeFeaturizer(Featurizer):
+        sides: ClassVar[frozenset[str]] = frozenset({"sample"})
 
-        def _fit(self, source, **kwargs):
+        @classmethod
+        def output_blocks(cls, config) -> tuple[BlockSpec, ...]:
+            return (BlockSpec("fake", FeatureFormat.NUMERIC_MATRIX),)
+
+        def fit(self, source, train_ids, *, train_pair_ids=None, es_pair_ids=None):
             return self
 
-        def _transform_features(self, source, entity_ids):
-            values = np.zeros((len(entity_ids), 1), dtype=np.float32)
-            return FeaturizerResult(entity_ids, {"fake": numeric_feature_block(values)}, ("fake",))
-
-        @property
-        def output_dim(self) -> int:
-            return 1
+        def transform(self, source, ids):
+            values = np.zeros((len(ids), 1), dtype=np.float32)
+            return FeaturizerResult(ids, {"fake": numeric_feature_block(values)}, ("fake",))
 
     FakeFeaturizer.__module__ = f"{PLUGIN_NAME}.components"
     components.FakeFeaturizer = FakeFeaturizer
     try:
         yield registry_name
     finally:
-        sample_featurizer_registry._store.pop(registry_name, None)
+        featurizers.restore(snapshot)
 
 
 def _stub_entry_points(monkeypatch, *entry_points: importlib.metadata.EntryPoint) -> None:
@@ -357,7 +356,7 @@ def test_discovery_failure_beats_a_reimport_and_clean_load_is_accepted(monkeypat
 def test_a_plugin_registering_nothing_names_the_registries_it_checked(monkeypatch):
     monkeypatch.setitem(sys.modules, "empty_fake_plugin", types.ModuleType("empty_fake_plugin"))
     _stub_entry_points(monkeypatch, _entry_point("empty_fake_plugin", name="empty_fake_plugin"))
-    with pytest.raises(PluginCheckError, match="registered nothing.*sample_featurizer"):
+    with pytest.raises(PluginCheckError, match="registered nothing.*featurizer"):
         check_plugin("empty_fake_plugin")
 
 
@@ -367,7 +366,7 @@ def test_successful_check_report(monkeypatch, fake_plugin_package):
 
     assert isinstance(report, PluginReport)
     assert (report.name, report.value, report.module) == (PLUGIN_NAME, *[f"{PLUGIN_NAME}.components"] * 2)
-    assert report.components["sample_featurizer"] == (fake_plugin_package,)
+    assert report.components["featurizer"] == (fake_plugin_package,)
     assert "predictor" not in report.components
     assert "splitter" not in report.components
     assert report.component_names == (fake_plugin_package,)
@@ -382,8 +381,8 @@ def test_plugin_check_error_is_an_assertion_error():
 @pytest.mark.parametrize(
     ("registry_name", "component_name"),
     [
-        ("sample_featurizer", "identity"),
-        ("drug_featurizer", "fingerprints"),
+        ("featurizer", "identity"),
+        ("featurizer", "fingerprints"),
         ("predictor", "ridge"),
         ("splitter", "LPO"),
         ("visualization", "critical_difference"),
@@ -394,10 +393,9 @@ def test_builtins_are_attributed_to_the_drevalpy_package(registry_name, componen
     assert resolved.__module__.split(".")[0] == "drevalpy"
 
 
-def test_all_five_registries_are_inspected():
+def test_all_four_registries_are_inspected():
     assert set(plugins_module._REGISTRIES) == {
-        "sample_featurizer",
-        "drug_featurizer",
+        "featurizer",
         "predictor",
         "splitter",
         "visualization",

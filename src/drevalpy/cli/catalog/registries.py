@@ -1,19 +1,22 @@
 """``drevalpy list`` commands over the registries and the zoo.
 
-The five component registries expose the same surface (``list``, ``get``,
-``metadata``, ``table``), so each command over them is a two-line wrapper around
-:func:`_show`. Zoo presets and datasets are not component registries; their
-commands build rows from :mod:`drevalpy.models.zoo` and the dataset registry and
-render them through the same helpers.
+The five component registries are :class:`~drevalpy.registry._registry.Registry` instances,
+so each command over them is a short wrapper around :func:`_show`. Zoo presets and datasets
+have commands of their own that build rows from :mod:`drevalpy.models.zoo` and the dataset
+registry and render them through the same helpers.
 """
 
 from __future__ import annotations
 
-from typing import Annotated
+from collections.abc import Callable, Mapping
+from typing import TYPE_CHECKING, Annotated, Any
 
 import typer
 
 from drevalpy.errors import UnknownNameError
+
+if TYPE_CHECKING:
+    from drevalpy.registry._registry import Registry
 
 #: Optional entry name. Given, the command prints that entry's metadata instead
 #: of the whole registry table.
@@ -26,52 +29,96 @@ EntryName = Annotated[
 ]
 
 
-def _show(registry_name: str, title: str, name: str | None) -> None:
+def _show(
+    registry: Registry[Any],
+    title: str,
+    name: str | None,
+    details: Callable[[str], Mapping[str, Any]] | None = None,
+) -> None:
     """Render one registry, or the metadata of a single entry in it.
 
-    :param registry_name: Attribute of :mod:`drevalpy.registry` holding the registry module, e.g. ``"predictor"``.
+    :param registry: Registry to render.
     :param title: Plural heading for the table, e.g. ``"Predictors"``.
     :param name: Entry to describe, or ``None`` to render the whole table. An unregistered name fails with the
         registry's own unknown-name exception, whose message lists the registered names.
+    :param details: Builds the facts shown for one entry; defaults to the entry's registry metadata.
     """
-    from drevalpy import registry
-
     from ._render import render_frame, render_mapping
 
-    module = getattr(registry, registry_name)
     if name is None:
         render_frame(
-            module.table(),
+            registry.to_dataframe(),
             title=title,
             empty_hint=f"No {title.lower()} are registered.",
         )
         return
-    render_mapping(module.metadata(name), title=name)
+    render_mapping(dict((details or registry.metadata)(name)), title=name)
+
+
+def _component_details(display_name: str, registry: Registry[type[Any]]) -> Callable[[str], Mapping[str, Any]]:
+    """Return the catalog facts of a predictor or featurizer, including its class and reference.
+
+    :param display_name: Catalog name of the registry, e.g. ``"predictors"``.
+    :param registry: Registry holding the component classes.
+    :returns: Function from an entry name to its catalog facts.
+    """
+    from drevalpy.registry.components._metadata import featurizer_component_metadata, predictor_component_metadata
+
+    build = predictor_component_metadata if display_name == "predictors" else featurizer_component_metadata
+    return lambda name: build(display_name, name, registry.get(name))
 
 
 def list_predictors(name: EntryName = None) -> None:
     """List registered predictors."""
-    _show("predictor", "Predictors", name)
+    from drevalpy.registry.predictor import predictor_registry
+
+    _show(predictor_registry, "Predictors", name, _component_details("predictors", predictor_registry))
+
+
+def _featurizers_for_side(side: str) -> Registry[type[Any]]:
+    """Return the registered featurizers that support *side*, as a registry of their own.
+
+    :param side: ``"sample"`` or ``"drug"``.
+    :returns: Registry holding only those featurizers, with their metadata.
+    """
+    from drevalpy.registry._registry import Registry
+    from drevalpy.registry.featurizer import featurizers
+
+    subset: Registry[type[Any]] = Registry(f"{side} featurizer")
+    for entry, cls in featurizers.items():
+        if side in cls.sides:
+            subset.register(entry, cls, metadata=featurizers.metadata(entry))
+    return subset
 
 
 def list_sample_featurizers(name: EntryName = None) -> None:
-    """List registered sample featurizers."""
-    _show("sample_featurizer", "Sample featurizers", name)
+    """List registered featurizers usable on the sample side."""
+    registry = _featurizers_for_side("sample")
+    _show(registry, "Sample featurizers", name, _component_details("sample_featurizers", registry))
 
 
 def list_drug_featurizers(name: EntryName = None) -> None:
-    """List registered drug featurizers."""
-    _show("drug_featurizer", "Drug featurizers", name)
+    """List registered featurizers usable on the drug side."""
+    registry = _featurizers_for_side("drug")
+    _show(registry, "Drug featurizers", name, _component_details("drug_featurizers", registry))
 
 
 def list_splitters(name: EntryName = None) -> None:
-    """List registered split modes."""
-    _show("splitter", "Splitters", name)
+    """List registered split modes; an alias shows the mode it resolves to."""
+    from drevalpy.registry.splitter import canonical, splitter_registry
+
+    def details(entry: str) -> dict[str, Any]:
+        mode = canonical(entry)
+        return {"Mode": mode, **splitter_registry.metadata(mode)}
+
+    _show(splitter_registry, "Splitters", name, details)
 
 
 def list_visualizations(name: EntryName = None) -> None:
     """List registered visualizations."""
-    _show("visualization", "Visualizations", name)
+    from drevalpy.registry.visualization import visualization_registry
+
+    _show(visualization_registry, "Visualizations", name)
 
 
 def _unknown_entry(kind: str, name: str, valid: list[str]) -> UnknownNameError:

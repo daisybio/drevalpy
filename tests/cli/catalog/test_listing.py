@@ -20,11 +20,11 @@ from tests.cli._helpers import HELP_ENV, GroupSurface, make_runner, plain
 runner = make_runner()
 
 
-#: ``(command, registry attribute, a name that registry always contains)``.
+#: ``(command, registry attribute or featurizer side, a name that registry always contains)``.
 REGISTRY_COMMANDS = [
     pytest.param("predictors", "predictor", "naiveMean", id="predictors"),
-    pytest.param("sample-featurizers", "sample_featurizer", "identity", id="sample-featurizers"),
-    pytest.param("drug-featurizers", "drug_featurizer", "fingerprints", id="drug-featurizers"),
+    pytest.param("sample-featurizers", "sample", "identity", id="sample-featurizers"),
+    pytest.param("drug-featurizers", "drug", "fingerprints", id="drug-featurizers"),
     pytest.param("splitters", "splitter", "LPO", id="splitters"),
     pytest.param("visualizations", "visualization", "heatmap", id="visualizations"),
 ]
@@ -34,37 +34,39 @@ def invoke(*argv: str) -> str:
     return plain(runner.invoke(app, ["list", *argv], env=HELP_ENV).output)
 
 
-@pytest.mark.parametrize(("command", "attribute", "entry"), REGISTRY_COMMANDS)
-def test_table_lists_entries_headers_and_count(command: str, attribute: str, entry: str) -> None:
+def _registry_of(attribute: str):
     from drevalpy import registry
 
+    if attribute in ("sample", "drug"):
+        return registries_module._featurizers_for_side(attribute)
+    return getattr(getattr(registry, attribute), f"{attribute}_registry")
+
+
+@pytest.mark.parametrize(("command", "attribute", "entry"), REGISTRY_COMMANDS)
+def test_table_lists_entries_headers_and_count(command: str, attribute: str, entry: str) -> None:
     result = runner.invoke(app, ["list", command], env=HELP_ENV)
     printed = plain(result.output)
-    registry_ = getattr(registry, attribute)
+    registry_ = _registry_of(attribute)
 
     assert result.exit_code == 0, result.output
     assert entry in printed
-    assert all(str(column) in printed for column in registry_.table().columns)
-    assert f"{len(registry_.list())} entries" in printed
+    assert all(str(column) in printed for column in registry_.to_dataframe().columns)
+    assert f"{len(registry_)} entries" in printed
 
 
 @pytest.mark.parametrize(("command", "attribute", "entry"), REGISTRY_COMMANDS)
 def test_single_entry_prints_its_metadata(command: str, attribute: str, entry: str) -> None:
-    from drevalpy import registry
-
     result = runner.invoke(app, ["list", command, entry], env=HELP_ENV)
-    metadata = getattr(registry, attribute).metadata(entry)
+    metadata = _registry_of(attribute).metadata(entry)
 
     assert result.exit_code == 0, result.output
     assert all(field in plain(result.output) for field in metadata)
 
 
 def test_single_predictor_prints_its_description_but_not_the_whole_table() -> None:
-    from drevalpy import registry
-
     printed = invoke("predictors", "naiveMean")
 
-    assert registry.predictor.metadata("naiveMean")["description"] in printed
+    assert _registry_of("predictor").metadata("naiveMean")["description"] in printed
     assert "elasticNet" not in printed
 
 
@@ -92,11 +94,10 @@ def test_unknown_entry_is_an_error_line_naming_the_valid_entries(command: str, a
 
 
 def test_an_empty_registry_prints_a_hint_and_still_exits_cleanly(monkeypatch: pytest.MonkeyPatch) -> None:
-    import pandas as pd
+    from drevalpy.registry._registry import Snapshot
 
-    from drevalpy import registry
-
-    monkeypatch.setattr(registry.predictor, "table", lambda: pd.DataFrame(columns=["Name", "Description", "Tags"]))
+    predictor_registry = _registry_of("predictor")
+    predictor_registry.restore(Snapshot(predictor_registry.kind, ()))
     result = runner.invoke(app, ["list", "predictors"], env=HELP_ENV)
 
     assert result.exit_code == 0

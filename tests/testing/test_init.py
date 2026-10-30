@@ -20,11 +20,11 @@ EXPECTED_ORIGINS: dict[str, str] = {
     "build_synthetic_batch": "drevalpy.testing.batch",
     "check_featurizer_fit_transform": "drevalpy.testing.conformance",
     "check_featurizer_instantiates": "drevalpy.testing.conformance",
-    "check_featurizer_state_round_trip": "drevalpy.testing.conformance",
+    "check_featurizer_pickle_round_trip": "drevalpy.testing.conformance",
     "check_plugin": "drevalpy.testing.plugins",
     "check_predictor_fit_predict": "drevalpy.testing.conformance",
     "check_predictor_instantiates": "drevalpy.testing.conformance",
-    "check_predictor_state_round_trip": "drevalpy.testing.conformance",
+    "check_predictor_pickle_round_trip": "drevalpy.testing.conformance",
     "feature_source_for": "drevalpy.testing.conformance",
     "observed_pairs": "drevalpy.testing.batch",
 }
@@ -70,10 +70,11 @@ class TestItShipsInTheWheel:
 
 
 def test_the_advertised_workflow_runs_end_to_end():
-    from drevalpy.registry import predictor, sample_featurizer
+    from drevalpy.registry import predictor
+    from drevalpy.registry.featurizer import get_featurizer
 
     batch = testing.build_synthetic_batch(testing.build_synthetic_dataset())
     for check in testing.PREDICTOR_CHECKS:
         check(predictor.get("ridge"), batch)
     for check in testing.FEATURIZER_CHECKS:
-        check(sample_featurizer.get("identity"))
+        check(get_featurizer("identity", "sample"))
