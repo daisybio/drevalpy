@@ -1,4 +1,4 @@
-"""Tests for the shared Predictor contract and the feature-free, matrix and block input interfaces."""
+"""Tests for the shared Predictor contract and the feature-free and matrix bases."""
 
 from __future__ import annotations
 
@@ -7,15 +7,15 @@ import inspect
 import numpy as np
 import pytest
 
-from drevalpy.components.contracts.feature_format import FeatureFormat
 from drevalpy.components.predictors.abstract.base import Predictor
-from drevalpy.components.predictors.abstract.block import BlockPredictor
 from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
 from drevalpy.components.predictors.abstract.matrix import MatrixPredictor
+from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.components.predictors.sklearn_models import ElasticNetPredictor
 from drevalpy.models.config import PredictorConfig
-from drevalpy.registry.predictor import get as get_predictor
-from drevalpy.registry.predictor import list as list_predictors
+from drevalpy.registry.components import predictor_component_metadata
+from drevalpy.registry.predictor import predictor_registry
+from drevalpy.testing import build_synthetic_batch, build_synthetic_dataset
 from drevalpy.types.data.batch.feature_block import FeaturizerResult, numeric_feature_block
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.types.data.batch.response_batch import ResponseBatch
@@ -23,6 +23,9 @@ from tests.components.predictors.literature._helpers import two_by_two_batch
 
 
 class _StubPredictor(Predictor):
+    sample_inputs = Inputs.matrix()
+    drug_inputs = Inputs.matrix()
+
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, object]]:
         return {"alpha": {"type": "float", "default": 1.0}}
@@ -33,9 +36,6 @@ class _StubPredictor(Predictor):
     def _predict(self, batch: ModelInputBatch) -> np.ndarray:
         return np.zeros(batch.n_pairs, dtype=np.float64)
 
-
-_StubPredictor.sample_input_format = FeatureFormat.NUMERIC_MATRIX
-_StubPredictor.drug_input_format = FeatureFormat.NUMERIC_MATRIX
 
 EXPECTED = {
     "feature_free": {"naiveMean"},
@@ -73,24 +73,10 @@ EXPECTED = {
         "paccMann",
     },
 }
-LEAF_BASES = (FeatureFreePredictor, MatrixPredictor, BlockPredictor)
 
 
 def _ids(n: int) -> np.ndarray:
     return np.array([f"id_{i}" for i in range(n)])
-
-
-def test_predictor_accepts_class_body_formats_and_rejects_invalid_ones() -> None:
-    class BodyFormatPredictor(Predictor):
-        sample_input_format = FeatureFormat.NUMERIC_MATRIX
-        drug_input_format = FeatureFormat.GRAPH
-
-    assert BodyFormatPredictor.sample_input_format == FeatureFormat.NUMERIC_MATRIX
-    assert BodyFormatPredictor.drug_input_format == FeatureFormat.GRAPH
-    with pytest.raises(TypeError, match="BadPredictor.drug_input_format must be a FeatureFormat"):
-
-        class BadPredictor(Predictor):
-            drug_input_format = "graph_but_a_plain_string"
 
 
 def test_predictor_init_merges_default_hyperparameters_and_has_no_public_build() -> None:
@@ -105,21 +91,13 @@ def test_predictor_config_create_instance_passes_hyperparameters() -> None:
     predictor = PredictorConfig(name="elasticNet").create_instance({"alpha": 0.25})
     assert isinstance(predictor, ElasticNetPredictor)
     assert predictor._hyperparameters["alpha"] == 0.25
-    assert predictor._h["alpha"] == 0.25
+    assert predictor._hyperparameters["alpha"] == 0.25
 
 
 def test_builtin_predictor_interfaces_partition() -> None:
-    observed: dict[str, set[str]] = {
-        "feature_free": set(),
-        "matrix": set(),
-        "block": set(),
-    }
-    for name in list_predictors():
-        cls = get_predictor(name)
-        matches = [base for base in LEAF_BASES if issubclass(cls, base)]
-        assert len(matches) == 1, (name, matches)
-        assert cls.input_interface == matches[0].input_interface
-        observed[cls.input_interface].add(name)
+    observed: dict[str, set[str]] = {"feature_free": set(), "matrix": set(), "block": set()}
+    for name, cls in predictor_registry.items():
+        observed[predictor_component_metadata("predictors", name, cls)["input_interface"]].add(name)
     assert observed == EXPECTED
 
 
@@ -140,25 +118,22 @@ def test_stopping_requirement_is_checked_after_pair_filtering(monkeypatch, requi
         _StubPredictor().fit(batch)
 
 
-@pytest.mark.parametrize(
-    ("base", "interface"),
-    [(FeatureFreePredictor, "feature_free"), (MatrixPredictor, "matrix"), (BlockPredictor, "block")],
-)
-def test_leaf_bases_declare_their_interface_under_predictor(base: type[Predictor], interface: str) -> None:
+@pytest.mark.parametrize(("base", "kind"), [(FeatureFreePredictor, "none"), (MatrixPredictor, "matrix")])
+def test_bases_declare_the_same_inputs_on_both_sides(base: type[Predictor], kind: str) -> None:
     assert issubclass(base, Predictor)
-    assert base.input_interface == interface
-    assert not issubclass(base, tuple(other for other in LEAF_BASES if other is not base))
+    assert base.sample_inputs.kind == base.drug_inputs.kind == kind
 
 
-def test_matrix_and_block_bases_are_abstract_over_their_own_hooks() -> None:
+def test_matrix_base_is_abstract_over_its_matrix_hooks() -> None:
     assert {"_fit_matrix", "_predict_matrix"} <= MatrixPredictor.__abstractmethods__
-    assert {"_fit", "_predict"} <= BlockPredictor.__abstractmethods__
-    with pytest.raises(TypeError):
-        BlockPredictor()
+    assert {"_fit", "_predict"} <= Predictor.__abstractmethods__
 
 
-def test_block_predictor_subclass_supplying_both_hooks_is_concrete() -> None:
-    class _Constant(BlockPredictor):
+def test_a_block_predictor_is_a_predictor_supplying_both_hooks() -> None:
+    class _Constant(Predictor):
+        sample_inputs = Inputs.blocks()
+        drug_inputs = Inputs.none()
+
         def _fit(self, batch: ModelInputBatch) -> None:
             self._value = 1.0
 
@@ -166,7 +141,13 @@ def test_block_predictor_subclass_supplying_both_hooks_is_concrete() -> None:
             return np.full(len(batch.sample_ids), self._value)
 
     assert not inspect.isabstract(_Constant)
-    assert _Constant.input_interface == "block"
+
+
+def test_is_fitted_turns_true_once_fit_completes() -> None:
+    predictor = _StubPredictor()
+    assert predictor.is_fitted() is False
+    predictor.fit(build_synthetic_batch(build_synthetic_dataset()))
+    assert predictor.is_fitted() is True
 
 
 def test_matrix_predictor_cannot_build_a_design_matrix_without_a_response() -> None:

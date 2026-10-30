@@ -9,15 +9,12 @@ import pytest
 import torch
 from torch import nn
 
-from drevalpy._utils.torch_io import save_trusted_mapping
-from drevalpy.components.contracts.feature_format import FeatureFormat
+from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.components.predictors.neural_network.network import FeedForwardNetwork
 from drevalpy.components.predictors.neural_network.predictor import NeuralNetworkPredictor
-from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.models import DRPModel, ModelSpec
-from drevalpy.models.config import from_spec
 from drevalpy.registry.predictor import get as get_predictor
-from tests.components.predictors._helpers import neural_batch
+from tests.components.predictors._helpers import neural_batch, pickle_round_trip
 from tests.models.synthetic_fixtures import lso_split_masks, synthetic_model_dataset
 
 HPAMS = {"units_per_layer": [8, 4, 2], "dropout_prob": 0.0}
@@ -26,9 +23,8 @@ HPAMS = {"units_per_layer": [8, 4, 2], "dropout_prob": 0.0}
 def test_registry_name_contracts_and_defaults() -> None:
     cls = get_predictor("neuralNetwork")
     assert cls is NeuralNetworkPredictor
-    assert cls.sample_input_format == FeatureFormat.NUMERIC_MATRIX
-    assert cls.drug_input_format == FeatureFormat.NUMERIC_MATRIX
-    assert NeuralNetworkPredictor.get_default_hyperparameters() == {
+    assert cls.sample_inputs == cls.drug_inputs == Inputs.matrix()
+    assert NeuralNetworkPredictor.default_hyperparameters() == {
         "units_per_layer": [32, 16, 8, 4],
         "dropout_prob": 0.3,
         "max_epochs": 100,
@@ -50,7 +46,7 @@ def test_neural_network_zoo_trains_on_synthetic_data() -> None:
     split = lso_split_masks()
 
     model = DRPModel(
-        ModelSpec("SimpleNeuralNetwork", from_spec("scaledGeneExpression:fingerprints:neuralNetwork")),
+        ModelSpec("SimpleNeuralNetwork", ModelSpec.from_name("scaledGeneExpression:fingerprints:neuralNetwork").config),
         {"max_epochs": 1, "batch_size": 2},
     )
     model.train(dataset, split.train)
@@ -75,7 +71,7 @@ def test_neural_network_early_stopping_wires_validation_loader() -> None:
     assert captured["val_loader"] is not None
 
 
-def test_neural_network_round_trip_state() -> None:
+def test_neural_network_pickle_round_trip() -> None:
     predictor = NeuralNetworkPredictor(
         hyperparameters={"max_epochs": 1, "batch_size": 2, "units_per_layer": [4, 2]},
     )
@@ -84,36 +80,11 @@ def test_neural_network_round_trip_state() -> None:
     assert preds.shape == (4,)
     assert np.isfinite(preds).all()
 
-    restored = NeuralNetworkPredictor()
-    restored.set_state(predictor.get_state())
+    restored = pickle_round_trip(predictor)
     assert restored.is_fitted()
     assert restored._input_dim == predictor._input_dim
     assert restored._hyperparameters == predictor._hyperparameters
     assert np.allclose(preds, restored.predict(neural_batch()))
-
-
-@pytest.mark.parametrize(
-    "state",
-    [
-        pytest.param({}, id="missing-checkpoint"),
-        pytest.param({"checkpoint": "not-bytes"}, id="not-bytes"),
-        pytest.param({"checkpoint": b"not-a-torch-checkpoint"}, id="undecodable"),
-        pytest.param(
-            {"checkpoint": save_trusted_mapping({"input_dim": 3, "state_dict": {}})}, id="no-predictor-hyperparameters"
-        ),
-    ],
-)
-def test_neural_network_set_state_rejects_invalid_checkpoint(state: dict[str, object]) -> None:
-    with pytest.raises(PredictorStateError):
-        NeuralNetworkPredictor().set_state(state)
-
-
-@pytest.mark.parametrize("missing", ["input_dim", "state_dict"])
-def test_neural_network_set_state_requires_input_dim_and_state_dict(missing: str) -> None:
-    payload: dict[str, object] = {"predictor_hyperparameters": {}, "input_dim": 3, "state_dict": {}}
-    del payload[missing]
-    with pytest.raises(PredictorStateError, match=missing):
-        NeuralNetworkPredictor().set_state({"checkpoint": save_trusted_mapping(payload)})
 
 
 def _network(input_dim: int = 6, **overrides: object) -> FeedForwardNetwork:

@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import pickle
 import tempfile
 from pathlib import Path
+from typing import TypeVar
 
 import numpy as np
 
@@ -16,6 +18,17 @@ from tests.models.synthetic_fixtures import (
     multi_drug_response,
     sample_gene_expression,
 )
+
+_T = TypeVar("_T")
+
+
+def pickle_round_trip(obj: _T) -> _T:
+    """Return *obj* pickled and loaded again, the way a fitted predictor is persisted.
+
+    :param obj: Object to round-trip.
+    :returns: The loaded copy.
+    """
+    return pickle.loads(pickle.dumps(obj))  # noqa: S301 -- pickled one line earlier
 
 
 def neural_batch(*, with_early_stopping: bool = False) -> ModelInputBatch:

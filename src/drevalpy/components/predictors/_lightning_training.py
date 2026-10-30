@@ -7,8 +7,7 @@ few things that differ between them (``save_weights_only``, pinned devices, prec
 the accelerator, the progress bar, the logger, whether to checkpoint at all) are
 fields of :class:`LightningRun` rather than forks.
 
-``pytorch_lightning`` is imported inside the entry point. The leading underscore
-keeps the module out of ``registry/_builtins.py::_discover_modules``.
+``pytorch_lightning`` is imported inside the entry point.
 """
 
 from __future__ import annotations

@@ -2,29 +2,22 @@
 
 from __future__ import annotations
 
-from typing import ClassVar
-
 import numpy as np
 
-from drevalpy.components.contracts.feature_format import FeatureFormat
 from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
-from drevalpy.components.predictors.naive._state_mixin import MeanEffectsStateMixin
 from drevalpy.registry.predictor import register
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
-from drevalpy.types.enums.prediction_mode import PredictionMode
 
 
 @register(
     "naiveMean",
     tags=("baseline",),
     description="Predict the global mean response.",
-    sample_input_format=FeatureFormat.NUMERIC_MATRIX,
-    drug_input_format=FeatureFormat.NUMERIC_MATRIX,
 )
-class NaiveMeanPredictor(MeanEffectsStateMixin, FeatureFreePredictor):
+class NaiveMeanPredictor(FeatureFreePredictor):
     """Naive mean predictor component."""
 
-    supported_modes: ClassVar[frozenset[PredictionMode]] = frozenset({PredictionMode.REGRESSION})
+    _dataset_mean: float | None = None
 
     def _fit(self, batch: ModelInputBatch) -> None:
         """Fit on training data.

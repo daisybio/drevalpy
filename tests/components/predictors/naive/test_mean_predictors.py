@@ -5,13 +5,14 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from drevalpy.components.predictors.abstract.block import BlockPredictor
+from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.components.predictors.naive._single_entity import SingleEntityNaivePredictor
 from drevalpy.components.predictors.naive.effects import NaiveMeanEffectsPredictor
 from drevalpy.components.predictors.naive.entity_mean import NaiveDrugMeanPredictor, NaiveSampleMeanPredictor
 from drevalpy.components.predictors.naive.mean import NaiveMeanPredictor
 from drevalpy.components.predictors.naive.tissue import NaiveTissueDrugMeanPredictor, NaiveTissueMeanPredictor
 from drevalpy.models import DRPModel, ModelSpec
+from tests.components.predictors._helpers import pickle_round_trip
 from tests.components.predictors.naive._helpers import naive_batch, one_hot
 from tests.models.synthetic_fixtures import lso_split_masks, synthetic_model_dataset_identity
 
@@ -36,11 +37,10 @@ def _entity_batch(side: str, idx: list[int], response: list[float] | None = None
     )
 
 
-def test_predicts_the_dataset_mean_for_any_batch_and_round_trips_state() -> None:
+def test_predicts_the_dataset_mean_for_any_batch_and_round_trips_through_pickle() -> None:
     predictor = NaiveMeanPredictor()
     predictor.fit(naive_batch(response=np.array([1.0, 5.0]), sample_ids=np.array(["x", "y"])))
-    restored = NaiveMeanPredictor()
-    restored.set_state(predictor.get_state())
+    restored = pickle_round_trip(predictor)
 
     assert predictor.predict(naive_batch(n_pairs=3, sample_ids=np.array(["a", "b", "c"]))).tolist() == [3.0] * 3
     assert restored.predict(naive_batch(n_pairs=2)).tolist() == [3.0, 3.0]
@@ -64,8 +64,7 @@ def test_fitting_without_a_response_and_predicting_before_fit_are_rejected(predi
 
 
 def test_single_entity_base_reads_named_blocks_and_defaults_to_the_sample_side() -> None:
-    assert issubclass(SingleEntityNaivePredictor, BlockPredictor)
-    assert SingleEntityNaivePredictor.input_interface == "block"
+    assert SingleEntityNaivePredictor.sample_inputs == SingleEntityNaivePredictor.drug_inputs == Inputs.blocks()
     assert SingleEntityNaivePredictor._feature_side == "sample"
 
 
@@ -73,7 +72,6 @@ def test_single_entity_base_reads_named_blocks_and_defaults_to_the_sample_side()
 def test_recovers_per_entity_means_and_falls_back_to_the_dataset_mean(cls, side) -> None:
     predictor = cls()
     assert not predictor.is_fitted()
-    assert predictor.get_state() == {}
 
     predictor.fit(_entity_batch(side, [0, 0, 1, 1], [1.0, 3.0, 5.0, 7.0]))
     preds = predictor.predict(_entity_batch(side, [0, 1, 2], features=np.vstack([FEATURES, np.zeros((1, 2))])))
@@ -91,21 +89,15 @@ def test_single_entity_fit_and_predict_guards() -> None:
         predictor.predict(naive_batch(n_pairs=2))
 
 
-def test_single_entity_state_round_trip_reproduces_predictions_and_is_json_friendly() -> None:
+def test_single_entity_pickle_round_trip_reproduces_predictions() -> None:
     predictor = _SampleSide()
     batch = _entity_batch("sample", [0, 1], [2.0, 8.0])
     predictor.fit(batch)
-    state = predictor.get_state()
-    restored = _SampleSide()
-    restored.set_state(state)
+    restored = pickle_round_trip(predictor)
 
-    assert isinstance(state["dataset_mean"], float)
-    assert isinstance(state["effects"], list)
     assert restored.is_fitted()
     np.testing.assert_allclose(restored.predict(batch), predictor.predict(batch))
-    empty = _SampleSide()
-    empty.set_state({})
-    assert not empty.is_fitted()
+    assert not pickle_round_trip(_SampleSide()).is_fitted()
 
 
 def test_drug_mean_follows_the_matrix_not_decoy_ids_and_round_trips() -> None:
@@ -123,8 +115,7 @@ def test_drug_mean_follows_the_matrix_not_decoy_ids_and_round_trips() -> None:
         drug_pair_idx=np.array([0, 1], dtype=np.int64),
         drug_ids=np.array(["decoy_a", "decoy_b"]),
     )
-    restored = NaiveDrugMeanPredictor()
-    restored.set_state(predictor.get_state())
+    restored = pickle_round_trip(predictor)
 
     assert predictor.predict(batch).tolist() == [3.0, 3.0]
     assert restored.predict(batch).tolist() == [3.0, 3.0]
@@ -177,8 +168,7 @@ def test_naive_tissue_mean_predicts_from_matrix_not_ids_and_round_trips() -> Non
         sample_pair_idx=np.array([0, 1], dtype=np.int64),
         sample_ids=np.array(["other_a", "other_b"]),
     )
-    restored = NaiveTissueMeanPredictor()
-    restored.set_state(predictor.get_state())
+    restored = pickle_round_trip(predictor)
 
     assert predictor.predict(batch).tolist() == [2.0, 4.0]
     assert restored.predict(batch).tolist() == [2.0, 4.0]
@@ -248,8 +238,7 @@ def test_without_tissue_decomposes_cell_and_drug_and_round_trips(tissue) -> None
         mean + (np.mean([1.0, 2.0]) - mean) + (np.mean([1.0, 5.0]) - mean),
         mean + (np.mean([5.0, 8.0]) - mean) + (np.mean([2.0, 8.0]) - mean),
     ]
-    restored = NaiveMeanEffectsPredictor()
-    restored.set_state(predictor.get_state())
+    restored = pickle_round_trip(predictor)
 
     np.testing.assert_allclose(predictor.predict(batch), expected)
     np.testing.assert_allclose(restored.predict(batch), expected)

@@ -50,16 +50,3 @@ class OneHotCategoryEncoder:
                 continue
             matrix[row, index] = 1.0
         return matrix
-
-    def get_state(self) -> dict[str, object]:
-        """Return serializable fitted state (the category labels)."""
-        return {"categories": self.categories}
-
-    def set_state(self, state: dict[str, object]) -> None:
-        """Restore state from a prior ``get_state`` mapping.
-
-        :param state: Mapping previously returned by ``get_state``.
-        """
-        categories = state.get("categories")
-        if isinstance(categories, list):
-            self._category_to_index = {str(category): index for index, category in enumerate(categories)}

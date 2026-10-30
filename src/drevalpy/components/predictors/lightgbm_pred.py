@@ -12,7 +12,6 @@ from __future__ import annotations
 
 from typing import Any, ClassVar
 
-from drevalpy.components.contracts.feature_format import FeatureFormat
 from drevalpy.components.predictors._boosted_trees import BoostedTreesPredictor
 from drevalpy.registry.predictor import register
 
@@ -20,8 +19,6 @@ from drevalpy.registry.predictor import register
 @register(
     "lightgbm",
     description="LightGBM regressor on concatenated dense features.",
-    sample_input_format=FeatureFormat.NUMERIC_MATRIX,
-    drug_input_format=FeatureFormat.NUMERIC_MATRIX,
 )
 class LightGBMPredictor(BoostedTreesPredictor):
     """LightGBM regressor for dense tabular pair features.
@@ -30,24 +27,13 @@ class LightGBMPredictor(BoostedTreesPredictor):
     ``subsample=0.8``, ``colsample_bytree=0.6``, ``reg_alpha=0`` and ``reg_lambda=0``.
     """
 
-    boosting_default_overrides: ClassVar[dict[str, Any]] = {
-        "subsample": 0.8,
-        "colsample_bytree": 0.6,
-    }
-
-    boosting_extra_defaults: ClassVar[dict[str, Any]] = {
-        "num_leaves": 31,
-        "reg_lambda": 0.0,
-        "n_jobs": -1,
-    }
-
     boosting_space_overrides: ClassVar[dict[str, dict[str, Any]]] = {
         "learning_rate": {"log": True},
         "num_leaves": {"default": 31},
         "colsample_bytree": {"default": 0.6},
     }
 
-    tuned_hyperparameters: ClassVar[tuple[str, ...]] = (
+    estimator_hyperparameters: ClassVar[tuple[str, ...]] = (
         "n_estimators",
         "learning_rate",
         "max_depth",
@@ -56,6 +42,8 @@ class LightGBMPredictor(BoostedTreesPredictor):
         "colsample_bytree",
         "reg_alpha",
         "reg_lambda",
+        "random_state",
+        "n_jobs",
     )
 
     def _make_estimator(self) -> Any:

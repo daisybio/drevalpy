@@ -1,7 +1,7 @@
 """Shared base for the two third-party gradient-boosting predictors.
 
 ``lightgbm_pred.py`` and ``xgboost_pred.py`` wrap different libraries but read the
-same tree/shrinkage/subsampling knobs out of ``self._h`` with the same coercions,
+same tree/shrinkage/subsampling knobs out of ``self._hyperparameters`` with the same coercions,
 and tune overlapping slices of one search space. That common part lives here so a
 change to a default or a bound is made once.
 
@@ -17,26 +17,16 @@ from __future__ import annotations
 
 from typing import Any, ClassVar
 
+from drevalpy.components.contracts.hyperparameter_space import is_fixed
 from drevalpy.components.predictors.sklearn_tabular import SklearnTabularPredictor
 
-#: Constructor arguments both libraries accept, with the defaults they agree on.
-#: The type of each value also fixes the coercion applied to an override, so a
-#: hyperparameter arriving as a string from a config file still reaches the
-#: estimator as a number.
-SHARED_DEFAULTS: dict[str, Any] = {
-    "n_estimators": 100,
-    "max_depth": 6,
-    "learning_rate": 0.1,
-    "subsample": 1.0,
-    "colsample_bytree": 1.0,
-    "reg_alpha": 0.0,
-    "random_state": 42,
-}
-
-#: Search-space specs for every knob either predictor tunes. A subclass selects
+#: Search-space specs for every knob either predictor takes. A subclass selects
 #: the ones it exposes and adjusts individual fields; it never restates a spec.
 #: ``learning_rate`` carries no ``log`` flag here because the two predictors
-#: disagree on it - LightGBM draws it log-uniformly, XGBoost uniformly.
+#: disagree on it - LightGBM draws it log-uniformly, XGBoost uniformly. The type of
+#: each ``default`` also fixes the coercion applied to an override, so a
+#: hyperparameter arriving as a string from a config file still reaches the
+#: estimator as a number.
 SHARED_SPACE: dict[str, dict[str, Any]] = {
     "n_estimators": {"type": "int", "low": 50, "high": 300, "default": 100},
     "max_depth": {"type": "int", "low": 3, "high": 12, "default": 6},
@@ -46,45 +36,38 @@ SHARED_SPACE: dict[str, dict[str, Any]] = {
     "colsample_bytree": {"type": "float", "low": 0.5, "high": 1.0, "default": 0.8},
     "reg_alpha": {"type": "float", "low": 0.0, "high": 10.0, "default": 0.0},
     "reg_lambda": {"type": "float", "low": 0.0, "high": 10.0, "default": 0.0},
+    "random_state": {"type": "fixed", "default": 42},
+    "n_jobs": {"type": "fixed", "default": -1},
 }
 
 
 class BoostedTreesPredictor(SklearnTabularPredictor):
     """Hyperparameter plumbing shared by the LightGBM and XGBoost regressors."""
 
-    #: Entries of :data:`SHARED_DEFAULTS` this library defaults differently.
-    boosting_default_overrides: ClassVar[dict[str, Any]] = {}
-
-    #: Constructor arguments only this library accepts, with their defaults.
-    #: Resolved from ``self._h`` exactly like the shared ones.
-    boosting_extra_defaults: ClassVar[dict[str, Any]] = {}
-
-    #: Names from :data:`SHARED_SPACE` this predictor tunes, in declaration order.
-    tuned_hyperparameters: ClassVar[tuple[str, ...]] = ()
+    #: Names from :data:`SHARED_SPACE` this predictor passes to its estimator, in declaration order.
+    estimator_hyperparameters: ClassVar[tuple[str, ...]] = ()
 
     #: Per-name adjustments to the shared spec, merged over it.
     boosting_space_overrides: ClassVar[dict[str, dict[str, Any]]] = {}
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
-        """Return the tunable space assembled from the shared specs.
+        """Return the space assembled from the shared specs.
 
-        :returns: One spec per name in :attr:`tuned_hyperparameters`.
+        :returns: One spec per name in :attr:`estimator_hyperparameters`.
         """
         return {
             name: {**SHARED_SPACE[name], **cls.boosting_space_overrides.get(name, {})}
-            for name in cls.tuned_hyperparameters
+            for name in cls.estimator_hyperparameters
         }
 
     def _estimator_params(self) -> dict[str, Any]:
         """Resolve every constructor argument this library takes from hyperparameters.
 
-        :returns: Hyperparameter values coerced to the type of their default.
+        :returns: Hyperparameter values, tuned ones coerced to the type of their default.
         """
-        defaults = {
-            **SHARED_DEFAULTS,
-            **self.boosting_default_overrides,
-            **self.boosting_extra_defaults,
+        space = self.get_hyperparameter_space()
+        return {
+            name: self._hyperparameters[name] if is_fixed(spec) else type(spec["default"])(self._hyperparameters[name])
+            for name, spec in space.items()
         }
-        resolved = {**defaults, **self._h}
-        return {name: type(default)(resolved[name]) for name, default in defaults.items()}

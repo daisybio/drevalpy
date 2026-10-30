@@ -2,25 +2,21 @@
 
 from __future__ import annotations
 
-import io
 from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
 
-from drevalpy._utils.torch_io import load_state_dict, save_torch_payload
-from drevalpy.components.contracts.feature_format import FeatureFormat
+from drevalpy._utils.torch_io import load_state_dict
 from drevalpy.components.predictors._lightning_training import LightningRun, run_lightning_fit
 from drevalpy.components.predictors._pair_loader import make_pair_loader
-from drevalpy.components.predictors._state_helpers import load_payload_state
-from drevalpy.components.predictors.abstract.matrix import MatrixPredictor
-from drevalpy.components.predictors.state_errors import PredictorStateError
+from drevalpy.components.predictors.abstract.base import Predictor
+from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.registry.predictor import register
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
-from drevalpy.types.enums.prediction_mode import PredictionMode
 
 # torch, pytorch_lightning and .network (which imports lightning) are imported
 # inside the methods that need them. This module is imported eagerly by
-# register_builtin_components(), so a module-scope import would put ~1.2s of
+# register_builtins(), so a module-scope import would put ~1.2s of
 # lightning on the critical path of every `import drevalpy`. Guarded by
 # tests/test_import_cost_policy.py.
 if TYPE_CHECKING:
@@ -43,19 +39,18 @@ UNITS_PER_LAYER_CHOICES: list[list[int]] = [
 @register(
     "neuralNetwork",
     description="Dense feed-forward network on concatenated sample and drug features.",
-    sample_input_format=FeatureFormat.NUMERIC_MATRIX,
-    drug_input_format=FeatureFormat.NUMERIC_MATRIX,
 )
-class NeuralNetworkPredictor(MatrixPredictor):
+class NeuralNetworkPredictor(Predictor):
     """Neural network predictor component."""
 
+    sample_inputs: ClassVar[Inputs] = Inputs.matrix()
+    drug_inputs: ClassVar[Inputs] = Inputs.matrix()
     supports_early_stopping: ClassVar[bool] = True
-    supported_modes: ClassVar[frozenset[PredictionMode]] = frozenset({PredictionMode.REGRESSION})
 
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
         """Initialize instance state.
 
-        :param hyperparameters: Optional overrides of ``get_default_hyperparameters``.
+        :param hyperparameters: Optional overrides of ``default_hyperparameters``.
         """
         super().__init__(hyperparameters)
         self._model: FeedForwardNetwork | None = None
@@ -63,33 +58,20 @@ class NeuralNetworkPredictor(MatrixPredictor):
         self._is_fitted = False
 
     @classmethod
-    def get_default_hyperparameters(cls) -> dict[str, object]:
-        """Return the default hyperparameters.
-
-        :returns: Layer widths, dropout, epoch budget, mini-batch size and early-stopping patience;
-            the first grid point of DrEvalPy 1.6.1 ``SimpleNeuralNetwork``. The mini-batch size and the
-            patience were fixed at 16 and 5 there.
-        """
-        return {
-            "units_per_layer": [32, 16, 8, 4],
-            "dropout_prob": 0.3,
-            "max_epochs": 100,
-            "batch_size": 16,
-            "patience": 5,
-        }
-
-    @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
-        """Return the tunable hyperparameter space.
+        """Return the hyperparameter space.
 
         :returns: Search-space specs for the layer widths (the 1.6.1 grids of ``SimpleNeuralNetwork`` and
-            ``MultiViewNeuralNetwork``), dropout, epoch budget and mini-batch size.
+            ``MultiViewNeuralNetwork``), dropout, epoch budget and mini-batch size; the defaults are the first
+            grid point of DrEvalPy 1.6.1 ``SimpleNeuralNetwork``. The early-stopping patience is fixed at 5, as
+            it was there.
         """
         return {
             "units_per_layer": {"type": "categorical", "choices": UNITS_PER_LAYER_CHOICES, "default": [32, 16, 8, 4]},
             "dropout_prob": {"type": "float", "low": 0.0, "high": 0.5, "default": 0.3},
             "max_epochs": {"type": "int", "low": 10, "high": 100, "default": 100},
             "batch_size": {"type": "int", "low": 8, "high": 64, "default": 16},
+            "patience": {"type": "fixed", "default": 5},
         }
 
     def _materialize(self, input_dim: int) -> FeedForwardNetwork:
@@ -257,56 +239,3 @@ class NeuralNetworkPredictor(MatrixPredictor):
                 predictions.append(preds)
 
         return np.concatenate(predictions, axis=0).astype(np.float64).reshape(-1)
-
-    def _fit_matrix(self, x: np.ndarray, y: np.ndarray) -> None:
-        _ = x, y
-
-    def _predict_matrix(self, x: np.ndarray) -> np.ndarray:
-        import torch
-
-        if not self._is_fitted or self._model is None or len(x) == 0:
-            return np.full(len(x), np.nan, dtype=np.float64)
-        self._model.eval()
-        with torch.no_grad():
-            preds = self._model(torch.as_tensor(x, dtype=torch.float32)).cpu().numpy()
-        return np.asarray(preds, dtype=np.float64).reshape(-1)
-
-    def is_fitted(self) -> bool:
-        """Return whether the network has been fit.
-
-        :returns: ``True`` after a successful fit or state restore.
-        """
-        return self._is_fitted
-
-    def get_state(self) -> dict[str, object]:
-        """Return serializable fitted state.
-
-        :returns: Mapping with one serialized ``checkpoint`` blob, empty before fitting.
-        """
-        if not self._is_fitted or self._model is None:
-            return {}
-        buffer = io.BytesIO()
-        save_torch_payload(
-            {
-                "predictor_hyperparameters": dict(self._hyperparameters),
-                "state_dict": self._model.state_dict(),
-                "input_dim": self._input_dim,
-            },
-            buffer,
-        )
-        return {"checkpoint": buffer.getvalue()}
-
-    def set_state(self, state: dict[str, object]) -> None:
-        """Restore state from a prior ``get_state`` mapping.
-
-        :param state: Mapping holding the serialized ``checkpoint`` blob.
-        :raises PredictorStateError: If the blob is missing, undecodable or lacks ``input_dim`` or ``state_dict``.
-        """
-        payload = load_payload_state(state, "NeuralNetworkPredictor", key="checkpoint")
-        missing = [key for key in ("input_dim", "state_dict") if payload.get(key) is None]
-        if missing:
-            msg = f"NeuralNetworkPredictor checkpoint is missing {', '.join(missing)}"
-            raise PredictorStateError(msg)
-        self._hyperparameters = dict(payload["predictor_hyperparameters"])
-        self._materialize(int(payload["input_dim"])).load_state_dict(payload["state_dict"])
-        self._is_fitted = True

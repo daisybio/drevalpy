@@ -7,14 +7,15 @@ from typing import ClassVar
 import numpy as np
 
 from drevalpy.components.contracts.feature_format import FeatureFormat
-from drevalpy.components.predictors.abstract.block import BlockPredictor
+from drevalpy.components.predictors.abstract.base import Predictor
+from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.components.predictors.naive._matrix_means import (
     additive_effects,
     predict_with_effects,
     require_pair_matrix,
 )
-from drevalpy.components.predictors.naive._state_mixin import MeanEffectsStateMixin
 from drevalpy.registry.predictor import register
+from drevalpy.types.data.batch.feature_block import BlockSpec
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 
 
@@ -22,17 +23,15 @@ from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
     "naiveTissueMean",
     tags=("baseline",),
     description="Predict per-tissue mean response with global fallback.",
-    sample_input_format=FeatureFormat.NUMERIC_MATRIX,
-    drug_input_format=FeatureFormat.NUMERIC_MATRIX,
 )
-class NaiveTissueMeanPredictor(MeanEffectsStateMixin, BlockPredictor):
+class NaiveTissueMeanPredictor(Predictor):
     """Naive tissue mean predictor component."""
 
-    required_sample_blocks: ClassVar[tuple[str, ...]] = ("tissue",)
+    sample_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("tissue", FeatureFormat.NUMERIC_MATRIX))
+    drug_inputs: ClassVar[Inputs] = Inputs.blocks()
 
-    state_effects: ClassVar[tuple[str, ...]] = ("effects",)
-
-    _effects: np.ndarray | None
+    _dataset_mean: float | None = None
+    _effects: np.ndarray | None = None
 
     def _fit(self, batch: ModelInputBatch) -> None:
         """Fit on training data.
@@ -73,19 +72,15 @@ class NaiveTissueMeanPredictor(MeanEffectsStateMixin, BlockPredictor):
     "naiveTissueDrugMean",
     tags=("baseline",),
     description="Predict per tissue-drug combination mean response.",
-    sample_input_format=FeatureFormat.NUMERIC_MATRIX,
-    drug_input_format=FeatureFormat.NUMERIC_MATRIX,
 )
-class NaiveTissueDrugMeanPredictor(MeanEffectsStateMixin, BlockPredictor):
+class NaiveTissueDrugMeanPredictor(Predictor):
     """Naive tissue drug mean predictor component."""
 
-    required_sample_blocks: ClassVar[tuple[str, ...]] = ("tissue",)
-    required_drug_blocks: ClassVar[tuple[str, ...]] = ("identity",)
+    sample_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("tissue", FeatureFormat.NUMERIC_MATRIX))
+    drug_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("identity", FeatureFormat.NUMERIC_MATRIX))
 
-    state_effects: ClassVar[tuple[str, ...]] = ("effects",)
-    state_effects_ndim: ClassVar[int] = 2
-
-    _effects: np.ndarray | None
+    _dataset_mean: float | None = None
+    _effects: np.ndarray | None = None
 
     def _fit(self, batch: ModelInputBatch) -> None:
         """Fit on training data.

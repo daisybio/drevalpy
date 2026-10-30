@@ -17,9 +17,7 @@ from __future__ import annotations
 import os
 from typing import Any, ClassVar
 
-from drevalpy.components.contracts.feature_format import FeatureFormat
 from drevalpy.components.predictors._boosted_trees import BoostedTreesPredictor
-from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.registry.predictor import register
 
 _XGBOOST_THREAD_ENV_DEFAULTS = {
@@ -52,8 +50,6 @@ _set_xgboost_thread_defaults()
 @register(
     "xgboost",
     description="XGBoost regressor on concatenated dense features.",
-    sample_input_format=FeatureFormat.NUMERIC_MATRIX,
-    drug_input_format=FeatureFormat.NUMERIC_MATRIX,
 )
 class XGBoostPredictor(BoostedTreesPredictor):
     """XGBoost regressor for dense tabular pair features.
@@ -63,21 +59,13 @@ class XGBoostPredictor(BoostedTreesPredictor):
     hyperparameter of that grid is tunable here, ``reg_lambda`` included.
     """
 
-    boosting_default_overrides: ClassVar[dict[str, Any]] = {
-        "max_depth": 10,
-        "subsample": 0.8,
-        "colsample_bytree": 0.6,
-    }
-
-    boosting_extra_defaults: ClassVar[dict[str, Any]] = {"reg_lambda": 0.1}
-
     boosting_space_overrides: ClassVar[dict[str, dict[str, Any]]] = {
         "max_depth": {"default": 10},
         "colsample_bytree": {"default": 0.6},
         "reg_lambda": {"default": 0.1},
     }
 
-    tuned_hyperparameters: ClassVar[tuple[str, ...]] = (
+    estimator_hyperparameters: ClassVar[tuple[str, ...]] = (
         "n_estimators",
         "max_depth",
         "learning_rate",
@@ -85,6 +73,7 @@ class XGBoostPredictor(BoostedTreesPredictor):
         "colsample_bytree",
         "reg_alpha",
         "reg_lambda",
+        "random_state",
     )
 
     def _make_estimator(self) -> Any:
@@ -97,15 +86,3 @@ class XGBoostPredictor(BoostedTreesPredictor):
         from xgboost import XGBRegressor
 
         return XGBRegressor(**self._estimator_params(), n_jobs=-1)
-
-    def set_state(self, state: dict[str, object]) -> None:
-        """Restore state from a prior ``get_state`` mapping.
-
-        :param state: Mapping produced by ``get_state``.
-        :raises PredictorStateError: If the restored state contains no fitted estimator.
-        """
-        _set_xgboost_thread_defaults()
-        super().set_state(state)
-        if self._estimator is None:
-            msg = "XGBoostPredictor state did not restore a fitted estimator"
-            raise PredictorStateError(msg)

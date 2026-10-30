@@ -1,4 +1,4 @@
-"""Tests for stable drevalpy.components public exports."""
+"""Tests for the :mod:`drevalpy.components` package, which re-exports nothing."""
 
 from __future__ import annotations
 
@@ -10,36 +10,20 @@ import drevalpy.models.config as model_config
 MODEL_CONFIG_NAMES = (
     "ModelConfig",
     "FeaturizerConfig",
-    "SampleFeaturizerConfig",
-    "DrugFeaturizerConfig",
     "PredictorConfig",
 )
-ORCHESTRATION_NAMES = (
+FORMER_EXPORTS = (
+    "register_builtin_components",
+    "register_sample_featurizer",
+    "register_drug_featurizer",
+    "register_predictor",
+    "load_extensions",
+    "list_predictor_metadata",
     "ComposedModel",
-    "zoo_config",
     "from_spec",
-    "model_config_for_name",
     "get_zoo_config",
     "list_zoo_names",
-    "ComponentDRPBridge",
-    "format_model_id",
-    "parse_model_id",
 )
-
-
-@pytest.mark.parametrize(
-    "name",
-    [
-        "register_builtin_components",
-        "register_sample_featurizer",
-        "register_drug_featurizer",
-        "register_predictor",
-        "load_extensions",
-        "list_predictor_metadata",
-    ],
-)
-def test_public_exports_are_importable(name: str) -> None:
-    assert hasattr(components, name)
 
 
 @pytest.mark.parametrize("name", MODEL_CONFIG_NAMES)
@@ -48,6 +32,6 @@ def test_model_config_lives_under_models(name: str) -> None:
     assert not hasattr(components, name)
 
 
-@pytest.mark.parametrize("name", ORCHESTRATION_NAMES)
-def test_components_do_not_reexport_orchestration(name: str) -> None:
+@pytest.mark.parametrize("name", FORMER_EXPORTS)
+def test_components_reexports_nothing(name: str) -> None:
     assert not hasattr(components, name)

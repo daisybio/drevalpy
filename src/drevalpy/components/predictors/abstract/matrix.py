@@ -8,13 +8,15 @@ from typing import ClassVar
 import numpy as np
 
 from drevalpy.components.predictors.abstract.base import Predictor
+from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 
 
 class MatrixPredictor(Predictor):
     """Predictor that flattens ``ModelInputBatch`` into one design matrix."""
 
-    input_interface: ClassVar[str] = "matrix"
+    sample_inputs: ClassVar[Inputs] = Inputs.matrix()
+    drug_inputs: ClassVar[Inputs] = Inputs.matrix()
 
     def _fit(self, batch: ModelInputBatch) -> None:
         """Fit on a dense pair-level design matrix built from *batch*.

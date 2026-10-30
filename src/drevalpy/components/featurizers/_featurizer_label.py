@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from drevalpy.registry.sample_featurizer import get as get_sample_featurizer
+import inspect
+
+from drevalpy.registry.featurizer import get_featurizer
 
 
 def qualified_featurizer_selector(name: str, view: str | None = None) -> str:
@@ -33,11 +35,17 @@ def featurizer_config_block_label(name: str, view: str | None) -> str:
 def requires_explicit_view(name: str) -> bool:
     """Return whether a featurizer registry name requires an explicit view.
 
-    :param name: Featurizer registry name, looked up in the sample featurizer registry.
-    :returns: ``True`` when the class sets ``requires_view``; ``False`` for unregistered names.
+    A featurizer requires one when it declares no ``input_views`` but takes a ``view``
+    argument, such as ``raw`` and ``pca``.
+
+    :param name: Featurizer registry name.
+    :returns: ``True`` for such a featurizer; ``False`` for other and unregistered names.
     """
     try:
-        cls = get_sample_featurizer(name)
+        cls = get_featurizer(name)
     except (ValueError, ImportError):
         return False
-    return bool(getattr(cls, "requires_view", False))
+    if cls.input_views:
+        return False
+    parameter = inspect.signature(cls.__init__).parameters.get("view")
+    return parameter is not None and parameter.default is inspect.Parameter.empty

@@ -6,24 +6,25 @@ from typing import ClassVar
 
 import numpy as np
 
-from drevalpy.components.predictors.abstract.block import BlockPredictor
+from drevalpy.components.predictors.abstract.base import Predictor
+from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.components.predictors.naive._matrix_means import (
     additive_effects,
     predict_with_effects,
     require_pair_matrix,
 )
-from drevalpy.components.predictors.naive._state_mixin import MeanEffectsStateMixin
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 
 
-class SingleEntityNaivePredictor(MeanEffectsStateMixin, BlockPredictor):
+class SingleEntityNaivePredictor(Predictor):
     """Predict per-entity means from a one-hot design matrix."""
 
+    sample_inputs: ClassVar[Inputs] = Inputs.blocks()
+    drug_inputs: ClassVar[Inputs] = Inputs.blocks()
     _feature_side: ClassVar[str] = "sample"
 
-    state_effects: ClassVar[tuple[str, ...]] = ("effects",)
-
-    _effects: np.ndarray | None
+    _dataset_mean: float | None = None
+    _effects: np.ndarray | None = None
 
     def _fit(self, batch: ModelInputBatch) -> None:
         """Fit on training data.

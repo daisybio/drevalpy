@@ -122,32 +122,3 @@ def predict_with_effects(design: np.ndarray, effects: np.ndarray, *, baseline: f
         msg = "effect vector length must match design columns"
         raise ValueError(msg)
     return float(baseline) + matrix @ coeffs
-
-
-def state_float_vector(state: dict[str, object], key: str) -> np.ndarray | None:
-    """Restore a 1D float vector stored under *key*.
-
-    :param state: Mapping produced by ``get_state``.
-    :param key: Entry to read.
-    :returns: The entry as a float64 vector, or None when ``key`` is absent.
-    """
-    value = state.get(key)
-    if value is None:
-        return None
-    return np.asarray(value, dtype=np.float64).reshape(-1)
-
-
-def state_float_matrix(state: dict[str, object], key: str) -> np.ndarray | None:
-    """Restore a 2D float matrix stored under *key*.
-
-    :param state: Mapping produced by ``get_state``.
-    :param key: Entry to read.
-    :returns: The entry as a float64 matrix (a 1D entry becomes one column), or None when ``key`` is absent.
-    """
-    value = state.get(key)
-    if value is None:
-        return None
-    matrix = np.asarray(value, dtype=np.float64)
-    if matrix.ndim == 1:
-        return matrix.reshape(-1, 1)
-    return matrix

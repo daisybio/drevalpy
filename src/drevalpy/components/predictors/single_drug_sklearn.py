@@ -6,22 +6,17 @@ from typing import Any, ClassVar
 
 import numpy as np
 
-from drevalpy.components.predictors._state_helpers import state_mapping
-from drevalpy.components.predictors.single_drug_routing import (
-    iter_drug_masks,
-    require_known_training_keys,
-    routing_keys,
-    run_per_drug,
-)
+from drevalpy.components.predictors.inputs import Inputs
+from drevalpy.components.predictors.single_drug_routing import iter_drug_masks, routing_keys, run_per_drug
 from drevalpy.components.predictors.sklearn_tabular import SklearnTabularPredictor
-from drevalpy.components.predictors.state_errors import PredictorStateError
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.types.enums.model_scope import ModelScope
 
 
 class SingleDrugSklearnPredictor(SklearnTabularPredictor):
-    """Fit one estimator per drug, using drug identity only for routing."""
+    """Fit one estimator per drug on sample features, routing pairs by ``batch.drug_ids``."""
 
+    drug_inputs: ClassVar[Inputs] = Inputs.none()
     scope: ClassVar[ModelScope] = ModelScope.SINGLE_DRUG
 
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
@@ -58,10 +53,6 @@ class SingleDrugSklearnPredictor(SklearnTabularPredictor):
         if batch.response is None:
             raise RuntimeError("batch.response is required for fit")
         y = batch.response.ravel()
-        keys = routing_keys(batch)
-        require_known_training_keys(keys)
-
-        self._estimators = {}
         tasks = ((drug_id, (x[mask], y[mask])) for drug_id, mask in iter_drug_masks(batch))
         self._estimators = run_per_drug(self._fit_estimator, tasks, batch.training_context.n_jobs)
 
@@ -87,36 +78,8 @@ class SingleDrugSklearnPredictor(SklearnTabularPredictor):
         predictions = np.full(batch.n_pairs, np.nan, dtype=np.float64)
         for drug_id in np.unique(keys):
             estimator = self._estimators.get(str(drug_id))
-            if drug_id == "" or estimator is None:
+            if estimator is None:
                 continue
             mask = keys == drug_id
             predictions[mask] = np.asarray(estimator.predict(x[mask]), dtype=np.float64)
         return predictions
-
-    def get_state(self) -> dict[str, object]:
-        """Return serializable fitted state.
-
-        :returns: The per-drug estimators plus the shared hyperparameter and mode entries.
-        """
-        return {"estimators": dict(self._estimators), **self._shared_state()}
-
-    def set_state(self, state: dict[str, object]) -> None:
-        """Restore state from a prior ``get_state`` mapping.
-
-        :param state: Mapping produced by ``get_state``.
-        :raises PredictorStateError: If the per-drug estimators or the hyperparameters are missing.
-        """
-        estimators = state_mapping(state, "estimators")
-        if not estimators:
-            msg = f"{self.__class__.__name__} state is missing fitted per-drug estimators"
-            raise PredictorStateError(msg)
-        shared = self._validated_shared_state(state)
-        self._estimators = {str(key): value for key, value in estimators.items()}
-        self._apply_shared_state(shared)
-
-    def is_fitted(self) -> bool:
-        """Return whether the component has been fit.
-
-        :returns: True once at least one per-drug estimator exists.
-        """
-        return bool(self._estimators)

@@ -8,9 +8,8 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
 
-from drevalpy.components.contracts.checkpoint_state import CheckpointStateMixin
-from drevalpy.components.contracts.feature_format import FeatureFormat, check_format
-from drevalpy.components.contracts.hyperparameter_space import TunableComponentMixin
+from drevalpy.components.contracts.hyperparameter_space import TunableComponent
+from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.log import get_logger
 from drevalpy.types.enums.model_scope import ModelScope
 from drevalpy.types.enums.prediction_mode import PredictionMode
@@ -21,52 +20,35 @@ if TYPE_CHECKING:
 _logger = get_logger(__name__)
 
 
-class Predictor(TunableComponentMixin, CheckpointStateMixin, ABC):
+class Predictor(TunableComponent, ABC):
     """Train and predict drug response from a ``ModelInputBatch``.
 
     Predictors take featurizer outputs and predict a response for each drug/sample pair in the batch.
     Subclasses must be registered to the predictor registry using ``@register``,
     so that they can be discovered and used in models.
 
-    ``sample_input_format`` and ``drug_input_format`` may be declared on the class body or
-    passed to ``@register``. When both are given the decorator argument wins.
-
-    The HPO-space hooks come from ``TunableComponentMixin`` and the checkpoint hooks from
-    ``CheckpointStateMixin``; ``Featurizer`` mixes in both as well. ``is_fitted`` below is
-    predictor-only and stays here.
+    ``sample_inputs`` and ``drug_inputs`` declare what each side's featurizer must emit
+    (see :mod:`drevalpy.components.predictors.inputs`). A fitted predictor is persisted by
+    pickling it, so fitted state lives in ordinary attributes.
     """
 
-    sample_input_format: ClassVar[FeatureFormat]
-    drug_input_format: ClassVar[FeatureFormat]
+    sample_inputs: ClassVar[Inputs]
+    drug_inputs: ClassVar[Inputs]
     supports_early_stopping: ClassVar[bool] = False
     requires_early_stopping: ClassVar[bool] = False
     supported_modes: ClassVar[frozenset[PredictionMode]] = frozenset({PredictionMode.REGRESSION})
     scope: ClassVar[ModelScope] = ModelScope.MULTI_DRUG
-    required_sample_blocks: ClassVar[tuple[str, ...]] = ()
-    required_drug_blocks: ClassVar[tuple[str, ...]] = ()
     nan_threshold: ClassVar[float] = 0.2
-
-    def __init_subclass__(cls, **kwargs: object) -> None:
-        r"""Check class-body format declarations, if there are any.
-
-        Subclasses that declare nothing are registered with the decorator's
-        ``sample_input_format=`` / ``drug_input_format=`` instead.
-
-        :param \*\*kwargs: Forwarded to ``ABC.__init_subclass__``.
-        """
-        super().__init_subclass__(**kwargs)
-        for attr in ("sample_input_format", "drug_input_format"):
-            if attr in cls.__dict__:
-                check_format(cls, attr)
+    _fitted: bool = False
 
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
         """Store hyperparameters merged with class defaults.
 
         :param hyperparameters: Optional overrides applied on top of the defaults from
-            ``get_default_hyperparameters``.
+            ``default_hyperparameters``.
         """
         self._hyperparameters: dict[str, Any] = {
-            **self.get_default_hyperparameters(),
+            **self.default_hyperparameters(),
             **(hyperparameters or {}),
         }
 
@@ -85,6 +67,7 @@ class Predictor(TunableComponentMixin, CheckpointStateMixin, ABC):
         if not valid_mask.all():
             batch = batch.subset_pairs(valid_mask)
         self._fit(self._filter_early_stopping(batch))
+        self._fitted = True
 
     def _filter_early_stopping(self, batch: ModelInputBatch) -> ModelInputBatch:
         """Remove unusable stopping pairs and enforce the predictor requirement.
@@ -195,8 +178,8 @@ class Predictor(TunableComponentMixin, CheckpointStateMixin, ABC):
             )
 
     def is_fitted(self) -> bool:
-        """Return whether the predictor has been fit.
+        """Return whether ``fit`` has completed on this predictor.
 
-        :returns: ``True`` when ``get_state`` returns a non-empty mapping.
+        :returns: ``True`` after a successful ``fit``.
         """
-        return bool(self.get_state())
+        return self._fitted

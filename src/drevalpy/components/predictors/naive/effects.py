@@ -7,15 +7,16 @@ from typing import ClassVar
 import numpy as np
 
 from drevalpy.components.contracts.feature_format import FeatureFormat
-from drevalpy.components.predictors.abstract.block import BlockPredictor
+from drevalpy.components.predictors.abstract.base import Predictor
+from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.components.predictors.naive._matrix_means import (
     additive_effects,
     block_pair_matrix,
     pair_align,
     require_pair_matrix,
 )
-from drevalpy.components.predictors.naive._state_mixin import MeanEffectsStateMixin
 from drevalpy.registry.predictor import register
+from drevalpy.types.data.batch.feature_block import BlockSpec
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 
 
@@ -23,20 +24,17 @@ from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
     "naiveMeanEffects",
     tags=("baseline",),
     description="Predict mean plus sample and drug effects.",
-    sample_input_format=FeatureFormat.NUMERIC_MATRIX,
-    drug_input_format=FeatureFormat.NUMERIC_MATRIX,
 )
-class NaiveMeanEffectsPredictor(MeanEffectsStateMixin, BlockPredictor):
+class NaiveMeanEffectsPredictor(Predictor):
     """Naive mean effects predictor component."""
 
-    required_sample_blocks: ClassVar[tuple[str, ...]] = ("identity",)
-    required_drug_blocks: ClassVar[tuple[str, ...]] = ("identity",)
+    sample_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("identity", FeatureFormat.NUMERIC_MATRIX))
+    drug_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("identity", FeatureFormat.NUMERIC_MATRIX))
 
-    state_effects: ClassVar[tuple[str, ...]] = ("tissue_effects", "sample_effects", "drug_effects")
-
-    _tissue_effects: np.ndarray | None
-    _sample_effects: np.ndarray | None
-    _drug_effects: np.ndarray | None
+    _dataset_mean: float | None = None
+    _tissue_effects: np.ndarray | None = None
+    _sample_effects: np.ndarray | None = None
+    _drug_effects: np.ndarray | None = None
 
     def _cell_and_tissue(self, batch: ModelInputBatch) -> tuple[np.ndarray, np.ndarray]:
         """Return pair-aligned sample identity and tissue matrices; the tissue matrix has no columns if absent."""

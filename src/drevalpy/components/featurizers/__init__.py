@@ -1,13 +1,6 @@
 """Public exports for featurizers."""
 
-from ._feature_names import FeatureMismatchError
-from .base import Featurizer
-from .drug.base import DrugFeaturizer
-from .sample.base import SampleFeaturizer
+from ._dense import FeatureMismatchError
+from .featurizer import Featurizer
 
-__all__ = [
-    "FeatureMismatchError",
-    "Featurizer",
-    "SampleFeaturizer",
-    "DrugFeaturizer",
-]
+__all__ = ["FeatureMismatchError", "Featurizer"]
