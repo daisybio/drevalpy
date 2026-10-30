@@ -1,84 +1,72 @@
-"""Visualization registry: register, discover, and retrieve visualization classes."""
+"""Visualization registry: register and retrieve plot classes, and select the applicable ones."""
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from collections.abc import Callable
+from typing import TYPE_CHECKING, TypeVar
 
-from ._registry import VisualizationRegistry, visualization_registry
+from drevalpy.registry._registry import Registry
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
-    import pandas as pd
-
     from drevalpy.types.results import ExperimentResult
-    from drevalpy.visualization.base import Visualization
+    from drevalpy.visualization.base import Plot
 
-__all__ = [
-    "VisualizationRegistry",
-    "applicable",
-    "get",
-    "list",
-    "metadata",
-    "register",
-    "table",
-    "visualization_registry",
-]
+__all__ = ["applicable", "get", "register", "visualization_registry"]
+
+P = TypeVar("P", bound="Plot")
+
+#: Every registered plot class, in registration order.
+visualization_registry: Registry[type[Plot]] = Registry("visualization")
 
 
-def register(
-    name: str,
-    description: str = "",
-    *,
-    result_type: str = "ExperimentResult",
-    requirements: frozenset[Any] = frozenset(),
-    override: bool = False,
-) -> Callable[[type[Any]], type[Any]]:
-    """Return a decorator that registers a visualization class.
+def register(name: str, description: str = "", *, replace: bool = False) -> Callable[[type[P]], type[P]]:
+    """Return a class decorator that registers a plot class under *name* and sets its ``name``.
 
-    :param name: Unique name for this visualization.
+    The registry metadata (``description``, ``result_type``, ``requirements``) is read from the
+    arguments and the class, for the listing table. Applying the decorator raises ``ValueError``
+    if *name* is already registered and *replace* is false.
+
+    :param name: Unique name for this plot.
     :param description: Human-readable description.
-    :param result_type: ``"ExperimentResult"`` or ``"ModelResult"``.
-    :param requirements: ``PlotRequirement`` values the experiment must satisfy for the plot to apply.
-    :param override: Replace an already-registered name instead of raising.
+    :param replace: Replace an already-registered name instead of raising.
     :returns: Class decorator that registers the decorated class under *name*.
     """
-    return visualization_registry.register(
-        name,
-        description,
-        result_type=result_type,
-        requirements=requirements,
-        override=override,
-    )
+
+    def decorator(cls: type[P]) -> type[P]:
+        from drevalpy.visualization.base import Plot
+
+        if not (isinstance(cls, type) and issubclass(cls, Plot)):
+            msg = f"visualization {name!r} must be a subclass of drevalpy.visualization.base.Plot, got {cls!r}"
+            raise TypeError(msg)
+        metadata = {
+            "description": description,
+            "result_type": cls.result_type.__name__,
+            "requirements": frozenset(cls.requirements),
+        }
+        visualization_registry.register(name, cls, metadata=metadata, replace=replace)
+        cls.name = name
+        return cls
+
+    return decorator
 
 
-def get(name: str) -> type[Visualization]:
-    """Return the visualization class registered under name."""
+def get(name: str) -> type[Plot]:
+    """Return the plot class registered under *name*.
+
+    An unknown *name* raises :class:`~drevalpy.errors.UnknownNameError`.
+
+    :param name: Registered plot name.
+    :returns: The plot class.
+    """
     return visualization_registry.get(name)
 
 
-def list() -> list[str]:
-    """Return sorted list of registered visualization names."""
-    return visualization_registry.names
+def applicable(experiment: ExperimentResult) -> list[type[Plot]]:
+    """Return the plot classes whose requirements *experiment* satisfies.
 
-
-def table() -> pd.DataFrame:
-    """Return registry contents as a DataFrame.
-
-    :returns: DataFrame with Name, Description, Result type and Requirements columns.
+    :param experiment: The experiment result to check against.
+    :returns: Applicable plot classes, in registration order.
     """
-    return visualization_registry.to_dataframe()
+    from drevalpy.visualization.requirements import requirements_met
 
-
-def metadata(name: str) -> dict[str, Any]:
-    """Return metadata for a registered visualization.
-
-    :param name: Registry name of the visualization.
-    :returns: Metadata dict including result type and plot requirements.
-    """
-    return visualization_registry.get_metadata(name)
-
-
-def applicable(experiment: ExperimentResult) -> list[type[Visualization]]:
-    """Return all visualization classes whose requirements are satisfied."""
-    return visualization_registry.applicable(experiment)
+    return [cls for _, cls in visualization_registry.items() if requirements_met(experiment, cls.requirements)]

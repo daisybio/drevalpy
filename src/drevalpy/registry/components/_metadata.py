@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from drevalpy.components.predictors.inputs import predictor_inputs
+
 
 @dataclass(frozen=True)
 class LiteratureReference:
@@ -64,8 +66,19 @@ def base_component_metadata(registry_name: str, name: str, cls: type[Any]) -> di
     return fields
 
 
+def _output_format(cls: type[Any]) -> str:
+    try:
+        blocks = cls.output_blocks({})
+    except Exception:  # noqa: BLE001 - a config-dependent featurizer has no default-config blocks
+        return ""
+    return ", ".join(dict.fromkeys(block.format.value for block in blocks))
+
+
 def featurizer_component_metadata(registry_name: str, name: str, cls: type[Any]) -> dict[str, Any]:
-    """Like `base_component_metadata` plus featurizer output format.
+    """Like `base_component_metadata` plus the featurizer's sides and output format.
+
+    A featurizer that declares its blocks through ``output_blocks`` reports the formats of its
+    default-config blocks, joined; one that emits none reports ``""``.
 
     :param registry_name: Identifier of the registry that holds the class.
     :param name: Name the class is registered under.
@@ -73,13 +86,27 @@ def featurizer_component_metadata(registry_name: str, name: str, cls: type[Any])
     :returns: Catalog metadata dict.
     """
     meta = base_component_metadata(registry_name, name, cls)
-    meta["output_format"] = cls.output_format.value
+    meta["sides"] = frozenset(getattr(cls, "sides", ()))
+    meta["output_format"] = _output_format(cls)
     meta["precompute"] = getattr(cls, "precompute", False)
     return meta
 
 
+def _input_interface(cls: type[Any]) -> str:
+    """Summarize a predictor's declared inputs as one catalog label.
+
+    :param cls: Registered predictor class.
+    :returns: ``"block"`` when either side reads named blocks, else ``"matrix"`` when either
+        side reads a matrix, else ``"feature_free"``.
+    """
+    kinds = {predictor_inputs(cls, "sample").kind, predictor_inputs(cls, "drug").kind}
+    if "blocks" in kinds:
+        return "block"
+    return "matrix" if "matrix" in kinds else "feature_free"
+
+
 def predictor_component_metadata(registry_name: str, name: str, cls: type[Any]) -> dict[str, Any]:
-    """Like `base_component_metadata` plus predictor input interface.
+    """Like `base_component_metadata` plus the predictor's input interface.
 
     :param registry_name: Identifier of the registry that holds the class.
     :param name: Name the class is registered under.
@@ -87,5 +114,5 @@ def predictor_component_metadata(registry_name: str, name: str, cls: type[Any]) 
     :returns: Catalog metadata dict.
     """
     meta = base_component_metadata(registry_name, name, cls)
-    meta["input_interface"] = getattr(cls, "input_interface", "")
+    meta["input_interface"] = _input_interface(cls)
     return meta

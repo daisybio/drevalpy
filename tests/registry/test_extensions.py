@@ -13,11 +13,10 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from drevalpy.errors import InputNotFoundError, InvalidInputError
+from drevalpy.errors import InputNotFoundError, InvalidInputError, UnknownNameError
 from drevalpy.models import DRPModel, ModelSpec
 from drevalpy.models.config import ModelConfig
-from drevalpy.models.zoo import clear_external_zoo, get_zoo_config, list_zoo_names, load_external_zoo_file
-from drevalpy.registry._builtins import is_known_builtin_predictor
+from drevalpy.models.zoo import get_zoo_config, list_zoo_names, load_external_zoo_file
 from drevalpy.registry._extensions import (
     EXTENSIONS_DIR_ENV_VAR,
     _extension_module_name,
@@ -28,60 +27,45 @@ from drevalpy.registry._extensions import (
     load_extensions,
 )
 from drevalpy.registry.dataset._registry import DatasetRegistry
+from drevalpy.registry.featurizer import featurizers, get_featurizer
 from drevalpy.registry.predictor import get as get_predictor
-from drevalpy.registry.predictor import list as list_predictors
 from drevalpy.registry.predictor import predictor_registry
-from drevalpy.registry.sample_featurizer import get as get_sample_featurizer
-from drevalpy.registry.sample_featurizer import list as list_sample_featurizers
-from drevalpy.registry.sample_featurizer import sample_featurizer_registry
 from tests._trusted_subprocess import run_trusted_python
 from tests.models.synthetic_fixtures import lso_split_masks, synthetic_model_dataset
-from tests.registry._helpers import restore_component_registries
-
-
-@pytest.fixture(autouse=True)
-def _restore_registries() -> Iterator[None]:
-    yield
-    restore_component_registries()
-    clear_external_zoo()
-
+from tests.registry._helpers import empty_component_registries, restore_builtin_components
 
 _SAMPLE_FEATURIZER_SOURCE = """
 import numpy as np
 from drevalpy.components.contracts.feature_format import FeatureFormat
-from drevalpy.components.featurizers.sample.base import SampleFeaturizer
-from drevalpy.types.data.batch.feature_block import FeaturizerResult, numeric_feature_block
-from drevalpy.registry.sample_featurizer import register as register_sample_featurizer
+from drevalpy.components.featurizers.featurizer import Featurizer
+from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult, numeric_feature_block
+from drevalpy.registry.featurizer import register as register_featurizer
 
 
-@register_sample_featurizer({name!r}, description="toy", output_format=FeatureFormat.NUMERIC_MATRIX)
-class ToySampleFeaturizer(SampleFeaturizer):
-    entity_id_only = True
+@register_featurizer({name!r}, description="toy")
+class ToySampleFeaturizer(Featurizer):
+    sides = frozenset({{"sample"}})
 
-    def _fit(self, source, *, entity_ids=None, pair_expanded_ids=None, pair_expanded_es_ids=None):
-        self._output_dim = 1
+    @classmethod
+    def output_blocks(cls, config):
+        return (BlockSpec("toy", FeatureFormat.NUMERIC_MATRIX),)
+
+    def fit(self, source, train_ids, *, train_pair_ids=None, es_pair_ids=None):
         return self
 
-    def _transform_features(self, source, entity_ids):
-        values = np.ones((len(entity_ids), 1), dtype=np.float32)
-        return FeaturizerResult(values, {{"toy": numeric_feature_block(values)}})
-
-    @property
-    def output_dim(self):
-        return self._output_dim
+    def transform(self, source, ids):
+        values = np.ones((len(ids), 1), dtype=np.float32)
+        return FeaturizerResult(ids, {{"toy": numeric_feature_block(values)}}, ("toy",))
 """
 
 _TOY_PREDICTOR_TEMPLATE = """\
 import numpy as np
 
-from drevalpy.components.contracts.feature_format import FeatureFormat
 from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
 from drevalpy.registry.predictor import register as register_predictor
 
 
-@register_predictor({name!r}, description='toy',
-    sample_input_format=FeatureFormat.NUMERIC_MATRIX,
-    drug_input_format=FeatureFormat.NUMERIC_MATRIX)
+@register_predictor({name!r}, description='toy')
 class Toy(FeatureFreePredictor):
     def _fit(self, batch): return None
     def _predict(self, batch): return np.zeros(batch.n_pairs)
@@ -100,12 +84,12 @@ def test_load_extension_file_registers_components(tmp_path: Path) -> None:
         _SAMPLE_FEATURIZER_SOURCE.format(name="toySample") + _TOY_PREDICTOR_TEMPLATE.format(name="toyPredictor"),
         encoding="utf-8",
     )
-    assert "toySample" not in list_sample_featurizers()
+    assert "toySample" not in featurizers
 
     load_extension_file(ext_file)
 
-    assert "toySample" in list_sample_featurizers()
-    get_sample_featurizer("toySample")
+    assert "toySample" in featurizers
+    get_featurizer("toySample", "sample")
     get_predictor("toyPredictor")
 
 
@@ -160,8 +144,8 @@ class TestLoadExtensionsEnvVar:
 
         load_extensions(directories=directories)
 
-        assert "envToy" not in list_predictors()
-        assert ("flagToy" in list_predictors()) is with_flag_dir
+        assert "envToy" not in predictor_registry
+        assert ("flagToy" in predictor_registry) is with_flag_dir
 
     def test_missing_env_directory_raises(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         monkeypatch.setenv(EXTENSIONS_DIR_ENV_VAR, str(tmp_path / "missing"))
@@ -188,8 +172,8 @@ class TestRepeatedLoads:
     def test_file_is_executed_again_after_its_registrations_were_evicted(self, tmp_path: Path) -> None:
         ext_dir = _write_toy_predictor_dir(tmp_path / "ext", "evictedToy")
         load_extension_dir(ext_dir)
-        restore_component_registries()
-        assert "evictedToy" not in list_predictors()
+        restore_builtin_components()
+        assert "evictedToy" not in predictor_registry
 
         load_extension_dir(ext_dir)
 
@@ -217,33 +201,17 @@ def test_loading_the_same_dataset_declaration_yaml_twice_is_harmless(
 
 _MEAN_PREDICTOR_SOURCE = """
 import numpy as np
-from drevalpy.components.contracts.feature_format import FeatureFormat
 from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
 from drevalpy.registry.predictor import register as register_predictor
 
 
-@register_predictor(
-    "externalPredictor",
-    description="ext",
-    sample_input_format=FeatureFormat.NUMERIC_MATRIX,
-    drug_input_format=FeatureFormat.NUMERIC_MATRIX,
-)
+@register_predictor("externalPredictor", description="ext")
 class ExternalPredictor(FeatureFreePredictor):
     def _fit(self, batch):
         self._mean = float(np.mean(batch.response))
 
     def _predict(self, batch):
         return np.full(batch.n_pairs, self._mean, dtype=np.float64)
-
-    def get_state(self):
-        return {"mean": self._mean} if hasattr(self, "_mean") else {}
-
-    def set_state(self, state):
-        if "mean" in state:
-            self._mean = float(state["mean"])
-
-    def is_fitted(self):
-        return hasattr(self, "_mean")
 """
 
 
@@ -300,13 +268,13 @@ def test_failed_extension_file_does_not_leave_sys_modules_or_registry_mutation(t
         encoding="utf-8",
     )
     module_name = _extension_module_name(ext_file.resolve())
-    before_predictors = set(list_predictors())
+    before_predictors = set(predictor_registry.names())
 
     with pytest.raises(ImportError, match="broken_extension.py"):
         load_extension_file(ext_file)
 
     assert module_name not in sys.modules
-    assert set(list_predictors()) == before_predictors
+    assert set(predictor_registry.names()) == before_predictors
 
 
 @pytest.fixture
@@ -353,12 +321,12 @@ class TestLoadExtensionModule:
         module = extension_module(
             "ext_failing_module", _TOY_PREDICTOR_TEMPLATE.format(name="partialModule") + f"\nraise {raised}\n"
         )
-        before = set(list_predictors())
+        before = set(predictor_registry.names())
 
         with pytest.raises(ImportError, match=message):
             load_extension_module(module)
 
-        assert set(list_predictors()) == before
+        assert set(predictor_registry.names()) == before
 
 
 class TestLoadExtensionFileErrors:
@@ -385,7 +353,7 @@ class TestLoadExtensionFileErrors:
             load_extension_file(ext_file)
 
         assert module_name not in sys.modules
-        assert "beforeImportError" not in list_predictors()
+        assert "beforeImportError" not in predictor_registry
 
 
 class TestLoadExtensionDirErrors:
@@ -412,7 +380,7 @@ class TestLoadExtensionDirErrors:
         with pytest.raises(ValueError, match="brokenEntry"):
             load_extension_dir(tmp_path)
 
-        assert "rolledBackToy" not in list_predictors()
+        assert "rolledBackToy" not in predictor_registry
 
     def test_a_name_already_registered_by_another_file_is_a_duplicate_error_and_rolls_back(
         self, tmp_path: Path
@@ -423,12 +391,7 @@ class TestLoadExtensionDirErrors:
         with pytest.raises(ImportError, match="b_second.py"):
             load_extension_dir(tmp_path)
 
-        assert "dupToy" not in list_predictors()
-
-
-def test_is_known_builtin_predictor_public_query() -> None:
-    assert is_known_builtin_predictor("elasticNet")
-    assert not is_known_builtin_predictor("notARealPredictor")
+        assert "dupToy" not in predictor_registry
 
 
 _BLOCK_OPTIONAL_FAMILIES = textwrap.dedent("""
@@ -481,23 +444,23 @@ class TestSubprocessImportIsolation:
 
     def test_subprocess_native_lookup_does_not_import_optional_families(self) -> None:
         script = _BLOCK_OPTIONAL_FAMILIES + textwrap.dedent("""
-            from drevalpy.registry.sample_featurizer import get as get_sample_featurizer
+            from drevalpy.registry.featurizer import get_featurizer
             from drevalpy.registry.predictor import get as get_predictor
 
-            get_sample_featurizer("identity")
+            get_featurizer("identity", "sample")
             get_predictor("elasticNet")
             """)
         completed = run_trusted_python(script)
         assert completed.returncode == 0, completed.stdout + completed.stderr
 
 
-def test_unknown_builtin_predictor_raises_value_error() -> None:
-    predictor_registry.clear()
-    with pytest.raises(ValueError, match="Unknown Predictor"):
+def test_an_unknown_predictor_in_an_empty_registry_raises() -> None:
+    empty_component_registries()
+    with pytest.raises(UnknownNameError, match="Unknown predictor 'notRegisteredAnywhere'"):
         get_predictor("notRegisteredAnywhere")
 
 
-def test_unknown_builtin_featurizer_raises_value_error() -> None:
-    sample_featurizer_registry.clear()
-    with pytest.raises(ValueError, match="Unknown Sample featurizer"):
-        get_sample_featurizer("notRegisteredAnywhere")
+def test_an_unknown_featurizer_in_an_empty_registry_raises() -> None:
+    empty_component_registries()
+    with pytest.raises(UnknownNameError, match="Unknown featurizer 'notRegisteredAnywhere'"):
+        get_featurizer("notRegisteredAnywhere")

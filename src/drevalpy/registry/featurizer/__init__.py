@@ -1,23 +1,5 @@
-"""Featurizer registries: one implementation, bound to a side by the sample and drug packages."""
+"""The featurizer registry: ``register``, the ``featurizers`` registry and the side-checking lookup."""
 
-from ._base import (
-    DrugFeaturizerRegistry,
-    FeaturizerRegistry,
-    SampleFeaturizerRegistry,
-    Side,
-    drug_featurizer_registry,
-    get_featurizer,
-    sample_featurizer_registry,
-)
-from ._validate import validate_featurizer_input_views
+from ._base import check_side, featurizers, get_featurizer, names_for_side, register
 
-__all__ = [
-    "DrugFeaturizerRegistry",
-    "FeaturizerRegistry",
-    "SampleFeaturizerRegistry",
-    "Side",
-    "drug_featurizer_registry",
-    "get_featurizer",
-    "sample_featurizer_registry",
-    "validate_featurizer_input_views",
-]
+__all__ = ["check_side", "featurizers", "get_featurizer", "names_for_side", "register"]

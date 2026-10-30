@@ -1,48 +1,49 @@
-"""Registration-time invariants for featurizer input-view declarations."""
+"""Registration-time checks of what a featurizer class declares."""
 
 from __future__ import annotations
 
 from typing import Any
 
-
-def _declares_input_views(cls: type[Any]) -> bool:
-    """Return whether *cls* states which raw views it reads.
-
-    :param cls: Featurizer class being registered.
-    :returns: ``True`` when the class declares, parameterizes, or computes its input views.
-    """
-    from drevalpy.components.featurizers.base import Featurizer
-
-    if cls.input_views is not None:
-        return True
-    if cls.requires_view or cls.entity_id_only:
-        return True
-    return getattr(cls.resolve_input_views, "__func__", None) is not getattr(
-        Featurizer.resolve_input_views, "__func__", None
-    )
+_SIDES = frozenset({"sample", "drug"})
 
 
-def validate_featurizer_input_views(registry_id: str, name: str, cls: type[Any]) -> None:
-    """Raise ``ValueError`` when a featurizer does not declare its input views.
+def _validate_views(name: str, cls: type[Any], attr: str) -> None:
+    """Raise ``TypeError`` when the view declaration *attr* is not a tuple of names.
 
-    Every featurizer must state which raw views it consumes so that the
-    data-loading layer never needs a name-to-view lookup table. Classes that do not
-    derive from ``Featurizer`` are skipped; they do not participate in view resolution.
-
-    :param registry_id: Registry identifier used in the error message.
     :param name: Registry name under which *cls* is being registered.
     :param cls: Featurizer class being registered.
-    :raises ValueError: If the class declares no input views.
+    :param attr: ``input_views`` or ``source_views``.
+    :raises TypeError: If the declaration is not a tuple of non-empty strings.
     """
-    from drevalpy.components.featurizers.base import Featurizer
+    views = getattr(cls, attr)
+    if not isinstance(views, tuple) or not all(isinstance(view, str) and view for view in views):
+        msg = f"featurizer '{name}' ({cls.__name__}): {attr} must be a tuple of view names, got {views!r}"
+        raise TypeError(msg)
+
+
+def validate_featurizer_declarations(name: str, cls: type[Any]) -> None:
+    """Check the class-body declarations of a featurizer being registered.
+
+    A featurizer must derive from :class:`~drevalpy.components.featurizers.featurizer.Featurizer`,
+    declare a non-empty subset of ``{"sample", "drug"}`` as ``sides`` and its views as tuples of
+    names.
+
+    :param name: Registry name under which *cls* is being registered.
+    :param cls: Featurizer class being registered.
+    :raises TypeError: If *cls* is not a featurizer class or a view declaration is malformed.
+    :raises ValueError: If ``sides`` is empty or names an unknown side.
+    """
+    from drevalpy.components.featurizers.featurizer import Featurizer
 
     if not (isinstance(cls, type) and issubclass(cls, Featurizer)):
-        return
-    if _declares_input_views(cls):
-        return
-    msg = (
-        f"{registry_id} '{name}' ({cls.__name__}) does not declare its input views. "
-        "Set input_views on the class body (use () when only entity ids are needed), "
-        "set requires_view/entity_id_only, or override resolve_input_views."
-    )
-    raise ValueError(msg)
+        msg = f"featurizer '{name}' must be a subclass of drevalpy.components.featurizers.featurizer.Featurizer"
+        raise TypeError(msg)
+    sides = cls.sides
+    if not isinstance(sides, frozenset) or not sides or not sides <= _SIDES:
+        msg = (
+            f"featurizer '{name}' ({cls.__name__}): sides must be a non-empty frozenset "
+            f"of 'sample'/'drug', got {sides!r}"
+        )
+        raise ValueError(msg)
+    _validate_views(name, cls, "input_views")
+    _validate_views(name, cls, "source_views")

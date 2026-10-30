@@ -22,11 +22,11 @@ import importlib
 import importlib.util
 import os
 import sys
-from typing import Any
 
 from upath import UPath as Path
 
 from drevalpy.errors import InputNotFoundError, InvalidInputError
+from drevalpy.registry._all import all_registries, restore_all, snapshot_all
 
 #: Environment variable naming extension directories, joined with :data:`os.pathsep`.
 EXTENSIONS_DIR_ENV_VAR = "DREVALPY_EXTENSIONS_DIR"
@@ -40,56 +40,21 @@ def _extension_module_name(file_path: Path) -> str:
     return f"drevalpy_user_extension_{file_path.stem}_{digest}"
 
 
-def _get_registries() -> dict[str, Any]:
-    """Lazily import the registries that extension loading can add to, to avoid circular imports.
-
-    :returns: Registry singletons keyed by the kind names used in registry snapshots.
-    """
-    from drevalpy.registry.featurizer import drug_featurizer_registry, sample_featurizer_registry
-    from drevalpy.registry.predictor import predictor_registry
-    from drevalpy.registry.splitter import splitter_registry
-    from drevalpy.registry.visualization import visualization_registry
-
-    return {
-        "predictor": predictor_registry,
-        "sample_featurizer": sample_featurizer_registry,
-        "drug_featurizer": drug_featurizer_registry,
-        "splitter": splitter_registry,
-        "visualization": visualization_registry,
-    }
-
-
-def _snapshot_all_registries() -> dict[str, frozenset[str]]:
-    """Capture current state of all in-memory registries for rollback.
+def _names() -> dict[str, frozenset[str]]:
+    """Return the names currently in every in-memory registry.
 
     :returns: Registered names per registry kind.
     """
-    registries = _get_registries()
-    return {
-        "predictor": frozenset(registries["predictor"].list_names()),
-        "sample_featurizer": frozenset(registries["sample_featurizer"].list_names()),
-        "drug_featurizer": frozenset(registries["drug_featurizer"].list_names()),
-        "splitter": frozenset(registries["splitter"].modes),
-        "visualization": frozenset(registries["visualization"].names),
-    }
+    return {kind: frozenset(registry.names()) for kind, registry in all_registries().items()}
 
 
-def _restore_all_registries(snapshot: dict[str, frozenset[str]]) -> None:
-    """Roll back all in-memory registries to a prior snapshot.
-
-    :param snapshot: Names to keep per registry kind, as returned by :func:`_snapshot_all_registries`.
-    """
-    for kind, registry in _get_registries().items():
-        registry.retain_only(snapshot[kind])
-
-
-def _added_since(snapshot: dict[str, frozenset[str]]) -> dict[str, frozenset[str]]:
-    now = _snapshot_all_registries()
-    return {kind: now[kind] - snapshot[kind] for kind in now}
+def _added_since(before: dict[str, frozenset[str]]) -> dict[str, frozenset[str]]:
+    now = _names()
+    return {kind: now[kind] - before[kind] for kind in now}
 
 
 def _is_still_registered(added: dict[str, frozenset[str]]) -> bool:
-    now = _snapshot_all_registries()
+    now = _names()
     return all(names <= now[kind] for kind, names in added.items())
 
 
@@ -103,14 +68,14 @@ def load_extension_module(module_name: str) -> None:
     if not module_name:
         msg = "module_name must be a non-empty string"
         raise InvalidInputError(msg)
-    snapshot = _snapshot_all_registries()
+    snapshot = snapshot_all()
     try:
         importlib.import_module(module_name)
     except ImportError:
-        _restore_all_registries(snapshot)
+        restore_all(snapshot)
         raise
     except Exception as exc:
-        _restore_all_registries(snapshot)
+        restore_all(snapshot)
         msg = f"Failed to import extension module '{module_name}'"
         raise ImportError(msg) from exc
 
@@ -139,17 +104,18 @@ def load_extension_file(path: Path | str) -> None:
         raise ImportError(msg)
     module = importlib.util.module_from_spec(spec)
     sys.modules[module_name] = module
-    snapshot = _snapshot_all_registries()
+    snapshot = snapshot_all()
+    before = _names()
     try:
         spec.loader.exec_module(module)
-        _LOADED_FILES[module_name] = _added_since(snapshot)
+        _LOADED_FILES[module_name] = _added_since(before)
     except ImportError:
         sys.modules.pop(module_name, None)
-        _restore_all_registries(snapshot)
+        restore_all(snapshot)
         raise
     except Exception as exc:
         sys.modules.pop(module_name, None)
-        _restore_all_registries(snapshot)
+        restore_all(snapshot)
         msg = f"Failed to import extension file '{file_path}'"
         raise ImportError(msg) from exc
 
@@ -181,7 +147,7 @@ def _register_datasets_from_yaml(data: dict) -> None:
             storage_options=source_info.get("storage_options"),
         )
     for name, ds_info in (data.get("datasets") or {}).items():
-        dataset_registry.register_dataset(
+        dataset_registry.register(
             name,
             source=ds_info["source"],
             file=ds_info["file"],
@@ -204,7 +170,7 @@ def load_extension_dir(path: Path | str) -> None:
         msg = f"Extension directory not found: {dir_path}"
         raise InputNotFoundError(msg)
 
-    snapshot = _snapshot_all_registries()
+    snapshot = snapshot_all()
     try:
         py_files = sorted(
             file_path
@@ -218,7 +184,7 @@ def load_extension_dir(path: Path | str) -> None:
         for yaml_file in yaml_files:
             _load_yaml_extension(yaml_file)
     except Exception:
-        _restore_all_registries(snapshot)
+        restore_all(snapshot)
         raise
 
 

@@ -1,41 +1,33 @@
-"""Shared registry-state helpers for the ``tests/registry`` tree.
+"""Shared registry-state helpers for tests that need empty or built-in-only component registries.
 
-The component registries are process-global singletons and ``tests/conftest.py``
-repopulates the built-ins before every test, so a test that registers a name must
-remove it again. ``register_builtin_components`` only *adds* - it does not evict -
-so restoring state means clearing first and repopulating second. Doing only the
-second half leaves the test's own names behind, which surfaces much later as a
-duplicate-name ``ValueError`` in an unrelated test.
+``tests/conftest.py`` restores every registry after each test, so a test may register
+names freely. These helpers are for tests that need a known starting state instead:
+:func:`empty_component_registries` empties the component registries (call it from a
+module-local autouse fixture; ``tests/conftest.py`` restores them afterwards), and
+:func:`restore_builtin_components` puts back exactly the built-ins. The built-in state is
+captured when this module is first imported, which ``tests/conftest.py`` does right after
+``import drevalpy.registry`` and before any test module registers anything.
 """
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from typing import Any
 
-from drevalpy.registry._builtins import register_builtin_components
-from drevalpy.registry.drug_featurizer import drug_featurizer_registry
+from drevalpy.registry._registry import Registry, Snapshot
+from drevalpy.registry.featurizer import featurizers
 from drevalpy.registry.predictor import predictor_registry
-from drevalpy.registry.sample_featurizer import sample_featurizer_registry
+
+_COMPONENT_REGISTRIES: tuple[Registry[Any], ...] = (featurizers, predictor_registry)
+_BUILTIN_SNAPSHOTS: tuple[Snapshot[Any], ...] = tuple(registry.snapshot() for registry in _COMPONENT_REGISTRIES)
 
 
-def clear_component_registries() -> None:
-    """Empty the sample featurizer, drug featurizer and predictor registries."""
-    sample_featurizer_registry.clear()
-    drug_featurizer_registry.clear()
-    predictor_registry.clear()
+def empty_component_registries() -> None:
+    """Empty the featurizer and predictor registries."""
+    for registry in _COMPONENT_REGISTRIES:
+        registry.restore(Snapshot(registry.kind, ()))
 
 
-def restore_component_registries() -> None:
-    """Drop every registration and re-register only the built-in components."""
-    clear_component_registries()
-    register_builtin_components()
-
-
-def isolated_component_registries() -> Iterator[None]:
-    """Yield with empty component registries, restoring the built-ins afterwards.
-
-    Intended to back a module-local ``@pytest.fixture(autouse=True)``.
-    """
-    clear_component_registries()
-    yield
-    restore_component_registries()
+def restore_builtin_components() -> None:
+    """Put the component registries back to the built-ins, dropping every other registration."""
+    for registry, snapshot in zip(_COMPONENT_REGISTRIES, _BUILTIN_SNAPSHOTS, strict=True):
+        registry.restore(snapshot)

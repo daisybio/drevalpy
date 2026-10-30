@@ -4,41 +4,19 @@ from __future__ import annotations
 
 from typing import Any
 
-from drevalpy.components.contracts.feature_format import FeatureFormat
 from drevalpy.components.contracts.hyperparameter_space import validate_component_hyperparameter_space
-from drevalpy.components.predictors.abstract.block import BlockPredictor
-from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
-from drevalpy.components.predictors.abstract.matrix import MatrixPredictor
-
-
-def _leaf_interface_match(name: str, cls: type[Any], leaf_bases: tuple[type[Any], ...]) -> type[Any]:
-    matches = [base for base in leaf_bases if issubclass(cls, base)]
-    if len(matches) != 1:
-        msg = (
-            f"Predictor {name!r} must inherit exactly one of "
-            f"FeatureFreePredictor, MatrixPredictor, BlockPredictor; "
-            f"matched={[base.__name__ for base in matches]}"
-        )
-        raise ValueError(msg)
-    return matches[0]
-
-
-def _validate_matrix_formats(name: str, cls: type[Any]) -> None:
-    for side in ("sample", "drug"):
-        actual = getattr(cls, f"{side}_input_format")
-        if actual != FeatureFormat.NUMERIC_MATRIX:
-            msg = f"Matrix predictor {name!r} requires numeric_matrix {side} input format, got {actual.value!r}"
-            raise ValueError(msg)
+from drevalpy.components.predictors.inputs import predictor_inputs
 
 
 def validate_predictor_registration(name: str, cls: type[Any]) -> None:
-    """Raise ``ValueError`` if a predictor class violates registration invariants.
+    """Raise if a predictor class violates registration invariants.
+
+    Both sides must declare their inputs (``predictor_inputs`` raises ``TypeError``
+    otherwise), and the hyperparameter space must be valid.
 
     :param name: Registry name under which *cls* is being registered.
-    :param cls: Predictor class with input formats already attached by the decorator.
+    :param cls: Predictor class.
     """
-    leaf_bases = (FeatureFreePredictor, MatrixPredictor, BlockPredictor)
-    leaf_base = _leaf_interface_match(name, cls, leaf_bases)
-    if leaf_base is MatrixPredictor:
-        _validate_matrix_formats(name, cls)
+    for side in ("sample", "drug"):
+        predictor_inputs(cls, side)
     validate_component_hyperparameter_space(name, cls)
