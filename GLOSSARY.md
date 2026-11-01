@@ -20,13 +20,27 @@ One sample–drug combination with a measured response; the unit models train on
 and are scored on.
 _Avoid_: sample, observation, data point, instance
 
+**Dose series**:
+The wells of one pair measured over a range of doses in one go, such as on one
+plate; the input's `replicate` column labels it within its experiment. One curve is fitted to all series
+of a pair together, and with replicate fits to each series alone.
+
+**Biological replicate**:
+A dose series from another independently seeded culture of the sample, given by
+the `experiment` column of the curation input (not an experiment in the
+evaluation sense).
+
+**Technical replicate**:
+A further dose series from the same culture, such as a second plate.
+
 **Entity**:
 A sample or a drug: what one row of a view describes.
 
 **Side**:
 Which kind of entity a view, a featurizer or a feature block is about: the
-sample side or the drug side. A featurizer declares the sides it supports
-(`sides`); a featurizer that supports both is registered once.
+sample side or the drug side (`Side.SAMPLE`, `Side.DRUG`). A featurizer is
+registered on exactly one side, and each side has its own featurizer registry;
+one offered on both sides is registered twice under the same name.
 
 **Dataset**:
 A drug response screen together with the sample and drug features that belong

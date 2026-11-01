@@ -97,7 +97,7 @@ class MockFeatureSource(FeatureSource):
         features: dict[str, dict[str, Any]],
         meta_info: dict[str, Any] | None = None,
         *,
-        side: Side = "sample",
+        side: Side = Side.SAMPLE,
     ):
         """Initialize with features dict and optional metadata.
 
