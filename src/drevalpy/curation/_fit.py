@@ -1,13 +1,75 @@
-"""Parallel dose-response curve fitting via the curve_curator API."""
+"""Fit dose-response curves chunk by chunk, so the chunks can run anywhere.
+
+A fit has three steps, which :mod:`drevalpy.curation._plan` runs in one process or hands
+to a workflow manager one by one:
+
+1. :func:`split` preprocesses a viability table into dose-range groups and splits each group
+   into chunks of at most ``max_chunk_size`` curves (normalizing each group first, once over
+   all of its curves, when asked to).
+2. :func:`fit_chunk` fits one chunk with CurveCurator, single-core. A chunk carries only its
+   curves and its group's description, so it can be fitted on another machine.
+3. :func:`collect` puts the fitted chunks of each group back together, applies the group's
+   significance thresholds and returns one row per attempted curve.
+
+Every way CurveCurator can fail to fit is turned into a row rather than a crash or a silent
+gap:
+
+* a curve CurveCurator drops (too many missing values) gets ``status = "fit_failed"`` and
+  NaN metrics;
+* a chunk in which it drops every curve ends with a bare ``exit()`` inside CurveCurator, which
+  :func:`fit_chunk` turns into an empty result;
+* a group left without any curve is skipped;
+* a group with too few curves for the SAM significance thresholding keeps its fits, with NaN
+  in the three columns that thresholding writes.
+
+Significance thresholding runs once per group over all of its chunks, so the result does not
+depend on the chunk size or on where the chunks ran.
+"""
 
 from __future__ import annotations
 
 import copy
 import math
-from concurrent.futures import Executor, ProcessPoolExecutor
+import time
+from dataclasses import dataclass
+from enum import StrEnum
 
 import numpy as np
 import pandas as pd
+
+from drevalpy.log import get_logger
+
+logger = get_logger(__name__)
+
+#: Column of :func:`collect`'s result telling whether a curve was fitted.
+STATUS_COLUMN = "status"
+
+#: Columns curve_curator's SAM thresholding writes; NaN when a group is too small for it.
+_SAM_COLUMNS = ("Curve F_Value SAM Corrected", "Curve Relevance Score", "Curve Regulation")
+
+
+class Status(StrEnum):
+    """Whether a curve, or a replicate's series, was fitted."""
+
+    FITTED = "fitted"
+    FIT_FAILED = "fit_failed"
+    TOO_FEW_DOSES = "too_few_doses"
+
+
+@dataclass(frozen=True)
+class FitOptions:
+    """How every curve is fitted; the same for the pooled and the replicate fits.
+
+    :param normalize: Whether to median-normalize each dose-range group before fitting.
+    :param fit_type: Fitting method, one of :data:`drevalpy.curation.SUPPORTED_FIT_TYPES`.
+    :param fit_speed: Fitting thoroughness, one of :data:`drevalpy.curation.FIT_SPEEDS`.
+    :param max_chunk_size: Maximum number of curves per chunk.
+    """
+
+    normalize: bool = False
+    fit_type: str = "OLS"
+    fit_speed: str = "exhaustive"
+    max_chunk_size: int = 2000
 
 
 def _build_config(
@@ -71,17 +133,6 @@ def _build_config(
     return config
 
 
-def _fit_chunk(chunk_df: pd.DataFrame, config: dict) -> pd.DataFrame:
-    """Fit a single chunk using run_pipeline (single-core)."""
-    from curve_curator import quantification
-
-    from drevalpy.curation._normalize import restore_signal_quality
-
-    cfg = copy.deepcopy(config)
-    cfg["Processing"]["available_cores"] = 1
-    return restore_signal_quality(quantification.run_pipeline(chunk_df, cfg))
-
-
 def _build_work_items(
     groups: list[tuple[pd.DataFrame, dict]],
     max_chunk_size: int,
@@ -136,78 +187,199 @@ def _build_work_items(
     return work_items, configs
 
 
-def _run_work_items(
+def fit_chunk(item: tuple[pd.DataFrame, dict]) -> pd.DataFrame:
+    """Fit one chunk of curves with CurveCurator, single-core.
+
+    This is the function :func:`~drevalpy.curation.compute.map_chunks` sends to a backend, so
+    it stays a picklable module-level function. CurveCurator ends a run with a bare ``exit()``
+    (``SystemExit(None)``) when missing values leave no curve to fit; that is a legitimate
+    empty result.
+
+    :param item: ``(chunk_df, config)`` as built by :func:`_build_work_items`.
+    :returns: The fitted curves, or an empty frame if CurveCurator dropped every curve.
+    :raises RuntimeError: If CurveCurator exits with a code other than ``None``.
+    """
+    from curve_curator import quantification
+
+    from drevalpy.curation._normalize import restore_signal_quality
+
+    chunk_df, config = item
+    cfg = copy.deepcopy(config)
+    cfg["Processing"]["available_cores"] = 1
+    start = time.time()
+    try:
+        result = quantification.run_pipeline(chunk_df, cfg)
+    except SystemExit as exc:
+        if exc.code is None:
+            logger.warning("CurveCurator dropped all %d curves of a chunk (missing values)", len(chunk_df))
+            return pd.DataFrame()
+        raise RuntimeError(f"CurveCurator exited with code {exc.code!r}") from exc
+    logger.debug("Fitted %d curves in %.1fs", len(chunk_df), time.time() - start)
+    return restore_signal_quality(result)
+
+
+#: What a group is: ``n_experiments``, ``doses`` and ``n_replicates``, as :func:`preprocess` reports.
+GroupInfo = dict
+
+
+def chunk_config(info: GroupInfo, options: FitOptions) -> dict:
+    """Return the CurveCurator config a chunk of the group described by *info* is fitted with.
+
+    Normalization, if requested, already happened over the whole group in :func:`split`, so
+    the chunk config never normalizes again.
+
+    :param info: The group's description.
+    :param options: How the curves are fitted.
+    :returns: The config.
+    """
+    return _build_config(
+        int(info["n_experiments"]),
+        list(info["doses"]),
+        int(info["n_replicates"]),
+        normalize=False,
+        fit_type=options.fit_type,
+        fit_speed=options.fit_speed,
+    )
+
+
+def group_config(info: GroupInfo, options: FitOptions) -> dict:
+    """Return the CurveCurator config the group described by *info* is thresholded and reported with.
+
+    :param info: The group's description.
+    :param options: How the curves are fitted.
+    :returns: The config.
+    """
+    return _build_config(
+        int(info["n_experiments"]),
+        list(info["doses"]),
+        int(info["n_replicates"]),
+        normalize=options.normalize,
+        fit_type=options.fit_type,
+        fit_speed=options.fit_speed,
+    )
+
+
+def split(viability: pd.DataFrame, options: FitOptions) -> tuple[list[tuple[pd.DataFrame, int]], list[GroupInfo]]:
+    """Split a viability table into the chunks that are fitted independently.
+
+    :param viability: Long table with ``sample``, ``drug``, ``concentration``, ``intensity`` and
+        optionally an integer ``replicate`` per pair.
+    :param options: How the curves are fitted.
+    :returns: The chunks as ``(chunk_df, group index)`` and one description per group; nothing
+        for an empty table.
+    """
+    from drevalpy.curation._preprocess import preprocess
+
+    if viability.empty:
+        return [], []
+    groups = preprocess(viability)
+    work_items, _ = _build_work_items(
+        groups,
+        max_chunk_size=options.max_chunk_size,
+        normalize=options.normalize,
+        fit_type=options.fit_type,
+        fit_speed=options.fit_speed,
+    )
+    infos = [
+        {
+            "n_experiments": int(info["n_experiments"]),
+            "doses": [float(dose) for dose in info["doses"]],
+            "n_replicates": int(info["n_replicates"]),
+        }
+        for _, info in groups
+    ]
+    return [(chunk_df, group_idx) for chunk_df, _, group_idx in work_items], infos
+
+
+def collect(
+    chunks: list[tuple[pd.DataFrame, int]],
+    fitted: list[pd.DataFrame],
+    infos: list[GroupInfo],
+    options: FitOptions,
+) -> pd.DataFrame:
+    """Combine the fitted chunks into one row per attempted curve.
+
+    :param chunks: :func:`split`'s chunks.
+    :param fitted: :func:`fit_chunk`'s result for each chunk, in the same order.
+    :param infos: :func:`split`'s group descriptions.
+    :param options: How the curves were fitted.
+    :returns: ``sample``, ``drug``, :data:`STATUS_COLUMN` and the metric columns of
+        :func:`drevalpy.curation._postprocess.postprocess` (``regulation`` as text), NaN where
+        the fit failed; only the first three columns when there were no chunks.
+    """
+    from drevalpy.curation._postprocess import postprocess
+
+    if not chunks:
+        return pd.DataFrame(columns=pd.Index(["sample", "drug", STATUS_COLUMN]))
+    work_items = [(chunk_df, chunk_config(infos[group], options), group) for chunk_df, group in chunks]
+    configs = [group_config(info, options) for info in infos]
+    fitted_groups = _assemble_groups(work_items, list(fitted), configs)
+    metrics = postprocess(fitted_groups) if fitted_groups else None
+    return _with_status(metrics, work_items)
+
+
+def fit_table(viability: pd.DataFrame, options: FitOptions) -> pd.DataFrame:
+    """Split, fit and collect a viability table in this process.
+
+    :param viability: As :func:`split`.
+    :param options: How the curves are fitted.
+    :returns: As :func:`collect`.
+    """
+    chunks, infos = split(viability, options)
+    fitted = [fit_chunk((chunk_df, chunk_config(infos[group], options))) for chunk_df, group in chunks]
+    return collect(chunks, fitted, infos, options)
+
+
+def _assemble_groups(
     work_items: list[tuple[pd.DataFrame, dict, int]],
-    max_workers: int,
-    executor: Executor | None = None,
-) -> list[tuple[pd.DataFrame, int]]:
-    """Fit all chunks, in parallel when more than one worker and chunk are available.
-
-    :param work_items: (chunk_df, config, group_idx) tuples to fit.
-    :param max_workers: Number of local worker processes to use when no external
-        *executor* is provided.
-    :param executor: Optional :class:`~concurrent.futures.Executor` instance. When
-        provided, all chunks are submitted to this executor instead of creating an
-        internal :class:`~concurrent.futures.ProcessPoolExecutor`. The executor is
-        **not** shut down by this function — the caller retains ownership.
-    :returns: (fitted_df, group_idx) tuples in submission order.
-    """
-    if executor is None and (max_workers <= 1 or len(work_items) == 1):
-        return [(_fit_chunk(chunk_df, config), group_idx) for chunk_df, config, group_idx in work_items]
-
-    if executor is not None:
-        futures = [
-            (executor.submit(_fit_chunk, chunk_df, config), group_idx) for chunk_df, config, group_idx in work_items
-        ]
-        return [(future.result(), group_idx) for future, group_idx in futures]
-
-    with ProcessPoolExecutor(max_workers=max_workers) as pool:
-        futures = [(pool.submit(_fit_chunk, chunk_df, config), group_idx) for chunk_df, config, group_idx in work_items]
-        return [(future.result(), group_idx) for future, group_idx in futures]
-
-
-def fit_groups(
-    groups: list[tuple[pd.DataFrame, dict]],
-    max_chunk_size: int = 2000,
-    max_workers: int = 4,
-    normalize: bool = False,
-    fit_type: str = "OLS",
-    fit_speed: str = "exhaustive",
-    executor: Executor | None = None,
+    fitted: list[pd.DataFrame | None],
+    configs: list[dict],
 ) -> list[tuple[pd.DataFrame, dict]]:
-    """Fit all groups with chunk-level parallelism.
+    """Put the chunks of each group back together and apply its significance thresholds."""
+    group_results: list[list[pd.DataFrame]] = [[] for _ in configs]
+    for (_, _, group_idx), fitted_df in zip(work_items, fitted, strict=True):
+        if fitted_df is not None and not fitted_df.empty:
+            group_results[group_idx].append(fitted_df)
 
-    :param groups: List of (wide_df, group_info) from preprocess.
-    :param max_chunk_size: Maximum number of curves in a single parallel chunk. Groups larger than
-        this are split into multiple chunks; smaller groups are kept as one chunk.
-        Controls the granularity of parallelism: smaller values produce more chunks
-        but add serialization overhead.
-    :param max_workers: Number of local worker processes when no external *executor* is provided.
-        Ignored when *executor* is set.
-    :param normalize: Whether to apply median-centric normalization.
-    :param fit_type: Fitting method. Only "OLS" is currently supported.
-    :param fit_speed: Fitting thoroughness: "fast", "standard", "exhaustive", or "basinhopping".
-    :param executor: Optional :class:`~concurrent.futures.Executor` instance (e.g. a
-        ``submitit.AutoExecutor``). When supplied, chunk fitting is dispatched
-        through this executor instead of an internal
-        :class:`~concurrent.futures.ProcessPoolExecutor`. The caller is responsible
-        for configuring and shutting down the executor.
+    fitted_groups: list[tuple[pd.DataFrame, dict]] = []
+    for group_idx, config in enumerate(configs):
+        if not group_results[group_idx]:
+            logger.warning("Group %d: CurveCurator dropped every curve (missing values), skipping", group_idx)
+            continue
+        assembled = pd.concat(group_results[group_idx], ignore_index=True)
+        fitted_groups.append((_thresholded(assembled, config, group_idx), config))
+    return fitted_groups
 
-    :returns: List of (fitted_df, config) tuples.
-    """
-    work_items, configs = _build_work_items(groups, max_chunk_size, normalize, fit_type, fit_speed)
-    fitted_chunks = _run_work_items(work_items, max_workers, executor=executor)
 
-    group_results: list[list[pd.DataFrame]] = [[] for _ in groups]
-    for fitted_df, group_idx in fitted_chunks:
-        group_results[group_idx].append(fitted_df)
-
+def _thresholded(assembled: pd.DataFrame, config: dict, group_idx: int) -> pd.DataFrame:
+    """Apply a group's significance thresholds, or NaN the SAM columns if it is too small for them."""
     from curve_curator import thresholding
 
-    results: list[tuple[pd.DataFrame, dict]] = []
-    for group_idx, config in enumerate(configs):
-        assembled = pd.concat(group_results[group_idx], ignore_index=True)
-        assembled = thresholding.apply_significance_thresholds(assembled, config)
-        results.append((assembled, config))
+    try:
+        return thresholding.apply_significance_thresholds(assembled, config)
+    except ValueError as exc:
+        if "number of model parameters" not in str(exc):
+            raise
+    logger.warning(
+        "Group %d: too few curves (%d) for significance thresholding, skipping SAM", group_idx, len(assembled)
+    )
+    for column in _SAM_COLUMNS:
+        assembled[column] = np.nan
+    return assembled
 
-    return results
+
+def _with_status(metrics: pd.DataFrame | None, work_items: list[tuple[pd.DataFrame, dict, int]]) -> pd.DataFrame:
+    """Add a ``fit_failed`` row for every attempted curve missing from *metrics*."""
+    attempted = pd.Index(pd.concat([chunk_df["Name"] for chunk_df, _, _ in work_items], ignore_index=True)).unique()
+    labels = attempted.to_series().str.split("|", n=1, expand=True)
+    frame = pd.DataFrame({"sample": labels[0].to_numpy(), "drug": labels[1].to_numpy()})
+    if metrics is None or metrics.empty:
+        frame[STATUS_COLUMN] = Status.FIT_FAILED.value
+        return frame
+    metrics = metrics.drop_duplicates(subset=["sample", "drug"], keep="first")
+    out = frame.merge(metrics, on=["sample", "drug"], how="left", indicator=True)
+    out[STATUS_COLUMN] = np.where(out.pop("_merge") == "both", Status.FITTED.value, Status.FIT_FAILED.value)
+    n_failed = int((out[STATUS_COLUMN] == Status.FIT_FAILED.value).sum())
+    if n_failed:
+        logger.info("%d of %d attempted curves were dropped by CurveCurator", n_failed, len(out))
+    return out

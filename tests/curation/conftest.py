@@ -63,3 +63,39 @@ def dose_response_df_with_replicates(dose_response_df: pd.DataFrame) -> pd.DataF
     rep2["replicate"] = 2
     rep2["intensity"] = rep2["intensity"] + rng.normal(0, 0.01, size=len(rep2))
     return pd.concat([rep1, rep2], ignore_index=True)
+
+
+def build_replicated_wells() -> pd.DataFrame:
+    """Wells with a replicate hierarchy, for :func:`curate` with ``replicate_fits=True``.
+
+    * CL_A x DrugX: two experiments (``day1``, ``day2``) of two plates each.
+    * CL_B x DrugX: one full plate and one plate with only two doses.
+    * CL_A x DrugY: a single plate.
+    """
+    concentrations = np.array([0.001, 0.01, 0.1, 1.0, 10.0])
+    dates = {"day1": "2020-01-01", "day2": "2020-01-02"}
+    rng = np.random.default_rng(7)
+    rows: list[dict] = []
+
+    def plate(sample: str, drug: str, experiment: str, replicate: str, doses: np.ndarray, ec50: float) -> None:
+        intensity = np.clip(sigmoid(doses, 1.0, 0.1, ec50, 1.5) + rng.normal(0, 0.02, len(doses)), 0.01, 1.5)
+        for conc, value in zip(doses, intensity, strict=True):
+            rows.append(
+                {
+                    "sample": sample,
+                    "drug": drug,
+                    "concentration": conc,
+                    "intensity": value,
+                    "experiment": experiment,
+                    "replicate": replicate,
+                    "plate_date": dates[experiment],
+                }
+            )
+
+    for experiment, plates in (("day1", ("P1", "P2")), ("day2", ("P3", "P4"))):
+        for replicate in plates:
+            plate("CL_A", "DrugX", experiment, replicate, concentrations, 0.5)
+    plate("CL_B", "DrugX", "day1", "P1", concentrations, 2.0)
+    plate("CL_B", "DrugX", "day1", "P5", concentrations[:2], 2.0)
+    plate("CL_A", "DrugY", "day1", "P1", concentrations, 0.05)
+    return pd.DataFrame(rows)
