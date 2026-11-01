@@ -7,17 +7,15 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from drevalpy._utils.n_jobs import check_n_jobs
-from drevalpy._utils.seed import fit_seed, seed_everything
 from drevalpy.data import CurveQuality, load
 from drevalpy.data.splitters import observed_mask
 from drevalpy.errors import InvalidInputError
-from drevalpy.experiment._execution import ExecutionSpec, build_execution
+from drevalpy.experiment._execution import build_execution
+from drevalpy.experiment._fit import fit
 from drevalpy.log import get_logger
 from drevalpy.models.drp_model import DRPModel
 from drevalpy.models.spec import ModelSpec
-from drevalpy.models.tuning.config import HPOConfig
-from drevalpy.models.tuning.hpo import hpam_tune
-from drevalpy.types import SplitMask, SplitMasks
+from drevalpy.types import Fold, PairMask
 from drevalpy.types.data.dataset import Dataset
 
 if TYPE_CHECKING:
@@ -29,14 +27,13 @@ logger = get_logger(__name__)
 VALIDATION_RATIO = 0.1
 
 
-def _holdout_execution(spec: ModelSpec, dataset: Dataset, quality: CurveQuality | None, seed: int) -> ExecutionSpec:
-    """Build the scopes of a final fit: all usable pairs, with the validation slice a run would set aside.
+def _holdout_folds(dataset: Dataset, quality: CurveQuality | None, seed: int) -> Fold:
+    """Split all usable pairs into a training set and the validation slice a run would set aside.
 
-    :param spec: Model recipe, which decides whether an early-stopping set is reserved.
     :param dataset: Dataset whose usable pairs are the final training set.
     :param quality: Curve-quality rule a pair must pass, or ``None`` for the default rule.
-    :param seed: Root seed of the holdout draw and of the fit.
-    :returns: The execution decisions.
+    :param seed: Root seed of the holdout draw.
+    :returns: One fold with an empty test set.
     :raises InvalidInputError: If fewer than two pairs are usable.
     """
     observed = observed_mask(dataset, CurveQuality.default() if quality is None else quality)
@@ -45,20 +42,10 @@ def _holdout_execution(spec: ModelSpec, dataset: Dataset, quality: CurveQuality 
         raise InvalidInputError(f"Dataset '{dataset.name}' has {len(pairs)} usable pair(s); training needs at least 2.")
     n_val = max(1, int(len(pairs) * VALIDATION_RATIO))
     order = np.random.default_rng(seed).permutation(len(pairs))
-    val = SplitMask.from_pairs(pairs[order[:n_val]], observed.shape)
-    train = SplitMask.from_pairs(pairs[order[n_val:]], observed.shape)
-    nothing = SplitMask(np.zeros(observed.shape, dtype=bool))
-    folds = SplitMasks(train, nothing, val, {"split_mode": "LPO", "fold_index": 0})
-    return build_execution(
-        spec,
-        dataset,
-        folds,
-        hyperparameter_tuning=False,
-        hpo_metric="RMSE",
-        hpo_num_trials=0,
-        hpo_random_state=seed,
-        seed=seed,
-    )
+    val = PairMask.from_pairs(pairs[order[:n_val]], observed.shape)
+    train = PairMask.from_pairs(pairs[order[n_val:]], observed.shape)
+    nothing = PairMask(np.zeros(observed.shape, dtype=bool))
+    return Fold(train, nothing, val, {"split_mode": "LPO", "fold_index": 0})
 
 
 def train(
@@ -102,35 +89,15 @@ def train(
     check_n_jobs(n_jobs)
     spec = ModelSpec.from_name(model) if isinstance(model, str) else model
     data = load(dataset) if isinstance(dataset, str) else dataset
-    execution = _holdout_execution(spec, data, quality, seed)
-    scopes, identity = execution.scopes, execution.identity
-    fit_rng_seed = fit_seed(seed, identity)
-    if hyperparameter_tuning:
-        seed_everything(fit_rng_seed)
-        hyperparameters, _ = hpam_tune(
-            model_spec=spec,
-            dataset=data,
-            train_scope=scopes.training,
-            val_scope=scopes.validation,
-            early_stopping_scope=scopes.stopping,
-            response_transformation=response_transformation,
-            hpo_config=HPOConfig(
-                n_trials=hpo_num_trials,
-                metric=hpo_metric,
-                random_state=seed if hpo_random_state is None else hpo_random_state,
-            ),
-            split_index=0,
-            n_jobs=n_jobs,
-        )
-    else:
-        hyperparameters = {}
-    fitted = DRPModel(spec, hyperparameters, response_transformation=response_transformation)
-    logger.info(
-        "Training %s on %d pairs with hyperparameters %s",
-        spec.name,
-        len(scopes.final_training),
-        fitted.hyperparameters,
+    execution = build_execution(
+        spec,
+        data,
+        _holdout_folds(data, quality, seed),
+        hyperparameter_tuning=hyperparameter_tuning,
+        hpo_metric=hpo_metric,
+        hpo_num_trials=hpo_num_trials,
+        hpo_random_state=seed if hpo_random_state is None else hpo_random_state,
+        seed=seed,
     )
-    seed_everything(fit_rng_seed)
-    fitted.train(data, scopes.final_training, early_stopping_scope=scopes.stopping, n_jobs=n_jobs)
-    return fitted
+    logger.info("Training %s on %d pairs", spec.name, len(execution.scopes.final_training))
+    return fit(execution, data, response_transformation=response_transformation, n_jobs=n_jobs).model

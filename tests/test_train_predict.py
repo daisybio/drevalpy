@@ -16,10 +16,11 @@ from drevalpy.data import CurveQuality, synthetic
 from drevalpy.errors import InvalidInputError, UnknownNameError
 from drevalpy.evaluation import Metric
 from drevalpy.models import DRPModel, ModelSpec
-from drevalpy.types import SplitMask
+from drevalpy.types import PairMask
 from drevalpy.types.results.run import RunResult
 
 TRAIN_MODULE = importlib.import_module("drevalpy._train")
+FIT_MODULE = importlib.import_module("drevalpy.experiment._fit")
 
 
 class _RecordingModel(DRPModel):
@@ -34,7 +35,7 @@ class _RecordingModel(DRPModel):
 @pytest.fixture
 def recorded_fits(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
     cls = type("_FreshRecordingModel", (_RecordingModel,), {"fits": []})
-    monkeypatch.setattr(TRAIN_MODULE, "DRPModel", cls)
+    monkeypatch.setattr(FIT_MODULE, "DRPModel", cls)
     return cls.fits
 
 
@@ -42,11 +43,11 @@ def recorded_fits(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
 def tuner(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     seen: dict[str, Any] = {}
 
-    def fake_tune(**kwargs: Any) -> tuple[dict[str, Any], list]:
-        seen.update(kwargs)
+    def fake_tune(execution, dataset, **kwargs: Any) -> tuple[dict[str, Any], list]:
+        seen.update(kwargs, execution=execution)
         return {"alpha": 0.5}, []
 
-    monkeypatch.setattr(TRAIN_MODULE, "hpam_tune", fake_tune)
+    monkeypatch.setattr(FIT_MODULE, "hpam_tune", fake_tune)
     return seen
 
 
@@ -56,7 +57,7 @@ def _observed(dataset) -> np.ndarray:
 
 def test_a_real_model_is_fitted_and_predicts_every_pair(synthetic_dataset) -> None:
     fitted = drevalpy.train("ElasticNet", synthetic_dataset, hyperparameter_tuning=False)
-    scope = SplitMask(_observed(synthetic_dataset))
+    scope = PairMask(_observed(synthetic_dataset))
 
     predictions = fitted.predict(synthetic_dataset, scope)
 
@@ -71,7 +72,7 @@ def test_a_real_model_is_fitted_and_predicts_every_pair(synthetic_dataset) -> No
 
 def test_a_single_drug_model_fits_an_estimator_for_every_drug(synthetic_dataset) -> None:
     fitted = drevalpy.train("SingleDrugElasticNet", synthetic_dataset, hyperparameter_tuning=False)
-    scope = SplitMask(_observed(synthetic_dataset))
+    scope = PairMask(_observed(synthetic_dataset))
 
     assert set(fitted._predictor._estimators) == {str(drug) for drug in synthetic_dataset.drug_ids}
     assert np.isfinite(fitted.predict(synthetic_dataset, scope)).all()
@@ -83,7 +84,7 @@ def test_the_response_transformation_is_fitted_on_a_copy_and_inverted_when_predi
         "NaivePredictor", synthetic_dataset, hyperparameter_tuning=False, response_transformation=prototype
     )
 
-    predictions = fitted.predict(synthetic_dataset, SplitMask(_observed(synthetic_dataset)))
+    predictions = fitted.predict(synthetic_dataset, PairMask(_observed(synthetic_dataset)))
 
     np.testing.assert_allclose(predictions, np.nanmean(synthetic_dataset.response_matrix), atol=0.05)
     assert hasattr(fitted._fitted_response_transformation, "mean_")
@@ -98,7 +99,7 @@ class TestScopes:
 
         (fit,) = recorded_fits
         assert fit["early_stopping_scope"] is None
-        assert fit["scope"] == SplitMask(_observed(synthetic_dataset))
+        assert fit["scope"] == PairMask(_observed(synthetic_dataset))
 
     def test_an_early_stopping_model_sets_aside_a_seeded_quarter_of_the_validation_slice(
         self, synthetic_dataset, recorded_fits, monkeypatch
@@ -112,8 +113,8 @@ class TestScopes:
         first, repeated, other = recorded_fits
         stopping, training = first["early_stopping_scope"], first["scope"]
         assert len(stopping) == max(1, int(n_validation * 0.25))
-        assert not (stopping & training).mask.any()
-        assert (stopping | training) == SplitMask(_observed(synthetic_dataset))
+        assert not (stopping.mask & training.mask).any()
+        assert (stopping | training) == PairMask(_observed(synthetic_dataset))
         assert repeated["early_stopping_scope"] == stopping
         assert other["early_stopping_scope"] != stopping
 
@@ -136,17 +137,20 @@ class TestTuning:
         )
 
         assert fitted.hyperparameters["predictor.elasticNet.alpha"] == 0.5
-        assert tuner["hpo_config"].metric == "Pearson"
-        assert (tuner["hpo_config"].n_trials, tuner["hpo_config"].random_state, tuner["n_jobs"]) == (3, 9, 3)
-        assert not (tuner["train_scope"] & tuner["val_scope"]).mask.any()
-        assert tuner["val_scope"].mask.any()
-        assert recorded_fits[0]["scope"] == tuner["train_scope"] | tuner["val_scope"]
+        execution = tuner["execution"]
+        assert execution.hyperparameter_tuning
+        assert (execution.hpo_metric, execution.hpo_num_trials, execution.hpo_random_state) == ("Pearson", 3, 9)
+        assert tuner["n_jobs"] == 3
+        scopes = execution.scopes
+        assert not (scopes.training.mask & scopes.validation.mask).any()
+        assert scopes.validation.mask.any()
+        assert recorded_fits[0]["scope"] == scopes.training | scopes.validation
 
     @pytest.mark.slow
     def test_tuning_a_real_model_returns_a_fitted_model(self, synthetic_dataset) -> None:
         fitted = drevalpy.train("ElasticNet", synthetic_dataset, hpo_num_trials=2)
 
-        assert np.isfinite(fitted.predict(synthetic_dataset, SplitMask(_observed(synthetic_dataset)))).all()
+        assert np.isfinite(fitted.predict(synthetic_dataset, PairMask(_observed(synthetic_dataset)))).all()
 
 
 class TestInputs:
@@ -197,9 +201,7 @@ def test_one_prediction_per_observed_pair_next_to_its_response(trained: DRPModel
     drug_index = {drug: j for j, drug in enumerate(synthetic_dataset.drug_ids)}
     for sample, drug, truth in zip(result.sample_ids[:20], result.drug_ids[:20], result.ground_truth[:20], strict=True):
         assert matrix[sample_index[sample], drug_index[drug]] == truth
-    np.testing.assert_array_equal(
-        result.predictions, trained.predict(synthetic_dataset, SplitMask(np.isfinite(matrix)))
-    )
+    np.testing.assert_array_equal(result.predictions, trained.predict(synthetic_dataset, PairMask(np.isfinite(matrix))))
     assert abs(np.nanmean(result.predictions) - np.nanmean(result.ground_truth)) < 0.5
     assert result.model_name == "NaiveSampleMeanPredictor"
     assert result.dataset_name == synthetic_dataset.name

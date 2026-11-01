@@ -17,11 +17,12 @@ from drevalpy.errors import InvalidInputError
 from drevalpy.evaluation import Metric
 from drevalpy.models import DRPModel, ModelSpec
 from drevalpy.registry.splitter import SplitValidationError
-from drevalpy.types import SplitMask, SplitMasks
+from drevalpy.types import Fold, PairMask
 from drevalpy.types.results.run import RunResult
+from drevalpy.types.results.trial import TrialResult
 from tests._fake_wandb import FakeWandb, install_fake_wandb
 
-SINGLE_MODULE = importlib.import_module("drevalpy._single")
+FIT_MODULE = importlib.import_module("drevalpy.experiment._fit")
 
 
 class _StubModel(DRPModel):
@@ -31,8 +32,10 @@ class _StubModel(DRPModel):
     instances: list[_StubModel] = []  # plain class-level config
     prediction_value: float | None = None
 
-    def __init__(self, spec, hyperparameters=None, *, response_transformation=None) -> None:
-        super().__init__(spec, hyperparameters, response_transformation=response_transformation)
+    def __init__(self, spec, hyperparameters=None, *, check_values=True, response_transformation=None) -> None:
+        super().__init__(
+            spec, hyperparameters, check_values=check_values, response_transformation=response_transformation
+        )
         self.received_hyperparameters = hyperparameters
         self.train_calls = []
         self.predict_calls = []
@@ -72,13 +75,13 @@ class _StubModel(DRPModel):
 def stub_model(monkeypatch):
     cls = type("_FreshStubModel", (_StubModel,), {"instances": []})
     cls.recipe = ModelSpec("StubModel", ModelSpec.from_name("ElasticNet").config)
-    monkeypatch.setattr(SINGLE_MODULE, "DRPModel", cls)
+    monkeypatch.setattr(FIT_MODULE, "DRPModel", cls)
     monkeypatch.setattr(ModelSpec, "supports_early_stopping", property(lambda spec: cls.early_stopping))
     return cls
 
 
 @pytest.fixture
-def folds(synthetic_dataset) -> list[SplitMasks]:
+def folds(synthetic_dataset) -> list[Fold]:
     return split(synthetic_dataset, "LSO", n_splits=2)
 
 
@@ -87,31 +90,31 @@ def tuner(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     """Replace ``hpam_tune``; the kwargs of its last call are collected in the returned dict."""
     seen: dict[str, Any] = {}
 
-    def fake_tune(**kwargs: Any):
-        seen.update(kwargs)
+    def fake_tune(execution, dataset, **kwargs: Any):
+        seen.update(kwargs, execution=execution, dataset=dataset)
         return {"predictor.elasticNet.alpha": 0.2}, []
 
-    monkeypatch.setattr(SINGLE_MODULE, "hpam_tune", fake_tune)
+    monkeypatch.setattr(FIT_MODULE, "hpam_tune", fake_tune)
     return seen
 
 
-def _masks_with_val_pairs(shape: tuple[int, int], n_val: int) -> SplitMasks:
+def _fold_with_val_pairs(shape: tuple[int, int], n_val: int) -> Fold:
     train = np.zeros(shape, dtype=bool)
     test = np.zeros(shape, dtype=bool)
     val = np.zeros(shape, dtype=bool)
     train[:2, :] = True
     test[2, :] = True
     val.reshape(-1)[shape[1] * 3 : shape[1] * 3 + n_val] = True
-    return SplitMasks(
-        train=SplitMask(train),
-        test=SplitMask(test),
-        val=SplitMask(val),
+    return Fold(
+        train=PairMask(train),
+        test=PairMask(test),
+        val=PairMask(val),
         metadata={"split_mode": "LSO", "fold_index": 0, "fold_id": "abc123"},
     )
 
 
-def _train_responses(dataset, masks: SplitMasks) -> np.ndarray:
-    pairs = masks.train_val.pairs
+def _train_responses(dataset, fold: Fold) -> np.ndarray:
+    pairs = fold.train_val.pairs
     responses = dataset.response_matrix[pairs[:, 0], pairs[:, 1]]
     return responses[~np.isnan(responses)]
 
@@ -135,7 +138,7 @@ def test_end_to_end_with_a_real_model(synthetic_dataset) -> None:
 
 
 class TestFoldMetadata:
-    def test_split_metadata_is_copied_not_aliased(self, synthetic_dataset, folds, stub_model) -> None:
+    def test_fold_metadata_is_copied_not_aliased(self, synthetic_dataset, folds, stub_model) -> None:
         result = single(stub_model.recipe, synthetic_dataset, folds[1], hyperparameter_tuning=False)
 
         assert result.split_mode == folds[1].metadata["split_mode"]
@@ -148,13 +151,13 @@ class TestFoldMetadata:
 
     def test_absent_metadata_falls_back_to_defaults(self, synthetic_dataset, stub_model) -> None:
         shape = synthetic_dataset.response_matrix.shape
-        masks = SplitMasks(
-            train=SplitMask(np.eye(*shape, dtype=bool)),
-            test=SplitMask(np.flipud(np.eye(*shape, dtype=bool))),
-            val=SplitMask(np.zeros(shape, dtype=bool)),
+        fold = Fold(
+            train=PairMask(np.eye(*shape, dtype=bool)),
+            test=PairMask(np.flipud(np.eye(*shape, dtype=bool))),
+            val=PairMask(np.zeros(shape, dtype=bool)),
         )
 
-        result = single(stub_model.recipe, synthetic_dataset, masks, hyperparameter_tuning=False)
+        result = single(stub_model.recipe, synthetic_dataset, fold, hyperparameter_tuning=False)
 
         assert (result.split_mode, result.fold_index, result.fold_id) == ("", 0, "")
 
@@ -199,17 +202,17 @@ class TestTraining:
         self, synthetic_dataset, stub_model, early_stopping, n_val, expects_scope
     ) -> None:
         stub_model.early_stopping = early_stopping
-        masks = _masks_with_val_pairs(synthetic_dataset.response_matrix.shape, n_val)
+        fold = _fold_with_val_pairs(synthetic_dataset.response_matrix.shape, n_val)
 
-        single(stub_model.recipe, synthetic_dataset, masks, hyperparameter_tuning=False)
+        single(stub_model.recipe, synthetic_dataset, fold, hyperparameter_tuning=False)
 
         scope = stub_model.instances[0].train_calls[0]["early_stopping_scope"]
         assert (scope is not None) is expects_scope
         if expects_scope:
-            expected, _ = masks.early_stopping_mask()
+            expected, _ = fold.early_stopping_mask()
             np.testing.assert_array_equal(scope.mask, expected.mask)
             assert scope.mask.any()
-            assert (scope.mask & ~masks.val.mask).sum() == 0
+            assert (scope.mask & ~fold.val.mask).sum() == 0
 
 
 class TestResponseTransformation:
@@ -250,16 +253,16 @@ class TestResponseTransformation:
 class TestHyperparameterTuning:
     def test_trials_and_the_tuner_inputs(self, synthetic_dataset, folds, stub_model, monkeypatch) -> None:
         seen: dict[str, Any] = {}
-        raw_trials = [
-            ({"predictor.elasticNet.alpha": 0.1}, {"RMSE": 1.0}, np.array([1.0, 2.0])),
-            ({"predictor.elasticNet.alpha": 0.9}, {"RMSE": 2.0}, np.array([3.0, 4.0])),
+        trials = [
+            TrialResult({"predictor.elasticNet.alpha": 0.1}, {"RMSE": 1.0}, "RMSE", np.array([1.0, 2.0])),
+            TrialResult({"predictor.elasticNet.alpha": 0.9}, {"RMSE": 2.0}, "RMSE", np.array([3.0, 4.0])),
         ]
 
-        def fake_tune(**kwargs: Any):
-            seen.update(kwargs)
-            return {"predictor.elasticNet.alpha": 0.1}, raw_trials
+        def fake_tune(execution, dataset, **kwargs: Any):
+            seen.update(kwargs, execution=execution, dataset=dataset)
+            return {"predictor.elasticNet.alpha": 0.1}, trials
 
-        monkeypatch.setattr(SINGLE_MODULE, "hpam_tune", fake_tune)
+        monkeypatch.setattr(FIT_MODULE, "hpam_tune", fake_tune)
 
         result = single(
             stub_model.recipe,
@@ -271,23 +274,16 @@ class TestHyperparameterTuning:
             hpo_random_state=11,
         )
 
-        assert result.trials is not None
-        assert [t.hyperparameters for t in result.trials] == [
-            {"predictor.elasticNet.alpha": 0.1},
-            {"predictor.elasticNet.alpha": 0.9},
-        ]
-        assert [t.optimization_metric for t in result.trials] == ["RMSE", "RMSE"]
+        assert result.trials == trials
         assert result.best_hyperparameters == {"predictor.elasticNet.alpha": 0.1}
-        assert seen["model_spec"] is stub_model.recipe
+        execution = seen["execution"]
+        assert execution.model is stub_model.recipe
         assert seen["dataset"] is synthetic_dataset
-        assert seen["early_stopping_scope"] is None
-        np.testing.assert_array_equal(seen["train_scope"].mask, folds[0].train.mask)
-        np.testing.assert_array_equal(seen["val_scope"].mask, folds[0].val.mask)
-        assert (seen["hpo_config"].n_trials, seen["hpo_config"].metric, seen["hpo_config"].random_state) == (
-            3,
-            "RMSE",
-            11,
-        )
+        assert execution.scopes.stopping is None
+        np.testing.assert_array_equal(execution.scopes.training.mask, folds[0].train.mask)
+        np.testing.assert_array_equal(execution.scopes.validation.mask, folds[0].val.mask)
+        assert (execution.hyperparameter_tuning, execution.hpo_num_trials, execution.hpo_metric) == (True, 3, "RMSE")
+        assert execution.hpo_random_state == 11
 
     def test_early_stopping_narrows_the_validation_scope_handed_to_the_tuner(
         self, synthetic_dataset, folds, stub_model, tuner
@@ -297,8 +293,8 @@ class TestHyperparameterTuning:
         single(stub_model.recipe, synthetic_dataset, folds[0], hyperparameter_tuning=True)
 
         es_expected, val_expected = folds[0].early_stopping_mask()
-        np.testing.assert_array_equal(tuner["early_stopping_scope"].mask, es_expected.mask)
-        np.testing.assert_array_equal(tuner["val_scope"].mask, val_expected.mask)
+        np.testing.assert_array_equal(tuner["execution"].scopes.stopping.mask, es_expected.mask)
+        np.testing.assert_array_equal(tuner["execution"].scopes.validation.mask, val_expected.mask)
 
 
 @pytest.mark.parametrize("tuning", [False, True])
@@ -306,49 +302,49 @@ def test_final_fit_excludes_stopping_holdout_and_transforms_training_only(
     stub_model, synthetic_dataset, monkeypatch, tuning
 ):
     stub_model.early_stopping = True
-    masks = _masks_with_val_pairs(synthetic_dataset.response_matrix.shape, 8)
-    es, val = masks.early_stopping_mask()
+    fold = _fold_with_val_pairs(synthetic_dataset.response_matrix.shape, 8)
+    es, val = fold.early_stopping_mask()
     seen = []
 
-    def tune(**kwargs):
-        seen.append(kwargs)
+    def tune(execution, dataset, **kwargs):
+        seen.append({**kwargs, "execution": execution})
         return dict(stub_model.recipe.hyperparameters), []
 
-    monkeypatch.setattr(SINGLE_MODULE, "hpam_tune", tune)
+    monkeypatch.setattr(FIT_MODULE, "hpam_tune", tune)
     single(
         stub_model.recipe,
         synthetic_dataset,
-        masks,
+        fold,
         hyperparameter_tuning=tuning,
         response_transformation=StandardScaler(),
     )
     call = stub_model.instances[-1].train_calls[0]
-    assert not (call["scope"] & es).mask.any()
-    assert call["scope"] == masks.train | val
+    assert not (call["scope"].mask & es.mask).any()
+    assert call["scope"] == fold.train | val
     assert call["early_stopping_scope"] == es
     pairs = call["scope"].pairs
     expected = synthetic_dataset.response_matrix[pairs[:, 0], pairs[:, 1]]
     np.testing.assert_allclose(call["response_transformation"].mean_, [np.nanmean(expected)])
     if tuning:
-        assert seen[0]["early_stopping_scope"] == es
-        assert seen[0]["val_scope"] == val
-        assert seen[0]["train_scope"] == masks.train
+        assert seen[0]["execution"].scopes.stopping == es
+        assert seen[0]["execution"].scopes.validation == val
+        assert seen[0]["execution"].scopes.training == fold.train
 
 
 @pytest.mark.parametrize("defect", ["shape", "pair_overlap", "entity_overlap"])
-def test_direct_masks_are_validated_before_training(stub_model, synthetic_dataset, defect):
-    masks = _masks_with_val_pairs(synthetic_dataset.response_matrix.shape, 4)
+def test_direct_folds_are_validated_before_training(stub_model, synthetic_dataset, defect):
+    fold = _fold_with_val_pairs(synthetic_dataset.response_matrix.shape, 4)
     if defect == "shape":
-        masks = replace(masks, test=SplitMask(np.zeros((1, 1), dtype=bool)))
+        fold = replace(fold, test=PairMask(np.zeros((1, 1), dtype=bool)))
     elif defect == "pair_overlap":
-        masks = replace(masks, test=SplitMask(masks.train.mask.copy()))
+        fold = replace(fold, test=PairMask(fold.train.mask.copy()))
     else:
-        train, test = masks.train.mask.copy(), masks.test.mask.copy()
+        train, test = fold.train.mask.copy(), fold.test.mask.copy()
         train[0, 0], test[0, 0] = False, True
-        masks = replace(masks, train=SplitMask(train), test=SplitMask(test))
+        fold = replace(fold, train=PairMask(train), test=PairMask(test))
 
     with pytest.raises(SplitValidationError):
-        single(stub_model.recipe, synthetic_dataset, masks, hyperparameter_tuning=False)
+        single(stub_model.recipe, synthetic_dataset, fold, hyperparameter_tuning=False)
     assert stub_model.instances == []
 
 
@@ -376,7 +372,7 @@ class TestSeeding:
     @pytest.fixture
     def seeded(self, monkeypatch: pytest.MonkeyPatch) -> list[int]:
         calls: list[int] = []
-        monkeypatch.setattr(SINGLE_MODULE, "seed_everything", calls.append)
+        monkeypatch.setattr(FIT_MODULE, "seed_everything", calls.append)
         return calls
 
     def test_the_final_fit_is_seeded_from_the_identity_and_recorded(
@@ -386,8 +382,11 @@ class TestSeeding:
         single(stub_model.recipe, synthetic_dataset, folds[1], hyperparameter_tuning=False, seed=3)
         single(stub_model.recipe, synthetic_dataset, folds[0], hyperparameter_tuning=False, seed=3)
 
-        assert seeded[0] == seeded[2]
-        assert seeded[0] != seeded[1]
+        # Each run seeds before tuning and again before the final fit, with the same seed.
+        assert len(seeded) == 6
+        assert seeded[0::2] == seeded[1::2]
+        assert seeded[0] == seeded[4]
+        assert seeded[0] != seeded[2]
         assert first.fold_metadata["execution"]["seed"] == 3
 
     def test_hpo_and_the_final_fit_are_both_seeded_and_the_sampler_defaults_to_the_seed(
@@ -395,11 +394,11 @@ class TestSeeding:
     ) -> None:
         sampler_states: list[int] = []
 
-        def fake_tune(**kwargs: Any):
-            sampler_states.append(kwargs["hpo_config"].random_state)
+        def fake_tune(execution, dataset, **kwargs: Any):
+            sampler_states.append(execution.hpo_random_state)
             return {"predictor.elasticNet.alpha": 0.2}, []
 
-        monkeypatch.setattr(SINGLE_MODULE, "hpam_tune", fake_tune)
+        monkeypatch.setattr(FIT_MODULE, "hpam_tune", fake_tune)
 
         single(stub_model.recipe, synthetic_dataset, folds[0], seed=8)
         single(stub_model.recipe, synthetic_dataset, folds[0], seed=8, hpo_random_state=2)
@@ -412,7 +411,7 @@ class TestSeeding:
 @pytest.mark.slow
 def test_neural_predictions_follow_the_seed(synthetic_dataset, folds) -> None:
     spec = ModelSpec.from_name("SimpleNeuralNetwork").with_hyperparameters(
-        {"units_per_layer": [4, 4], "max_epochs": 2, "batch_size": 8}
+        {"units_per_layer": [4, 4], "max_epochs": 2, "batch_size": 8}, check_values=False
     )
 
     def predict(seed: int) -> np.ndarray:

@@ -11,7 +11,7 @@ import pandas as pd
 import pytest
 from matplotlib.figure import Figure
 
-from drevalpy.evaluation._scoring import run_metrics
+from drevalpy.evaluation import evaluate
 from drevalpy.types.results.experiment import ExperimentResult
 from drevalpy.types.results.run import RunResult
 from drevalpy.visualization.base import save_png
@@ -239,7 +239,7 @@ def _run(model: str, fold: int, seed: int, *, noise: float = 0.5) -> RunResult:
         drug_ids=drugs,
         split_mode="LSO",
         fold_id=f"fold_{fold}",
-        metrics=run_metrics(predictions, truth),
+        metrics=evaluate(predictions, truth),
     )
 
 

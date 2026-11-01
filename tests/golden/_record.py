@@ -5,14 +5,12 @@ rewrite ``tests/golden/data/``. Record only on a commit whose numerics are the r
 refactor packages compare against the baseline, they never re-record it.
 
 Every call into drevalpy that trains or predicts goes through :func:`train_and_predict` and
-:func:`round_trip_predict`. When ``ModelSpec``, ``DRPModel``, the HPO entry points or the archive
+:func:`round_trip_predict`. When ``ModelSpec``, ``DRPModel``, the fit path or the archive
 format change signature, adapt these two functions and nothing else: the baseline stays valid as
 long as the numbers they produce do not change.
 
-:func:`train_and_predict` mirrors ``drevalpy._single._execute`` step by step (the same scopes, seeds
-and HPO call), because ``drevalpy.single`` does not hand back the fitted model the round trip needs.
-The recorder checks that both give bit-identical predictions, so the baseline is anchored to the
-public ``drevalpy.single`` path.
+:func:`train_and_predict` calls ``drevalpy.experiment._fit.fit``, the path ``drevalpy.single`` takes,
+because ``drevalpy.single`` does not hand back the fitted model the round trip needs.
 """
 
 from __future__ import annotations
@@ -94,8 +92,8 @@ def build_dataset():
     return drevalpy.synthetic(seed=DATASET_SEED, **{key: list(value) for key, value in DATASET_OPTIONS.items()})
 
 
-def golden_split(dataset):
-    """Return fold :data:`FOLD_INDEX` of the :data:`SPLIT_MODE` split of *dataset*."""
+def build_fold(dataset):
+    """Return fold :data:`FOLD_INDEX` of the :data:`SPLIT_MODE` folds of *dataset*."""
     import drevalpy
 
     return drevalpy.split(dataset, SPLIT_MODE, n_splits=N_SPLITS, random_state=SPLIT_SEED)[FOLD_INDEX]
@@ -111,7 +109,7 @@ def zoo_names() -> list[str]:
 def train_and_predict(
     model_name: str,
     dataset,
-    split,
+    fold,
     *,
     hyperparameter_tuning: bool = False,
     overrides: dict[str, Any] | None = None,
@@ -119,13 +117,13 @@ def train_and_predict(
     hpo_random_state: int = HPO_SEED,
     seed: int = SEED,
 ) -> GoldenRun:
-    """Train zoo model *model_name* on *split* the way ``drevalpy.single`` does and predict its test scope.
+    """Train zoo model *model_name* on *fold* the way ``drevalpy.single`` does and predict its test scope.
 
     The single place that trains: adapt it when the model or tuning API changes.
 
     :param model_name: Zoo preset name.
     :param dataset: Golden dataset.
-    :param split: Fold to train and test on.
+    :param fold: Fold to train and test on.
     :param hyperparameter_tuning: Whether to tune, as ``drevalpy.single(hyperparameter_tuning=...)``.
     :param overrides: Short public hyperparameter names and values that replace defaults, untuned only.
     :param hpo_num_trials: Number of tuning trials.
@@ -133,61 +131,31 @@ def train_and_predict(
     :param seed: Root seed of the run.
     :returns: Predictions, metrics, chosen hyperparameters and the fitted model.
     """
-    from drevalpy._utils.seed import fit_seed, seed_everything
-    from drevalpy.evaluation._scoring import run_metrics
     from drevalpy.experiment._execution import build_execution
-    from drevalpy.models import DRPModel, ModelSpec
-    from drevalpy.models.tuning.config import HPOConfig
-    from drevalpy.models.tuning.hpo import hpam_tune
-    from drevalpy.types.data.batch.response_batch import ResponseBatch
+    from drevalpy.experiment._fit import fit
+    from drevalpy.models import ModelSpec
 
     spec = ModelSpec.from_name(model_name)
     execution = build_execution(
-        spec,
+        spec if hyperparameter_tuning else spec.with_hyperparameters(overrides or {}),
         dataset,
-        split,
+        fold,
         hyperparameter_tuning=hyperparameter_tuning,
         hpo_metric="RMSE",
         hpo_num_trials=hpo_num_trials,
         hpo_random_state=hpo_random_state,
         seed=seed,
     )
-    scopes = execution.scopes
-    fit_rng_seed = fit_seed(execution.seed, execution.identity)
-    if hyperparameter_tuning:
-        seed_everything(fit_rng_seed)
-        best, _ = hpam_tune(
-            model_spec=spec,
-            dataset=dataset,
-            train_scope=scopes.training,
-            val_scope=scopes.validation,
-            early_stopping_scope=scopes.stopping,
-            model_checkpoint_dir=None,
-            hpo_config=HPOConfig(n_trials=hpo_num_trials, metric="RMSE", random_state=hpo_random_state),
-            split_index=execution.identity.fold_index,
-        )
-    else:
-        best = spec.with_hyperparameters(overrides or {}).hyperparameters
-    model = DRPModel(spec, best)
-    seed_everything(fit_rng_seed)
-    with tempfile.TemporaryDirectory() as checkpoint_dir:
-        model.train(
-            dataset=dataset,
-            scope=scopes.final_training,
-            early_stopping_scope=scopes.stopping,
-            model_checkpoint_dir=checkpoint_dir,
-        )
-    predictions = np.asarray(model.predict(dataset=dataset, scope=scopes.test))
-    metrics = run_metrics(predictions, ResponseBatch.from_dataset(dataset, scopes.test).response)
-    return GoldenRun(predictions, dict(metrics), model.hyperparameters, model)
+    final = fit(execution, dataset)
+    return GoldenRun(np.asarray(final.predictions), dict(final.metrics), final.model.hyperparameters, final.model)
 
 
-def round_trip_predict(run: GoldenRun, dataset, split) -> np.ndarray:
+def round_trip_predict(run: GoldenRun, dataset, fold) -> np.ndarray:
     """Save the fitted model of *run* to a temporary archive, load it and predict the test scope again.
 
     :param run: Fitted golden run.
     :param dataset: Golden dataset.
-    :param split: Fold the model was trained on.
+    :param fold: Fold the model was trained on.
     :returns: Predictions of the reloaded model, in test-scope order.
     """
     from drevalpy.models import DRPModel
@@ -196,23 +164,7 @@ def round_trip_predict(run: GoldenRun, dataset, split) -> np.ndarray:
         path = f"{directory}/model.zip"
         run.model.save(path)
         loaded = DRPModel.load(path)
-    return np.asarray(loaded.predict(dataset, split.test))
-
-
-def single_predictions(model_name: str, dataset, split, *, hyperparameter_tuning: bool) -> np.ndarray:
-    """Predict through the public ``drevalpy.single``, to anchor :func:`train_and_predict` to it."""
-    import drevalpy
-
-    result = drevalpy.single(
-        drevalpy.ModelSpec.from_name(model_name),
-        dataset,
-        split,
-        hyperparameter_tuning=hyperparameter_tuning,
-        hpo_num_trials=HPO_TRIALS,
-        hpo_random_state=HPO_SEED,
-        seed=SEED,
-    )
-    return np.asarray(result.predictions)
+    return np.asarray(loaded.predict(dataset, fold.test))
 
 
 def hyperparameter_values(hyperparameters: dict[str, Any]) -> list[str]:
@@ -258,25 +210,21 @@ def _artifact_watch() -> Iterator[set[str]]:
         module._cache_root = original
 
 
-def _record_one(name: str, dataset, split, *, hyperparameter_tuning: bool) -> tuple[np.ndarray, dict[str, Any]]:
-    """Run one model three ways and return its predictions and baseline entry."""
+def _record_one(name: str, dataset, fold, *, hyperparameter_tuning: bool) -> tuple[np.ndarray, dict[str, Any]]:
+    """Run one model twice and through a checkpoint, and return its predictions and baseline entry."""
     overrides = {} if hyperparameter_tuning else OVERRIDES.get(name, {})
     start = time.perf_counter()
     options = {"hyperparameter_tuning": hyperparameter_tuning, "overrides": overrides}
     with _artifact_watch() as artifacts:
-        first = train_and_predict(name, dataset, split, **options)
+        first = train_and_predict(name, dataset, fold, **options)
     seconds = time.perf_counter() - start
-    second = train_and_predict(name, dataset, split, **options)
+    second = train_and_predict(name, dataset, fold, **options)
     deterministic = predictions_match(first.predictions, second.predictions, exact=True) and metrics_equal(
         first.metrics, second.metrics
     )
     if not deterministic and not predictions_match(first.predictions, second.predictions, exact=False):
         raise RuntimeError(f"{name}: two runs differ by more than atol={ATOL}")
-    if not overrides:
-        public = single_predictions(name, dataset, split, hyperparameter_tuning=hyperparameter_tuning)
-        if not predictions_match(public, first.predictions, exact=deterministic):
-            raise RuntimeError(f"{name}: train_and_predict disagrees with drevalpy.single")
-    loaded = round_trip_predict(first, dataset, split)
+    loaded = round_trip_predict(first, dataset, fold)
     round_trip_exact = predictions_match(loaded, first.predictions, exact=True)
     if not round_trip_exact and not predictions_match(loaded, first.predictions, exact=False):
         raise RuntimeError(f"{name}: reloaded predictions differ by more than atol={ATOL}")
@@ -326,7 +274,7 @@ def record(names: list[str] | None = None) -> dict[str, Any]:
     :returns: The written baseline metadata.
     """
     dataset = build_dataset()
-    split = golden_split(dataset)
+    fold = build_fold(dataset)
     predictions, models, excluded = _load_existing() if names else ({}, {}, {})
     keys = names or [*zoo_names(), HPO_KEY]
     jobs = [(key, HPO_MODEL, True) if key == HPO_KEY else (key, key, False) for key in keys]
@@ -336,7 +284,7 @@ def record(names: list[str] | None = None) -> dict[str, Any]:
         models.pop(key, None)
         excluded.pop(key, None)
         try:
-            predictions[key], models[key] = _record_one(name, dataset, split, hyperparameter_tuning=tuned)
+            predictions[key], models[key] = _record_one(name, dataset, fold, hyperparameter_tuning=tuned)
         except Exception as exc:  # noqa: BLE001 - a model that cannot run offline is recorded as excluded
             traceback.print_exc()
             excluded[key] = f"{type(exc).__name__}: {exc}"[:500]

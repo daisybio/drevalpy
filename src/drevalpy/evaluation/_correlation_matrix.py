@@ -19,17 +19,12 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from ._grouping import defined_labels, group_labels
+from ._grouping import defined_labels, group_labeller
 from ._metrics import MIN_GROUP_SIZE, Metric
 from ._scoring import evaluate_per_group
 
 if TYPE_CHECKING:
-    from drevalpy.types.results import ExperimentResult, ModelResult, RunResult
-
-
-def _scoring_runs(model: ModelResult) -> list[RunResult]:
-    """Return the non-randomized runs of a model."""
-    return model.select_runs()
+    from drevalpy.types.results import ExperimentResult
 
 
 @dataclass(frozen=True)
@@ -85,10 +80,11 @@ class GroupCorrelationMatrix:
 
 def _shared_group_axis(result: ExperimentResult, grouping: str) -> np.ndarray:
     """Return the sorted union of group labels over every scoring run."""
+    labels_of = group_labeller(grouping)
     seen: list[np.ndarray] = []
     for model in result.models:
-        for run in _scoring_runs(model):
-            labels = group_labels(run, grouping)
+        for run in model.select_runs():
+            labels = labels_of(run)
             seen.append(np.unique(labels[defined_labels(labels)]))
     if not seen:
         return np.empty(0, dtype=object)
@@ -113,18 +109,19 @@ def model_group_correlations(
     :returns: A :class:`GroupCorrelationMatrix` over every model in ``result``.
     """
     groups = _shared_group_axis(result, grouping)
+    labels_of = group_labeller(grouping)
 
     model_names: list[str] = []
     rows: list[np.ndarray] = []
     for model in result.models:
-        runs = _scoring_runs(model)
+        runs = model.select_runs()
         if not runs:
             continue
         scores = evaluate_per_group(
             np.concatenate([run.predictions for run in runs]),
             np.concatenate([run.ground_truth for run in runs]),
             Metric.PEARSON,
-            labels=np.concatenate([group_labels(run, grouping) for run in runs]),
+            labels=np.concatenate([labels_of(run) for run in runs]),
             groups=groups,
         )
         row = np.where(scores.n_pairs < min_count, np.nan, scores.values[Metric.PEARSON])

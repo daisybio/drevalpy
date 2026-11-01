@@ -12,7 +12,7 @@ from typing import Any
 import numpy as np
 import pytest
 
-from tests.golden._record import BASELINE_FILE, PREDICTIONS_FILE, build_dataset, golden_split
+from tests.golden._record import BASELINE_FILE, PREDICTIONS_FILE, build_dataset, build_fold
 
 
 @pytest.fixture(scope="session")
@@ -24,7 +24,7 @@ def golden_dataset():
 @pytest.fixture(scope="session")
 def golden_fold(golden_dataset):
     """The recorded fold of the golden dataset."""
-    return golden_split(golden_dataset)
+    return build_fold(golden_dataset)
 
 
 @pytest.fixture(scope="session")

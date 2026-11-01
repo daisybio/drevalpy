@@ -5,19 +5,21 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from functools import partial
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, TypeVar
 
 from rich.markup import escape
 
-from drevalpy._single import single
+from drevalpy._single import _fit_fold
 from drevalpy._utils.n_jobs import check_n_jobs
-from drevalpy.data import CurveQuality, concat, load, split
+from drevalpy.data import CurveQuality, split
+from drevalpy.data._resolve import resolve_dataset
 from drevalpy.errors import InvalidInputError
 from drevalpy.experiment._randomization import randomization
 from drevalpy.experiment._robustness import robustness
 from drevalpy.log import get_logger
 from drevalpy.models.spec import ModelSpec
-from drevalpy.types import Dataset, SplitMasks
+from drevalpy.registry.splitter import canonical
+from drevalpy.types import Dataset, Fold
 from drevalpy.types.enums.randomization import RandomizationType
 from drevalpy.types.results import ExperimentResult, RunResult
 from drevalpy.types.results._identity import RunIdentity
@@ -32,22 +34,14 @@ logger = get_logger(__name__)
 #: on the original response scale, so a response transformation cannot move the ruler along with the models.
 NORMALIZATION_REFERENCE = "NaiveMeanEffectsPredictor"
 
+_T = TypeVar("_T")
+
 
 def _validate_models(models: list[ModelSpec]) -> None:
     if any(not isinstance(model, ModelSpec) for model in models):
         raise TypeError("run() expects ModelSpec values")
     if len({model.name for model in models}) != len(models):
         raise InvalidInputError("Model names must be unique within an experiment")
-
-
-def _resolve_dataset(dataset: Dataset | str | Sequence[Dataset | str]) -> Dataset:
-    """Load names, and concatenate a sequence of several datasets into one."""
-    if isinstance(dataset, str) or not isinstance(dataset, Sequence):
-        return load(dataset) if isinstance(dataset, str) else dataset
-    if not dataset:
-        raise InvalidInputError("dataset must not be an empty sequence")
-    datasets = [load(item) if isinstance(item, str) else item for item in dataset]
-    return datasets[0] if len(datasets) == 1 else concat(datasets)
 
 
 @dataclass
@@ -61,84 +55,73 @@ class _Outcomes:
 
     def attempt(
         self,
-        call: Callable[[], RunResult],
+        call: Callable[[], _T],
         *,
         model_name: str,
-        masks: SplitMasks,
-        randomized: tuple[str, str] | None,
-    ) -> None:
-        """Keep the result of *call*, or record its failure unless ``on_error`` is ``"raise"``."""
+        folds: Sequence[Fold],
+        randomized: tuple[str, str] | None = None,
+    ) -> _T | None:
+        """Return the result of *call*; on failure record one failure per fold unless ``on_error`` is ``"raise"``."""
         try:
-            self.runs.append(call())
+            return call()
         except Exception as error:
             if self.on_error == "raise":
                 raise
-            self.record(error, model_name=model_name, masks=masks, randomized=randomized)
+            for fold in folds:
+                self.record(error, model_name=model_name, fold=fold, randomized=randomized)
+            return None
 
-    def build_randomized(
-        self, build: Callable[[], list[Dataset]], *, model_name: str, folds: list[SplitMasks]
-    ) -> list[Dataset]:
-        """Build a model's randomized datasets; on failure record one failure per fold and build none."""
-        try:
-            return build()
-        except Exception as error:
-            if self.on_error == "raise":
-                raise
-            for masks in folds:
-                self.record(error, model_name=model_name, masks=masks)
-            return []
+    def fit_folds(
+        self,
+        fit: Callable[[Dataset, Fold], RunResult],
+        model: ModelSpec,
+        datasets: Sequence[Dataset],
+        folds: Sequence[Fold],
+    ) -> None:
+        """Fit *model* on every fold of every dataset (original first, then its randomizations)."""
+        for fold in folds:
+            for run_ds in datasets:
+                result = self.attempt(
+                    partial(fit, run_ds, fold),
+                    model_name=model.name,
+                    folds=[fold],
+                    randomized=run_ds.randomization,
+                )
+                if result is not None:
+                    self.runs.append(result)
 
     def record(
         self,
         error: Exception,
         *,
         model_name: str,
-        masks: SplitMasks,
+        fold: Fold,
         randomized: tuple[str, str] | None = None,
     ) -> None:
-        """Store and log a failure of the run on *masks*."""
-        fold = masks.metadata
+        """Store and log a failure of the run on *fold*."""
+        metadata = fold.metadata
         identity = RunIdentity.from_metadata(
             model_name,
             self.dataset_name,
-            fold.get("split_mode", ""),
-            fold.get("fold_index", 0),
-            fold.get("fold_id", ""),
+            canonical(metadata.get("split_mode", "")),
+            metadata.get("fold_index", 0),
+            metadata.get("fold_id", ""),
             randomized,
-            fold,
+            metadata,
         )
         failure = RunFailure.from_exception(error, identity)
         logger.warning("Run failed, continuing: %s", escape(str(failure)))
         self.failures.append(failure)
 
 
-def _run_model(
-    outcomes: _Outcomes,
-    model: ModelSpec,
-    ds: Dataset,
-    folds: list[SplitMasks],
-    fit: Callable[..., RunResult],
-    randomize: Callable[..., list[Dataset]] | None,
-    randomization_modes: list[str] | None,
-) -> None:
-    """Run *model* on every fold, on the dataset and on its randomized copies built once up front."""
-    randomized_datasets = (
-        outcomes.build_randomized(
-            partial(randomize, model, ds, randomization_modes),
-            model_name=model.name,
-            folds=folds,
-        )
-        if randomize is not None
-        else []
-    )
-    for masks in folds:
-        for run_ds in [ds, *randomized_datasets]:
-            outcomes.attempt(
-                partial(fit, model, run_ds, masks),
-                model_name=model.name,
-                masks=masks,
-                randomized=run_ds.randomization,
-            )
+def _transformation_for(
+    model: ModelSpec, response_transformation: ResponseTransformer | None
+) -> ResponseTransformer | None:
+    """Return the transformation *model* trains with: none for the normalization reference."""
+    if model.name == NORMALIZATION_REFERENCE and response_transformation is not None:
+        logger.info("%s trains on the untransformed response: it is the normalization reference", model.name)
+        return None
+    return response_transformation
 
 
 def run(
@@ -192,7 +175,7 @@ def run(
     if on_error not in ("record", "raise"):
         raise InvalidInputError(f"on_error must be 'record' or 'raise', got {on_error!r}")
     _validate_models(models)
-    ds = _resolve_dataset(dataset)
+    ds = resolve_dataset(dataset)
     folds = split(ds, split_mode, random_state=seed, quality=quality)
 
     if robustness_repeats > 0:
@@ -202,7 +185,7 @@ def run(
     outcomes = _Outcomes(on_error, ds.name)
 
     fit = partial(
-        single,
+        _fit_fold,
         hyperparameter_tuning=hyperparameter_tuning,
         hpo_metric=hpo_metric,
         hpo_num_trials=hpo_num_trials,
@@ -211,17 +194,19 @@ def run(
         wandb_project=wandb_project,
         n_jobs=n_jobs,
     )
-    randomize = (
-        partial(randomization, randomization_type=randomization_type, random_state=randomization_seed)
-        if randomization_modes
-        else None
-    )
+
     for model in models:
-        exempt = model.name == NORMALIZATION_REFERENCE and response_transformation is not None
-        if exempt:
-            logger.info("%s trains on the untransformed response: it is the normalization reference", model.name)
-        model_fit = partial(fit, response_transformation=None if exempt else response_transformation)
-        _run_model(outcomes, model, ds, folds, model_fit, randomize, randomization_modes)
+        build = partial(
+            randomization,
+            model,
+            ds,
+            randomization_modes or [],
+            randomization_type=randomization_type,
+            random_state=randomization_seed,
+        )
+        randomized = outcomes.attempt(build, model_name=model.name, folds=folds) or []
+        transformation = _transformation_for(model, response_transformation)
+        outcomes.fit_folds(partial(fit, model, response_transformation=transformation), model, [ds, *randomized], folds)
 
     if outcomes.failures and not outcomes.runs:
         raise ExperimentFailedError(outcomes.failures)

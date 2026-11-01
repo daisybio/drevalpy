@@ -7,7 +7,7 @@ import pytest
 from scipy.stats import pearsonr
 
 from drevalpy.evaluation._correlation_matrix import GroupCorrelationMatrix, model_group_correlations
-from drevalpy.evaluation._grouping import group_labels
+from drevalpy.evaluation._grouping import group_labeller
 from drevalpy.evaluation._scoring import evaluate_per_group
 from drevalpy.types.results.experiment import ExperimentResult
 from tests.synthetic import make_experiment_result, make_run_result
@@ -105,7 +105,7 @@ class TestModelGroupCorrelations:
                 np.concatenate([run.predictions for run in runs]),
                 np.concatenate([run.ground_truth for run in runs]),
                 "Pearson",
-                labels=np.concatenate([group_labels(run, grouping) for run in runs]),
+                labels=np.concatenate([group_labeller(grouping)(run) for run in runs]),
             )
 
             assert matrix.group_names == tuple(str(group) for group in scores.groups)

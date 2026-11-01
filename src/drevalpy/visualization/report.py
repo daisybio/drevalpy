@@ -11,10 +11,10 @@ from typing import TYPE_CHECKING
 
 from upath import UPath as Path
 
+from drevalpy._utils._progress import log_stage, rss_gb
 from drevalpy._utils.filenames import safe_filename
 from drevalpy.log import get_logger
 from drevalpy.types.enums.randomization import randomization_label
-from drevalpy.visualization._progress import log_stage, rss_gb
 from drevalpy.visualization.base import Plot, Section, is_matplotlib_figure, plotly_png_supported, write_png
 
 if TYPE_CHECKING:

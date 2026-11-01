@@ -1,7 +1,7 @@
 """End-to-end contract for the ``response_transformation`` pipeline setting.
 
 Not a module mirror: the behaviour only exists once ``models/response_transformation/``, ``models/drp_model.py``,
-``models/tuning/hpo_runtime.py`` and ``_single.py`` agree. Fit the scaler on the training scope only, train on
+``models/tuning/hpo.py`` and ``_single.py`` agree. Fit the scaler on the training scope only, train on
 transformed targets, inverse-transform the predictions, score against untouched ground truth.
 
 ``KNNRegressor`` is affine-equivariant, so a symmetric transform/inverse round trip must be a no-op for it; the
@@ -19,12 +19,11 @@ from sklearn.preprocessing import StandardScaler
 
 from drevalpy import single
 from drevalpy.data import split
+from drevalpy.experiment._execution import build_execution
 from drevalpy.models import DRPModel, ModelSpec
 from drevalpy.models.response_transformation import GroupMeanCenterer
-from drevalpy.models.tuning.config import HPOConfig
 from drevalpy.models.tuning.hpo import hpam_tune
-from drevalpy.models.tuning.hpo_runtime import _mu_evaluate_trial_all_metrics
-from drevalpy.types import SplitMask, SplitMasks
+from drevalpy.types import Fold, PairMask
 from drevalpy.types.results.run import RunResult
 
 HPO_TRIALS = 2
@@ -60,7 +59,7 @@ class _LogCapture(logging.Handler):
 
 
 @pytest.fixture(scope="module")
-def fold(synthetic_dataset) -> SplitMasks:
+def fold(synthetic_dataset) -> Fold:
     return split(synthetic_dataset, "LSO", n_splits=2)[0]
 
 
@@ -78,20 +77,24 @@ def _drug_means(dataset, scope) -> dict[str, float]:
     return {str(drug): float(values[keep & (drugs == drug)].mean()) for drug in np.unique(drugs[keep])}
 
 
-def _trial_metrics(dataset, fold: SplitMasks, transformation) -> dict[str, float]:
-    trial_model = DRPModel(
-        ModelSpec.from_name("ElasticNet"), {"alpha": 0.1, "l1_ratio": 0.5}, response_transformation=transformation
+def _tune(dataset, fold: Fold, transformation, n_trials: int):
+    execution = build_execution(
+        ModelSpec.from_name("ElasticNet"),
+        dataset,
+        fold,
+        hyperparameter_tuning=True,
+        hpo_metric="RMSE",
+        hpo_num_trials=n_trials,
+        hpo_random_state=0,
+        seed=0,
     )
-    metrics, predictions = _mu_evaluate_trial_all_metrics(
-        trial_model,
-        dataset=dataset,
-        train_scope=fold.train,
-        val_scope=fold.val,
-        early_stopping_scope=None,
-        model_checkpoint_dir=None,
-    )
-    assert len(predictions) > 0
-    return metrics
+    return hpam_tune(execution, dataset, response_transformation=transformation)
+
+
+def _trial_metrics(dataset, fold: Fold, transformation) -> dict[str, float]:
+    _, trials = _tune(dataset, fold, transformation, 1)
+    assert len(trials[0].predictions) > 0
+    return trials[0].metrics
 
 
 def test_standardizing_the_target_is_a_no_op_for_an_affine_equivariant_model(synthetic_dataset, fold) -> None:
@@ -134,7 +137,7 @@ class TestFittedOnTheTrainingScopeOnly:
         assert not hasattr(prototype, "mean_")
 
     def test_unmeasured_pairs_do_not_poison_the_fit(self, synthetic_dataset) -> None:
-        everything = SplitMask(np.ones(synthetic_dataset.response_matrix.shape, dtype=bool))
+        everything = PairMask(np.ones(synthetic_dataset.response_matrix.shape, dtype=bool))
 
         fitted = _fitted_transform(StandardScaler(), synthetic_dataset, everything)
 
@@ -153,20 +156,12 @@ class TestHpoRoundTrip:
         records = _LogCapture("drevalpy.models.tuning.hpo")
         with records, warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
-            best_params, trials = hpam_tune(
-                model_spec=ModelSpec.from_name("ElasticNet"),
-                dataset=synthetic_dataset,
-                train_scope=fold.train,
-                val_scope=fold.val,
-                early_stopping_scope=None,
-                response_transformation=prototype,
-                hpo_config=HPOConfig(n_trials=HPO_TRIALS, metric="RMSE", random_state=0),
-            )
+            best_params, trials = _tune(synthetic_dataset, fold, prototype, HPO_TRIALS)
 
         assert "NotFittedError" not in records.text
         assert "Optuna trial" not in records.text
         assert len(trials) == HPO_TRIALS
-        assert all(np.isfinite(metrics["RMSE"]) for _, metrics, _ in trials)
+        assert all(np.isfinite(trial.metrics["RMSE"]) for trial in trials)
         assert not [str(w.message) for w in caught if "did not find a valid configuration" in str(w.message)]
         assert best_params
         assert not hasattr(prototype, "mean_")
@@ -174,7 +169,7 @@ class TestHpoRoundTrip:
 
 class TestGroupMeanTransformations:
     @pytest.fixture(scope="class")
-    def runs(self, synthetic_dataset, fold: SplitMasks) -> dict[str, RunResult]:
+    def runs(self, synthetic_dataset, fold: Fold) -> dict[str, RunResult]:
         out = {}
         for model in ("NaivePredictor", "KNNRegressor"):
             spec = ModelSpec.from_name(model)
