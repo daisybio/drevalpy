@@ -102,11 +102,11 @@ Map the ``drevalpy`` flags
    * - ``--no_refitting``
      - Removed. Nothing replaces it.
    * - ``--curve_curator_cores``, ``--curve_curator_normalize``
-     - ``drevalpy curate --cores`` and ``--normalize``. See
+     - ``drevalpy curate run --cores`` and ``--normalize``. See
        `Fit your own raw data`_.
    * - ``--measure``
      - Removed. A v2 dataset stores one response matrix, in pEC50. Fit other
-       measures into it with ``drevalpy curate``.
+       measures into it with ``drevalpy curate run``.
    * - ``--overwrite``
      - Removed. See above.
    * - ``--optim_metric``
@@ -168,7 +168,7 @@ command covers the job.
        ``aggregate`` wrote, not ``--run_id``, ``--dataset_name`` and
        ``--path_data``. See `Read the results`_.
    * - ``drevalpy-viability-preprocess``, ``drevalpy-viability-postprocess``
-     - ``drevalpy curate``. See `Fit your own raw data`_.
+     - ``drevalpy curate run``. See `Fit your own raw data`_.
    * - ``drevalpy-load-response``
      - ``drevalpy data load`` reads a dataset. ``drevalpy data concat`` builds a cross-study
        dataset (:doc:`/how-to/run_cross_study`). There is no responder filter.
@@ -229,8 +229,10 @@ Fit your own raw data
 
 The 1.x raw-data scripts read a CSV with the columns ``dose``, ``response``,
 ``sample``, ``drug`` and an optional ``replicate``, with doses in µM. ``drevalpy
-curate`` reads a table with the columns ``drug``, ``sample``, ``concentration``
-and ``intensity``, and an optional ``replicate``, again in µM. It fits a
+curate run`` reads a table with one row per well and the columns ``drug``,
+``sample``, ``concentration`` and ``intensity``, again in µM, and optional
+columns for the replicates. A 1.x ``replicate`` numbered extra measurements of
+one curve; in v2 it labels one dose series, such as a plate. It fits a
 dose-response curve per pair and writes an ``.h5ad`` file. ``run`` needs an
 ``.h5mu`` file with the feature tables added, as
 :doc:`/how-to/bring_your_own_data` describes.

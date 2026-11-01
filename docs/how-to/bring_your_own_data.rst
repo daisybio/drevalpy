@@ -14,13 +14,13 @@ screen has the same shape and takes longer: fitting costs a fraction of a second
 Prepare the dose-response table
 -------------------------------
 
-``curate`` reads a long table with one row per measurement and the columns:
-
-``drug``
-   The drug identifier.
+``curate`` reads a long table with one row per well. Four columns are required:
 
 ``sample``
    The sample identifier.
+
+``drug``
+   The drug identifier.
 
 ``concentration``
    The concentration of the drug, in µM. The fitted pEC50 follows from it.
@@ -29,11 +29,75 @@ Prepare the dose-response table
    The measured response at that concentration. The example uses the fraction of viable cells,
    which falls as the dose rises.
 
-``replicate``
-   Optional. Include it if you measured replicates.
-
 The identifiers are labels. They become the sample and drug IDs of the dataset, so each sample
 and each drug needs one unique label.
+
+If you measured replicates, three optional columns describe them:
+
+``experiment``
+   One independently seeded culture of the sample. Different experiments of a pair are
+   biological replicates.
+
+``replicate``
+   One dose series within its experiment, such as one plate. The series of one experiment are
+   technical replicates of each other. The labels only need to differ within an experiment:
+   ``P1`` of experiment ``E1`` and ``P1`` of ``E2`` are two series.
+
+``position``
+   The order of the wells. If every dose of a series was measured k ≥ 2 times, ``curate`` sorts
+   the wells by position and splits the series into k series. Without ``position``, repeated
+   doses are averaged.
+
+For example, these wells hold two experiments of the pair ``S0`` × ``drugA``, the first with
+two plates (only the lowest doses are shown):
+
+.. list-table::
+   :header-rows: 1
+
+   * - ``sample``
+     - ``drug``
+     - ``experiment``
+     - ``replicate``
+     - ``concentration``
+     - ``intensity``
+   * - S0
+     - drugA
+     - E1
+     - P1
+     - 0.001
+     - 0.99
+   * - S0
+     - drugA
+     - E1
+     - P1
+     - 0.01
+     - 0.98
+   * - S0
+     - drugA
+     - E1
+     - P2
+     - 0.001
+     - 1.01
+   * - S0
+     - drugA
+     - E2
+     - P1
+     - 0.001
+     - 0.97
+
+The plates ``P1`` and ``P2`` of ``E1`` are technical replicates, and plate ``P1`` of ``E2`` is a
+biological replicate of both. The
+pooled curve of a pair is fitted to every well of every series. Without ``replicate`` each pair
+is one series, and without ``experiment`` all series of a pair belong to one experiment.
+
+A series needs at least ``min_doses`` distinct doses (default 4, ``--min-doses`` on the command
+line). A shorter series is left out of the fit, and a pair without any series that long is
+missing from the result.
+
+``curate`` raises ``InvalidInputError`` for any other column. To keep a column, such as a plate
+barcode or a seeding date, list it with ``metadata=("Seeding_Date",)`` (``--metadata
+Seeding_Date``, repeatable); it appears, lowercased, in the replicate-fits table described
+below. Otherwise drop it before the fit.
 
 .. tab-set::
    :sync-group: interface
@@ -101,7 +165,7 @@ pEC50 and the other curve summaries and quality measures, as one table of sample
 
       .. code-block:: bash
 
-         drevalpy curate screen.csv screen.h5ad
+         drevalpy curate run screen.csv screen.h5ad
 
       The command logs the progress of the fit and writes the result to ``screen.h5ad``, an
       AnnData file. ``--cores`` sets the number of worker processes (default 4), and
@@ -133,6 +197,134 @@ poorly or barely moves (see :doc:`/reference/datasets`). Splitting a dataset wit
 layers raises ``KeyError``. If your dataset has only a pEC50 matrix, switch the rule off with
 ``quality=CurveQuality.off()`` in ``drevalpy.split`` and ``drevalpy.run``, or ``--no-quality-filter``
 on the command line; every pair with a finite response is then kept.
+
+A curve that CurveCurator cannot fit leaves its pair out of the result instead of stopping the
+run. To fit a large screen as parallel jobs, for example on a cluster, see :doc:`curate_at_scale`.
+
+Fit each replicate on its own
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The pooled curve hides how well the replicates of a pair agree. With ``replicate_fits=True``
+(``--replicate-fits``), ``curate`` also fits every series on its own and stores one row per
+series in ``uns["replicate_fits"]``. The example below simulates 2 samples and 2 drugs, each
+pair in two experiments of two plates.
+
+.. tab-set::
+   :sync-group: interface
+
+   .. tab-item:: CLI
+      :sync: cli
+
+      Write the example table:
+
+      .. code-block:: python
+
+         rng = np.random.default_rng(1)
+         seeded = {"E1": "2026-03-02", "E2": "2026-03-09"}
+         rows = []
+         for sample, shift in [("S0", 1.0), ("S1", 8.0)]:
+             for drug, base in [("drugA", 0.5), ("drugB", 5.0)]:
+                 for experiment in ["E1", "E2"]:
+                     culture = shift * 10 ** rng.normal(0, 0.15)
+                     for plate in ["P1", "P2"]:
+                         for conc in concentrations:
+                             viability = 1 / (1 + (conc / (base * culture)) ** 1.5) + rng.normal(0, 0.03)
+                             rows.append((sample, drug, experiment, plate, seeded[experiment], conc, viability))
+         columns = ["sample", "drug", "experiment", "replicate", "Seeding_Date", "concentration", "intensity"]
+         pd.DataFrame(rows, columns=columns).to_csv("replicated.csv", index=False)
+
+      Fit it, keeping the seeding date of each series:
+
+      .. code-block:: bash
+
+         drevalpy curate run replicated.csv replicated.h5ad --replicate-fits --metadata Seeding_Date
+
+      Read the table in Python:
+
+      .. code-block:: python
+
+         import anndata as ad
+
+         fits = ad.read_h5ad("replicated.h5ad").uns["replicate_fits"]
+         pair = fits[(fits["sample_id"] == "S0") & (fits["pubchem_id"] == "drugA")].sort_values("replicate")
+         print(pair[["experiment", "series_key", "biological_replicate", "technical_replicate",
+                     "source", "status", "pEC50", "seeding_date"]].to_string(index=False))
+
+   .. tab-item:: Python
+      :sync: python
+
+      .. code-block:: python
+
+         rng = np.random.default_rng(1)
+         seeded = {"E1": "2026-03-02", "E2": "2026-03-09"}
+         rows = []
+         for sample, shift in [("S0", 1.0), ("S1", 8.0)]:
+             for drug, base in [("drugA", 0.5), ("drugB", 5.0)]:
+                 for experiment in ["E1", "E2"]:
+                     culture = shift * 10 ** rng.normal(0, 0.15)
+                     for plate in ["P1", "P2"]:
+                         for conc in concentrations:
+                             viability = 1 / (1 + (conc / (base * culture)) ** 1.5) + rng.normal(0, 0.03)
+                             rows.append((sample, drug, experiment, plate, seeded[experiment], conc, viability))
+         columns = ["sample", "drug", "experiment", "replicate", "Seeding_Date", "concentration", "intensity"]
+         replicated = pd.DataFrame(rows, columns=columns)
+
+         curves = curate(replicated, replicate_fits=True, metadata=["Seeding_Date"])
+         fits = curves.uns["replicate_fits"]
+         pair = fits[(fits["sample_id"] == "S0") & (fits["pubchem_id"] == "drugA")].sort_values("replicate")
+         print(pair[["experiment", "series_key", "biological_replicate", "technical_replicate",
+                     "source", "status", "pEC50", "seeding_date"]].to_string(index=False))
+
+The rows of the pair ``S0`` × ``drugA``:
+
+.. code-block:: text
+
+   experiment series_key  biological_replicate  technical_replicate    source status    pEC50 seeding_date
+           E1         P1                     0                    0 replicate fitted 6.274473   2026-03-02
+           E1         P2                     0                    1 replicate fitted 6.235189   2026-03-02
+           E2         P1                     1                    0 replicate fitted 6.247917   2026-03-09
+           E2         P2                     1                    1 replicate fitted 6.261418   2026-03-09
+
+Keep the rows with ``status == "fitted"``: a series that was too short or that CurveCurator could
+not fit has no metrics. A pair with a single series that can be fitted carries its pooled curve,
+marked ``source == "pooled"``. Every column is listed under :ref:`reference/datasets:File layout`.
+
+To compare technical with biological variability, take the spread of pEC50 within each
+experiment and the spread of the experiment means within each pair:
+
+.. tab-set::
+   :sync-group: interface
+
+   .. tab-item:: CLI
+      :sync: cli
+
+      Continue in the same Python session:
+
+      .. code-block:: python
+
+         fitted = fits[fits["status"] == "fitted"]
+         per_experiment = fitted.groupby(["sample_id", "pubchem_id", "experiment"], observed=True)["pEC50"]
+         technical = per_experiment.std().mean()
+         biological = per_experiment.mean().groupby(level=["sample_id", "pubchem_id"], observed=True).std().mean()
+         print(f"technical SD: {technical:.3f}, biological SD: {biological:.3f}")
+
+   .. tab-item:: Python
+      :sync: python
+
+      .. code-block:: python
+
+         fitted = fits[fits["status"] == "fitted"]
+         per_experiment = fitted.groupby(["sample_id", "pubchem_id", "experiment"], observed=True)["pEC50"]
+         technical = per_experiment.std().mean()
+         biological = per_experiment.mean().groupby(level=["sample_id", "pubchem_id"], observed=True).std().mean()
+         print(f"technical SD: {technical:.3f}, biological SD: {biological:.3f}")
+
+.. code-block:: text
+
+   technical SD: 0.025, biological SD: 0.084
+
+In this simulation each culture shifts the EC50, so the experiments of a pair differ more than
+the plates of one experiment.
 
 Add the annotations and save the dataset
 ----------------------------------------

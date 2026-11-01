@@ -11,6 +11,7 @@ so you can try every step offline.
 - :doc:`install`: install DrEvalPy from source, with pip or conda, or run the Docker image.
 - :doc:`load_and_split`: load a registered dataset and split it by pair, sample, drug or tissue.
 - :doc:`bring_your_own_data`: turn your own dose-response screen into a dataset.
+- :doc:`curate_at_scale`: fit the curves of a large screen as parallel jobs, by hand or with Nextflow.
 
 **Run and tune experiments**
 
@@ -37,6 +38,7 @@ from DrEvalPy 1 are under :doc:`migrate/index`.
    install
    load_and_split
    bring_your_own_data
+   curate_at_scale
    choose_models
    run_experiment
    run_cross_study
