@@ -15,7 +15,7 @@ import numpy as np
 from drevalpy.components.contracts.feature_format import FeatureFormat
 from drevalpy.components.contracts.hyperparameter_space import fixed_entries
 from drevalpy.components.predictors._pair_loader import make_pair_loader
-from drevalpy.components.predictors.abstract.base import Predictor
+from drevalpy.components.predictors.abstract.base import Predictor, response_rows
 from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.components.predictors.literature._early_stopping import (
     EarlyStoppingRun,
@@ -25,10 +25,11 @@ from drevalpy.components.predictors.literature._early_stopping import (
 from drevalpy.components.predictors.literature._metadata import PHARMAFORMER_REFERENCE
 from drevalpy.components.predictors.literature._pair_predict import (
     PairEvalSpec,
+    declared_blocks,
     predict_pairs,
     require_drug_pair_idx,
 )
-from drevalpy.components.predictors.literature._torch_utils import DevicePicklingMixin, select_device
+from drevalpy.components.predictors.literature._torch_utils import DevicePicklingMixin
 from drevalpy.registry.predictor import register
 from drevalpy.types.data.batch.feature_block import BlockSpec
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
@@ -81,9 +82,7 @@ class PharmaFormerPredictor(DevicePicklingMixin, Predictor):
         :param hyperparameters: Optional hyperparameter overrides.
         """
         super().__init__(hyperparameters)
-        self._device = select_device()
         self._model: CombinedModel | None = None
-        self._gene_input_size: int | None = None
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
@@ -107,17 +106,6 @@ class PharmaFormerPredictor(DevicePicklingMixin, Predictor):
             }
         )
 
-    def _entity_blocks(self, batch: ModelInputBatch) -> tuple[np.ndarray, np.ndarray]:
-        """Return the entity-level gene expression and BPE SMILES matrices.
-
-        :param batch: Batch to read the blocks from.
-        :returns: Tuple of ``(gene_expression, bpe_smiles)`` matrices.
-        """
-        return (
-            batch.sample.blocks["gene_expression"].values,
-            batch.drug.blocks["bpe_smiles"].values,
-        )
-
     def _build_loaders(self, batch: ModelInputBatch) -> tuple[DataLoader, DataLoader]:
         """Build the training and early-stopping loaders.
 
@@ -129,7 +117,7 @@ class PharmaFormerPredictor(DevicePicklingMixin, Predictor):
             msg = "PharmaFormer model requires early stopping data."
             raise ValueError(msg)
 
-        gene_entity, drug_entity = self._entity_blocks(batch)
+        gene_entity, drug_entity = declared_blocks(self, batch)
         batch_size = self._hyperparameters["batch_size"]
 
         train_loader = make_pair_loader(
@@ -141,8 +129,7 @@ class PharmaFormerPredictor(DevicePicklingMixin, Predictor):
         )
 
         es_response = batch.early_stopping_response
-        es_cell_pair_idx = batch.sample.rows_for(es_response.sample_ids)
-        es_drug_pair_idx = None if batch.drug is None else batch.drug.rows_for(es_response.drug_ids)
+        es_cell_pair_idx, es_drug_pair_idx = response_rows(batch, es_response)
         val_loader = make_pair_loader(
             (gene_entity, es_cell_pair_idx),
             (drug_entity, require_drug_pair_idx(es_drug_pair_idx)),
@@ -162,9 +149,8 @@ class PharmaFormerPredictor(DevicePicklingMixin, Predictor):
 
         train_loader, val_loader = self._build_loaders(batch)
 
-        gene_entity, _ = self._entity_blocks(batch)
-        self._gene_input_size = gene_entity.shape[1]
-        model = _build_combined_model(self._gene_input_size, self._hyperparameters, self._device)
+        gene_entity, _ = declared_blocks(self, batch)
+        model = _build_combined_model(gene_entity.shape[1], self._hyperparameters, self._device)
         self._model = model
 
         loss_func = nn.MSELoss()
@@ -199,7 +185,7 @@ class PharmaFormerPredictor(DevicePicklingMixin, Predictor):
             msg = "PharmaFormer model not initialized."
             raise ValueError(msg)
 
-        gene_entity, drug_entity = self._entity_blocks(batch)
+        gene_entity, drug_entity = declared_blocks(self, batch)
         return predict_pairs(
             self._model,
             batch,

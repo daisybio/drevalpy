@@ -16,7 +16,6 @@ from drevalpy.components.predictors.literature._omic_helpers import (
     OmicMatrices,
     aligned_pair_matrices,
     checkpoint_dir_for_drug,
-    early_stopping_indices,
     iter_drug_subsets,
     omic_feature_names,
     omic_matrices,
@@ -129,22 +128,19 @@ def test_iter_drug_subsets_yields_one_subset_and_checkpoint_dir_per_drug() -> No
 
 
 def test_early_stopping_needs_at_least_two_validation_pairs() -> None:
-    assert early_stopping_indices(_batch()) == (None, None)
     assert validation_split(_matrices(), _batch()) is None
-    assert early_stopping_indices(_batch(early_stopping_response=_validation(["cl1"], [1.0]))) == (None, None)
+    assert validation_split(_matrices(), _batch(early_stopping_response=_validation(["cl1"], [1.0]))) is None
 
 
 def test_validation_samples_map_onto_entity_rows_and_share_matrices() -> None:
     batch = _batch(early_stopping_response=_validation(["cl2", "cl1"], [7.0, 8.0]))
-    pair_idx, values = early_stopping_indices(batch)
-    np.testing.assert_array_equal(pair_idx, [1, 0])
-    np.testing.assert_allclose(values, [7.0, 8.0])
-
     matrices = _matrices()
     split = validation_split(matrices, batch)
     assert split is not None
     assert split.gene_expression is matrices.gene_expression
     np.testing.assert_array_equal(split.pair_idx, [1, 0])
+    np.testing.assert_allclose(split.response, [7.0, 8.0])
+    assert split.response.dtype == np.float32
 
 
 def test_matching_features_are_expanded_to_pair_level_unchanged() -> None:

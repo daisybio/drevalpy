@@ -74,7 +74,7 @@ def test_fit_round_trips_through_pickle_and_records_the_widths() -> None:
     predictor.fit(_druggnn_batch(with_early_stopping=True))
     assert predictor.is_fitted()
     assert predictor._model is not None
-    assert (predictor._num_node_features, predictor._num_cell_features) == (9, 3)
+    assert (predictor._model.hparams["num_node_features"], predictor._model.hparams["num_cell_features"]) == (9, 3)
     original_weight = next(predictor._model.parameters()).detach().cpu()
 
     restored = pickle_round_trip(predictor)
@@ -146,7 +146,7 @@ class TestTinyDrugGNNFit:
         final_epoch._model = final_epoch._build_model(cell_matrix, drug_graphs)
         train_loader = final_epoch._graph_loader(
             batch.sample_pair_idx,
-            final_epoch._resolve_drug_pair_idx(batch),
+            batch.drug_pair_idx,
             cell_matrix,
             drug_graphs,
             batch.response,
@@ -247,7 +247,7 @@ def test_module_hyperparameters_forward_steps_and_optimizer() -> None:
     loss = module.training_step(batch, batch_idx=0)
     assert loss.ndim == 0
     assert loss.item() >= 0.0
-    assert module.validation_step(batch, batch_idx=0) is None
+    assert module.validation_step(batch, batch_idx=0).ndim == 0
 
     module.eval()
     with torch.no_grad():

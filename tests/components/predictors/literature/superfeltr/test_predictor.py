@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import numpy as np
 import pytest
 import pytorch_lightning as pl
@@ -298,17 +296,6 @@ def test_train_regressor_accepts_a_two_dimensional_response(tmp_path) -> None:
     )
 
     assert checkpoint.best_model_path
-
-
-@pytest.mark.parametrize("make_model", [_encoder, _regressor])
-def test_train_without_checkpoint_dir_uses_a_temporary_directory(make_model, tmp_path) -> None:
-    checkpoint = train_superfeltr_model(
-        model=make_model(), hpams=_hpams(), train=_split(), patience=1, model_checkpoint_dir=None
-    )
-
-    assert checkpoint.best_model_path
-    assert not Path(checkpoint.best_model_path).exists()
-    assert not (tmp_path / "superfeltr_checkpoints").exists()
 
 
 def test_train_runs_on_the_cpu_without_a_default_logger(tmp_path, monkeypatch) -> None:

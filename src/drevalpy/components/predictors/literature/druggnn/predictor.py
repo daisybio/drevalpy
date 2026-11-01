@@ -7,12 +7,12 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
 
-from drevalpy._utils.torch_io import load_state_dict
 from drevalpy.components.contracts.feature_format import FeatureFormat
-from drevalpy.components.predictors._lightning_training import LightningRun, run_lightning_fit
-from drevalpy.components.predictors.abstract.base import Predictor
+from drevalpy.components.predictors._lightning_training import LightningRun, reload_best_weights, run_lightning_fit
+from drevalpy.components.predictors.abstract.base import Predictor, fit_response
 from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.components.predictors.literature._metadata import DRUGGNN_REFERENCE
+from drevalpy.components.predictors.literature._pair_predict import require_drug_pair_idx
 from drevalpy.registry.predictor import register
 from drevalpy.types.data.batch.feature_block import BlockSpec
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
@@ -100,8 +100,6 @@ class DrugGNNPredictor(Predictor):
         """
         super().__init__(hyperparameters)
         self._model: DrugGNNModule | None = None
-        self._num_node_features: int = 0
-        self._num_cell_features: int = 0
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
@@ -123,41 +121,21 @@ class DrugGNNPredictor(Predictor):
     # Fit
     # ------------------------------------------------------------------
 
-    @staticmethod
-    def _resolve_drug_pair_idx(batch: ModelInputBatch) -> np.ndarray:
-        """Return drug_pair_idx, computing it from entity IDs if absent.
-
-        :param batch: Input batch.
-        :returns: Array mapping each pair to a drug entity index.
-        :raises ValueError: If neither drug_pair_idx nor drug_entity_ids are available.
-        """
-        if batch.drug_pair_idx is not None:
-            return batch.drug_pair_idx
-        if batch.drug is None:
-            msg = "DrugGNN requires either drug_pair_idx or drug_entity_ids"
-            raise ValueError(msg)
-        return batch.drug.rows_for(batch.drug_ids)
-
     def _fit(self, batch: ModelInputBatch) -> None:
         """Train the DrugGNN model on the batch.
 
         :param batch: Training batch with gene_expression and drug_graph blocks.
-        :raises ValueError: If response data or drug features are missing.
         """
-        if batch.response is None:
-            msg = "DrugGNN requires training response data"
-            raise ValueError(msg)
-
         sample_matrix = batch.sample.blocks["gene_expression"].values
         drug_graphs = batch.drug.blocks["drug_graph"].values
 
         self._model = self._build_model(sample_matrix, drug_graphs)
         train_loader = self._graph_loader(
             batch.sample_pair_idx,
-            self._resolve_drug_pair_idx(batch),
+            require_drug_pair_idx(batch.drug_pair_idx),
             sample_matrix,
             drug_graphs,
-            batch.response,
+            fit_response(batch),
             batch_size=int(self._hyperparameters["batch_size"]),
             shuffle=True,
         )
@@ -165,28 +143,17 @@ class DrugGNNPredictor(Predictor):
         self._run_training(train_loader, val_loader)
 
     def _build_model(self, sample_matrix: np.ndarray, drug_graphs: np.ndarray) -> DrugGNNModule:
-        """Instantiate the Lightning module and record the widths it was built for.
+        """Create an untrained module sized for *sample_matrix* and *drug_graphs* from the current hyperparameters.
 
         :param sample_matrix: Sample feature matrix.
         :param drug_graphs: Array of drug graph objects.
         :returns: An untrained ``DrugGNNModule``.
         """
-        return self._new_module(int(drug_graphs[0].num_node_features), int(sample_matrix.shape[1]))
-
-    def _new_module(self, num_node_features: int, num_cell_features: int) -> DrugGNNModule:
-        """Create an untrained module of the given widths from the current hyperparameters.
-
-        :param num_node_features: Width of each drug graph node's features.
-        :param num_cell_features: Width of the sample feature vector.
-        :returns: An untrained ``DrugGNNModule``, whose widths are recorded on the predictor.
-        """
         from drevalpy.components.predictors.literature.druggnn.algorithm import DrugGNNModule
 
-        self._num_node_features = num_node_features
-        self._num_cell_features = num_cell_features
         return DrugGNNModule(
-            num_node_features=num_node_features,
-            num_cell_features=num_cell_features,
+            num_node_features=int(drug_graphs[0].num_node_features),
+            num_cell_features=int(sample_matrix.shape[1]),
             hidden_dim=int(self._hyperparameters["hidden_dim"]),
             dropout=float(self._hyperparameters["dropout"]),
             learning_rate=float(self._hyperparameters["learning_rate"]),
@@ -213,8 +180,7 @@ class DrugGNNPredictor(Predictor):
                     checkpoint=val_loader is not None,
                 ),
             )
-            if checkpoint is not None and checkpoint.best_model_path:
-                self._model.load_state_dict(load_state_dict(checkpoint.best_model_path)["state_dict"])
+            reload_best_weights(self._model, checkpoint)
 
     @staticmethod
     def _graph_loader(
@@ -300,7 +266,7 @@ class DrugGNNPredictor(Predictor):
 
         predict_loader = self._graph_loader(
             batch.sample_pair_idx,
-            self._resolve_drug_pair_idx(batch),
+            require_drug_pair_idx(batch.drug_pair_idx),
             batch.sample.blocks["gene_expression"].values,
             batch.drug.blocks["drug_graph"].values,
             np.zeros(batch.n_pairs, dtype=np.float32),

@@ -16,7 +16,7 @@ import numpy as np
 from drevalpy.components.contracts.feature_format import FeatureFormat
 from drevalpy.components.contracts.hyperparameter_space import fixed_entries
 from drevalpy.components.predictors._pair_loader import make_pair_loader
-from drevalpy.components.predictors.abstract.base import Predictor
+from drevalpy.components.predictors.abstract.base import Predictor, response_rows
 from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.components.predictors.literature._early_stopping import (
     EarlyStoppingRun,
@@ -29,7 +29,7 @@ from drevalpy.components.predictors.literature._pair_predict import (
     predict_pairs,
     require_drug_pair_idx,
 )
-from drevalpy.components.predictors.literature._torch_utils import DevicePicklingMixin, select_device
+from drevalpy.components.predictors.literature._torch_utils import DevicePicklingMixin
 from drevalpy.registry.predictor import register
 from drevalpy.types.data.batch.feature_block import BlockSpec, FeatureBlock
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
@@ -42,7 +42,6 @@ if TYPE_CHECKING:
 
 TOKENS_BLOCK = "smiles_tokens"
 VARIANTS_BLOCK = "smiles_token_variants"
-_ARCHITECTURE_KEYS = ("smiles_vocabulary_size", "smiles_padding_length", "number_of_genes", "n_variants")
 
 
 def _drug_blocks(batch: ModelInputBatch) -> tuple[FeatureBlock, FeatureBlock]:
@@ -94,7 +93,6 @@ class PaccMannPredictor(DevicePicklingMixin, Predictor):
         :param hyperparameters: Optional hyperparameter overrides.
         """
         super().__init__(hyperparameters)
-        self._device = select_device()
         self._model: PaccMannNetwork | None = None
         self._architecture: dict[str, int] = {}
 
@@ -191,8 +189,7 @@ class PaccMannPredictor(DevicePicklingMixin, Predictor):
         stopping = batch.early_stopping_response
         if stopping is None or len(stopping) == 0:
             return train_loader, None
-        stop_sample_idx = batch.sample.rows_for(stopping.sample_ids)
-        stop_drug_idx = None if batch.drug is None else batch.drug.rows_for(stopping.drug_ids)
+        stop_sample_idx, stop_drug_idx = response_rows(batch, stopping)
         val_loader = make_pair_loader(
             (gene_entity, stop_sample_idx),
             (tokens.values, require_drug_pair_idx(stop_drug_idx)),

@@ -22,10 +22,11 @@ from drevalpy.components.predictors.literature._metadata import PRECILY_REFERENC
 from drevalpy.components.predictors.literature._pair_predict import (
     PairEvalSpec,
     concatenated_forward,
+    declared_blocks,
     predict_pairs,
     require_drug_pair_idx,
 )
-from drevalpy.components.predictors.literature._torch_utils import DevicePicklingMixin, select_device
+from drevalpy.components.predictors.literature._torch_utils import DevicePicklingMixin
 from drevalpy.experiment._tracking import log_metrics
 from drevalpy.log import get_logger
 from drevalpy.registry.predictor import register
@@ -58,7 +59,6 @@ class PrecilyPredictor(DevicePicklingMixin, Predictor):
         :param hyperparameters: Optional hyperparameter overrides.
         """
         super().__init__(hyperparameters)
-        self._device = select_device()
         self._model: PrecilyNetwork | None = None
 
     @classmethod
@@ -73,19 +73,7 @@ class PrecilyPredictor(DevicePicklingMixin, Predictor):
                 "dropout": 0.1,
                 "epochs": 50,
                 "batch_size": 128,
-                "seed": 42,
             }
-        )
-
-    def _entity_blocks(self, batch: ModelInputBatch) -> tuple[np.ndarray, np.ndarray]:
-        """Return the entity-level pathway and SMILESVec matrices.
-
-        :param batch: Batch to read the blocks from.
-        :returns: Tuple of ``(pathways, smilesvec)`` matrices.
-        """
-        return (
-            batch.sample.blocks["pathways"].values,
-            batch.drug.blocks["smilesvec"].values,
         )
 
     def _build_model(self, input_dim: int, dropout: float) -> PrecilyNetwork:
@@ -108,7 +96,7 @@ class PrecilyPredictor(DevicePicklingMixin, Predictor):
         import torch.nn as nn
         import torch.optim as optim
 
-        pathway_entity, drug_entity = self._entity_blocks(batch)
+        pathway_entity, drug_entity = declared_blocks(self, batch)
         model = self._build_model(
             pathway_entity.shape[1] + drug_entity.shape[1],
             self._hyperparameters["dropout"],
@@ -147,7 +135,7 @@ class PrecilyPredictor(DevicePicklingMixin, Predictor):
             msg = "Precily model not initialized."
             raise ValueError(msg)
 
-        pathway_entity, drug_entity = self._entity_blocks(batch)
+        pathway_entity, drug_entity = declared_blocks(self, batch)
         return predict_pairs(
             self._model,
             batch,

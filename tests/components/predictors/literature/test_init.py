@@ -23,7 +23,7 @@ from drevalpy.components.predictors.literature._metadata import (
 )
 from drevalpy.models import ModelSpec
 from drevalpy.models.config import ModelConfig, validate
-from drevalpy.registry.components._metadata import LiteratureReference
+from drevalpy.registry._component import LiteratureReference
 from drevalpy.registry.predictor import get as get_predictor
 
 REPO_ROOT = Path(__file__).resolve().parents[4]

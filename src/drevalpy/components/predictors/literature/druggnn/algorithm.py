@@ -7,6 +7,8 @@ from torch.optim import Adam
 from torch_geometric.data import Batch
 from torch_geometric.nn import GCNConv, global_mean_pool
 
+from drevalpy.components.predictors._lightning_training import LossSteps
+
 
 class DrugGraphNet(nn.Module):
     """Neural network for DrugGNN."""
@@ -79,7 +81,7 @@ class DrugGraphNet(nn.Module):
         return out.view(-1)
 
 
-class DrugGNNModule(pl.LightningModule):
+class DrugGNNModule(LossSteps, pl.LightningModule):
     """The LightningModule for the DrugGNN model."""
 
     def __init__(
@@ -117,30 +119,18 @@ class DrugGNNModule(pl.LightningModule):
         drug_graph, cell_features, _ = batch
         return self.model(drug_graph, cell_features)
 
-    def training_step(self, batch: tuple[Batch, torch.Tensor, torch.Tensor], batch_idx: int) -> torch.Tensor:
-        """Compute and log the MSE training loss of one batch.
+    def _loss_and_log(self, batch: tuple[Batch, torch.Tensor, torch.Tensor], key: str) -> torch.Tensor:
+        """Compute and log the MSE loss of one batch.
 
         :param batch: Tuple of batched drug graphs, sample features and responses.
-        :param batch_idx: Index of the batch within the epoch; unused.
+        :param key: Name the loss is logged under.
         :returns: The MSE loss.
         """
         drug_graph, cell_features, responses = batch
         outputs = self.model(drug_graph, cell_features)
         loss = self.criterion(outputs, responses)
-        self.log("train_loss", loss, on_step=False, on_epoch=True, batch_size=responses.size(0))
-
+        self.log(key, loss, on_step=False, on_epoch=True, batch_size=responses.size(0))
         return loss
-
-    def validation_step(self, batch: tuple[Batch, torch.Tensor, torch.Tensor], batch_idx: int) -> None:
-        """Compute and log the MSE validation loss of one batch.
-
-        :param batch: Tuple of batched drug graphs, sample features and responses.
-        :param batch_idx: Index of the batch within the epoch; unused.
-        """
-        drug_graph, cell_features, responses = batch
-        outputs = self.model(drug_graph, cell_features)
-        loss = self.criterion(outputs, responses)
-        self.log("val_loss", loss, on_step=False, on_epoch=True, batch_size=responses.size(0))
 
     def predict_step(
         self, batch: tuple[Batch, torch.Tensor, torch.Tensor], batch_idx: int, dataloader_idx: int = 0

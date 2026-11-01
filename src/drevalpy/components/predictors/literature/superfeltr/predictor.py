@@ -32,34 +32,6 @@ _ENCODER_OMIC_TYPES = ("expression", "mutation", "copy_number_variation_gistic")
 _ENCODER_DIM_KEYS = ("out_dim_expr_encoder", "out_dim_mutation_encoder", "out_dim_cnv_encoder")
 
 
-class _DrugModel:
-    """Per-drug fitted model state for SuperFELTR."""
-
-    __slots__ = ("expr_encoder", "mut_encoder", "cnv_encoder", "regressor", "ranges")
-
-    def __init__(
-        self,
-        expr_encoder: SuperFELTEncoder | None = None,
-        mut_encoder: SuperFELTEncoder | None = None,
-        cnv_encoder: SuperFELTEncoder | None = None,
-        regressor: SuperFELTRegressor | None = None,
-        ranges: tuple[float, float] = (0.0, 1.0),
-    ) -> None:
-        """Initialize per-drug model components.
-
-        :param expr_encoder: Expression encoder module.
-        :param mut_encoder: Mutation encoder module.
-        :param cnv_encoder: CNV encoder module.
-        :param regressor: Final regressor module.
-        :param ranges: Response normalization range.
-        """
-        self.expr_encoder = expr_encoder
-        self.mut_encoder = mut_encoder
-        self.cnv_encoder = cnv_encoder
-        self.regressor = regressor
-        self.ranges = ranges
-
-
 @register(
     "superfeltr",
     description="SuperFELTR single-drug multi-omics model.",
@@ -68,17 +40,17 @@ class _DrugModel:
 class SuperFELTRPredictor(SingleDrugOmicsPredictor):
     """SuperFELTR predictor: per-drug multi-omics with independent encoders."""
 
-    _models: dict[str, _DrugModel]
+    _models: dict[str, SuperFELTRegressor]
 
-    def _fit_single_drug(self, drug_id: str, batch: ModelInputBatch) -> _DrugModel:
+    def _fit_single_drug(self, drug_id: str, batch: ModelInputBatch) -> SuperFELTRegressor | None:
         """Fit a single-drug SuperFELTR model including encoders and regressor.
 
         :param drug_id: Identifier of the drug to train on.
         :param batch: Subset batch for this drug.
-        :returns: The fitted model; an empty one when the drug has no pairs.
+        :returns: The fitted regressor, which holds the fitted encoders, or ``None`` when the drug has no pairs.
         """
         if batch.n_pairs == 0:
-            return _DrugModel()
+            return None
 
         matrices = omic_matrices(batch)
         response = np.asarray(batch.response, dtype=np.float32)
@@ -93,15 +65,7 @@ class SuperFELTRPredictor(SingleDrugOmicsPredictor):
         trainable = batch.n_pairs >= self._hyperparameters["mini_batch"]
 
         encoders = self._fit_encoders(matrices.widths(), ranges, train, val, checkpoint_dir, trainable)
-        regressor = self._fit_regressor(encoders, train, val, checkpoint_dir, trainable)
-
-        return _DrugModel(
-            expr_encoder=encoders[0],
-            mut_encoder=encoders[1],
-            cnv_encoder=encoders[2],
-            regressor=regressor,
-            ranges=ranges,
-        )
+        return self._fit_regressor(encoders, train, val, checkpoint_dir, trainable)
 
     def _fit_encoders(
         self,
@@ -167,7 +131,7 @@ class SuperFELTRPredictor(SingleDrugOmicsPredictor):
         """
         from .utils import SuperFELTRegressor, train_superfeltr_model
 
-        input_size = self._regressor_input_size(self._hyperparameters)
+        input_size = sum(int(self._hyperparameters[key]) for key in _ENCODER_DIM_KEYS)
         regressor = SuperFELTRegressor(
             input_size=input_size,
             hpams=dict(self._hyperparameters),
@@ -184,37 +148,26 @@ class SuperFELTRPredictor(SingleDrugOmicsPredictor):
             patience=5,
             model_checkpoint_dir=checkpoint_dir,
         )
-        if best_checkpoint is not None:
-            regressor = SuperFELTRegressor.load_from_checkpoint(
-                best_checkpoint.best_model_path,
-                input_size=input_size,
-                hpams=dict(self._hyperparameters),
-                encoders=encoders,
-            )
-        return regressor
+        return SuperFELTRegressor.load_from_checkpoint(
+            best_checkpoint.best_model_path,
+            input_size=input_size,
+            hpams=dict(self._hyperparameters),
+            encoders=encoders,
+        )
 
-    @staticmethod
-    def _regressor_input_size(hpams: dict[str, Any]) -> int:
-        """Sum the three encoder output widths.
-
-        :param hpams: Hyperparameters carrying the ``out_dim_*`` widths.
-        :returns: The regressor's input width.
-        """
-        return sum(int(hpams[key]) for key in _ENCODER_DIM_KEYS)
-
-    def _predict_single_drug(self, drug_id: str, model: _DrugModel, batch: ModelInputBatch) -> np.ndarray:
+    def _predict_single_drug(self, drug_id: str, model: SuperFELTRegressor, batch: ModelInputBatch) -> np.ndarray:
         """Predict for a single drug model.
 
         :param drug_id: Drug identifier for feature alignment.
-        :param model: Per-drug model container.
+        :param model: The drug's regressor.
         :param batch: Subset batch for this drug.
-        :returns: Predicted responses, ``NaN`` when the drug's regressor was never fitted.
+        :returns: Predicted responses.
         """
         feature_names = self._feature_names.get(drug_id)
-        if feature_names is None or model.regressor is None:
+        if feature_names is None:
             return np.full(batch.n_pairs, np.nan)
 
-        return np.atleast_1d(model.regressor.predict(*aligned_pair_matrices(batch, feature_names)))
+        return np.atleast_1d(model.predict(*aligned_pair_matrices(batch, feature_names)))
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
