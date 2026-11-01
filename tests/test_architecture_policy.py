@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 
 import drevalpy
-from drevalpy.registry.featurizer import featurizers
+from drevalpy.registry.featurizer import featurizer_registries
 
 SRC = Path(drevalpy.__file__).parent
 COMPONENTS = SRC / "components"
@@ -44,9 +44,11 @@ def _drevalpy_mro(cls: type) -> list[str]:
     return [klass.__qualname__ for klass in cls.__mro__ if klass.__module__.split(".")[0] == "drevalpy"]
 
 
-@pytest.mark.parametrize("name", featurizers.names())
-def test_featurizer_hierarchies_stay_shallow(name: str) -> None:
-    mro = _drevalpy_mro(featurizers.get(name))
+@pytest.mark.parametrize(
+    ("side", "name"), [(side, name) for side, registry in featurizer_registries.items() for name in registry.names()]
+)
+def test_featurizer_hierarchies_stay_shallow(side: str, name: str) -> None:
+    mro = _drevalpy_mro(featurizer_registries[side].get(name))
 
     assert len(mro) <= MAX_FEATURIZER_DEPTH, f"{name}: {' -> '.join(mro)}"
 
