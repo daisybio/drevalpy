@@ -6,6 +6,7 @@ import numpy as np
 import pytest
 
 from drevalpy.components.featurizers.sample.gene_lists import view_gene_union
+from drevalpy.data._synthetic import synthetic as build_synthetic_dataset
 from drevalpy.data._synthetic_drugs import (
     BPE_LENGTH,
     CHEMBERTA_DIM,
@@ -35,7 +36,6 @@ from drevalpy.data._synthetic_omics import (
     view_feature_names,
 )
 from drevalpy.errors import InvalidInputError
-from drevalpy.testing import build_synthetic_dataset
 
 pytestmark = pytest.mark.slow
 

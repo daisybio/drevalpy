@@ -44,7 +44,7 @@ from __future__ import annotations
 
 import operator
 from collections.abc import Callable, Collection, Mapping
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Final
 
 import numpy as np
@@ -207,22 +207,6 @@ class CurveQuality:
         if self.regulation is not None:
             metadata["regulation"] = list(self.regulation)
         return metadata
-
-    @classmethod
-    def from_metadata(cls, metadata: Mapping[str, Any]) -> CurveQuality:
-        """Rebuild the rule :meth:`to_metadata` described.
-
-        Names absent from *metadata* are unset, so ``{}`` is :meth:`off`, not
-        :meth:`default`.
-
-        :param metadata: Mapping as produced by :meth:`to_metadata`.
-        :returns: The rule, equal to the one that produced *metadata*.
-        :raises ValueError: If *metadata* holds a name that is not a threshold.
-        """
-        unknown = sorted(set(metadata) - {*_THRESHOLD_NAMES, "regulation"})
-        if unknown:
-            raise ValueError(f"Unknown curve-quality option(s) {unknown}. Valid: {sorted(_RULES)} and 'regulation'")
-        return replace(cls.off(), **metadata)
 
 
 def curve_quality_mask(dataset: Dataset, **options: Any) -> np.ndarray:

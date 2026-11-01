@@ -9,7 +9,7 @@ import numpy as np
 
 from drevalpy.errors import InvalidInputError
 from drevalpy.log import get_logger
-from drevalpy.types.data.dataset._dense import to_dense
+from drevalpy.types.data.dataset._anndata import layer_names, to_dense
 
 from . import _replicate_fits
 from ._concat_tables import listed, prefixed, stack_obs, union_var
@@ -25,11 +25,6 @@ logger = get_logger(__name__)
 def _is_unit_key(key: str) -> bool:
     """Whether a view's ``uns`` key records a unit, such as ``expression_unit``."""
     return key.endswith(("_unit", "_units"))
-
-
-def _layer_names(adata: ad.AnnData) -> list[str]:
-    """Real layer names; anndata can yield a spurious ``None`` key."""
-    return [name for name in adata.layers.keys() if isinstance(name, str)]
 
 
 def _prefixed_obs(adatas: Sequence[ad.AnnData], names: Sequence[str]) -> list[pd.DataFrame]:
@@ -89,8 +84,8 @@ def _select_columns(adata: ad.AnnData, matrix: Any, columns: pd.Index) -> Any:
 
 def _stack_layers(view: str, adatas: Sequence[ad.AnnData], columns: pd.Index) -> dict[str, Any]:
     """Stack the layers every input has; warn about the others."""
-    per_input = [set(_layer_names(adata)) for adata in adatas]
-    common = [name for name in _layer_names(adatas[0]) if all(name in names for names in per_input)]
+    per_input = [set(layer_names(adata)) for adata in adatas]
+    common = [name for name in layer_names(adatas[0]) if all(name in names for names in per_input)]
     lost = sorted(set().union(*per_input) - set(common))
     if lost:
         logger.warning("concat dropped layers of view '%s' that are not in every dataset: %s", view, ", ".join(lost))
@@ -181,9 +176,9 @@ def stack_response(
     var = union_var([adata.var for adata in adatas])
     offsets = [var.index.get_indexer(adata.var_names) for adata in adatas]
     rows = _prefixed_obs(adatas, names)
-    layer_names = list(dict.fromkeys(name for adata in adatas for name in _layer_names(adata)))
+    all_layers = list(dict.fromkeys(name for adata in adatas for name in layer_names(adata)))
     layers = {}
-    for layer in layer_names:
+    for layer in all_layers:
         blocks = [
             to_dense(adata.layers[layer]) if layer in adata.layers else np.full(adata.shape, np.nan, dtype=np.float32)
             for adata in adatas

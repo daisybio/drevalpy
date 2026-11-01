@@ -6,9 +6,9 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from drevalpy.data.splitters._folds import observed_mask, pair_masks
+from drevalpy.data.splitters._folds import observed_mask, pair_masks, validation_split
 from drevalpy.registry.splitter import register
-from drevalpy.types import Dataset, SplitMasks
+from drevalpy.types import Dataset, Fold
 
 if TYPE_CHECKING:
     from drevalpy.data.quality import CurveQuality
@@ -22,7 +22,7 @@ def leave_study_out(
     random_state: int = 42,
     *,
     quality: CurveQuality,
-) -> list[SplitMasks]:
+) -> list[Fold]:
     """Generate LStO folds: one fold per study, tested on that study and trained on the others.
 
     ``n_splits`` is ignored; the fold metadata records the real number of folds. The
@@ -34,7 +34,7 @@ def leave_study_out(
     :param validation_ratio: Fraction of the training pairs held out for validation.
     :param random_state: Seed for the validation draw.
     :param quality: Curve-quality rule a pair must pass to be used.
-    :returns: One ``SplitMasks`` per study.
+    :returns: One ``Fold`` per study.
     :raises KeyError: If the dataset has no ``study`` column; build one with ``drevalpy.data.concat``.
     :raises ValueError: If the dataset has fewer than two studies.
     """
@@ -53,9 +53,8 @@ def leave_study_out(
     for index, study in enumerate(unique_studies):
         test = np.flatnonzero(in_study[:, index])
         rest = np.flatnonzero(~in_study[:, index])
-        n_val = max(1, int(len(rest) * validation_ratio)) if validation_ratio > 0 else 0
-        rest = np.random.default_rng(random_state).permutation(rest)
-        fold = pair_masks(observed.shape, rows, columns, train=rest[n_val:], validation=rest[:n_val], test=test)
+        train, validation = validation_split(rest, validation_ratio, random_state)
+        fold = pair_masks(observed.shape, rows, columns, train=train, validation=validation, test=test)
         fold.metadata.update(n_splits=len(unique_studies), test_study=str(study))
         folds.append(fold)
     return folds

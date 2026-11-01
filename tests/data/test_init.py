@@ -1,4 +1,4 @@
-"""Tests for the public :mod:`drevalpy.data` surface, its lazy singletons, ``split`` and the identifier constants."""
+"""Tests for the public :mod:`drevalpy.data` surface, ``split`` and the identifier constants."""
 
 from __future__ import annotations
 
@@ -7,9 +7,9 @@ import pytest
 from upath import UPath
 
 from drevalpy import data
-from drevalpy.data.splitters import leave_pair_out
+from drevalpy.data.splitters.lpo import leave_pair_out
 from drevalpy.registry.splitter import register as register_splitter
-from drevalpy.types import SplitMasks
+from drevalpy.types import Fold
 from tests._barrel_surface import DeclaredSurface
 
 EAGER_ORIGINS: dict[str, str] = {
@@ -19,15 +19,9 @@ EAGER_ORIGINS: dict[str, str] = {
 }
 
 
-LAZY_ORIGINS: dict[str, str] = {
-    "dataset_registry": "drevalpy.registry.dataset._registry",
-    "splitter_registry": "drevalpy.registry.splitter._registry",
-}
-
-
 class TestDataSurface(DeclaredSurface):
     barrel = data
-    origins = {**EAGER_ORIGINS, **LAZY_ORIGINS}
+    origins = EAGER_ORIGINS
     unpinned_names = ("CurveQuality", "concat", "split")
 
 
@@ -130,11 +124,10 @@ class TestSplitQuality:
         expected = (rule or data.CurveQuality.default()).to_metadata()
 
         folds[0].save(str(tmp_path / "fold.npz"))
-        loaded = SplitMasks.load(str(tmp_path / "fold.npz"))
+        loaded = Fold.load(str(tmp_path / "fold.npz"))
 
         assert [f.metadata["quality"] for f in folds] == [expected, expected]
         assert loaded.metadata["quality"] == expected
-        assert data.CurveQuality.from_metadata(loaded.metadata["quality"]) == (rule or data.CurveQuality.default())
 
     def test_the_splitter_gets_the_unfiltered_dataset_and_the_rule(self, low_quality_dataset: data.Dataset) -> None:
         seen: list[tuple[data.Dataset, data.CurveQuality]] = []

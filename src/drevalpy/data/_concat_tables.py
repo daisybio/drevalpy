@@ -4,17 +4,19 @@ from __future__ import annotations
 
 import warnings
 from collections.abc import Sequence
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 import numpy as np
 
 from drevalpy.errors import InvalidInputError
-from drevalpy.evaluation._grouping import STUDY_SEPARATOR
+from drevalpy.types.data.views import SMILES_COLUMN
 
 if TYPE_CHECKING:
     import pandas as pd
 
-SMILES_COLUMN = "canonical_smiles"
+#: Separates the study from the source sample ID in the sample IDs of a concatenated dataset;
+#: the ``"study"`` grouping of :mod:`drevalpy.evaluation._grouping` reads it back.
+STUDY_SEPARATOR: Final[str] = "::"
 _MAX_LISTED = 8
 
 

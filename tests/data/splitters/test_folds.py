@@ -105,51 +105,51 @@ class TestGroupFolds:
 
 class TestEntityMasks:
     def test_rows_land_in_the_mask_of_their_own_side_and_foreign_rows_stay_empty(self, observed):
-        masks = entity_masks(observed, train=np.array([0, 1]), validation=np.array([2]), test=np.array([3]), axis=0)
+        fold = entity_masks(observed, train=np.array([0, 1]), validation=np.array([2]), test=np.array([3]), axis=0)
 
-        np.testing.assert_array_equal(masks.train.mask[[0, 1], :], observed[[0, 1], :])
-        np.testing.assert_array_equal(masks.val.mask[2, :], observed[2, :])
-        np.testing.assert_array_equal(masks.test.mask[3, :], observed[3, :])
-        assert not masks.train.mask[2:, :].any()
+        np.testing.assert_array_equal(fold.train.mask[[0, 1], :], observed[[0, 1], :])
+        np.testing.assert_array_equal(fold.val.mask[2, :], observed[2, :])
+        np.testing.assert_array_equal(fold.test.mask[3, :], observed[3, :])
+        assert not fold.train.mask[2:, :].any()
 
     def test_a_column_split_holds_out_drugs(self, observed):
-        masks = entity_masks(observed, train=np.array([0, 1]), validation=np.array([2]), test=np.array([3]), axis=1)
+        fold = entity_masks(observed, train=np.array([0, 1]), validation=np.array([2]), test=np.array([3]), axis=1)
 
-        np.testing.assert_array_equal(masks.test.mask[:, 3], observed[:, 3])
-        assert not masks.test.mask[:, [0, 1, 2]].any()
+        np.testing.assert_array_equal(fold.test.mask[:, 3], observed[:, 3])
+        assert not fold.test.mask[:, [0, 1, 2]].any()
 
     def test_unobserved_pairs_are_never_selected_and_an_empty_index_set_yields_an_empty_mask(self, observed):
         rows = np.arange(observed.shape[0])
 
-        masks = entity_masks(observed, train=rows, validation=NO_INDICES, test=rows, axis=0)
+        fold = entity_masks(observed, train=rows, validation=NO_INDICES, test=rows, axis=0)
 
-        assert not (masks.train.mask & ~observed).any()
-        assert not masks.val.mask.any()
+        assert not (fold.train.mask & ~observed).any()
+        assert not fold.val.mask.any()
 
 
 class TestPairMasks:
     def test_selects_exactly_the_requested_positions_without_overlap(self, observed):
         rows, columns = np.where(observed)
 
-        masks = pair_masks(
+        fold = pair_masks(
             observed.shape, rows, columns, train=np.arange(5), validation=np.arange(5, 7), test=np.arange(7, 10)
         )
 
-        assert masks.train.mask.shape == observed.shape
-        assert masks.train.mask.sum() == 5
-        assert masks.val.mask[rows[5], columns[5]]
-        assert masks.test.mask[rows[7], columns[7]]
-        assert not (masks.train.mask & masks.test.mask).any()
-        assert not (masks.train.mask & masks.val.mask).any()
+        assert fold.train.mask.shape == observed.shape
+        assert fold.train.mask.sum() == 5
+        assert fold.val.mask[rows[5], columns[5]]
+        assert fold.test.mask[rows[7], columns[7]]
+        assert not (fold.train.mask & fold.test.mask).any()
+        assert not (fold.train.mask & fold.val.mask).any()
 
     def test_an_empty_position_set_yields_an_empty_mask(self, observed):
         rows, columns = np.where(observed)
 
-        masks = pair_masks(
+        fold = pair_masks(
             observed.shape, rows, columns, train=np.arange(3), validation=NO_INDICES, test=np.arange(3, 5)
         )
 
-        assert not masks.val.mask.any()
+        assert not fold.val.mask.any()
 
 
 @pytest.mark.parametrize(

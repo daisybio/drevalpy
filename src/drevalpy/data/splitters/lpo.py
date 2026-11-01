@@ -8,7 +8,7 @@ import numpy as np
 
 from drevalpy.data.splitters._folds import group_folds, observed_mask, pair_masks
 from drevalpy.registry.splitter import register
-from drevalpy.types import Dataset, SplitMasks
+from drevalpy.types import Dataset, Fold
 
 if TYPE_CHECKING:
     from drevalpy.data.quality import CurveQuality
@@ -22,7 +22,7 @@ def leave_pair_out(
     random_state: int = 42,
     *,
     quality: CurveQuality,
-) -> list[SplitMasks]:
+) -> list[Fold]:
     """Generate LPO folds where each (sample, drug) pair appears in exactly one test set.
 
     Every pair with a finite response that passes *quality* is used.

@@ -1,11 +1,12 @@
 """Shared fold construction for the built-in splitters.
 
-The four modes differ only in *what* they hold out - rows, columns, tissues or
-individual pairs - so the observation mask, the k-fold
-train/validation/test partition and the mask assembly all live here. Keeping the
-partition in one place also keeps the folds reproducible across modes: the
-validation slice is drawn with a generator seeded from ``random_state`` on every
-fold, which is a property of this function rather than of any one splitter.
+The modes differ only in *what* they hold out - rows, columns, tissues, studies or
+individual pairs - so the observation mask, the k-fold train/validation/test
+partition, the validation draw and the mask assembly all live here. Keeping the
+validation draw in :func:`validation_split` also keeps the folds reproducible
+across modes: the validation slice is drawn with a generator seeded from
+``random_state`` on every fold, which is a property of this module rather than of
+any one splitter.
 """
 
 from __future__ import annotations
@@ -15,7 +16,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from drevalpy.errors import UnknownNameError
-from drevalpy.types import SplitMask, SplitMasks
+from drevalpy.types import Fold, PairMask
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -46,6 +47,22 @@ def observed_mask(dataset: Dataset, quality: CurveQuality) -> np.ndarray:
     return np.isfinite(dataset.response_matrix) & passed
 
 
+def validation_split(indices: np.ndarray, validation_ratio: float, random_state: int) -> tuple[np.ndarray, np.ndarray]:
+    """Shuffle *indices* with a generator seeded from *random_state* and hold out the validation share.
+
+    This is the one validation rule of the built-in splitters: ``max(1, int(n * validation_ratio))``
+    indices, or none for a ratio of 0.
+
+    :param indices: The non-test indices of one fold.
+    :param validation_ratio: Fraction of *indices* held out for validation.
+    :param random_state: Seed of the shuffle.
+    :returns: ``(train, validation)`` indices.
+    """
+    n_val = max(1, int(len(indices) * validation_ratio)) if validation_ratio > 0 else 0
+    shuffled = np.random.default_rng(random_state).permutation(indices)
+    return shuffled[n_val:], shuffled[:n_val]
+
+
 def group_folds(
     n_groups: int,
     *,
@@ -65,10 +82,37 @@ def group_folds(
 
     kf = KFold(n_splits=n_splits, shuffle=True, random_state=random_state)
     for train_val, test in kf.split(np.arange(n_groups)):
-        n_val = max(1, int(len(train_val) * validation_ratio)) if validation_ratio > 0 else 0
-        rng = np.random.default_rng(random_state)
-        rng.shuffle(train_val)
-        yield train_val[n_val:], train_val[:n_val], test
+        train, validation = validation_split(train_val, validation_ratio, random_state)
+        yield train, validation, test
+
+
+def entity_folds(
+    dataset: Dataset,
+    quality: CurveQuality,
+    *,
+    axis: int,
+    n_splits: int,
+    validation_ratio: float,
+    random_state: int,
+) -> list[Fold]:
+    """Build the folds of LSO (*axis* 0, samples) or LDO (*axis* 1, drugs): each entity is in one test set.
+
+    :param dataset: Dataset to split.
+    :param quality: Curve-quality rule a pair must pass, see :func:`observed_mask`.
+    :param axis: 0 to hold out samples, 1 to hold out drugs.
+    :param n_splits: Number of folds.
+    :param validation_ratio: Fraction of the non-test entities held out for validation.
+    :param random_state: Seed of the folds and the validation draw.
+    :returns: One ``Fold`` per fold.
+    """
+    observed = observed_mask(dataset, quality)
+    folds = group_folds(
+        observed.shape[axis], n_splits=n_splits, validation_ratio=validation_ratio, random_state=random_state
+    )
+    return [
+        entity_masks(observed, train=train, validation=validation, test=test, axis=axis)
+        for train, validation, test in folds
+    ]
 
 
 def entity_masks(
@@ -78,7 +122,7 @@ def entity_masks(
     validation: np.ndarray,
     test: np.ndarray,
     axis: int,
-) -> SplitMasks:
+) -> Fold:
     """Assemble one fold that holds out whole rows (*axis* 0) or columns (*axis* 1).
 
     :param observed: Mask of usable pairs, as returned by :func:`observed_mask`.
@@ -88,11 +132,16 @@ def entity_masks(
     :param axis: 0 to split samples, 1 to split drugs.
     :returns: The three masks of one fold.
     """
-    return SplitMasks(
-        train=SplitMask(_entity_mask(observed, train, axis)),
-        test=SplitMask(_entity_mask(observed, test, axis)),
-        val=SplitMask(_entity_mask(observed, validation, axis)),
-    )
+
+    def mask(indices: np.ndarray) -> PairMask:
+        selected = np.zeros_like(observed)
+        if axis == 0:
+            selected[indices, :] = observed[indices, :]
+        else:
+            selected[:, indices] = observed[:, indices]
+        return PairMask(selected)
+
+    return Fold(train=mask(train), test=mask(test), val=mask(validation))
 
 
 def pair_masks(
@@ -103,7 +152,7 @@ def pair_masks(
     train: np.ndarray,
     validation: np.ndarray,
     test: np.ndarray,
-) -> SplitMasks:
+) -> Fold:
     """Assemble one fold that holds out individual observed pairs.
 
     :param shape: Shape of the response matrix.
@@ -114,11 +163,13 @@ def pair_masks(
     :param test: Positions assigned to testing.
     :returns: The three masks of one fold.
     """
-    return SplitMasks(
-        train=SplitMask(_pair_mask(shape, rows, columns, train)),
-        test=SplitMask(_pair_mask(shape, rows, columns, test)),
-        val=SplitMask(_pair_mask(shape, rows, columns, validation)),
-    )
+
+    def mask(positions: np.ndarray) -> PairMask:
+        selected = np.zeros(shape, dtype=bool)
+        selected[rows[positions], columns[positions]] = True
+        return PairMask(selected)
+
+    return Fold(train=mask(train), test=mask(test), val=mask(validation))
 
 
 def rows_with_labels(labels: np.ndarray, selected: np.ndarray) -> np.ndarray:
@@ -129,23 +180,3 @@ def rows_with_labels(labels: np.ndarray, selected: np.ndarray) -> np.ndarray:
     :returns: Matching row indices.
     """
     return np.where(np.isin(labels, selected))[0]
-
-
-def _entity_mask(observed: np.ndarray, indices: np.ndarray, axis: int) -> np.ndarray:
-    mask = np.zeros_like(observed)
-    if axis == 0:
-        mask[indices, :] = observed[indices, :]
-    else:
-        mask[:, indices] = observed[:, indices]
-    return mask
-
-
-def _pair_mask(
-    shape: tuple[int, ...],
-    rows: np.ndarray,
-    columns: np.ndarray,
-    positions: np.ndarray,
-) -> np.ndarray:
-    mask = np.zeros(shape, dtype=bool)
-    mask[rows[positions], columns[positions]] = True
-    return mask

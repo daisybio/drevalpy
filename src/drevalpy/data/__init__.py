@@ -1,11 +1,10 @@
-"""Data loading, splitting, and registries."""
+"""Data loading, splitting, concatenation and the synthetic dataset."""
 
 from __future__ import annotations
 
 import hashlib
-from typing import Any
 
-from drevalpy.types import SplitMasks
+from drevalpy.types import Fold
 from drevalpy.types.data.dataset import Dataset as Dataset
 
 from ._concat import concat
@@ -22,7 +21,7 @@ def split(
     random_state: int = 42,
     *,
     quality: CurveQuality | None = None,
-) -> list[SplitMasks]:
+) -> list[Fold]:
     """Split a dataset using a registered splitter.
 
     :param dataset: Dataset instance.
@@ -34,7 +33,7 @@ def split(
         ``CurveQuality.default()``. The built-in splitters leave out the pairs that fail it. The rule is
         recorded in each fold's metadata under ``quality`` as the one requested; a custom splitter may
         deliberately ignore it.
-    :returns: List of SplitMasks, one per fold.
+    :returns: List of Fold, one per fold.
     :raises ValueError: If two folds produce the same fold ID.
     """
     from drevalpy.registry import splitter as splitters
@@ -46,7 +45,7 @@ def split(
     )
 
     fold_ids: list[str] = []
-    for i, fold in enumerate(folds):
+    for fold in folds:
         hasher = hashlib.sha256()
         hasher.update(fold.train.mask.tobytes())
         hasher.update(fold.test.mask.tobytes())
@@ -55,7 +54,6 @@ def split(
         fold_ids.append(fold_id)
 
         fold.metadata.setdefault("dataset", dataset.name)
-        fold.metadata.setdefault("fold_index", i)
         fold.metadata.setdefault("fold_id", fold_id)
         fold.metadata["quality"] = rule.to_metadata()
 
@@ -65,26 +63,11 @@ def split(
     return folds
 
 
-def __getattr__(name: str) -> Any:
-    """Lazy access to registry singletons to avoid circular imports."""
-    if name == "dataset_registry":
-        from drevalpy.registry.dataset import dataset_registry
-
-        return dataset_registry
-    if name == "splitter_registry":
-        from drevalpy.registry.splitter import splitter_registry
-
-        return splitter_registry
-    raise AttributeError(f"module 'drevalpy.data' has no attribute {name!r}")
-
-
 __all__ = [
     "CurveQuality",
     "concat",
     "curve_quality_mask",
-    "dataset_registry",
     "load",
     "split",
-    "splitter_registry",
     "synthetic",
 ]

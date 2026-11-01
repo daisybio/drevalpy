@@ -5,33 +5,8 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from drevalpy.data._replicate_fits import DRUG_COLUMN, SAMPLE_COLUMN, restrict, stack
+from drevalpy.data._replicate_fits import DRUG_COLUMN, SAMPLE_COLUMN, stack
 from tests.data._replicate_fits_table import fits_table
-
-
-class TestRestrict:
-    def test_keeps_the_rows_of_the_given_samples_and_drugs(self) -> None:
-        table = fits_table(["S1", "S2", "S3"], ["D1", "D2"])
-
-        kept = restrict(table, ["S1", "S3", "unknown"], ["D2"])
-
-        assert isinstance(kept.index, pd.RangeIndex)
-        assert len(kept) == 4
-        assert set(kept[SAMPLE_COLUMN]) == {"S1", "S3"}
-        assert set(kept[DRUG_COLUMN]) == {"D2"}
-        assert list(kept[SAMPLE_COLUMN].cat.categories) == ["S1", "S3"]
-        assert list(kept[DRUG_COLUMN].cat.categories) == ["D2"]
-        assert kept["replicate"].dtype == np.int32
-        assert kept["pEC50"].dtype == np.float32
-        assert len(table) == 12
-
-    def test_drops_categories_no_kept_row_uses_in_every_column(self) -> None:
-        table = fits_table(["S1"], ["D1"])
-
-        kept = restrict(table, [], ["D1"])
-
-        assert kept.empty
-        assert list(kept["status"].cat.categories) == []
 
 
 class TestStack:

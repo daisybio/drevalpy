@@ -65,10 +65,9 @@ from drevalpy.data._synthetic_omics import (
     payload_genes,
     view_feature_names,
 )
-from drevalpy.data.utils import TISSUE_IDENTIFIER
 from drevalpy.errors import InvalidInputError
 from drevalpy.types.data.dataset import Dataset
-from drevalpy.types.data.views import stored_view_name
+from drevalpy.types.data.views import SMILES_COLUMN, TISSUE_IDENTIFIER, stored_view_name
 
 if TYPE_CHECKING:
     import anndata as ad
@@ -193,7 +192,7 @@ def _response_anndata(
         var=pd.DataFrame(
             {
                 "drug_name": [f"synthdrug{index}" for index in range(n_drugs)],
-                "canonical_smiles": list(SMILES[:n_drugs]),
+                SMILES_COLUMN: list(SMILES[:n_drugs]),
             },
             index=pd.Index(drug_ids, name="pubchem_id"),
         ),

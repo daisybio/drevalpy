@@ -19,16 +19,16 @@ from drevalpy.data._synthetic import (
     synthetic,
 )
 from drevalpy.data.quality import CurveQuality
-from drevalpy.data.utils import TISSUE_IDENTIFIER
 from drevalpy.errors import InvalidInputError
-from drevalpy.testing import build_synthetic_dataset
 from drevalpy.types.data.dataset import Dataset
+from drevalpy.types.data.feature_source import FeatureSource
+from drevalpy.types.data.views import TISSUE_IDENTIFIER
 from drevalpy.types.results import ExperimentResult
 
 
 @pytest.fixture(scope="module")
 def dataset() -> Dataset:
-    return build_synthetic_dataset()
+    return synthetic()
 
 
 def _measured(matrix: np.ndarray) -> np.ndarray:
@@ -37,7 +37,6 @@ def _measured(matrix: np.ndarray) -> np.ndarray:
 
 def test_public_names_alias_the_one_builder():
     assert drevalpy.synthetic is drevalpy.data.synthetic is synthetic
-    assert build_synthetic_dataset is synthetic
 
 
 def test_default_shape_name_and_modalities(dataset):
@@ -49,7 +48,7 @@ def test_default_shape_name_and_modalities(dataset):
 
 
 def test_name_and_shape_are_configurable():
-    small = build_synthetic_dataset(name="MYDATA", n_samples=6, n_drugs=3, n_tissues=3)
+    small = synthetic(name="MYDATA", n_samples=6, n_drugs=3, n_tissues=3)
 
     assert small.name == "MYDATA"
     assert small.response_matrix.shape == (6, 3)
@@ -58,7 +57,7 @@ def test_name_and_shape_are_configurable():
 
 @pytest.mark.parametrize("omics", [(), None])
 def test_no_omics_leaves_only_the_response(omics):
-    assert list(build_synthetic_dataset(omics=omics).mdata.mod) == ["response"]
+    assert list(synthetic(omics=omics).mdata.mod) == ["response"]
 
 
 def test_metadata_layout(dataset):
@@ -100,10 +99,10 @@ def test_some_pairs_are_unmeasured_but_every_sample_and_drug_keeps_a_measurement
 
 
 def test_missing_fraction_controls_how_many_pairs_are_removed():
-    complete = build_synthetic_dataset(missing_fraction=0.0)
-    sparse = build_synthetic_dataset(missing_fraction=0.4)
-    dense = build_synthetic_dataset(missing_fraction=0.05)
-    extreme = _measured(build_synthetic_dataset(missing_fraction=1.0).response_matrix)
+    complete = synthetic(missing_fraction=0.0)
+    sparse = synthetic(missing_fraction=0.4)
+    dense = synthetic(missing_fraction=0.05)
+    extreme = _measured(synthetic(missing_fraction=1.0).response_matrix)
 
     assert not np.isnan(complete.response_matrix).any()
     assert np.isnan(sparse.response_matrix).sum() > np.isnan(dense.response_matrix).sum()
@@ -123,25 +122,25 @@ def test_punch_holes_leaves_a_degenerate_matrix_alone_and_modifies_in_place():
 
 
 def test_omics_modalities_and_feature_widths():
-    both = build_synthetic_dataset(omics=["gene_expression", "proteomics"])
-    named = build_synthetic_dataset(omics=["gene_expression"], feature_names=["A", "B", "C"])
-    narrow = build_synthetic_dataset(omics=["gene_expression"], n_features=3)
+    both = synthetic(omics=["gene_expression", "proteomics"])
+    named = synthetic(omics=["gene_expression"], feature_names=["A", "B", "C"])
+    narrow = synthetic(omics=["gene_expression"], n_features=3)
     ids = np.asarray(both.sample_ids)
 
     assert set(both.mdata.mod) == {"response", "gene_expression", "proteomics"}
-    assert both.get_sample_features("gene_expression", ids).shape == (
+    assert FeatureSource(both, "sample").view("gene_expression", ids).shape == (
         N_SAMPLES,
         len(view_gene_union("gene_expression")),
     )
-    assert named.get_sample_feature_names("gene_expression") == ("A", "B", "C")
+    assert FeatureSource(named, "sample").feature_names("gene_expression") == ("A", "B", "C")
     assert named.mdata.mod["gene_expression"].shape[1] == 3
     assert narrow.mdata.mod["gene_expression"].shape[1] == len(view_gene_union("gene_expression"))
 
 
 def test_a_mapping_sets_partial_coverage_and_uncovered_samples_come_back_as_nan():
-    partial = build_synthetic_dataset(omics={"gene_expression": 10})
+    partial = synthetic(omics={"gene_expression": 10})
 
-    matrix = partial.get_sample_features("gene_expression", np.asarray(partial.sample_ids))
+    matrix = FeatureSource(partial, "sample").view("gene_expression", np.asarray(partial.sample_ids))
 
     assert partial.mdata.mod["gene_expression"].shape[0] == 10
     assert np.isnan(matrix[10:]).all()
@@ -149,10 +148,10 @@ def test_a_mapping_sets_partial_coverage_and_uncovered_samples_come_back_as_nan(
 
 
 def test_the_gistic_alias_resolves_to_the_stored_modality():
-    with_cnv = build_synthetic_dataset(omics=["copy_number_variation_gistic"])
+    with_cnv = synthetic(omics=["copy_number_variation_gistic"])
 
     assert "copy_number_variation" in with_cnv.mdata.mod
-    assert with_cnv.get_sample_features("copy_number_variation_gistic", np.asarray([])).size == 0
+    assert FeatureSource(with_cnv, "sample").view("copy_number_variation_gistic", np.asarray([])).size == 0
 
 
 ALL_OMICS = ("gene_expression", "proteomics", "mutations", "methylation", "copy_number_variation_gistic")
@@ -165,7 +164,7 @@ class TestOmicsViews:
         return synthetic(omics=ALL_OMICS, n_samples=40, n_features=12)
 
     def _matrix(self, dataset: Dataset, view: str) -> np.ndarray:
-        return dataset.get_sample_features(view, np.asarray(dataset.sample_ids))
+        return FeatureSource(dataset, "sample").view(view, np.asarray(dataset.sample_ids))
 
     def test_every_view_is_stored_under_its_accessor(self, every_view):
         assert set(every_view.mdata.mod) == {
@@ -179,16 +178,19 @@ class TestOmicsViews:
 
     @pytest.mark.parametrize("view", sorted(GENE_LISTS_BY_VIEW))
     def test_every_shipped_list_is_a_subset_of_its_view(self, every_view, view):
-        names = set(every_view.get_sample_feature_names(view))
+        names = set(FeatureSource(every_view, "sample").feature_names(view))
 
         for list_name in GENE_LISTS_BY_VIEW[view]:
             assert set(resolve_gene_list(list_name)) <= names, list_name
 
     def test_feature_names(self, every_view):
         landmark = resolve_gene_list("landmark_genes")
-        sites = every_view.get_sample_feature_names("methylation")
+        sites = FeatureSource(every_view, "sample").feature_names("methylation")
+        genes = FeatureSource(every_view, "sample").feature_names("gene_expression")
+        assert sites is not None
+        assert genes is not None
 
-        assert every_view.get_sample_feature_names("gene_expression")[: len(landmark)] == landmark
+        assert genes[: len(landmark)] == landmark
         assert len(set(sites)) == len(sites)
         assert all(name.startswith("chr") for name in sites)
 
@@ -205,16 +207,17 @@ class TestOmicsViews:
     def test_a_mapping_of_feature_names_applies_per_view(self):
         dataset = synthetic(omics=["gene_expression", "methylation"], feature_names={"methylation": ["s1", "s2", "s3"]})
 
-        assert dataset.get_sample_feature_names("methylation") == ("s1", "s2", "s3")
-        assert len(dataset.get_sample_feature_names("gene_expression")) == len(view_gene_union("gene_expression"))
+        assert FeatureSource(dataset, "sample").feature_names("methylation") == ("s1", "s2", "s3")
+        assert len(FeatureSource(dataset, "sample").feature_names("gene_expression")) == len(
+            view_gene_union("gene_expression")
+        )
 
     def test_the_landmark_featurizer_selects_the_whole_landmark_list(self):
         from drevalpy.components.featurizers.sample.landmark import LandmarkGenesFeaturizer
-        from drevalpy.types.data.feature_source import FeatureSource
 
         built = synthetic()
         ids = np.asarray(built.sample_ids)
-        source = FeatureSource(built, "sample", ids)
+        source = FeatureSource(built, "sample")
         featurizer = LandmarkGenesFeaturizer().fit(source, ids)
 
         result = featurizer.transform(source, ids)
@@ -224,7 +227,7 @@ class TestOmicsViews:
     def test_more_features_than_the_shipped_lists_pads_with_placeholder_names(self):
         width = len(view_gene_union("proteomics")) + 3
 
-        names = synthetic(omics=["proteomics"], n_features=width).get_sample_feature_names("proteomics")
+        names = FeatureSource(synthetic(omics=["proteomics"], n_features=width), "sample").feature_names("proteomics")
 
         assert names is not None
         assert len(names) == width
@@ -256,7 +259,7 @@ class TestExtras:
         ("view", "width"), [("morgan_fingerprint", 128), ("chemberta", 768), ("bpe_smiles", 128), ("smilesvec", 100)]
     )
     def test_drug_views_have_the_production_width(self, full, view, width):
-        features = full.get_drug_features(view, full.drug_ids)
+        features = FeatureSource(full, "drug").view(view, full.drug_ids)
 
         assert features.shape == (8, width)
         assert features.dtype == np.float32
@@ -269,17 +272,21 @@ class TestExtras:
         expected = rdFingerprintGenerator.GetMorganGenerator(radius=2, fpSize=128).GetFingerprintAsNumPy(
             Chem.MolFromSmiles(smiles)
         )
-        first = synthetic(drug_views=["chemberta"]).get_drug_features("chemberta", np.asarray(["100000"]))
-        second = synthetic(drug_views=["chemberta"]).get_drug_features("chemberta", np.asarray(["100000"]))
+        first = FeatureSource(synthetic(drug_views=["chemberta"]), "drug").view("chemberta", np.asarray(["100000"]))
+        second = FeatureSource(synthetic(drug_views=["chemberta"]), "drug").view("chemberta", np.asarray(["100000"]))
 
-        np.testing.assert_array_equal(full.get_drug_features("morgan_fingerprint", full.drug_ids)[0], expected)
+        np.testing.assert_array_equal(
+            FeatureSource(full, "drug").view("morgan_fingerprint", full.drug_ids)[0], expected
+        )
         np.testing.assert_array_equal(first, second)
 
     def test_payloads(self, full):
-        graphs = full.get_uns("drug_graphs")
-        rows = [line.split("\t") for line in full.get_uns("pathways_gmt").splitlines()]
-        genes = set(full.get_sample_feature_names("gene_expression")[:N_FEATURES])
-        ontology = full.get_uns("sparsego")
+        graphs = full.mdata.uns["drug_graphs"]
+        rows = [line.split("\t") for line in full.mdata.uns["pathways_gmt"].splitlines()]
+        names = FeatureSource(full, "sample").feature_names("gene_expression")
+        assert names is not None
+        genes = set(names[:N_FEATURES])
+        ontology = full.mdata.uns["sparsego"]
 
         assert set(graphs) == set(full.drug_ids)
         assert {"x", "edge_index", "edge_attr"} <= set(next(iter(graphs.values())))
@@ -287,8 +294,8 @@ class TestExtras:
         assert all(len(row) - 2 >= 5 for row in rows)
         assert {line.split("\t")[1] for line in ontology["gene2ind"].splitlines()} == genes
         assert "default" in ontology["ontology"]
-        assert len(full.get_uns("bpe_codes").splitlines()) > 1
-        assert full.get_sample_features("pathway_features", np.asarray(full.sample_ids)).shape == (24, 2)
+        assert len(full.mdata.uns["bpe_codes"].splitlines()) > 1
+        assert FeatureSource(full, "sample").view("pathway_features", np.asarray(full.sample_ids)).shape == (24, 2)
 
     @pytest.mark.parametrize("layer", ["AUC", "IC50"])
     def test_extra_layers_keep_the_unmeasured_pairs(self, full, layer):
@@ -334,35 +341,38 @@ def test_the_suite_builder_keeps_the_shape_views_and_extras_the_suite_relies_on(
     assert set(built.mdata.mod["response"].varm) == {"morgan_fingerprint", "chemberta", "bpe_smiles", "smilesvec"}
     assert set(built.mdata.uns) >= {"drug_graphs", "pathways_gmt", "sparsego", "bpe_codes"}
     assert {"AUC", "IC50", "LN_IC50"} <= set(built.mdata.mod["response"].layers)
-    assert built.get_sample_features("gene_expression", ids).shape == (24, len(view_gene_union("gene_expression")))
-    assert built.get_sample_features("methylation", ids).shape == (24, len(view_gene_union("methylation")))
+    assert FeatureSource(built, "sample").view("gene_expression", ids).shape == (
+        24,
+        len(view_gene_union("gene_expression")),
+    )
+    assert FeatureSource(built, "sample").view("methylation", ids).shape == (24, len(view_gene_union("methylation")))
 
 
 def test_determinism_is_byte_exact_and_seed_dependent():
-    first = build_synthetic_dataset(omics=["gene_expression"])
-    second = build_synthetic_dataset(omics=["gene_expression"])
-    other = build_synthetic_dataset(seed=2)
+    first = synthetic(omics=["gene_expression"])
+    second = synthetic(omics=["gene_expression"])
+    other = synthetic(seed=2)
     ids = np.asarray(first.sample_ids)
 
     assert first.response_matrix.tobytes() == second.response_matrix.tobytes()
     assert (
-        first.get_sample_features("gene_expression", ids).tobytes()
-        == second.get_sample_features("gene_expression", ids).tobytes()
+        FeatureSource(first, "sample").view("gene_expression", ids).tobytes()
+        == FeatureSource(second, "sample").view("gene_expression", ids).tobytes()
     )
     assert not np.array_equal(first.response_matrix, other.response_matrix)
 
 
 def test_drug_means_differ_by_more_than_the_within_drug_spread():
-    matrix = build_synthetic_dataset(missing_fraction=0.0).response_matrix
+    matrix = synthetic(missing_fraction=0.0).response_matrix
 
     assert matrix.mean(axis=0).std() > 1.5 * matrix.std(axis=0).mean()
 
 
 def test_omics_features_are_centred_on_six_and_share_hidden_factors():
-    both = build_synthetic_dataset(omics=["gene_expression", "proteomics"], n_samples=200, n_features=40)
+    both = synthetic(omics=["gene_expression", "proteomics"], n_samples=200, n_features=40)
     ids = np.asarray(both.sample_ids)
-    expression = both.get_sample_features("gene_expression", ids)
-    proteins = both.get_sample_features("proteomics", ids)
+    expression = FeatureSource(both, "sample").view("gene_expression", ids)
+    proteins = FeatureSource(both, "sample").view("proteomics", ids)
 
     shared = np.linalg.svd(np.hstack([expression, proteins]) - 6.0, compute_uv=False)
 
@@ -391,7 +401,7 @@ class TestSimpsonPattern:
 
     @pytest.fixture(scope="class")
     def experiment(self) -> ExperimentResult:
-        data = build_synthetic_dataset(omics=["gene_expression"])
+        data = synthetic(omics=["gene_expression"])
         models = [
             ModelSpec.from_name(name) for name in ("NaiveDrugMeanPredictor", "NaiveMeanEffectsPredictor", "ElasticNet")
         ]

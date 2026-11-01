@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import dataclasses
-import json
 
 import numpy as np
 import pytest
@@ -285,21 +284,3 @@ class TestMetadata:
             "min_relevance_score": 1.3010299956639813,
             "min_abs_fold_change": 0.45,
         }
-
-    @pytest.mark.parametrize(
-        "rule",
-        [
-            CurveQuality.default(),
-            CurveQuality.off(),
-            CurveQuality(min_relevance_score=None, max_rmse=0.1, regulation=("up", "down")),
-            CurveQuality(**{option: _THRESHOLDS[option][0] for option in _RULES}),
-        ],
-        ids=["default", "off", "partial", "all"],
-    )
-    def test_metadata_round_trips_through_json(self, rule: CurveQuality) -> None:
-        assert CurveQuality.from_metadata(json.loads(json.dumps(rule.to_metadata()))) == rule
-
-    def test_empty_metadata_is_off_not_default_and_unknown_names_raise(self) -> None:
-        assert CurveQuality.from_metadata({}) == CurveQuality.off()
-        with pytest.raises(ValueError, match="min_nonsense"):
-            CurveQuality.from_metadata({"min_nonsense": 1.0})

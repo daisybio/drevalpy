@@ -11,7 +11,7 @@ import pytest
 from platformdirs import user_cache_dir
 from upath import UPath
 
-from drevalpy.data import _msigdb
+from drevalpy.data import _msigdb, _transfer
 from drevalpy.data._msigdb import GMT_FILENAME, GMT_SHA256, GMT_URL, get_precily_gmt
 from drevalpy.data._paths import get_default_data_dir
 from drevalpy.data._transfer import _CHUNK_SIZE, _progress, _stream, download_file, download_files
@@ -234,7 +234,7 @@ def test_pinned_source_is_msigdb_release_6_1() -> None:
 
 def test_first_use_downloads_into_the_cache(monkeypatch: pytest.MonkeyPatch, cache: Path) -> None:
     calls: list[str] = []
-    monkeypatch.setattr(_msigdb, "download_file", _fake_download(FIXTURE_GMT, calls))
+    monkeypatch.setattr(_transfer, "download_file", _fake_download(FIXTURE_GMT, calls))
 
     path = get_precily_gmt()
 
@@ -247,7 +247,7 @@ def test_cached_file_is_reused_without_downloading(monkeypatch: pytest.MonkeyPat
     cache.parent.mkdir(parents=True)
     cache.write_bytes(FIXTURE_GMT.encode())
     calls: list[str] = []
-    monkeypatch.setattr(_msigdb, "download_file", _fake_download("unused", calls))
+    monkeypatch.setattr(_transfer, "download_file", _fake_download("unused", calls))
 
     assert Path(str(get_precily_gmt())) == cache
     assert calls == []
@@ -257,16 +257,16 @@ def test_cached_file_with_the_wrong_hash_is_replaced(monkeypatch: pytest.MonkeyP
     cache.parent.mkdir(parents=True)
     cache.write_text("truncated", encoding="utf-8")
     calls: list[str] = []
-    monkeypatch.setattr(_msigdb, "download_file", _fake_download(FIXTURE_GMT, calls))
+    monkeypatch.setattr(_transfer, "download_file", _fake_download(FIXTURE_GMT, calls))
 
     assert get_precily_gmt().read_text(encoding="utf-8") == FIXTURE_GMT
     assert calls == [GMT_URL]
 
 
 def test_download_with_the_wrong_hash_is_deleted_and_reported(monkeypatch: pytest.MonkeyPatch, cache: Path) -> None:
-    monkeypatch.setattr(_msigdb, "download_file", _fake_download("not the gene sets", []))
+    monkeypatch.setattr(_transfer, "download_file", _fake_download("not the gene sets", []))
 
-    with pytest.raises(InvalidInputError, match="do not match the pinned sha256") as info:
+    with pytest.raises(InvalidInputError, match="does not match the pinned sha256") as info:
         get_precily_gmt()
 
     assert GMT_URL in str(info.value)
@@ -279,7 +279,7 @@ def test_download_failure_names_the_url(monkeypatch: pytest.MonkeyPatch, failure
     def failing(remote, local_path, label):
         raise failure
 
-    monkeypatch.setattr(_msigdb, "download_file", failing)
+    monkeypatch.setattr(_transfer, "download_file", failing)
 
     with pytest.raises(InputNotFoundError) as info:
         get_precily_gmt()

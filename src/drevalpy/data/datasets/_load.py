@@ -2,67 +2,32 @@
 
 from __future__ import annotations
 
-import hashlib
-
 from upath import UPath as Path
 
 from drevalpy.data._paths import get_default_data_dir, resolve_h5mu_path
-from drevalpy.data._transfer import download_file
-from drevalpy.errors import InputNotFoundError, InvalidInputError
+from drevalpy.data._transfer import cached_file_matches, download_checked
+from drevalpy.errors import InputNotFoundError
 from drevalpy.log import get_logger
 from drevalpy.registry.dataset._registry import dataset_registry
 from drevalpy.types.data.dataset import Dataset
 
 logger = get_logger(__name__)
 
-_HASH_CHUNK_SIZE = 1024 * 1024
-_hash_cache: dict[tuple[str, int, int], str] = {}
-
-
-def _file_sha256(path: Path) -> str:
-    """Return the hex SHA-256 of *path*, reading it in chunks.
-
-    The digest is remembered for the rest of the process, keyed by path, size and
-    modification time, so a file that is replaced on disk is hashed again.
-
-    :param path: Local file to hash.
-    :returns: Lowercase hex digest.
-    """
-    stat = path.stat()
-    key = (str(path), stat.st_size, stat.st_mtime_ns)
-    cached = _hash_cache.get(key)
-    if cached is None:
-        digest = hashlib.sha256()
-        with path.open("rb") as handle:
-            while chunk := handle.read(_HASH_CHUNK_SIZE):
-                digest.update(chunk)
-        cached = _hash_cache[key] = digest.hexdigest()
-    return cached
-
 
 def _download(name: str) -> Path:
     """Download the .h5mu file for a registered dataset.
 
     When the registry entry carries a ``sha256``, the downloaded file is checked against it.
+    ``InvalidInputError`` (from :func:`~drevalpy.data._transfer.download_checked`) is raised if it does
+    not match; the file is deleted.
 
     :param name: Dataset name from the registry.
     :returns: Local path to the downloaded file.
-    :raises InvalidInputError: If the downloaded file does not match the registered ``sha256``;
-        the file is deleted.
     """
     entry = dataset_registry.datasets[name]
     source = dataset_registry.sources[entry.source]
     remote = Path(source.url, **source.storage_options) / entry.file
-    local = download_file(remote, get_default_data_dir() / entry.file, name)
-    if entry.sha256 is not None:
-        actual = _file_sha256(local)
-        if actual != entry.sha256.lower():
-            local.unlink()
-            raise InvalidInputError(
-                f"Downloaded file for dataset '{name}' from {remote} does not match the registered sha256: "
-                f"expected {entry.sha256.lower()}, got {actual}. The file was deleted."
-            )
-    return local
+    return download_checked(remote, get_default_data_dir() / entry.file, name, entry.sha256)
 
 
 def _carries_curve_quality(dataset: Dataset) -> bool:
@@ -107,9 +72,7 @@ def _load_from_cache(path: Path, sha256: str | None = None) -> Dataset | None:
     :returns: The dataset, or ``None`` if the file was unusable and removed.
     :raises Exception: Any error that is not a corruption-type error, re-raised unchanged.
     """
-    if sha256 is not None and _file_sha256(path) != sha256.lower():
-        logger.info("Cached file at %s does not match the registered sha256, removing and re-downloading.", path)
-        path.unlink()
+    if sha256 is not None and not cached_file_matches(path, sha256):
         return None
 
     try:

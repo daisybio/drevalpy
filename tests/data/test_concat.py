@@ -316,7 +316,7 @@ def test_uns_keys_are_kept_when_equal_and_dropped_with_a_warning_otherwise(caplo
     first.mdata.uns.update({"shared": "same", "differs": "a", "drug_graphs": {"1": [1, 2]}})
     second.mdata.uns.update({"shared": "same", "differs": "b", "drug_graphs": {"1": [1, 2]}})
     first.response.obsm["pca_v0"] = np.zeros((10, 2))
-    first.mdata.uns["sample_featurizer_variants"] = "{}"
+    first.mdata.uns["precomputed_views"] = "{}"
 
     with caplog.at_level(logging.WARNING):
         result = concat([first, second])
@@ -325,7 +325,7 @@ def test_uns_keys_are_kept_when_equal_and_dropped_with_a_warning_otherwise(caplo
     assert result.mdata.uns["drug_graphs"] == {"1": [1, 2]}
     assert "differs" not in result.mdata.uns
     assert "differs" in caplog.text
-    assert "sample_featurizer_variants" not in result.mdata.uns
+    assert "precomputed_views" not in result.mdata.uns
     assert len(result.response.obsm) == 0
     assert "pca_v0" in caplog.text
 

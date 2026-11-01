@@ -20,9 +20,7 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
-#: Precomputed featurizer variants live in ``response.obsm``/``varm`` plus these ``uns`` keys.
-_VARIANT_KEYS = frozenset({"sample_featurizer_variants", "drug_featurizer_variants"})
-_OWN_UNS_KEYS = frozenset({"dataset_name", "randomization", "randomization_provenance"}) | _VARIANT_KEYS
+_OWN_UNS_KEYS = frozenset({"dataset_name", "randomization", "randomization_provenance"})
 _NEW_OBS_COLUMNS = ("study", "source_sample_id")
 
 
@@ -57,13 +55,13 @@ def _check_inputs(datasets: Sequence[Dataset], join: str, name: str | None) -> l
 
 
 def _warn_not_carried(datasets: Sequence[Dataset]) -> None:
-    """Warn about stored featurizer variants and embeddings, which concat does not carry over."""
+    """Warn about the drug views and embeddings in ``response.varm``/``obsm``, which concat does not carry over."""
     for dataset in datasets:
         response = dataset.response
-        stored = [*response.obsm.keys(), *response.varm.keys(), *(_VARIANT_KEYS & set(dataset.mdata.uns))]
+        stored = [*response.obsm.keys(), *response.varm.keys()]
         if stored:
             logger.warning(
-                "concat does not carry precomputed featurizer variants or embeddings; dropped from %s: %s",
+                "concat does not carry drug views or embeddings; dropped from %s: %s",
                 dataset.name,
                 listed(stored),
             )
@@ -154,8 +152,8 @@ def concat(
       NaN where a study did not measure a pair.
     * ``uns["dataset_name"]`` is *name*, or the input names joined by ``+``.
 
-    The inputs are not modified. Precomputed featurizer variants and embeddings stored
-    in ``response.obsm``/``varm`` are not carried over.
+    The inputs are not modified. Drug views and embeddings stored in
+    ``response.obsm``/``varm`` are not carried over.
 
     Raises ``InvalidInputError`` if fewer than two datasets are given, names are not unique, an input
     is randomized, feature names or units differ between inputs, or one drug ID

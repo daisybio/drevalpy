@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING, Any, Final
 import numpy as np
 
 from drevalpy.data._synthetic_omics import check_choices
+from drevalpy.types.data.views import DRUG_GRAPHS_KEY, PATHWAYS_GMT_KEY, SMILES_COLUMN, SPARSEGO_KEY
 
 if TYPE_CHECKING:
     from drevalpy.types.data.dataset import Dataset
@@ -73,7 +74,7 @@ DRUG_VIEWS: Final = ("morgan_fingerprint", "chemberta", "bpe_smiles", "smilesvec
 _NOISE_WIDTH: Final = {"chemberta": CHEMBERTA_DIM, "bpe_smiles": BPE_LENGTH, "smilesvec": SMILESVEC_DIM}
 
 #: Names accepted by ``uns_payloads``, stored in ``mdata.uns`` as the published files do.
-UNS_PAYLOADS: Final = ("drug_graphs", "pathways_gmt", "sparsego", "bpe_codes")
+UNS_PAYLOADS: Final = (DRUG_GRAPHS_KEY, PATHWAYS_GMT_KEY, SPARSEGO_KEY, "bpe_codes")
 
 
 def _pathways_gmt(genes: Sequence[str]) -> str:
@@ -129,7 +130,7 @@ def _drug_graphs(dataset: Dataset) -> dict[str, dict[str, np.ndarray]]:
     from drevalpy.types.data.feature_source import FeatureSource
 
     drug_ids = dataset.drug_ids
-    source = FeatureSource(dataset, "drug", drug_ids)
+    source = FeatureSource(dataset, "drug")
     graphs = DrugGraphFeaturizer().fit(source, drug_ids).transform(source, drug_ids).blocks["drug_graph"].values
     return {str(drug_id): _graph_to_dict(graph) for drug_id, graph in zip(drug_ids, graphs, strict=True)}
 
@@ -140,7 +141,7 @@ def _fingerprints(dataset: Dataset) -> np.ndarray:
     from drevalpy.types.data.feature_source import FeatureSource
 
     drug_ids = dataset.drug_ids
-    source = FeatureSource(dataset, "drug", drug_ids)
+    source = FeatureSource(dataset, "drug")
     return FingerprintsFeaturizer(n_bits=FINGERPRINT_BITS).fit(source, drug_ids).transform(source, drug_ids).matrix
 
 
@@ -174,11 +175,11 @@ def add_uns_payloads(dataset: Dataset, payloads: Sequence[str], genes: Sequence[
     check_choices("uns_payloads", payloads, UNS_PAYLOADS)
     uns = dataset.mdata.uns
     for payload in payloads:
-        if payload == "drug_graphs":
+        if payload == DRUG_GRAPHS_KEY:
             uns[payload] = _drug_graphs(dataset)
-        elif payload == "pathways_gmt":
+        elif payload == PATHWAYS_GMT_KEY:
             uns[payload] = _pathways_gmt(genes)
-        elif payload == "sparsego":
+        elif payload == SPARSEGO_KEY:
             uns[payload] = _sparsego_uns(genes)
         else:
-            uns[payload] = _bpe_codes(list(dataset.mdata.mod["response"].var["canonical_smiles"]))
+            uns[payload] = _bpe_codes(list(dataset.response.var[SMILES_COLUMN]))

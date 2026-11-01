@@ -54,7 +54,7 @@ def test_folds_are_disjoint_boolean_masks_with_metadata(mock_dataset: MockDatase
         for part in (fold.train, fold.val, fold.test):
             assert part.shape == mock_dataset.response_matrix.shape
             assert part.mask.dtype == bool
-        assert not (fold.train & fold.test).mask.any()
+        assert not (fold.train.mask & fold.test.mask).any()
         assert fold.metadata["split_mode"] == "LPO"
         assert fold.metadata["fold_index"] == i
         assert fold.metadata["n_splits"] == 3

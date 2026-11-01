@@ -11,15 +11,15 @@ from pathlib import Path
 import pytest
 from upath import UPath
 
-from drevalpy.data import datasets
+from drevalpy.data import _transfer
+from drevalpy.data._synthetic import synthetic as build_synthetic_dataset
+from drevalpy.data._transfer import file_sha256
 from drevalpy.data.datasets import _load as load_module
-from drevalpy.data.datasets._load import _carries_curve_quality, _file_sha256, _load_from_cache, load
+from drevalpy.data.datasets._load import _carries_curve_quality, _load_from_cache, load
 from drevalpy.errors import InputNotFoundError, InvalidInputError
-from drevalpy.registry import dataset as registry_module
 from drevalpy.registry.dataset import DatasetRegistry as Registry
 from drevalpy.registry.dataset import DrevalConfig, SourceEntry, get_config_path
 from drevalpy.registry.dataset import dataset_registry as registry
-from drevalpy.testing.synthetic import build_synthetic_dataset
 from drevalpy.types.data.dataset import Dataset
 
 _CORE_DATASETS = [
@@ -38,19 +38,6 @@ def _packaged_registry() -> dict:
         return json.load(handle)
 
 
-class TestLazyRegistryReExports:
-    @pytest.mark.parametrize("name", [name for name in datasets.__all__ if name not in {"load", "registry"}])
-    def test_each_name_resolves_to_the_registry_package_object(self, name: str) -> None:
-        assert getattr(datasets, name) is getattr(registry_module, name)
-
-    def test_registry_is_the_dataset_registry_singleton(self) -> None:
-        assert datasets.registry is datasets.dataset_registry is registry_module.dataset_registry
-
-    def test_an_unknown_name_raises_attribute_error(self) -> None:
-        with pytest.raises(AttributeError, match="has no attribute 'nope'"):
-            datasets.nope  # noqa: B018
-
-
 class TestBuiltinRegistry:
     def test_available_datasets_json_structure(self) -> None:
         raw = _packaged_registry()
@@ -66,14 +53,15 @@ class TestBuiltinRegistry:
         assert registry.names() == tuple(sorted(registry.names()))
         assert set(_packaged_registry()["datasets"]) <= set(registry.names())
         assert set(_CORE_DATASETS) <= set(registry.datasets)
-        assert "orakl" in registry.source_names()
+        assert "orakl" in registry.sources
         assert "GDSC1" in registry
         assert "NonExistent" not in registry
         assert all(source.url for source in registry.sources.values())
 
     def test_builtin_vs_custom_separation(self) -> None:
-        assert set(registry.builtin_datasets) == set(_packaged_registry()["datasets"])
-        assert set(registry.builtin_sources) == set(_packaged_registry()["sources"])
+        builtin = {name for name in registry.names() if registry.metadata(name)["origin"] == "built-in"}
+        assert builtin == set(_packaged_registry()["datasets"]) - set(registry.custom_datasets)
+        assert set(_packaged_registry()["sources"]) <= set(registry.sources)
         assert registry.custom_datasets.keys() <= registry.datasets.keys()
 
     def test_str_lists_datasets_and_sources_and_repr_equals_str(self) -> None:
@@ -84,7 +72,8 @@ class TestBuiltinRegistry:
 
     def test_every_builtin_dataset_is_pinned_to_the_gen6_artifacts(self) -> None:
         assert registry.sources["orakl"].url.endswith("/drevalpy_h5mu/gen6")
-        for entry in registry.builtin_datasets.values():
+        for name in _packaged_registry()["datasets"]:
+            entry = registry.datasets[name]
             assert entry.source == "orakl"
             assert entry.sha256 is not None
             assert len(entry.sha256) == 64
@@ -96,7 +85,7 @@ class TestRegistration:
         monkeypatch.setenv("DREVALPY_CONFIG_DIR", str(tmp_path))
         self.reg = Registry()
 
-    def test_register_and_unregister(self) -> None:
+    def test_register(self) -> None:
         self.reg.register_source("src", "https://example.com/data")
         self.reg.register_source("s3_src", "s3://bucket/path", storage_options={"profile": "dev"})
         self.reg.register("MyData", source="src", file="MyData.h5mu")
@@ -104,11 +93,7 @@ class TestRegistration:
         assert self.reg.sources["src"].url == "https://example.com/data"
         assert self.reg.sources["s3_src"].storage_options == {"profile": "dev"}
         assert self.reg.datasets["MyData"].file == "MyData.h5mu"
-
-        self.reg.unregister_dataset("MyData")
-        self.reg.unregister_source("src")
-        assert "MyData" not in self.reg
-        assert "src" not in self.reg.custom_sources
+        assert self.reg.metadata("MyData")["origin"] == "custom"
 
     def test_registration_errors(self) -> None:
         self.reg.register_source("src", "https://example.com")
@@ -116,12 +101,6 @@ class TestRegistration:
 
         with pytest.raises(KeyError, match="not registered"):
             self.reg.register("Other", source="nonexistent", file="x.h5mu")
-        with pytest.raises(KeyError, match="not in custom"):
-            self.reg.unregister_dataset("NonExistent")
-        with pytest.raises(KeyError, match="not in custom"):
-            self.reg.unregister_source("NonExistent")
-        with pytest.raises(ValueError, match="still referenced"):
-            self.reg.unregister_source("src")
 
     def test_custom_overrides_builtin(self) -> None:
         self.reg.register_source("orakl", "s3://my-mirror/data", replace=True)
@@ -133,7 +112,7 @@ class TestRegistration:
         self.reg.register_source("second", "https://second.com")
         config_path = get_config_path()
         assert "persisted" in json.loads(config_path.read_text())["sources"]
-        assert {"persisted", "second"} <= set(self.reg.custom_sources)
+        assert {"persisted", "second"} <= set(self.reg.sources)
 
         config_path.write_text(
             json.dumps(
@@ -146,7 +125,7 @@ class TestRegistration:
         self.reg.reload()
 
         assert "ExtData" in self.reg
-        assert "external" in self.reg.custom_sources
+        assert "external" in self.reg.sources
 
 
 class TestModels:
@@ -270,7 +249,7 @@ class TestChecksummedDownloads:
             shutil.copyfile(published, local_path)
             return local_path
 
-        monkeypatch.setattr(load_module, "download_file", fake_download)
+        monkeypatch.setattr(_transfer, "download_file", fake_download)
         return calls
 
     def _register(self, tmp_path: Path, sha256: str | None) -> None:
@@ -288,16 +267,16 @@ class TestChecksummedDownloads:
         self, tmp_path: Path, published: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         path = UPath(published)
-        assert _file_sha256(path) == _sha256(published)
+        assert file_sha256(path) == _sha256(published)
         with monkeypatch.context() as patched:
             patched.setattr(UPath, "open", None)
-            assert _file_sha256(path) == _sha256(published)
+            assert file_sha256(path) == _sha256(published)
 
         changing = UPath(tmp_path) / "f.bin"
         changing.write_bytes(b"one")
-        first = _file_sha256(changing)
+        first = file_sha256(changing)
         changing.write_bytes(b"three")
-        assert _file_sha256(changing) != first
+        assert file_sha256(changing) != first
 
     def test_a_download_with_the_right_hash_is_kept_and_loaded(
         self, tmp_path: Path, published: Path, downloads: list[str]
@@ -345,7 +324,7 @@ class TestChecksummedDownloads:
 
         assert downloads == ["Checked"]
         assert _sha256(tmp_path / "cache" / "Checked.h5mu") == _sha256(published)
-        assert "does not match the registered sha256" in caplog.text
+        assert "does not match the pinned sha256" in caplog.text
 
     def test_without_a_hash_a_cached_file_is_taken_as_it_is_and_a_download_is_not_verified(
         self, tmp_path: Path, published: Path, downloads: list[str]

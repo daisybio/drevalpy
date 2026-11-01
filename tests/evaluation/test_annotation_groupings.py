@@ -9,7 +9,7 @@ import pytest
 from drevalpy.data import synthetic
 from drevalpy.evaluation import Metric, PerGroupScores, evaluate_per_group
 from drevalpy.evaluation import _grouping as grouping_module
-from drevalpy.evaluation._grouping import defined_labels, group_labeller, group_labels
+from drevalpy.evaluation._grouping import defined_labels, group_labeller
 from drevalpy.evaluation._scoring import mean_of_defined
 from drevalpy.types import Dataset
 from drevalpy.types.results import ExperimentResult, ModelResult, RunResult
@@ -63,23 +63,23 @@ class TestBuiltinsNeedNoDataset:
         run.sample_ids = np.array([f"GDSC2::{sample}" for sample in run.sample_ids])
 
         for grouping in ("drug", "sample", "study"):
-            without = group_labels(run, grouping)
-            np.testing.assert_array_equal(group_labels(run, grouping, dataset), without)
-        np.testing.assert_array_equal(group_labels(run, "drug"), run.drug_ids)
-        np.testing.assert_array_equal(group_labels(run, "sample"), run.sample_ids)
-        assert set(group_labels(run, "study")) == {"GDSC2"}
+            without = group_labeller(grouping)(run)
+            np.testing.assert_array_equal(group_labeller(grouping, dataset)(run), without)
+        np.testing.assert_array_equal(group_labeller("drug")(run), run.drug_ids)
+        np.testing.assert_array_equal(group_labeller("sample")(run), run.sample_ids)
+        assert set(group_labeller("study")(run)) == {"GDSC2"}
 
     def test_a_builtin_is_not_looked_up_in_the_dataset(self, dataset: Dataset) -> None:
         run = _run(extra_sample_id="GHOST")
 
-        assert group_labels(run, "sample", dataset)[0] == "GHOST"
+        assert group_labeller("sample", dataset)(run)[0] == "GHOST"
 
 
 class TestAnnotationLabels:
     def test_a_sample_annotation_labels_the_pairs_of_each_sample(self, dataset: Dataset) -> None:
         run = _run()
 
-        labels = group_labels(run, "tissue", dataset)
+        labels = group_labeller("tissue", dataset)(run)
 
         assert _listed(labels) == [TISSUES[i % N_SAMPLES] for i in range(run.predictions.size)]
 
@@ -87,7 +87,7 @@ class TestAnnotationLabels:
         run = _run()
         hand_built = [TISSUES[i % N_SAMPLES] for i in range(run.predictions.size)]
 
-        scores = evaluate_per_group(run.predictions, run.ground_truth, labels=group_labels(run, "tissue", dataset))
+        scores = evaluate_per_group(run.predictions, run.ground_truth, labels=group_labeller("tissue", dataset)(run))
         expected = _expected(run, hand_built)
 
         assert scores.groups.tolist() == expected.groups.tolist() == ["Blood", "Lung", "Skin"]
@@ -97,7 +97,7 @@ class TestAnnotationLabels:
     def test_a_drug_annotation_labels_the_pairs_of_each_drug(self, dataset: Dataset) -> None:
         run = _run()
 
-        labels = group_labels(run, "ncit_class", dataset)
+        labels = group_labeller("ncit_class", dataset)(run)
 
         by_drug = dict(zip(DRUG_IDS, DRUG_CLASSES, strict=True))
         expected = [by_drug[drug] for drug in run.drug_ids]
@@ -112,43 +112,43 @@ class TestAnnotationLabels:
     def test_non_string_values_are_converted_to_strings(self, dataset: Dataset) -> None:
         run = _run()
 
-        labels = group_labels(run, "level", dataset)
+        labels = group_labeller("level", dataset)(run)
 
         assert set(labels.tolist()) == {"1", "2", "3"}
 
     def test_unknown_missing_and_empty_labels_belong_to_no_group(self, dataset: Dataset) -> None:
         run = _run()
 
-        labels = group_labels(run, "cancer_type", dataset)
+        labels = group_labeller("cancer_type", dataset)(run)
 
         assert defined_labels(labels).tolist() == [i % N_SAMPLES < 4 for i in range(run.predictions.size)]
         assert set(labels[defined_labels(labels)]) == {"a", "b"}
-        noted = group_labels(run, "note", dataset)
+        noted = group_labeller("note", dataset)(run)
         assert set(noted[defined_labels(noted)]) == {"p", "q"}
 
     def test_the_unknown_marker_is_case_insensitive(self, dataset: Dataset) -> None:
         run = _run()
 
-        labels = group_labels(run, "cancer_type", dataset)
+        labels = group_labeller("cancer_type", dataset)(run)
 
         assert not defined_labels(labels)[[4, 5]].any()
 
     def test_a_pair_whose_id_is_not_in_the_dataset_belongs_to_no_group(self, dataset: Dataset) -> None:
         run = _run(extra_sample_id="GHOST")
 
-        labels = group_labels(run, "tissue", dataset)
+        labels = group_labeller("tissue", dataset)(run)
 
         assert not defined_labels(labels)[0]
         assert defined_labels(labels).sum() == run.predictions.size - 1
         drug_run = _run()
         drug_run.drug_ids[0] = "999"
-        assert not defined_labels(group_labels(drug_run, "ncit_class", dataset))[0]
+        assert not defined_labels(group_labeller("ncit_class", dataset)(drug_run))[0]
 
     def test_a_dataset_with_no_matching_ids_leaves_no_groups(self, dataset: Dataset) -> None:
         run = _run()
         run.sample_ids = np.array([f"OTHER-{i}" for i in range(run.predictions.size)])
 
-        scores = evaluate_per_group(run.predictions, run.ground_truth, labels=group_labels(run, "tissue", dataset))
+        scores = evaluate_per_group(run.predictions, run.ground_truth, labels=group_labeller("tissue", dataset)(run))
 
         assert scores.groups.size == 0
         assert all(values.size == 0 for values in scores.values.values())
@@ -159,23 +159,23 @@ class TestAxisSelection:
         run = _run()
 
         for prefixed, bare in (("sample:cancer_type", "cancer_type"), ("drug:ncit_class", "ncit_class")):
-            assert _listed(group_labels(run, prefixed, dataset)) == _listed(group_labels(run, bare, dataset))
+            assert _listed(group_labeller(prefixed, dataset)(run)) == _listed(group_labeller(bare, dataset)(run))
 
     def test_a_name_on_both_axes_needs_a_prefix(self, dataset: Dataset) -> None:
         run = _run()
 
         with pytest.raises(ValueError, match=r"'sample:origin'.*'drug:origin'"):
-            group_labels(run, "origin", dataset)
-        assert set(group_labels(run, "sample:origin", dataset)) == {"s0", "s1", "s2"}
-        assert set(group_labels(run, "drug:origin", dataset)) == {"d0", "d1"}
+            group_labeller("origin", dataset)(run)
+        assert set(group_labeller("sample:origin", dataset)(run)) == {"s0", "s1", "s2"}
+        assert set(group_labeller("drug:origin", dataset)(run)) == {"d0", "d1"}
 
     def test_a_prefix_restricts_the_search_to_its_axis(self, dataset: Dataset) -> None:
         with pytest.raises(ValueError, match="Unknown grouping 'drug:cancer_type'"):
-            group_labels(_run(), "drug:cancer_type", dataset)
+            group_labeller("drug:cancer_type", dataset)(_run())
 
     def test_an_unknown_column_lists_the_annotations_of_both_axes(self, dataset: Dataset) -> None:
         with pytest.raises(ValueError, match="Unknown grouping 'nope'") as error:
-            group_labels(_run(), "nope", dataset)
+            group_labeller("nope", dataset)(_run())
 
         message = str(error.value)
         assert "Sample annotations:" in message
@@ -185,7 +185,7 @@ class TestAxisSelection:
 
     def test_an_annotation_without_a_dataset_asks_for_one(self) -> None:
         with pytest.raises(ValueError, match="Pass dataset="):
-            group_labels(_run(), "tissue")
+            group_labeller("tissue")(_run())
         with pytest.raises(ValueError, match="dataset="):
             group_labeller("sample:tissue")
 

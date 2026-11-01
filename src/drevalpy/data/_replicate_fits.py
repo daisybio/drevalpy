@@ -3,14 +3,14 @@
 The curation pipeline writes one row per replicate dose series of a (sample, drug)
 pair: the canonical IDs in :data:`SAMPLE_COLUMN` and :data:`DRUG_COLUMN`, the fit
 status and metrics, and dataset-specific metadata. Text columns are categoricals.
-This module is the one place that knows that format; subsetting and
-:func:`drevalpy.data.concat` go through it.
+This module is the one place that knows that format; :func:`drevalpy.data.concat`
+goes through it.
 """
 
 from __future__ import annotations
 
 import warnings
-from collections.abc import Collection, Sequence
+from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 from ._concat_tables import prefixed
@@ -24,28 +24,6 @@ KEY = "replicate_fits"
 SAMPLE_COLUMN = "sample_id"
 #: Column holding the canonical drug ID (a ``response.var_names`` entry).
 DRUG_COLUMN = "pubchem_id"
-
-
-def _drop_unused_categories(table: pd.DataFrame) -> pd.DataFrame:
-    """Remove the categories no row uses from every categorical column."""
-    import pandas as pd
-
-    for column in table.columns:
-        if isinstance(table[column].dtype, pd.CategoricalDtype):
-            table[column] = table[column].cat.remove_unused_categories()
-    return table
-
-
-def restrict(table: pd.DataFrame, samples: Collection[str], drugs: Collection[str]) -> pd.DataFrame:
-    """Keep the rows whose sample and drug are among the given IDs.
-
-    :param table: A replicate-fits table.
-    :param samples: Sample IDs to keep.
-    :param drugs: Drug IDs to keep.
-    :returns: A new table with a ``RangeIndex`` and no unused categories.
-    """
-    keep = table[SAMPLE_COLUMN].astype(object).isin(list(samples)) & table[DRUG_COLUMN].astype(object).isin(list(drugs))
-    return _drop_unused_categories(table.loc[keep.to_numpy()].reset_index(drop=True))
 
 
 def _with_prefixed_samples(table: pd.DataFrame, study: str) -> pd.DataFrame:
