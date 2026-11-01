@@ -17,6 +17,7 @@ from drevalpy.components.contracts.hyperparameter_space import fixed_entries
 from drevalpy.components.predictors._pair_loader import make_pair_loader
 from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.components.predictors.inputs import Inputs
+from drevalpy.components.predictors.literature._early_stopping import run_epoch
 from drevalpy.components.predictors.literature._metadata import SPARSEGO_REFERENCE
 from drevalpy.components.predictors.literature._pair_predict import (
     PairEvalSpec,
@@ -24,7 +25,7 @@ from drevalpy.components.predictors.literature._pair_predict import (
     predict_pairs,
     require_drug_pair_idx,
 )
-from drevalpy.components.predictors.literature._torch_utils import DevicePicklingMixin, select_device
+from drevalpy.components.predictors.literature._torch_utils import DevicePicklingMixin
 from drevalpy.registry.predictor import register
 from drevalpy.types.data.batch.feature_block import BlockSpec
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
@@ -33,26 +34,6 @@ if TYPE_CHECKING:
     from torch.utils.data import DataLoader
 
     from drevalpy.components.predictors.literature.sparsego.algorithm import SparseGONetwork
-
-
-def _parse_ontology_metadata(metadata: dict[str, object]) -> tuple[list[np.ndarray], dict[str, int], list[str]]:
-    """Extract layer_connections, gene2id_mapping, and gene_order from block metadata.
-
-    The metadata dictionary is produced by the SparseGO featurizer and contains:
-    - ``ontology_file``: Path to the GO ontology file.
-    - ``gene2ind_file``: Path to the gene-to-index mapping file.
-    - ``layer_connections``: Pre-computed list of per-layer connection arrays.
-    - ``gene2id_mapping_ont``: Pre-computed gene-to-id mapping dict.
-    - ``ontology_gene_order``: Ordered list of gene names matching expression columns.
-
-    Raises ``ValueError`` (via ``resolve_ontology_metadata``) if required ontology info is missing.
-
-    :param metadata: Metadata mapping from the active sample block.
-    :returns: Tuple of (layer_connections, gene2id_mapping, gene_order).
-    """
-    from .utils import resolve_ontology_metadata
-
-    return resolve_ontology_metadata(metadata)
 
 
 def _resolve_active_view(batch: ModelInputBatch) -> str:
@@ -94,11 +75,9 @@ class SparseGOPredictor(DevicePicklingMixin, Predictor):
         :param hyperparameters: Optional overrides for algorithm defaults.
         """
         super().__init__(hyperparameters)
-        self._device = select_device()
         self._model: SparseGONetwork | None = None
         self._layer_connections: list | None = None
         self._gene2id_mapping_ont: dict[str, int] | None = None
-        self._ontology_gene_order: list[str] | None = None
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
@@ -191,9 +170,9 @@ class SparseGOPredictor(DevicePicklingMixin, Predictor):
         if block.annotations is None:
             raise ValueError("SparseGOPredictor requires ontology metadata on its active sample block")
 
-        self._layer_connections, self._gene2id_mapping_ont, self._ontology_gene_order = _parse_ontology_metadata(
-            dict(block.annotations)
-        )
+        from .utils import resolve_ontology_metadata
+
+        self._layer_connections, self._gene2id_mapping_ont, _ = resolve_ontology_metadata(dict(block.annotations))
 
         blocks = self._entity_matrices(batch, active_view)
         self._hyperparameters["drug_dim"] = int(blocks[1].shape[1])
@@ -218,17 +197,15 @@ class SparseGOPredictor(DevicePicklingMixin, Predictor):
             momentum=self._hyperparameters["momentum"],
         )
 
-        model.train()
+        def batch_loss(loader_batch: tuple[torch.Tensor, ...]) -> torch.Tensor:
+            cell_feats, drug_feats, batch_labels = loader_batch
+            batch_features = torch.cat([cell_feats, drug_feats], dim=1).to(self._device)
+            return criterion(model(batch_features), batch_labels.to(self._device))
+
         for epoch in range(self._hyperparameters["epochs"]):
             for param_group in optimizer.param_groups:
                 param_group["lr"] = lr * (1 / (1 + decay_rate * epoch))
-
-            for cell_feats, drug_feats, batch_labels in loader:
-                batch_features = torch.cat([cell_feats, drug_feats], dim=1).to(self._device)
-                optimizer.zero_grad()
-                loss = criterion(model(batch_features), batch_labels.to(self._device))
-                loss.backward()
-                optimizer.step()
+            run_epoch(model, loader, batch_loss, optimizer)
 
     def _predict(self, batch: ModelInputBatch) -> np.ndarray:
         """Predict drug response for pairs in the batch.

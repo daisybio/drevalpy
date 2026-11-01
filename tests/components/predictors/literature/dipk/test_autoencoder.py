@@ -10,7 +10,6 @@ import numpy as np
 import pytest
 import torch
 from torch import nn
-from torch.utils.data import DataLoader
 
 from drevalpy.components.predictors.literature.dipk import gene_expression_encoder as gee
 from drevalpy.components.predictors.literature.dipk._autoencoder_batches import (
@@ -18,8 +17,6 @@ from drevalpy.components.predictors.literature.dipk._autoencoder_batches import 
     validation_loss,
 )
 from drevalpy.components.predictors.literature.dipk.gene_expression_encoder import (
-    CollateFn,
-    DataSet,
     GeneExpressionDecoder,
     GeneExpressionEncoder,
     encode_gene_expression,
@@ -56,18 +53,6 @@ def test_encoder_and_decoder_shapes_and_relu_bottleneck() -> None:
     assert len(encoder.encoder) == len(h_dims)
     assert encoder.bottleneck.in_features == h_dims[-1]
     assert h_dims == [8, 4]
-
-
-def test_dataset_and_collate_fn_work_together_in_a_dataloader() -> None:
-    tensor = torch.arange(12, dtype=torch.float32).reshape(4, 3)
-    dataset = DataSet(tensor)
-
-    assert len(dataset) == 4
-    torch.testing.assert_close(dataset[2], tensor[2])
-    assert CollateFn()([torch.ones(INPUT_DIM), torch.zeros(INPUT_DIM)]).shape == (2, INPUT_DIM)
-    batches = list(DataLoader(dataset, batch_size=2, shuffle=False, collate_fn=CollateFn()))
-    assert len(batches) == 2
-    assert batches[0].shape == (2, 3)
 
 
 def test_encode_gene_expression_keeps_shape_squeezes_a_vector_and_leaves_eval_mode() -> None:
@@ -142,13 +127,13 @@ class TestAutoencoderFinalWeightsContract:
 
 def test_training_keeps_the_full_matrices_in_host_memory(monkeypatch) -> None:
     captured: list[torch.Tensor] = []
-    original_dataset = gee.DataSet
+    original_loader = gee.DataLoader
 
-    def _capturing_dataset(data):
-        captured.append(data)
-        return original_dataset(data)
+    def _capturing_loader(dataset, **kwargs):
+        captured.append(dataset)
+        return original_loader(dataset, **kwargs)
 
-    monkeypatch.setattr(gee, "DataSet", _capturing_dataset)
+    monkeypatch.setattr(gee, "DataLoader", _capturing_loader)
 
     train_gene_expession_autoencoder(_matrix(8), _matrix(3, seed=1), epochs_autoencoder=1)
 

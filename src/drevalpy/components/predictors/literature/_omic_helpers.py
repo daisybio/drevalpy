@@ -20,10 +20,9 @@ import numpy as np
 from upath import UPath
 
 from drevalpy.components.predictors.literature._omics_loaders import OmicsSplit
-from drevalpy.components.predictors.literature.molir._omics import _realign_omic_matrix
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Iterator, Sequence
 
     from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 
@@ -130,32 +129,17 @@ def iter_drug_subsets(batch: ModelInputBatch) -> Iterator[tuple[str, ModelInputB
         yield drug_id, replace(batch.subset_pairs(mask), training_context=context)
 
 
-def early_stopping_indices(batch: ModelInputBatch) -> tuple[np.ndarray | None, np.ndarray | None]:
-    """Map the batch's early-stopping response onto sample entity rows.
-
-    :param batch: Training batch.
-    :returns: Tuple of ``(val_pair_idx, val_response)``, both ``None`` when there is
-        no usable early-stopping split.
-    """
-    es_resp = batch.early_stopping_response
-    if es_resp is None or len(es_resp) < 2:
-        return None, None
-
-    val_idx = batch.sample.rows_for(es_resp.sample_ids)
-    return val_idx, np.asarray(es_resp.response, dtype=np.float32)
-
-
 def validation_split(matrices: OmicMatrices, batch: ModelInputBatch) -> OmicsSplit | None:
     """Build the early-stopping split over the same entity matrices as training.
 
     :param matrices: The batch's entity-level omic matrices.
     :param batch: Training batch carrying the early-stopping response.
-    :returns: The validation split, or ``None`` when there is no usable one.
+    :returns: The validation split, or ``None`` when there are fewer than two early-stopping pairs.
     """
-    val_pair_idx, val_response = early_stopping_indices(batch)
-    if val_pair_idx is None or val_response is None:
+    es_resp = batch.early_stopping_response
+    if es_resp is None or len(es_resp) < 2:
         return None
-    return matrices.split(val_pair_idx, val_response)
+    return matrices.split(batch.sample.rows_for(es_resp.sample_ids), np.asarray(es_resp.response, dtype=np.float32))
 
 
 def aligned_pair_matrices(
@@ -194,3 +178,27 @@ def _align(
     if len(model_features) == values.shape[1] and model_features == current_features:
         return values
     return _realign_omic_matrix(values, model_features, current_features)
+
+
+def _realign_omic_matrix(
+    values: np.ndarray,
+    model_features: Sequence[str] | np.ndarray,
+    meta_feature_names: Sequence[str] | np.ndarray,
+) -> np.ndarray:
+    """Align prediction-time omics columns to the feature order stored on the trained model.
+
+    :param values: Omic feature matrix in incoming column order.
+    :param model_features: Feature names used by the trained model.
+    :param meta_feature_names: Feature names available in the incoming data.
+
+    :returns: Matrix with columns reordered to match *model_features*; features missing from the incoming data
+        are zero.
+    """
+    if list(meta_feature_names) == list(model_features):
+        return values
+    realigned = np.zeros((values.shape[0], len(model_features)))
+    lookup_table = {feature: i for i, feature in enumerate(meta_feature_names)}
+    for column, feature in enumerate(model_features):
+        if feature in lookup_table:
+            realigned[:, column] = values[:, lookup_table[feature]]
+    return realigned

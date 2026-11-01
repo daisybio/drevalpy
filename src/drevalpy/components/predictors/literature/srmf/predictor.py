@@ -14,7 +14,7 @@ import numpy as np
 
 from drevalpy.components.contracts.feature_format import FeatureFormat
 from drevalpy.components.contracts.hyperparameter_space import fixed_entries
-from drevalpy.components.predictors.abstract.base import Predictor
+from drevalpy.components.predictors.abstract.base import Predictor, fit_response
 from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.components.predictors.literature._metadata import SRMF_REFERENCE
 from drevalpy.components.predictors.literature._pair_predict import require_drug_pair_idx
@@ -64,7 +64,6 @@ class SRMFPredictor(Predictor):
                 "lambda_c": 0.01,
                 "max_iter": 50,
                 "seed": 1,
-                "n_features": 1036,
             }
         )
 
@@ -137,19 +136,14 @@ class SRMFPredictor(Predictor):
         :param sample_order: Sample entity rows, in the order of the matrix rows.
         :param drug_order: Drug entity rows, in the order of the matrix columns.
         :returns: Response matrix with ``NaN`` for unobserved pairs.
-        :raises ValueError: If batch has no response data.
         """
-        if batch.response is None:
-            msg = "SRMF requires training response data"
-            raise ValueError(msg)
-
         cells = (
             np.argsort(sample_order)[batch.sample_pair_idx],
             np.argsort(drug_order)[require_drug_pair_idx(batch.drug_pair_idx)],
         )
         sums = np.zeros((len(sample_order), len(drug_order)))
         counts = np.zeros_like(sums)
-        np.add.at(sums, cells, batch.response)
+        np.add.at(sums, cells, fit_response(batch))
         np.add.at(counts, cells, 1.0)
         return np.divide(sums, counts, out=np.full_like(sums, np.nan), where=counts > 0)
 

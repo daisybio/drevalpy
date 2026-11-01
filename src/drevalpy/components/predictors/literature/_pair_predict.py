@@ -53,19 +53,10 @@ def predict_pairs(
     :param forward: Called with one tensor per block; defaults to ``model(*tensors)``.
     :returns: One predicted response per pair, flattened.
     """
-    import numpy as np
-    import torch
+    from drevalpy.components.predictors._pair_loader import collect_predictions
 
     run_forward = model if forward is None else forward
-    model.eval()
-    chunks: list[np.ndarray] = []
-    with torch.no_grad():
-        for tensors in _iter_pair_batches(batch, spec):
-            outputs = run_forward(*tensors)
-            chunks.append(outputs.detach().cpu().numpy().reshape(-1))
-    if not chunks:
-        return np.empty(0, dtype=np.float64)
-    return np.concatenate(chunks).astype(np.float64)
+    return collect_predictions(model, _iter_pair_batches(batch, spec), lambda tensors: run_forward(*tensors))
 
 
 def concatenated_forward(model: Any) -> Callable[..., torch.Tensor]:
@@ -80,6 +71,18 @@ def concatenated_forward(model: Any) -> Callable[..., torch.Tensor]:
         return model(torch.cat(tensors, dim=1))
 
     return forward
+
+
+def declared_blocks(predictor: Any, batch: ModelInputBatch) -> tuple[np.ndarray, np.ndarray]:
+    """Return the entity-level values of the one block each side of *predictor* declares.
+
+    :param predictor: Predictor whose ``sample_inputs`` and ``drug_inputs`` each name a single block.
+    :param batch: Batch to read the blocks from.
+    :returns: Tuple of ``(sample_block, drug_block)`` values.
+    """
+    (sample_spec,) = predictor.sample_inputs.specs
+    (drug_spec,) = predictor.drug_inputs.specs
+    return batch.sample.blocks[sample_spec.name].values, batch.drug.blocks[drug_spec.name].values
 
 
 def require_drug_pair_idx(drug_pair_idx: np.ndarray | None) -> np.ndarray:

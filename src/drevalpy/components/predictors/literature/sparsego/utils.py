@@ -60,8 +60,7 @@ def _read_ontology_edges(
     return directed_graph, terms_pairs, genes_terms_pairs, gene_set, term_direct_gene_map
 
 
-def _annotate_term_gene_counts(directed_graph: nx.DiGraph, term_direct_gene_map: dict[str, set[int]]) -> dict[str, int]:
-    term_size_map: dict[str, int] = {}
+def _check_every_term_has_genes(directed_graph: nx.DiGraph, term_direct_gene_map: dict[str, set[int]]) -> None:
     for term in directed_graph.nodes():
         term_gene_set: set[int] = set(term_direct_gene_map.get(term, set()))
         for child in nxadag.descendants(directed_graph, term):
@@ -69,8 +68,6 @@ def _annotate_term_gene_counts(directed_graph: nx.DiGraph, term_direct_gene_map:
                 term_gene_set |= term_direct_gene_map[child]
         if len(term_gene_set) == 0:
             raise ValueError(f"SparseGO ontology contains a term without any annotated gene; delete term: {term}")
-        term_size_map[term] = len(term_gene_set)
-    return term_size_map
 
 
 def _validate_ontology_topology(directed_graph: nx.DiGraph) -> None:
@@ -114,7 +111,7 @@ def load_ontology(ontology_file: str | Path | StringIO, gene2id_mapping: dict) -
 
     logger.info("Ontology annotates %d genes", len(gene_set))
 
-    _annotate_term_gene_counts(directed_graph, term_direct_gene_map)
+    _check_every_term_has_genes(directed_graph, term_direct_gene_map)
     _validate_ontology_topology(directed_graph)
 
     return directed_graph, terms_pairs_arr, genes_terms_pairs_arr

@@ -58,7 +58,7 @@ class TestTinySRMFFit:
                 )
             },
         )
-        predictor = SRMFPredictor(hyperparameters={"K": 2, "max_iter": 3, "n_features": 4, "seed": seed})
+        predictor = SRMFPredictor(hyperparameters={"K": 2, "max_iter": 3, "seed": seed})
         predictor.fit(batch)
         factors = np.concatenate([predictor._best_u.to_numpy().ravel(), predictor._best_v.to_numpy().ravel()])
         assert np.isfinite(factors).all()

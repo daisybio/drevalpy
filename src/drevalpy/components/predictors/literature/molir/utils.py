@@ -5,8 +5,7 @@ Code adapted from: Hauptmann et al. (2023, 10.1186/s12859-023-05166-7),
 https://github.com/kramerlab/Multi-Omics_analysis
 """
 
-import tempfile
-from contextlib import nullcontext
+from abc import abstractmethod
 
 import numpy as np
 import pytorch_lightning as pl
@@ -15,8 +14,8 @@ from torch import nn
 from upath import UPath as Path
 
 from drevalpy._utils.torch_io import load_state_dict
-from drevalpy.components.predictors._lightning_training import LightningRun, run_lightning_fit
-from drevalpy.components.predictors.literature._omics_loaders import OmicsSplit, make_omics_loaders
+from drevalpy.components.predictors._lightning_training import LossSteps
+from drevalpy.components.predictors.literature._omics_loaders import OmicsSplit, fit_omics_model
 
 
 def generate_triplets_indices(
@@ -152,7 +151,42 @@ class MOLIRegressor(nn.Module):
         return self.regressor(x)
 
 
-class MOLIModel(pl.LightningModule):
+class OmicsRegressionModule(pl.LightningModule):
+    """Lightning module that encodes the three omic views, concatenates them and regresses on the result.
+
+    The prediction of MOLIR and of the SuperFELTR regressor.
+    """
+
+    regressor: nn.Module
+
+    @abstractmethod
+    def _encode_and_concatenate(
+        self, gene_expression: torch.Tensor, mutations: torch.Tensor, copy_number: torch.Tensor
+    ) -> torch.Tensor:
+        """Encode the three views and concatenate the encodings.
+
+        :param gene_expression: Gene expression features of the batch.
+        :param mutations: Mutation features of the batch.
+        :param copy_number: Copy number variation features of the batch.
+        :returns: The input of the regression head.
+        """
+
+    def predict(self, gene_expression: np.ndarray, mutations: np.ndarray, copy_number: np.ndarray) -> np.ndarray:
+        """Predict the response of each row in eval mode.
+
+        :param gene_expression: Gene expression features, one row per pair.
+        :param mutations: Mutation features, one row per pair.
+        :param copy_number: Copy number variation features, one row per pair.
+        :returns: Predicted response per pair.
+        """
+        tensors = [torch.from_numpy(data).float().to(self.device) for data in (gene_expression, mutations, copy_number)]
+        self.eval()
+        with torch.no_grad():
+            preds = self.regressor(self._encode_and_concatenate(*tensors))
+        return preds.squeeze().cpu().detach().numpy()
+
+
+class MOLIModel(LossSteps, OmicsRegressionModule):
     """PyTorch Lightning module for the MOLIR model.
 
     The architecture of the MOLIR model is identical to the MOLI model, except for the omission of the final sigmoid
@@ -205,7 +239,8 @@ class MOLIModel(pl.LightningModule):
         train: OmicsSplit,
         val: OmicsSplit | None = None,
         patience: int = 5,
-        model_checkpoint_dir: str | Path | None = None,
+        *,
+        model_checkpoint_dir: str | Path,
     ) -> None:
         """Train the MOLIR model.
 
@@ -216,66 +251,24 @@ class MOLIModel(pl.LightningModule):
         :param train: training split of the three omic views
         :param val: validation split for early stopping, or None to monitor the training loss
         :param patience: for early stopping
-        :param model_checkpoint_dir: directory to save the model checkpoints; a temporary directory removed after the
-            fit when omitted
+        :param model_checkpoint_dir: directory to save the model checkpoints
         """
         std = float(np.std(train.response))
         self.positive_range = std * 0.1
         self.negative_range = std
 
-        train_loader, val_loader = make_omics_loaders(train, val, self.mini_batch)
-
-        directory = (
-            tempfile.TemporaryDirectory(prefix="drevalpy-molir-")
-            if model_checkpoint_dir is None
-            else nullcontext(model_checkpoint_dir)
+        self.checkpoint_callback = fit_omics_model(
+            self,
+            train,
+            val,
+            batch_size=self.mini_batch,
+            epochs=self.epochs,
+            patience=patience,
+            checkpoint_dir=model_checkpoint_dir,
+            save_weights_only=True,
+            enable_model_summary=False,
         )
-        with directory as checkpoint_dir:
-            self.checkpoint_callback = run_lightning_fit(
-                self,
-                train_loader,
-                val_loader,
-                LightningRun(
-                    max_epochs=self.epochs,
-                    patience=patience,
-                    checkpoint_dir=checkpoint_dir,
-                    save_weights_only=True,
-                    devices=1,
-                    accelerator="cpu",  # the model is too small to profit from a GPU
-                    default_logger=False,
-                    enable_model_summary=False,
-                ),
-            )
-            if self.checkpoint_callback.best_model_path is not None:
-                checkpoint = load_state_dict(self.checkpoint_callback.best_model_path)
-                self.load_state_dict(checkpoint["state_dict"])
-
-    def predict(
-        self,
-        gene_expression: np.ndarray,
-        mutations: np.ndarray,
-        copy_number: np.ndarray,
-    ) -> np.ndarray:
-        """Perform prediction on given input data.
-
-        If there was enough training data to train the model, the model from the best epoch was saved in the checkpoint
-        callback and is loaded now. If there was not enough training data, the model is only randomly initialized.
-
-        :param gene_expression: gene expression data
-        :param mutations: mutation data
-        :param copy_number: copy number variation data
-
-        :returns: predicted drug response
-        """
-        # convert to torch tensors
-        gene_expression_tensor = torch.from_numpy(gene_expression).float().to(self.device)
-        mutations_tensor = torch.from_numpy(mutations).float().to(self.device)
-        copy_number_tensor = torch.from_numpy(copy_number).float().to(self.device)
-        self.eval()
-        with torch.no_grad():
-            z = self._encode_and_concatenate(gene_expression_tensor, mutations_tensor, copy_number_tensor)
-            preds = self.regressor(z)
-        return preds.squeeze().cpu().detach().numpy()
+        self.load_state_dict(load_state_dict(self.checkpoint_callback.best_model_path)["state_dict"])
 
     def _encode_and_concatenate(
         self, gene_expression: torch.Tensor, mutations: torch.Tensor, copy_number: torch.Tensor
@@ -326,51 +319,21 @@ class MOLIModel(pl.LightningModule):
         regression_loss = self.regression_loss(preds.squeeze(), y)
         return self.gamma * triplet_loss + regression_loss
 
-    def training_step(self, batch: list[torch.Tensor], batch_idx: int) -> torch.Tensor:
-        """Compute and log the training loss of one batch.
+    def _loss_and_log(self, batch: list[torch.Tensor], key: str) -> torch.Tensor:
+        """Compute and log the combined loss of one batch.
 
         :param batch: batch of gene expression, mutations, copy number variation, and response
-        :param batch_idx: index of the batch
+        :param key: name the loss is logged under
 
         :returns: combined loss
         """
         gene_expression, mutations, copy_number, response = batch
         response = response.squeeze(-1)
-
-        # Encode and concatenate
         z = self._encode_and_concatenate(gene_expression, mutations, copy_number)
-
-        # Get predictions
         preds = self.regressor(z)
-
-        # Compute loss
         loss = self._compute_loss(z, preds, response)
-        self.log("train_loss", loss, on_step=False, on_epoch=True, prog_bar=True)
-
+        self.log(key, loss, on_step=False, on_epoch=True, prog_bar=True)
         return loss
-
-    def validation_step(self, batch: list[torch.Tensor], batch_idx: int) -> torch.Tensor:
-        """Compute and log the validation loss of one batch.
-
-        :param batch: batch of gene expression, mutations, copy number variation, and response
-        :param batch_idx: index of the batch
-
-        :returns: combined loss
-        """
-        gene_expression, mutations, copy_number, response = batch
-        response = response.squeeze(-1)
-
-        # Encode and concatenate
-        z = self._encode_and_concatenate(gene_expression, mutations, copy_number)
-
-        # Get predictions
-        preds = self.regressor(z)
-
-        # Compute loss
-        val_loss = self._compute_loss(z, preds, response)
-        self.log("val_loss", val_loss, on_step=False, on_epoch=True, prog_bar=True)
-
-        return val_loss
 
     def configure_optimizers(self) -> torch.optim.Optimizer:
         """Create the optimizer for Lightning.

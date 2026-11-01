@@ -229,9 +229,9 @@ def _current_reference_sequence(seed: int) -> dict[str, Any]:
     import torch
     from torch_geometric.data import Data
 
+    from drevalpy.components.predictors.literature._omic_helpers import _realign_omic_matrix
     from drevalpy.components.predictors.literature.dipk.model_utils import Predictor as DIPKNetwork
     from drevalpy.components.predictors.literature.druggnn.algorithm import DrugGraphNet
-    from drevalpy.components.predictors.literature.molir._omics import _realign_omic_matrix
     from drevalpy.components.predictors.literature.molir.utils import generate_triplets_indices
     from drevalpy.components.predictors.literature.pharmaformer.model_utils import CombinedModel
     from drevalpy.components.predictors.literature.precily.model_utils import PrecilyNetwork

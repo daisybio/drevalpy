@@ -1,16 +1,14 @@
 """Gene expression Autoencoder for DIPK model."""
 
 import logging
-from abc import ABC
 from copy import deepcopy
 
 import numpy as np
 import torch
-import torch.nn
 import torch.nn as nn
 import torch.optim as optim
 from torch.nn import functional
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
 
 from drevalpy.components.predictors.literature._torch_utils import select_device
 from drevalpy.components.predictors.literature.dipk._autoencoder_batches import validation_loss
@@ -112,46 +110,6 @@ class GeneExpressionDecoder(nn.Module):
         return output
 
 
-class CollateFn:
-    """Collate function for the DataLoader, either for training or testing."""
-
-    def __call__(self, batch: list[torch.Tensor]) -> torch.Tensor:
-        """Stack the gene expression vectors of a batch.
-
-        :param batch: Gene expression vectors, one per sample.
-        :returns: Tensor of shape [len(batch), n_genes].
-        """
-        batch_data = torch.stack(batch)
-        return batch_data
-
-
-class DataSet(Dataset, ABC):
-    """Dataset class for gene expression data."""
-
-    def __init__(self, data: torch.Tensor) -> None:
-        """Initialize the dataset.
-
-        :param data: Gene expression tensor with one row per sample.
-        """
-        self._data = data
-
-    def __getitem__(self, idx: int) -> torch.Tensor:
-        """Return the data at the given index.
-
-        :param idx: Row index.
-        :returns: Gene expression vector of that row.
-        """
-        data = self._data[idx]
-        return data
-
-    def __len__(self) -> int:
-        """Return the length of the dataset.
-
-        :returns: Number of rows.
-        """
-        return len(self._data)
-
-
 def train_gene_expession_autoencoder(
     gene_expression_input: np.ndarray,
     gene_expression_input_early_stopping: np.ndarray,
@@ -175,7 +133,6 @@ def train_gene_expession_autoencoder(
     :param patience: Number of epochs without improvement after which training stops.
     :returns: The trained encoder in eval mode.
     """
-    noising = True
     device = select_device()
 
     # create model
@@ -186,11 +143,8 @@ def train_gene_expession_autoencoder(
     optimizer = optim.Adam(params, lr=lr)
 
     # load data: the full matrices stay on the host, the loop below moves each mini-batch
-    my_collate = CollateFn()
     gene_expression_tensor = torch.from_numpy(np.asarray(gene_expression_input, dtype=np.float32))
-    train_loader = DataLoader(
-        DataSet(gene_expression_tensor), batch_size=batch_size, shuffle=True, collate_fn=my_collate
-    )
+    train_loader = DataLoader(gene_expression_tensor, batch_size=batch_size, shuffle=True)
 
     # prepare early stopping validation data (kept on the host, evaluated in chunks)
     gene_expression_val_tensor = torch.from_numpy(np.asarray(gene_expression_input_early_stopping, dtype=np.float32))
@@ -208,14 +162,11 @@ def train_gene_expession_autoencoder(
         batch_count = 0
         for gene_expression_batch in train_loader:
             gene_expression_batch = gene_expression_batch.to(device)
-            if noising:
-                z = gene_expression_batch.clone()
-                y = np.random.binomial(1, 0.2, (z.shape[0], z.shape[1]))
-                z[np.array(y, dtype=bool)] = 0
-                gene_expression_batch.requires_grad_(True)
-                output = decoder(encoder(z))
-            else:
-                output = decoder(encoder(gene_expression_batch))
+            z = gene_expression_batch.clone()
+            y = np.random.binomial(1, 0.2, (z.shape[0], z.shape[1]))
+            z[np.array(y, dtype=bool)] = 0
+            gene_expression_batch.requires_grad_(True)
+            output = decoder(encoder(z))
             loss = loss_func(output, gene_expression_batch)
             optimizer.zero_grad()
             loss.backward()

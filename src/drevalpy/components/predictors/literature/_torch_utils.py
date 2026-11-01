@@ -24,9 +24,10 @@ def select_device() -> torch.device:
 
 
 class DevicePicklingMixin:
-    """Pickle a predictor without its torch device and re-select one when it is loaded.
+    """Select a torch device for a predictor, and pickle it without the device.
 
-    A fitted model trained on a GPU must still load on a CPU-only machine, so the device
+    The device is selected on construction. A fitted model trained on a GPU must still
+    load on a CPU-only machine, so the device
     is not part of the pickle. After loading, the modules named in :attr:`device_modules`
     are moved to the device :func:`select_device` picks there; an attribute may hold one
     module, a list of modules, or ``None``.
@@ -36,6 +37,15 @@ class DevicePicklingMixin:
     device_modules: ClassVar[tuple[str, ...]] = ("_model",)
 
     _device: Any
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        r"""Initialize the predictor, then select its device.
+
+        :param \*args: Positional arguments of the predictor's ``__init__``.
+        :param \**kwargs: Keyword arguments of the predictor's ``__init__``.
+        """
+        super().__init__(*args, **kwargs)
+        self._device = select_device()
 
     def __getstate__(self) -> dict[str, Any]:
         """Return the pickled state, without the device.

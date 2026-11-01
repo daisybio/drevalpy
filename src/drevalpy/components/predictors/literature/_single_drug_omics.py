@@ -24,7 +24,7 @@ from drevalpy.components.predictors.literature._omic_helpers import (
     iter_drug_subsets,
     omic_feature_names,
 )
-from drevalpy.components.predictors.single_drug_routing import routing_keys, run_per_drug
+from drevalpy.components.predictors.single_drug_routing import predict_per_drug, run_per_drug
 from drevalpy.types.data.batch.feature_block import BlockSpec
 from drevalpy.types.enums.model_scope import ModelScope
 
@@ -85,16 +85,11 @@ class SingleDrugOmicsPredictor(Predictor):
         :param batch: Featurized pairs to score.
         :returns: One predicted response per pair, ``NaN`` for drugs without a model.
         """
-        keys = routing_keys(batch)
-        predictions = np.full(batch.n_pairs, np.nan, dtype=np.float64)
-        for drug_id in np.unique(keys):
-            model = self._models.get(str(drug_id))
-            if model is None:
-                continue
-            mask = keys == drug_id
-            preds = self._predict_single_drug(str(drug_id), model, batch.subset_pairs(mask))
-            predictions[mask] = np.asarray(preds, dtype=np.float64).ravel()
-        return predictions
+        return predict_per_drug(
+            batch,
+            self._models,
+            lambda drug_id, model, mask: self._predict_single_drug(drug_id, model, batch.subset_pairs(mask)),
+        )
 
     @abstractmethod
     def _predict_single_drug(self, drug_id: str, model: Any, batch: ModelInputBatch) -> np.ndarray:

@@ -9,12 +9,8 @@ import torch
 
 from drevalpy.components.contracts.hyperparameter_space import tunable_entries
 from drevalpy.components.predictors.literature.sparsego.algorithm import SparseLinearNew
-from drevalpy.components.predictors.literature.sparsego.predictor import (
-    SparseGOPredictor,
-    _parse_ontology_metadata,
-    _resolve_active_view,
-)
-from drevalpy.components.predictors.literature.sparsego.utils import load_ontology
+from drevalpy.components.predictors.literature.sparsego.predictor import SparseGOPredictor, _resolve_active_view
+from drevalpy.components.predictors.literature.sparsego.utils import load_ontology, resolve_ontology_metadata
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.data.batch.feature_block import numeric_feature_block
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
@@ -119,7 +115,7 @@ class TestTinySparseGOFit:
 
 
 def test_precomputed_ontology_structures_are_passed_through() -> None:
-    connections, gene2id, order = _parse_ontology_metadata(
+    connections, gene2id, order = resolve_ontology_metadata(
         {
             "layer_connections": _LAYER_CONNECTIONS,
             "gene2id_mapping_ont": _GENE2ID,
@@ -130,7 +126,7 @@ def test_precomputed_ontology_structures_are_passed_through() -> None:
     assert gene2id == _GENE2ID
     assert order == ["TP53", "EGFR"]
 
-    _, _, fallback = _parse_ontology_metadata(
+    _, _, fallback = resolve_ontology_metadata(
         {"layer_connections": _LAYER_CONNECTIONS, "gene2id_mapping_ont": _GENE2ID}
     )
     assert fallback == list(_GENE2ID)
@@ -153,7 +149,7 @@ def test_precomputed_ontology_structures_are_passed_through() -> None:
 )
 def test_invalid_ontology_metadata_is_rejected(metadata: dict, message: str) -> None:
     with pytest.raises(ValueError, match=message):
-        _parse_ontology_metadata(metadata)
+        resolve_ontology_metadata(metadata)
 
 
 @pytest.mark.parametrize(

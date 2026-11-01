@@ -21,7 +21,6 @@ from drevalpy.components.predictors.literature.dipk.model_utils import (
 from drevalpy.components.predictors.literature.dipk.predictor import (
     DIPKPredictor,
     _CollateFn,
-    _DIPKDataset,
 )
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.data.batch.feature_block import numeric_feature_block, ragged_feature_block
@@ -155,17 +154,6 @@ def test_collate_pads_ragged_atoms_masks_them_and_adds_targets_only_in_training(
     assert predict["molgnet_mask"][1].tolist() == [True, False, False]
     assert train["ic50_values"].flatten().tolist() == [5.0, 6.0]
     assert "ic50_values" not in predict
-
-
-def test_dataset_drives_a_dataloader_without_subclassing_torch_dataset() -> None:
-    from torch.utils.data import DataLoader
-
-    second = {"a": torch.ones(1)}
-    dataset = _DIPKDataset([{"a": torch.zeros(1)}, second])
-
-    assert len(dataset) == 2
-    assert dataset[1] is second
-    assert len(next(iter(DataLoader(dataset, batch_size=2, shuffle=False, collate_fn=list)))) == 2
 
 
 def test_guards_and_unfitted_state() -> None:

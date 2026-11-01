@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from drevalpy.registry.components._metadata import LiteratureReference
+from drevalpy.registry._component import LiteratureReference
 
 DRUGGNN_REFERENCE = LiteratureReference(
     repo_url="https://github.com/hauldhut/GraphDRP",

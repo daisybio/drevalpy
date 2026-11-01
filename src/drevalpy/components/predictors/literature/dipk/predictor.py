@@ -15,7 +15,8 @@ import numpy as np
 
 from drevalpy.components.contracts.feature_format import FeatureFormat
 from drevalpy.components.contracts.hyperparameter_space import fixed_entries
-from drevalpy.components.predictors.abstract.base import Predictor
+from drevalpy.components.predictors._pair_loader import collect_predictions
+from drevalpy.components.predictors.abstract.base import Predictor, response_rows
 from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.components.predictors.literature._early_stopping import (
     EarlyStoppingRun,
@@ -23,7 +24,7 @@ from drevalpy.components.predictors.literature._early_stopping import (
     train_with_early_stopping,
 )
 from drevalpy.components.predictors.literature._metadata import DIPK_REFERENCE
-from drevalpy.components.predictors.literature._torch_utils import DevicePicklingMixin, select_device
+from drevalpy.components.predictors.literature._torch_utils import DevicePicklingMixin
 from drevalpy.registry.predictor import register
 from drevalpy.types.data.batch.feature_block import BlockSpec
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
@@ -58,7 +59,6 @@ class DIPKPredictor(DevicePicklingMixin, Predictor):
         """
         super().__init__(hyperparameters)
         self._model: DIPKNetwork | None = None
-        self._device = select_device()
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
@@ -152,8 +152,7 @@ class DIPKPredictor(DevicePicklingMixin, Predictor):
         )
 
         es_response = batch.early_stopping_response
-        cl_pair_idx_es = batch.sample.rows_for(es_response.sample_ids)
-        drug_pair_idx_es = None if batch.drug is None else batch.drug.rows_for(es_response.drug_ids)
+        cl_pair_idx_es, drug_pair_idx_es = response_rows(batch, es_response)
         if drug_pair_idx_es is None:
             msg = "DIPK requires drug pair indices for early stopping"
             raise ValueError(msg)
@@ -180,7 +179,7 @@ class DIPKPredictor(DevicePicklingMixin, Predictor):
         from torch.utils.data import DataLoader
 
         return DataLoader(
-            _DIPKDataset(pairs),
+            pairs,
             batch_size=self._hyperparameters["batch_size"],
             shuffle=shuffle,
             collate_fn=_CollateFn(train=train),
@@ -241,8 +240,6 @@ class DIPKPredictor(DevicePicklingMixin, Predictor):
         :returns: One predicted response per pair.
         :raises ValueError: If drug pair indices are missing.
         """
-        import torch
-
         if self._model is None:
             return np.full(batch.n_pairs, np.nan, dtype=np.float64)
         if batch.drug_pair_idx is None:
@@ -252,16 +249,8 @@ class DIPKPredictor(DevicePicklingMixin, Predictor):
         pairs = self._build_pairs(batch.sample_pair_idx, batch.drug_pair_idx, batch)
         test_loader = self._loader(pairs, train=False, shuffle=False)
 
-        self._model.eval()
-        chunks: list[np.ndarray] = []
-        with torch.no_grad():
-            for dl_batch in test_loader:
-                prediction = self._forward(self._model, dl_batch)
-                chunks.append(prediction.detach().cpu().numpy().reshape(-1))
-
-        if not chunks:
-            return np.empty(0, dtype=np.float64)
-        return np.concatenate(chunks).astype(np.float64)
+        model = self._model
+        return collect_predictions(model, test_loader, lambda dl_batch: self._forward(model, dl_batch))
 
 
 class _CollateFn:
@@ -310,36 +299,3 @@ class _CollateFn:
         if self.train:
             result["ic50_values"] = torch.stack([s["ic50"] for s in batch])
         return result
-
-
-class _DIPKDataset:
-    """Simple list-backed dataset for DIPK pairs.
-
-    Deliberately not a ``torch.utils.data.Dataset`` subclass: that base class
-    contributes only ``__add__``, which nothing here uses, and inheriting from it
-    would force ``import torch`` at module scope - which is exactly what keeps
-    this predictor off the ``import drevalpy`` critical path. ``DataLoader``
-    treats any object with ``__getitem__`` and ``__len__`` as a map-style dataset.
-    """
-
-    def __init__(self, pairs: list[dict[str, torch.Tensor]]) -> None:
-        """Initialize dataset from a list of pair dicts.
-
-        :param pairs: Pre-built pair dictionaries.
-        """
-        self._pairs = pairs
-
-    def __getitem__(self, idx: int) -> dict[str, torch.Tensor]:
-        """Return pair at the given index.
-
-        :param idx: Pair index.
-        :returns: Pair dictionary.
-        """
-        return self._pairs[idx]
-
-    def __len__(self) -> int:
-        """Return number of pairs.
-
-        :returns: Dataset length.
-        """
-        return len(self._pairs)

@@ -7,8 +7,8 @@ import pytest
 import pytorch_lightning as pl
 import torch
 
+from drevalpy.components.predictors.literature._omic_helpers import _realign_omic_matrix
 from drevalpy.components.predictors.literature.molir import utils
-from drevalpy.components.predictors.literature.molir._omics import _realign_omic_matrix
 from drevalpy.components.predictors.literature.molir.predictor import MOLIRPredictor
 from drevalpy.components.predictors.literature.molir.utils import MOLIModel
 from drevalpy.registry.predictor import get as get_predictor

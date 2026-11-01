@@ -16,10 +16,10 @@ import numpy as np
 
 from drevalpy.components.contracts.feature_format import FeatureFormat
 from drevalpy.components.contracts.hyperparameter_space import fixed_entries
-from drevalpy.components.predictors.abstract.base import Predictor
+from drevalpy.components.predictors.abstract.base import Predictor, response_rows
 from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.components.predictors.literature._metadata import ENSEMBLEMF_REFERENCE
-from drevalpy.components.predictors.literature._torch_utils import DevicePicklingMixin, select_device
+from drevalpy.components.predictors.literature._torch_utils import DevicePicklingMixin
 from drevalpy.registry.predictor import register
 from drevalpy.types.data.batch.feature_block import BlockSpec
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
@@ -50,7 +50,6 @@ class EnsembleMFPredictor(DevicePicklingMixin, Predictor):
         :param hyperparameters: Optional hyperparameter overrides.
         """
         super().__init__(hyperparameters)
-        self._device = select_device()
         self._nets: list[MFNet] = []
         self._drug_ids = np.empty(0, dtype=str)
         self._drug_seen = np.empty(0, dtype=bool)
@@ -141,8 +140,7 @@ class EnsembleMFPredictor(DevicePicklingMixin, Predictor):
         validation = None
         if batch.early_stopping_response is not None:
             stop = batch.early_stopping_response
-            stop_sample = batch.sample.rows_for(stop.sample_ids)
-            stop_drug = None if batch.drug is None else batch.drug.rows_for(stop.drug_ids)
+            stop_sample, stop_drug = response_rows(batch, stop)
             validation = self._pairs(
                 sample_pos[stop_sample], drug_pos[np.asarray(stop_drug)], np.asarray(stop.response)
             )

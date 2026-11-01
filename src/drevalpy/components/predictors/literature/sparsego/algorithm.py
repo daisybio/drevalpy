@@ -8,7 +8,6 @@ Code adapted from https://github.com/KatynaSada/SparseGO_lightning
 """
 
 import logging
-import warnings
 from typing import cast
 
 import numpy as np
@@ -23,57 +22,13 @@ from .utils import create_index
 logger = logging.getLogger(__name__)
 
 
-def _validate_sparse_linear_dimensions(
-    in_features: int, out_features: int, sparsity: float, connectivity: torch.Tensor | None
-) -> None:
-    if not (in_features < 2**31 and out_features < 2**31 and sparsity < 1.0):
-        raise ValueError("in_features and out_features must be < 2^31, sparsity must be < 1.0")
-    if connectivity is None:
-        return
+def _validate_sparse_linear_dimensions(in_features: int, out_features: int, connectivity: torch.Tensor) -> None:
+    if not (in_features < 2**31 and out_features < 2**31):
+        raise ValueError("in_features and out_features must be < 2^31")
     if connectivity.shape[0] != 2 or connectivity.shape[1] <= 0:
         raise ValueError("Input shape for connectivity should be (2, nnz)")
     if connectivity.shape[1] > in_features * out_features:
         raise ValueError("Nnz can't be bigger than the weight matrix")
-
-
-def _sparse_connectivity_indices(
-    in_features: int,
-    out_features: int,
-    sparsity: float,
-    connectivity: torch.Tensor | None,
-    device: torch.device,
-) -> tuple[torch.Tensor, int, float]:
-    """Return COO indices, nnz count, and effective sparsity.
-
-    :param in_features: Input feature dimension.
-    :param out_features: Output feature dimension.
-    :param sparsity: Target sparsity when *connectivity* is not provided.
-    :param connectivity: Optional fixed sparse connectivity tensor.
-    :param device: Torch device for generated indices.
-
-    :returns: Tuple of connectivity indices, non-zero count, and effective sparsity.
-    """
-    if connectivity is None:
-        nnz = round((1.0 - sparsity) * in_features * out_features)
-        if in_features * out_features <= 10**8:
-            idx = np.random.choice(in_features * out_features, nnz, replace=False)
-            indices = torch.as_tensor(idx, device=device)
-            row_ind = indices.floor_divide(in_features)
-            col_ind = indices.fmod(in_features)
-        else:
-            warnings.warn(
-                "Matrix too large to draw non-zero indices without replacement, sparsity will be approximate",
-                RuntimeWarning,
-                stacklevel=3,
-            )
-            row_ind = torch.randint(0, out_features, (nnz,), device=device)
-            col_ind = torch.randint(0, in_features, (nnz,), device=device)
-        stacked = torch.stack((row_ind, col_ind))
-        return stacked, nnz, sparsity
-
-    nnz = connectivity.shape[1]
-    effective_sparsity = nnz / (out_features * in_features)
-    return connectivity.to(device=device), nnz, effective_sparsity
 
 
 class SparseLinearNew(nn.Module):
@@ -84,47 +39,30 @@ class SparseLinearNew(nn.Module):
     all other weights are permanently zero.
     """
 
-    def __init__(
-        self,
-        in_features: int,
-        out_features: int,
-        bias: bool = True,
-        sparsity: float = 0.9,
-        connectivity: torch.Tensor | None = None,
-    ) -> None:
+    def __init__(self, in_features: int, out_features: int, connectivity: torch.Tensor) -> None:
         """Initialize SparseLinearNew layer.
 
         :param in_features: Size of each input row.
         :param out_features: Size of each output row.
-        :param bias: If True, adds a learnable bias. Default: True.
-        :param sparsity: Fraction of zero weights when ``connectivity`` is None; ignored otherwise.
         :param connectivity: LongTensor of shape ``(2, nnz)`` with the non-zero weight positions, e.g. from the GO
-            hierarchy. When given, the layer learns only these connections.
+            hierarchy. The layer learns only these connections, plus a bias per output.
         """
-        _validate_sparse_linear_dimensions(in_features, out_features, sparsity, connectivity)
+        _validate_sparse_linear_dimensions(in_features, out_features, connectivity)
 
         super().__init__()
         self.in_features = in_features
         self.out_features = out_features
-        self.connectivity = connectivity
 
         coalesce_device = select_device()
-        indices, nnz, effective_sparsity = _sparse_connectivity_indices(
-            in_features, out_features, sparsity, connectivity, coalesce_device
-        )
-        self.sparsity = effective_sparsity
-
-        values = torch.empty(nnz, device=coalesce_device)
-        sparse = torch.sparse_coo_tensor(indices, values, (out_features, in_features)).coalesce()
+        values = torch.empty(connectivity.shape[1], device=coalesce_device)
+        sparse = torch.sparse_coo_tensor(
+            connectivity.to(device=coalesce_device), values, (out_features, in_features)
+        ).coalesce()
         indices, values = sparse.indices(), sparse.values()
 
         self.register_buffer("indices", indices.cpu())
         self.weights = nn.Parameter(values.cpu())
-
-        if bias:
-            self.bias = nn.Parameter(torch.Tensor(out_features))
-        else:
-            self.register_parameter("bias", None)
+        self.bias = nn.Parameter(torch.Tensor(out_features))
 
         self.reset_parameters()
 
@@ -132,8 +70,7 @@ class SparseLinearNew(nn.Module):
         """Initialize weights and bias with uniform distribution."""
         bound = 1 / self.in_features**0.5
         nn.init.uniform_(self.weights, -bound, bound)
-        if self.bias is not None:
-            nn.init.uniform_(self.bias, -bound, bound)
+        nn.init.uniform_(self.bias, -bound, bound)
 
     def forward(self, inputs: torch.Tensor) -> torch.Tensor:
         """Forward pass through sparse linear layer.
@@ -156,10 +93,7 @@ class SparseLinearNew(nn.Module):
             [self.out_features, self.in_features],
         )
         output = torch.sparse.mm(sparse_matrix, inputs.t()).t()
-
-        if self.bias is not None:
-            output += self.bias
-
+        output += self.bias
         return output.view(output_shape)
 
 
