@@ -8,7 +8,7 @@ import pytest
 from drevalpy.components.contracts.feature_format import FeatureFormat
 from drevalpy.components.featurizers.featurizer import Featurizer
 from drevalpy.errors import UnknownNameError
-from drevalpy.registry.components import featurizer_component_metadata
+from drevalpy.registry._component import featurizer_component_metadata
 from drevalpy.registry.featurizer import featurizers, get_featurizer, names_for_side, register
 from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult, numeric_feature_block
 from tests.registry._helpers import empty_component_registries
@@ -42,19 +42,13 @@ def test_the_registry_has_one_featurizer_kind() -> None:
     assert featurizers.kind == "featurizer"
 
 
-def test_registration_sets_the_name_and_defaults_the_storage_key_to_it() -> None:
+def test_registration_sets_the_name_and_stores_description_and_tags_only_in_the_registry() -> None:
     cls = register("plainKey", description="plain")(_subclass("PlainKey"))
 
     assert featurizers.get("plainKey") is cls
     assert cls.name == "plainKey"
-    assert cls.storage_key == "plainKey"
-    assert vars(cls)["registry_name"] == "plainKey"
-
-
-def test_registration_keeps_an_explicit_storage_key() -> None:
-    cls = register("keyed", description="keyed")(_subclass("Keyed", storage_key="shared_bucket"))
-
-    assert cls.storage_key == "shared_bucket"
+    assert vars(cls)["reference"] is None
+    assert not {"description", "tags", "registry_name"} & set(vars(cls))
 
 
 def test_registry_metadata_is_description_and_tags() -> None:

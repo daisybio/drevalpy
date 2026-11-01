@@ -10,19 +10,20 @@ raises unless the caller asks to replace it, every lookup of an unknown name rai
 The registry neither inspects nor stamps the objects it stores: checks that depend
 on what an entry is (abstract methods, a hyperparameter space, the sides a
 featurizer supports) belong to the decorator that wraps :meth:`Registry.register`
-for that kind.
+for that kind. :class:`TableReprMixin` gives every registry, the dataset registry
+included, the same console and notebook table.
 """
 
 from __future__ import annotations
 
 import threading
+from abc import ABC, abstractmethod
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 from drevalpy.errors import UnknownNameError
-from drevalpy.registry._base import TableReprMixin
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -30,6 +31,25 @@ if TYPE_CHECKING:
 T = TypeVar("T")
 
 _EMPTY: Mapping[str, Any] = MappingProxyType({})
+
+
+class TableReprMixin(ABC):
+    """Notebook and console representations built from a registry's ``to_dataframe``."""
+
+    @abstractmethod
+    def to_dataframe(self) -> pd.DataFrame:
+        """Return the registry contents as a pandas DataFrame.
+
+        :returns: One row per registered entry.
+        """
+
+    def __repr__(self) -> str:
+        """Return a tabular string representation."""
+        return self.to_dataframe().to_string(index=False)
+
+    def _repr_html_(self) -> str:
+        """Return an HTML table for Jupyter notebooks."""
+        return self.to_dataframe().to_html(index=False)
 
 
 @dataclass(frozen=True)

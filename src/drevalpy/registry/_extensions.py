@@ -137,21 +137,19 @@ def _load_yaml_extension(path: Path) -> None:
 
 
 def _register_datasets_from_yaml(data: dict) -> None:
-    """Register sources and datasets from a parsed YAML dict."""
+    """Register sources and datasets from a parsed YAML dict.
+
+    The entries are read as :meth:`DrevalConfig.from_raw` reads the config file, so a source
+    may be a plain URL or a ``{url, storage_options}`` mapping in both.
+    """
+    from drevalpy.registry.dataset._models import DrevalConfig
     from drevalpy.registry.dataset._registry import dataset_registry
 
-    for name, source_info in (data.get("sources") or {}).items():
-        dataset_registry.register_source(
-            name,
-            base_url=source_info["url"],
-            storage_options=source_info.get("storage_options"),
-        )
-    for name, ds_info in (data.get("datasets") or {}).items():
-        dataset_registry.register(
-            name,
-            source=ds_info["source"],
-            file=ds_info["file"],
-        )
+    config = DrevalConfig.from_raw({kind: data.get(kind) or {} for kind in ("sources", "datasets")})
+    for name, source in config.sources.items():
+        dataset_registry.register_source(name, source.url, source.storage_options)
+    for name, dataset in config.datasets.items():
+        dataset_registry.register(name, dataset.source, dataset.file)
 
 
 def load_extension_dir(path: Path | str) -> None:

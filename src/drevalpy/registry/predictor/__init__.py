@@ -5,16 +5,28 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable
 from typing import Any
 
+from drevalpy.components.contracts.hyperparameter_space import validate_component_hyperparameter_space
+from drevalpy.components.predictors.inputs import predictor_inputs
+from drevalpy.registry._component import LiteratureReference, component_decorator
 from drevalpy.registry._registry import Registry
-from drevalpy.registry.components._metadata import LiteratureReference
-from drevalpy.registry.components._register import register_component
-from drevalpy.registry.components._registration_metadata import normalize_registration_metadata
-from drevalpy.registry.predictor._validate import validate_predictor_registration
 
 __all__ = ["get", "predictor_registry", "register"]
 
 #: Every registered predictor class, in registration order.
 predictor_registry: Registry[type[Any]] = Registry("predictor")
+
+
+def _validate(name: str, cls: type[Any]) -> None:
+    """Check that both sides declare their inputs and that the hyperparameter space is valid.
+
+    ``predictor_inputs`` raises ``TypeError`` for a side without a declaration.
+
+    :param name: Registry name under which *cls* is being registered.
+    :param cls: Predictor class.
+    """
+    for side in ("sample", "drug"):
+        predictor_inputs(cls, side)
+    validate_component_hyperparameter_space(name, cls)
 
 
 def register(
@@ -35,12 +47,9 @@ def register(
     :param reference: Optional literature citation metadata.
     :returns: Class decorator that registers and returns the decorated predictor.
     """
-    metadata = normalize_registration_metadata(description, tags, reference)
-
-    def decorator(cls: type[Any]) -> type[Any]:
-        return register_component(predictor_registry, "predictor", name, cls, metadata, validate_predictor_registration)
-
-    return decorator
+    return component_decorator(
+        predictor_registry, name, description=description, tags=tags, reference=reference, validate=_validate
+    )
 
 
 def get(name: str) -> type[Any]:

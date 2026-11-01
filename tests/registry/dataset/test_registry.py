@@ -36,12 +36,12 @@ def _saved(config_path: UPath, section: str) -> dict:
 
 
 def test_builtin_entries_are_loaded_and_custom_entries_start_empty(registry: DatasetRegistry) -> None:
-    entry = registry.builtin_datasets[_BUILTIN_DATASET]
+    entry = registry.get(_BUILTIN_DATASET)
     assert (entry.source, entry.file) == (_BUILTIN_SOURCE, f"{_BUILTIN_DATASET}.h5mu")
-    assert registry.builtin_sources[_BUILTIN_SOURCE].url.startswith("s3://")
-    assert (registry.custom_datasets, registry.custom_sources) == ({}, {})
+    assert registry.sources[_BUILTIN_SOURCE].url.startswith("s3://")
+    assert registry.custom_datasets == {}
+    assert {registry.metadata(name)["origin"] for name in registry.names()} == {"built-in"}
     assert registry.names() == tuple(sorted(registry.datasets))
-    assert registry.source_names() == tuple(sorted(registry.sources))
     assert _BUILTIN_DATASET in registry
     assert "NotADataset" not in registry
 
@@ -63,13 +63,15 @@ class TestRegisterSource:
         registry.register_source("bucket", "s3://bucket/", {"anon": True})
 
         assert _saved(config_path, "sources")["local"] == "file:///data"
-        assert registry.custom_sources["bucket"] == SourceEntry(url="s3://bucket/", storage_options={"anon": True})
+        assert registry.sources["bucket"] == SourceEntry(url="s3://bucket/", storage_options={"anon": True})
 
     def test_custom_sources_override_builtins(self, registry: DatasetRegistry) -> None:
+        builtin_url = registry.sources[_BUILTIN_SOURCE].url
         registry.register_source(_BUILTIN_SOURCE, "file:///override", replace=True)
 
         assert registry.sources[_BUILTIN_SOURCE].url == "file:///override"
-        assert registry.builtin_sources[_BUILTIN_SOURCE].url != "file:///override"
+        assert DatasetRegistry().sources[_BUILTIN_SOURCE].url == "file:///override"
+        assert builtin_url != "file:///override"
 
     def test_identical_repeat_leaves_the_file_untouched(self, registry: DatasetRegistry, config_path: UPath) -> None:
         registry.register_source("local", "file:///data", {"anon": True})
@@ -81,9 +83,8 @@ class TestRegisterSource:
         assert config_path.read_text(encoding="utf-8") == written
 
     def test_identical_to_a_builtin_is_a_noop(self, registry: DatasetRegistry, config_path: UPath) -> None:
-        registry.register_source(_BUILTIN_SOURCE, registry.builtin_sources[_BUILTIN_SOURCE].url)
+        registry.register_source(_BUILTIN_SOURCE, registry.sources[_BUILTIN_SOURCE].url)
 
-        assert registry.custom_sources == {}
         assert not config_path.exists()
 
     @pytest.mark.parametrize(
@@ -100,7 +101,7 @@ class TestRegisterSource:
         with pytest.raises(ValueError, match="Source 'local' already registered"):
             registry.register_source("local", *second)
 
-        assert registry.custom_sources["local"].url == first[0]
+        assert registry.sources["local"].url == first[0]
 
     def test_conflict_with_a_builtin_raises(self, registry: DatasetRegistry, config_path: UPath) -> None:
         with pytest.raises(ValueError, match=f"Source '{_BUILTIN_SOURCE}' already registered"):
@@ -144,7 +145,7 @@ class TestRegisterDataset:
         assert config_path.read_text(encoding="utf-8") == written
 
     def test_identical_to_a_builtin_is_a_noop(self, registry: DatasetRegistry, config_path: UPath) -> None:
-        builtin = registry.builtin_datasets[_BUILTIN_DATASET]
+        builtin = registry.get(_BUILTIN_DATASET)
 
         registry.register(_BUILTIN_DATASET, builtin.source, builtin.file)
 
@@ -168,34 +169,6 @@ class TestRegisterDataset:
         registry.register("Toy", _BUILTIN_SOURCE, "other.h5mu", replace=True)
 
         assert _saved(config_path, "datasets") == {"Toy": {"source": _BUILTIN_SOURCE, "file": "other.h5mu"}}
-
-
-class TestUnregister:
-    def test_removes_custom_entries(self, registry: DatasetRegistry) -> None:
-        registry.register_source("local", "file:///data")
-        registry.register("Toy", "local", "toy.h5mu")
-
-        with pytest.raises(ValueError, match=r"still referenced by datasets \['Toy'\]"):
-            registry.unregister_source("local")
-        registry.unregister_dataset("Toy")
-        registry.unregister_source("local")
-
-        assert (registry.custom_datasets, registry.custom_sources) == ({}, {})
-
-    def test_rejects_unknown_names(self, registry: DatasetRegistry) -> None:
-        with pytest.raises(UnknownNameError, match="Dataset 'Toy' not in custom registry"):
-            registry.unregister_dataset("Toy")
-        with pytest.raises(UnknownNameError, match="Source 'local' not in custom registry"):
-            registry.unregister_source("local")
-
-    def test_refuses_builtins_even_when_replaced(self, registry: DatasetRegistry) -> None:
-        registry.register(_BUILTIN_DATASET, _BUILTIN_SOURCE, "override.h5mu", replace=True)
-        registry.register_source(_BUILTIN_SOURCE, "file:///override", replace=True)
-
-        with pytest.raises(UnknownNameError, match="is built-in and cannot be unregistered"):
-            registry.unregister_dataset(_BUILTIN_DATASET)
-        with pytest.raises(UnknownNameError, match="is built-in and cannot be unregistered"):
-            registry.unregister_source(_BUILTIN_SOURCE)
 
 
 def test_reload_picks_up_external_edits(registry: DatasetRegistry, config_path: UPath) -> None:
@@ -222,7 +195,7 @@ def test_to_dataframe_labels_origins_and_repr_has_no_index(registry: DatasetRegi
 
 class TestFacade:
     def test_module_functions_delegate_to_the_singleton(self) -> None:
-        assert _BUILTIN_DATASET in dataset_registry.builtin_datasets
+        assert dataset_registry.metadata(_BUILTIN_DATASET)["origin"] == "built-in"
         assert list(dataset_registry.to_dataframe().columns) == ["Name", "Source", "File", "Origin"]
 
     def test_register_forwards_replace(self, registry: DatasetRegistry, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -237,5 +210,5 @@ class TestFacade:
         dataset_facade.register_source("local", "file:///elsewhere", replace=True)
         dataset_facade.register_dataset("Toy", _BUILTIN_SOURCE, "other.h5mu", replace=True)
 
-        assert registry.custom_sources["local"].url == "file:///elsewhere"
+        assert registry.sources["local"].url == "file:///elsewhere"
         assert registry.custom_datasets["Toy"].file == "other.h5mu"

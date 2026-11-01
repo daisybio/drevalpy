@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-_SIDES = frozenset({"sample", "drug"})
+#: The sides a featurizer can declare.
+SIDES: frozenset[str] = frozenset({"sample", "drug"})
 
 
 def _validate_views(name: str, cls: type[Any], attr: str) -> None:
@@ -39,7 +40,7 @@ def validate_featurizer_declarations(name: str, cls: type[Any]) -> None:
         msg = f"featurizer '{name}' must be a subclass of drevalpy.components.featurizers.featurizer.Featurizer"
         raise TypeError(msg)
     sides = cls.sides
-    if not isinstance(sides, frozenset) or not sides or not sides <= _SIDES:
+    if not isinstance(sides, frozenset) or not sides or not sides <= SIDES:
         msg = (
             f"featurizer '{name}' ({cls.__name__}): sides must be a non-empty frozenset "
             f"of 'sample'/'drug', got {sides!r}"

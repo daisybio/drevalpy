@@ -2,21 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Literal, cast
+from typing import Any, Literal
 
 import numpy as np
 
-from drevalpy.types import Dataset, SplitMasks
+from drevalpy.types import Dataset, Fold
 
 Validation = Literal["LSO", "LDO", "LPO", "LTO", "LStO"]
-
-#: Legacy validation names accepted wherever a :data:`Validation` is, mapped to the canonical one.
-VALIDATION_ALIASES: dict[str, str] = {"LCO": "LSO"}
-
-
-def canonical_validation(validation: str) -> Validation:
-    """Return the canonical validation name for *validation*, resolving legacy aliases."""
-    return cast(Validation, VALIDATION_ALIASES.get(validation, validation))
 
 
 class SplitValidationError(ValueError):
@@ -24,7 +16,7 @@ class SplitValidationError(ValueError):
 
 
 def validate_folds(
-    folds: list[SplitMasks],
+    folds: list[Fold],
     validation: Validation,
     dataset: Dataset,
 ) -> None:
@@ -32,20 +24,20 @@ def validate_folds(
 
     Raises ``SplitValidationError`` if any fold violates the constraint.
 
-    :param folds: List of SplitMasks produced by a splitter.
+    :param folds: List of Fold produced by a splitter.
     :param validation: Which leakage constraint to check.
     :param dataset: The dataset used for splitting (needed for tissue resolution).
     """
-    validation = canonical_validation(validation)
     validator = _VALIDATORS[validation]
     expected_shape = dataset.response_matrix.shape
     for i, fold in enumerate(folds):
         _validate_partition(fold, expected_shape, validation=validation, fold_index=i)
-        validator(fold, dataset, fold_index=i)
+        if validator is not None:
+            validator(fold, dataset, fold_index=i)
 
 
 def _validate_partition(
-    fold: SplitMasks,
+    fold: Fold,
     expected_shape: tuple[int, ...],
     *,
     validation: Validation,
@@ -69,7 +61,7 @@ def _validate_partition(
             )
 
 
-def _validate_lso(fold: SplitMasks, dataset: Dataset, *, fold_index: int) -> None:
+def _validate_lso(fold: Fold, dataset: Dataset, *, fold_index: int) -> None:
     """LSO: no sample row belongs to more than one split."""
     if _has_axis_overlap(fold, axis=1):
         raise SplitValidationError(
@@ -77,7 +69,7 @@ def _validate_lso(fold: SplitMasks, dataset: Dataset, *, fold_index: int) -> Non
         )
 
 
-def _validate_ldo(fold: SplitMasks, dataset: Dataset, *, fold_index: int) -> None:
+def _validate_ldo(fold: Fold, dataset: Dataset, *, fold_index: int) -> None:
     """LDO: no drug column belongs to more than one split."""
     if _has_axis_overlap(fold, axis=0):
         raise SplitValidationError(
@@ -85,14 +77,14 @@ def _validate_ldo(fold: SplitMasks, dataset: Dataset, *, fold_index: int) -> Non
         )
 
 
-def _validate_lto(fold: SplitMasks, dataset: Dataset, *, fold_index: int) -> None:
+def _validate_lto(fold: Fold, dataset: Dataset, *, fold_index: int) -> None:
     """LTO: no tissue belongs to more than one split."""
     cl_ids = dataset.sample_ids
     tissues = dataset.get_tissue(cl_ids)
     tissue_sets = [
         set(tissues[np.where(mask.mask.any(axis=1))[0]].tolist()) for mask in (fold.train, fold.val, fold.test)
     ]
-    overlap = (tissue_sets[0] & tissue_sets[1]) | (tissue_sets[0] & tissue_sets[2]) | (tissue_sets[1] & tissue_sets[2])
+    overlap = _in_two_splits(*tissue_sets)
     if overlap:
         raise SplitValidationError(
             f"LTO validation failed (fold {fold_index}): "
@@ -100,7 +92,7 @@ def _validate_lto(fold: SplitMasks, dataset: Dataset, *, fold_index: int) -> Non
         )
 
 
-def _validate_lsto(fold: SplitMasks, dataset: Dataset, *, fold_index: int) -> None:
+def _validate_lsto(fold: Fold, dataset: Dataset, *, fold_index: int) -> None:
     """LStO: no study has active rows in both test and train/validation."""
     studies = dataset.sample_column("study", dataset.sample_ids)
     train_val, test = (
@@ -114,14 +106,14 @@ def _validate_lsto(fold: SplitMasks, dataset: Dataset, *, fold_index: int) -> No
         )
 
 
-def _validate_lpo(fold: SplitMasks, dataset: Dataset, *, fold_index: int) -> None:
-    """LPO pair disjointness is enforced by :func:`_validate_partition`."""
+def _in_two_splits(train: Any, val: Any, test: Any) -> Any:
+    """Return the members (sets) or active entries (boolean arrays) found in at least two splits."""
+    return (train & val) | (train & test) | (val & test)
 
 
-def _has_axis_overlap(fold: SplitMasks, *, axis: int) -> bool:
-    """Whether an active row or column occurs in more than one split mask."""
-    active = [mask.mask.any(axis=axis) for mask in (fold.train, fold.val, fold.test)]
-    return bool(((active[0] & active[1]) | (active[0] & active[2]) | (active[1] & active[2])).any())
+def _has_axis_overlap(fold: Fold, *, axis: int) -> bool:
+    """Whether an active row or column occurs in more than one part of the fold."""
+    return bool(_in_two_splits(*(mask.mask.any(axis=axis) for mask in (fold.train, fold.val, fold.test))).any())
 
 
 _VALIDATORS = {
@@ -129,5 +121,6 @@ _VALIDATORS = {
     "LDO": _validate_ldo,
     "LTO": _validate_lto,
     "LStO": _validate_lsto,
-    "LPO": _validate_lpo,
+    # LPO pair disjointness is already enforced by _validate_partition.
+    "LPO": None,
 }

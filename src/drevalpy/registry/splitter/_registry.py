@@ -3,7 +3,7 @@
 A splitter is any callable with the signature::
 
     (dataset: Dataset, n_splits: int, validation_ratio: float, random_state: int,
-     *, quality: CurveQuality) -> list[SplitMasks]
+     *, quality: CurveQuality) -> list[Fold]
 
 ``quality`` is the curve-quality rule the caller asked for. A splitter receives the unfiltered
 dataset and decides which pairs to use, normally ``observed_mask(dataset, quality)``; it may
@@ -23,9 +23,9 @@ from typing import TYPE_CHECKING, Protocol
 
 from drevalpy.errors import InvalidInputError
 from drevalpy.registry._registry import Registry
-from drevalpy.types import Dataset, SplitMasks
+from drevalpy.types import Dataset, Fold
 
-from ._validation import Validation, canonical_validation, validate_folds
+from ._validation import Validation, validate_folds
 
 if TYPE_CHECKING:
     from drevalpy.data.quality import CurveQuality
@@ -42,7 +42,7 @@ class Splitter(Protocol):
         random_state: int = 42,
         *,
         quality: CurveQuality,
-    ) -> list[SplitMasks]:
+    ) -> list[Fold]:
         """Execute the splitter."""
         ...
 
@@ -62,7 +62,7 @@ def _wrap_with_validation(fn: Splitter, mode: str, validation: Validation) -> Sp
         random_state: int = 42,
         *,
         quality: CurveQuality,
-    ) -> list[SplitMasks]:
+    ) -> list[Fold]:
         folds = fn(dataset, n_splits, validation_ratio, random_state, quality=quality)
         validate_folds(folds, validation, dataset)
         for i, fold in enumerate(folds):
@@ -152,7 +152,7 @@ def register(
         _check_aliases(mode, aliases)
         metadata = {
             "description": description,
-            "validation": canonical_validation(validation),
+            "validation": validation,
             "aliases": frozenset(aliases),
         }
         return splitter_registry.register(

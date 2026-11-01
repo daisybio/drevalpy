@@ -31,7 +31,7 @@ from drevalpy.registry.featurizer import featurizers, get_featurizer
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.registry.predictor import predictor_registry
 from tests._trusted_subprocess import run_trusted_python
-from tests.models.synthetic_fixtures import lso_split_masks, synthetic_model_dataset
+from tests.models.synthetic_fixtures import lso_fold, synthetic_model_dataset
 from tests.registry._helpers import empty_component_registries, restore_builtin_components
 
 _SAMPLE_FEATURIZER_SOURCE = """
@@ -199,6 +199,25 @@ def test_loading_the_same_dataset_declaration_yaml_twice_is_harmless(
     assert registry.custom_datasets["Toy"].file == "toy.h5mu"
 
 
+def test_a_dataset_declaration_yaml_reads_sources_like_the_config_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("DREVALPY_CONFIG_DIR", str(tmp_path / "config"))
+    registry = DatasetRegistry()
+    monkeypatch.setattr("drevalpy.registry.dataset._registry.dataset_registry", registry)
+    ext_dir = tmp_path / "ext"
+    ext_dir.mkdir()
+    (ext_dir / "datasets.yaml").write_text(
+        "sources:\n  plain: file:///plain\n  bucket:\n    url: s3://bucket\n    storage_options: {anon: true}\n",
+        encoding="utf-8",
+    )
+
+    load_extension_dir(ext_dir)
+
+    assert registry.sources["plain"].url == "file:///plain"
+    assert registry.sources["bucket"].storage_options == {"anon": True}
+
+
 _MEAN_PREDICTOR_SOURCE = """
 import numpy as np
 from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
@@ -228,9 +247,9 @@ def test_external_zoo_references_extension_components(tmp_path: Path) -> None:
 
     assert "externalToy" in list_zoo_names(include_external=True)
     model = DRPModel(ModelSpec("externalToy", get_zoo_config("externalToy")))
-    dataset, masks = synthetic_model_dataset(), lso_split_masks()
-    model.train(dataset, masks.train)
-    assert np.isfinite(model.predict(dataset, masks.test)).all()
+    dataset, fold = synthetic_model_dataset(), lso_fold()
+    model.train(dataset, fold.train)
+    assert np.isfinite(model.predict(dataset, fold.test)).all()
 
 
 def test_load_external_zoo_single_entry_file(tmp_path: Path) -> None:

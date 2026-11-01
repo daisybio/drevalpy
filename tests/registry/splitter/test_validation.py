@@ -1,4 +1,4 @@
-"""Tests for split validation: hand-written masks, so each test states exactly which leakage it contains."""
+"""Tests for fold validation: hand-written folds, so each test states exactly which leakage it contains."""
 
 from __future__ import annotations
 
@@ -6,8 +6,8 @@ import numpy as np
 import pytest
 
 from drevalpy.registry.splitter._validation import _VALIDATORS, SplitValidationError, validate_folds
-from drevalpy.types.data.split_mask import SplitMask
-from drevalpy.types.data.split_masks import SplitMasks
+from drevalpy.types.data.fold import Fold
+from drevalpy.types.data.pair_mask import PairMask
 
 _SHAPE = (4, 3)
 
@@ -49,16 +49,16 @@ class _FakeMuDataset:
         return np.full(shape, 9.0 if name == "relevance_score" else -2.0)
 
 
-def _mask(rows: tuple[int, ...], cols: tuple[int, ...]) -> SplitMask:
+def _mask(rows: tuple[int, ...], cols: tuple[int, ...]) -> PairMask:
     array = np.zeros(_SHAPE, dtype=bool)
     for row in rows:
         for col in cols:
             array[row, col] = True
-    return SplitMask(array)
+    return PairMask(array)
 
 
-def _fold(train: SplitMask, test: SplitMask, val: SplitMask | None = None) -> SplitMasks:
-    return SplitMasks(train=train, test=test, val=val if val is not None else SplitMask(np.zeros(_SHAPE, dtype=bool)))
+def _fold(train: PairMask, test: PairMask, val: PairMask | None = None) -> Fold:
+    return Fold(train=train, test=test, val=val if val is not None else PairMask(np.zeros(_SHAPE, dtype=bool)))
 
 
 @pytest.fixture
@@ -98,13 +98,6 @@ def test_lsto_rejects_a_study_shared_with_test(studies: _FakeMuDataset, train, t
         validate_folds([_fold(train, test, val)], "LStO", studies)  # type: ignore[arg-type]
 
 
-def test_the_legacy_lco_validation_name_means_lso(dataset: _FakeMuDataset) -> None:
-    leaking = _fold(_mask((0, 1), (0,)), _mask((1, 2), (1,)))
-
-    with pytest.raises(SplitValidationError, match="LSO validation failed"):
-        validate_folds([leaking], "LCO", dataset)  # type: ignore[arg-type]
-
-
 def test_unknown_validation_mode_is_rejected_and_no_folds_is_vacuously_valid(dataset: _FakeMuDataset) -> None:
     with pytest.raises(KeyError):
         validate_folds([_fold(_mask((0,), (0,)), _mask((1,), (0,)))], "NOPE", dataset)  # type: ignore[arg-type]
@@ -122,7 +115,7 @@ def test_unknown_validation_mode_is_rejected_and_no_folds_is_vacuously_valid(dat
         pytest.param("LTO", _mask((0, 1), (0, 1, 2)), _mask((2, 3), (0, 1, 2)), id="lto-disjoint-tissues"),
     ],
 )
-def test_valid_folds_pass(mode: str, train: SplitMask, test: SplitMask, dataset: _FakeMuDataset) -> None:
+def test_valid_folds_pass(mode: str, train: PairMask, test: PairMask, dataset: _FakeMuDataset) -> None:
     validate_folds([_fold(train, test)], mode, dataset)  # type: ignore[arg-type]
 
 
@@ -135,7 +128,7 @@ def test_valid_folds_pass(mode: str, train: SplitMask, test: SplitMask, dataset:
         pytest.param("LPO", _mask((0,), (0, 1)), _mask((0,), (1, 2)), id="pair"),
     ],
 )
-def test_train_test_leakage_is_rejected(mode: str, train: SplitMask, test: SplitMask, dataset) -> None:
+def test_train_test_leakage_is_rejected(mode: str, train: PairMask, test: PairMask, dataset) -> None:
     with pytest.raises(SplitValidationError, match=f"{mode} validation failed"):
         validate_folds([_fold(train, test)], mode, dataset)  # type: ignore[arg-type]
 
@@ -157,14 +150,14 @@ def test_lto_names_the_overlapping_tissue(dataset: _FakeMuDataset) -> None:
     ],
 )
 def test_validation_rejects_validation_leakage(
-    mode: str, train: SplitMask, test: SplitMask, val: SplitMask, dataset: _FakeMuDataset
+    mode: str, train: PairMask, test: PairMask, val: PairMask, dataset: _FakeMuDataset
 ) -> None:
     with pytest.raises(SplitValidationError, match="validation failed"):
         validate_folds([_fold(train, test, val)], mode, dataset)  # type: ignore[arg-type]
 
 
 def test_validation_rejects_a_mask_with_the_wrong_shape(dataset: _FakeMuDataset) -> None:
-    wrong_shape = SplitMask(np.zeros((3, 3), dtype=bool))
+    wrong_shape = PairMask(np.zeros((3, 3), dtype=bool))
 
     with pytest.raises(SplitValidationError, match="response shape"):
         validate_folds([_fold(_mask((0,), (0,)), _mask((1,), (1,)), wrong_shape)], "LPO", dataset)  # type: ignore[arg-type]

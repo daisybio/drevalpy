@@ -12,19 +12,15 @@ from collections.abc import Callable, Iterable
 from typing import Any, TypeVar
 
 from drevalpy.components.contracts.hyperparameter_space import validate_component_hyperparameter_space
+from drevalpy.registry._component import LiteratureReference, component_decorator
 from drevalpy.registry._registry import Registry
-from drevalpy.registry.components._metadata import LiteratureReference
-from drevalpy.registry.components._register import register_component
-from drevalpy.registry.components._registration_metadata import normalize_registration_metadata
-from drevalpy.registry.featurizer._validate import validate_featurizer_declarations
+from drevalpy.registry.featurizer._validate import SIDES, validate_featurizer_declarations
 from drevalpy.types.data.feature_source import Side
 
 C = TypeVar("C", bound=type[Any])
 
 #: Every registered featurizer class, in registration order.
 featurizers: Registry[type[Any]] = Registry("featurizer")
-
-_SIDES: frozenset[str] = frozenset({"sample", "drug"})
 
 
 def register(
@@ -36,8 +32,7 @@ def register(
 ) -> Callable[[C], C]:
     """Return a class decorator that registers a featurizer under *name*.
 
-    The decorator sets ``name`` on the class, and ``storage_key`` to *name* when neither the
-    class nor a base declares one. The sides come from the class's ``sides`` declaration.
+    The decorator sets ``name`` on the class. The sides come from the class's ``sides`` declaration.
 
     :param name: Unique registry name used in model configs and listings.
     :param description: Short human-readable summary.
@@ -45,17 +40,18 @@ def register(
     :param reference: Optional literature citation metadata.
     :returns: Class decorator that registers and returns the decorated class.
     """
-    metadata = normalize_registration_metadata(description, tags, reference)
 
     def validate(registered_name: str, cls: type[Any]) -> None:
         validate_component_hyperparameter_space(registered_name, cls)
         validate_featurizer_declarations(registered_name, cls)
 
+    register_class = component_decorator(
+        featurizers, name, description=description, tags=tags, reference=reference, validate=validate
+    )
+
     def decorator(cls: C) -> C:
-        register_component(featurizers, "featurizer", name, cls, metadata, validate)
+        register_class(cls)
         cls.name = name
-        if not getattr(cls, "storage_key", None):
-            cls.storage_key = name
         return cls
 
     return decorator
@@ -72,11 +68,11 @@ def get_featurizer(name: str, side: Side | None = None) -> type[Any]:
     """
     cls = featurizers.get(name)
     if side is not None:
-        check_side(name, cls, side)
+        _check_side(name, cls, side)
     return cls
 
 
-def check_side(name: str, cls: type[Any], side: str) -> None:
+def _check_side(name: str, cls: type[Any], side: str) -> None:
     """Raise when *cls* does not declare *side* among its ``sides``.
 
     :param name: Registry name of the featurizer, for the message.
@@ -84,7 +80,7 @@ def check_side(name: str, cls: type[Any], side: str) -> None:
     :param side: Side the featurizer is used on.
     :raises ValueError: If *side* is not ``"sample"`` or ``"drug"``, or *cls* does not support it.
     """
-    if side not in _SIDES:
+    if side not in SIDES:
         msg = f"Unknown featurizer side {side!r}. Available: drug, sample"
         raise ValueError(msg)
     sides = frozenset(cls.sides)

@@ -9,7 +9,7 @@ from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
 from drevalpy.components.predictors.abstract.matrix import MatrixPredictor
 from drevalpy.components.predictors.inputs import Inputs
-from drevalpy.registry.components import predictor_component_metadata
+from drevalpy.registry._component import predictor_component_metadata
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.registry.predictor import predictor_registry
 from drevalpy.registry.predictor import register as register_predictor
@@ -54,12 +54,11 @@ def _register(name: str, cls: type) -> type:
     return register_predictor(name, description=name)(cls)
 
 
-def test_registration_stamps_the_name_and_exposes_catalog_metadata() -> None:
+def test_registration_exposes_catalog_metadata() -> None:
     @register_predictor("dummyPred", description="pred")
     class DummyPred(_ConcreteFeatureFree):
         pass
 
-    assert vars(DummyPred)["registry_name"] == "dummyPred"
     assert get_predictor("dummyPred") is DummyPred
     assert dict(predictor_registry.metadata("dummyPred")) == {"description": "pred", "tags": frozenset()}
     meta = predictor_component_metadata("predictors", "dummyPred", DummyPred)

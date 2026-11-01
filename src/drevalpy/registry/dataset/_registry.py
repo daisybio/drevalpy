@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Callable
 from importlib import resources
 from typing import TYPE_CHECKING, Any, Literal
 
 from drevalpy.errors import UnknownNameError
-from drevalpy.registry._base import TableReprMixin
+from drevalpy.registry._registry import TableReprMixin
 
 from ._io import config_lock, load_config, save_config
 from ._models import DatasetEntry, DrevalConfig, SourceEntry
@@ -63,21 +62,6 @@ class DatasetRegistry(TableReprMixin):
         return {**builtin.datasets, **custom.datasets}
 
     @property
-    def builtin_sources(self) -> dict[str, SourceEntry]:
-        """Only built-in sources (read-only)."""
-        return self._ensure_loaded()[0].sources
-
-    @property
-    def builtin_datasets(self) -> dict[str, DatasetEntry]:
-        """Only built-in datasets (read-only)."""
-        return self._ensure_loaded()[0].datasets
-
-    @property
-    def custom_sources(self) -> dict[str, SourceEntry]:
-        """Only user-registered sources."""
-        return self._ensure_loaded()[1].sources
-
-    @property
     def custom_datasets(self) -> dict[str, DatasetEntry]:
         """Only user-registered datasets."""
         return self._ensure_loaded()[1].datasets
@@ -88,13 +72,6 @@ class DatasetRegistry(TableReprMixin):
         :returns: Dataset names in sorted order.
         """
         return tuple(sorted(self.datasets))
-
-    def source_names(self) -> tuple[str, ...]:
-        """Return every registered source name, built-in and custom.
-
-        :returns: Source names in sorted order.
-        """
-        return tuple(sorted(self.sources))
 
     def get(self, name: str) -> DatasetEntry:
         """Return the entry of the dataset registered under *name*.
@@ -174,31 +151,6 @@ class DatasetRegistry(TableReprMixin):
             save_config(config)
             self._custom = config
 
-    def _unregister(
-        self, kind: _Kind, name: str, *, before_delete: Callable[[DrevalConfig], None] | None = None
-    ) -> None:
-        """Remove one entry from the custom config under the file lock.
-
-        :param kind: Which table of the config to change.
-        :param name: Entry name to remove.
-        :param before_delete: Check run on the freshly loaded config that may raise to veto the removal.
-        :raises UnknownNameError: If *name* is not a custom entry, or is a built-in one.
-        """
-        builtin, _ = self._ensure_loaded()
-        label = _LABELS[kind]
-        with config_lock():
-            config = load_config()
-            entries = getattr(config, kind)
-            if name not in entries:
-                raise UnknownNameError(f"{label} '{name}' not in custom registry.")
-            if name in getattr(builtin, kind):
-                raise UnknownNameError(f"{label} '{name}' is built-in and cannot be unregistered.")
-            if before_delete is not None:
-                before_delete(config)
-            del entries[name]
-            save_config(config)
-            self._custom = config
-
     def register_source(
         self,
         name: str,
@@ -243,31 +195,6 @@ class DatasetRegistry(TableReprMixin):
         if current is not None and (current.source, current.file) == (source, file):
             entry = current
         self._register("datasets", name, entry, replace=replace)
-
-    def unregister_dataset(self, name: str) -> None:
-        """Remove a custom dataset registration.
-
-        Raises ``UnknownNameError`` if the dataset is not in the custom registry.
-
-        :param name: Dataset name to remove.
-        """
-        self._unregister("datasets", name)
-
-    def unregister_source(self, name: str) -> None:
-        """Remove a custom source registration.
-
-        Raises ``UnknownNameError`` if the source is not in the custom registry, and
-        ``ValueError`` if datasets still reference it.
-
-        :param name: Source name to remove.
-        """
-
-        def reject_referenced(config: DrevalConfig) -> None:
-            referencing = [ds for ds, entry in config.datasets.items() if entry.source == name]
-            if referencing:
-                raise ValueError(f"Cannot remove source '{name}': still referenced by datasets {referencing}")
-
-        self._unregister("sources", name, before_delete=reject_referenced)
 
     def reload(self) -> None:
         """Re-read the custom registry from disk.

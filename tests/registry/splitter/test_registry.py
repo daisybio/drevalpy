@@ -16,8 +16,8 @@ from drevalpy.errors import InvalidInputError, UnknownNameError
 from drevalpy.registry.splitter import canonical, get, splitter_registry
 from drevalpy.registry.splitter import register as register_splitter
 from drevalpy.registry.splitter._validation import SplitValidationError
-from drevalpy.types.data.split_mask import SplitMask
-from drevalpy.types.data.split_masks import SplitMasks
+from drevalpy.types.data.fold import Fold
+from drevalpy.types.data.pair_mask import PairMask
 
 _SHAPE = (4, 3)
 QUALITY = CurveQuality.default()
@@ -51,14 +51,14 @@ class _FakeMuDataset:
         return np.full(_SHAPE, 9.0 if name == "relevance_score" else -2.0)
 
 
-def _mask(rows: tuple[int, ...]) -> SplitMask:
+def _mask(rows: tuple[int, ...]) -> PairMask:
     array = np.zeros(_SHAPE, dtype=bool)
     array[list(rows), :] = True
-    return SplitMask(array)
+    return PairMask(array)
 
 
-def _fold(test_rows: tuple[int, ...] = (2, 3)) -> SplitMasks:
-    return SplitMasks(train=_mask((0, 1)), test=_mask(test_rows), val=SplitMask(np.zeros(_SHAPE, dtype=bool)))
+def _fold(test_rows: tuple[int, ...] = (2, 3)) -> Fold:
+    return Fold(train=_mask((0, 1)), test=_mask(test_rows), val=PairMask(np.zeros(_SHAPE, dtype=bool)))
 
 
 @pytest.fixture
@@ -121,11 +121,8 @@ def test_quality_parameter_is_required_unless_kwargs() -> None:
     assert "KWARGS" in splitter_registry
 
 
-@pytest.mark.parametrize("validation", ["LSO", "LCO"])
-def test_the_wrapper_runs_validation_and_stores_legacy_names_canonically(
-    dataset: _FakeMuDataset, validation: str
-) -> None:
-    leaky = register_splitter("LEAKY", "leaks a sample", validation=validation)(  # type: ignore[arg-type]
+def test_the_wrapper_runs_validation(dataset: _FakeMuDataset) -> None:
+    leaky = register_splitter("LEAKY", "leaks a sample", validation="LSO")(
         lambda dataset, n_splits=5, validation_ratio=0.1, random_state=42, *, quality: [_fold((1, 2))]
     )
 

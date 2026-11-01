@@ -7,12 +7,11 @@ import pytest
 from drevalpy.components.contracts.feature_format import FeatureFormat
 from drevalpy.components.featurizers._featurizer_label import requires_explicit_view
 from drevalpy.registry._all import all_registries, restore_all, snapshot_all
-from drevalpy.registry._base import TableReprMixin
 from drevalpy.registry._builtins import BUILTIN_MODULES, builtin_names, get_skipped_builtin_modules, register_builtins
-from drevalpy.registry.components import featurizer_component_metadata
+from drevalpy.registry._component import featurizer_component_metadata
+from drevalpy.registry._registry import TableReprMixin
 from drevalpy.registry.dataset import dataset_registry
 from drevalpy.registry.featurizer import featurizers
-from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.registry.predictor import predictor_registry
 from drevalpy.registry.splitter import splitter_registry
 from drevalpy.registry.visualization import visualization_registry
@@ -56,7 +55,7 @@ def test_builtin_names_follow_the_order_of_builtin_modules() -> None:
     assert builtin_names(featurizers)[:3] == ("constant", "identity", "concatFeaturizers")
     assert builtin_names(predictor_registry)[0] == "naiveMeanEffects"
     assert builtin_names(predictor_registry)[-1] == "neuralNetwork"
-    assert builtin_names(splitter_registry) == ("LDO", "LPO", "LSO", "LStO", "LTO")
+    assert builtin_names(splitter_registry) == ("LDO", "LSO", "LPO", "LStO", "LTO")
 
 
 def test_builtin_names_leave_out_other_registrations() -> None:
@@ -118,4 +117,4 @@ print("ok")
     "name", ["precily", "srmf", "molir", "superfeltr", "pharmaFormer", "dipk", "sparsego", "naiveMean", "naiveDrugMean"]
 )
 def test_split_module_predictors_register_under_their_name(name: str) -> None:
-    assert get_predictor(name).registry_name == name
+    assert name in predictor_registry
