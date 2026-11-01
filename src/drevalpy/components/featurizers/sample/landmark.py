@@ -21,11 +21,10 @@ if TYPE_CHECKING:
 _BLOCK = "gene_expression"
 
 
-@register("landmarkGenes", description="L1000 landmark genes with arcsinh and optional scaling.")
+@register("landmarkGenes", side=Side.SAMPLE, description="L1000 landmark genes with arcsinh and optional scaling.")
 class LandmarkGenesFeaturizer(Featurizer):
     """Landmark genes featurizer component."""
 
-    sides: ClassVar[frozenset[Side]] = frozenset({"sample"})
     input_views: ClassVar[tuple[str, ...]] = ("gene_expression",)
 
     def __init__(
@@ -156,7 +155,9 @@ class LandmarkGenesFeaturizer(Featurizer):
         return dense_result(ids, _BLOCK, result.reshape(len(ids), len(self._names)), self._names)
 
 
-@register("landmarkGenesReduced", description="Reduced landmark gene set used by DrugGNN and PharmaFormer.")
+@register(
+    "landmarkGenesReduced", side=Side.SAMPLE, description="Reduced landmark gene set used by DrugGNN and PharmaFormer."
+)
 class LandmarkGenesReducedFeaturizer(LandmarkGenesFeaturizer):
     """Landmark genes reduced featurizer component."""
 

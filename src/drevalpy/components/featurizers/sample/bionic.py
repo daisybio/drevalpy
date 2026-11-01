@@ -12,7 +12,7 @@ from drevalpy.registry.featurizer import register
 from drevalpy.types.data.feature_source import FeatureSource, Side
 
 
-@register("bionic", description="BIONIC PPI-based sample features for DIPK.")
+@register("bionic", side=Side.SAMPLE, description="BIONIC PPI-based sample features for DIPK.")
 class BionicSampleFeaturizer(PrecomputableFeaturizer):
     """Bionic sample featurizer component.
 
@@ -21,7 +21,6 @@ class BionicSampleFeaturizer(PrecomputableFeaturizer):
     top-expressed genes. A source that holds the view already passes it through.
     """
 
-    sides: ClassVar[frozenset[Side]] = frozenset({"sample"})
     input_views: ClassVar[tuple[str, ...]] = ("bionic_features",)
     source_views: ClassVar[tuple[str, ...]] = ("gene_expression",)
 

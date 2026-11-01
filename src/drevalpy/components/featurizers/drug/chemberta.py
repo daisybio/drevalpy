@@ -68,12 +68,12 @@ def load_chemberta() -> tuple[Any, Any]:
 
 @register(
     "chemberta",
+    side=Side.DRUG,
     description="ChemBERTa embeddings loaded from pre-computed view or computed on the fly via transformers.",
 )
 class ChemBertaFeaturizer(PrecomputableFeaturizer):
     """ChemBERTa drug featurizer with on-the-fly fallback."""
 
-    sides: ClassVar[frozenset[Side]] = frozenset({"drug"})
     block: ClassVar[str | None] = "chemberta"
     input_views: ClassVar[tuple[str, ...]] = ("chemberta",)
     source_views: ClassVar[tuple[str, ...]] = ("canonical_smiles",)

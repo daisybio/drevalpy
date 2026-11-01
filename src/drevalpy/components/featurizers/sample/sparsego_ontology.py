@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, ClassVar, Self
+from typing import Any, Self
 
 import numpy as np
 
@@ -29,11 +29,9 @@ def _view_for_input_type(input_type: str) -> str:
     return "mutations" if input_type == "mutations" else "gene_expression"
 
 
-@register("sparsegoOntology", description="SparseGO ontology-aligned expression or mutation inputs.")
+@register("sparsegoOntology", side=Side.SAMPLE, description="SparseGO ontology-aligned expression or mutation inputs.")
 class SparseGOOntologyFeaturizer(Featurizer):
     """Align an active omics view with the SparseGO ontology gene ordering."""
-
-    sides: ClassVar[frozenset[Side]] = frozenset({"sample"})
 
     @classmethod
     def _config_view(cls, config: Mapping[str, Any]) -> str:

@@ -25,7 +25,7 @@ from drevalpy.components.featurizers.drug.smiles_tokens import (
     SmilesTokensFeaturizer,
 )
 from drevalpy.errors import InvalidInputError
-from drevalpy.registry.featurizer import featurizers
+from drevalpy.registry.featurizer import featurizer_registry
 from drevalpy.types.data.feature_source import FeatureSource
 from tests._import_shims import block_imports
 from tests.components.featurizers.drug._helpers import DrugSource
@@ -136,8 +136,8 @@ def _blocks(featurizer: SmilesTokensFeaturizer, ids: np.ndarray, source: DrugSou
 
 
 def test_registers_and_declares_both_output_blocks() -> None:
-    assert featurizers.get("smilesTokens") is SmilesTokensFeaturizer
-    assert SmilesTokensFeaturizer.sides == frozenset({"drug"})
+    assert featurizer_registry("drug").get("smilesTokens") is SmilesTokensFeaturizer
+    assert SmilesTokensFeaturizer.side == "drug"
     assert [spec.name for spec in SmilesTokensFeaturizer.output_blocks({})] == [TOKENS_BLOCK, VARIANTS_BLOCK]
     assert SmilesTokensFeaturizer.get_hyperparameter_space() == {}
 
@@ -237,7 +237,7 @@ def _fitted(
 
 
 def test_bpe_registration_and_hyperparameter_space() -> None:
-    assert featurizers.get("bpePharmaformer") is BpePharmaformerDrugFeaturizer
+    assert featurizer_registry("drug").get("bpePharmaformer") is BpePharmaformerDrugFeaturizer
     assert BpePharmaformerDrugFeaturizer.output_blocks({})[0].name == "bpe_smiles"
     assert set(BpePharmaformerDrugFeaturizer.get_hyperparameter_space()) == {"num_symbols", "max_length"}
 

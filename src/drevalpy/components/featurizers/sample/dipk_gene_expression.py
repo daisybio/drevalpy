@@ -86,7 +86,7 @@ def dipk_preprocess(source: FeatureSource, matrix: np.ndarray, view: str = "gene
     return _zscore_rows(matrix)
 
 
-@register("dipkGeneExpression", description="DIPK gene-expression autoencoder embeddings.")
+@register("dipkGeneExpression", side=Side.SAMPLE, description="DIPK gene-expression autoencoder embeddings.")
 class DIPKGeneExpressionFeaturizer(Featurizer):
     """Encode intersection genes into the 512-dimensional DIPK representation.
 
@@ -94,7 +94,6 @@ class DIPKGeneExpressionFeaturizer(Featurizer):
     linear expression units, then encoded by an autoencoder fitted on the unique training samples.
     """
 
-    sides: ClassVar[frozenset[Side]] = frozenset({"sample"})
     requires_early_stopping: ClassVar[bool] = True
     input_views: ClassVar[tuple[str, ...]] = (_VIEW,)
 

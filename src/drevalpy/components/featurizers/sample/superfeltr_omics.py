@@ -18,11 +18,10 @@ from drevalpy.types.data.feature_source import FeatureSource, Side
 _VIEWS = ("gene_expression", "mutations", "copy_number_variation_gistic")
 
 
-@register("superfeltrOmics", description="SuperFELTR variance-selected multi-omics inputs.")
+@register("superfeltrOmics", side=Side.SAMPLE, description="SuperFELTR variance-selected multi-omics inputs.")
 class SuperFELTROmicsFeaturizer(Featurizer):
     """Select high-variance features independently in each SuperFELTR view."""
 
-    sides: ClassVar[frozenset[Side]] = frozenset({"sample"})
     input_views: ClassVar[tuple[str, ...]] = _VIEWS
 
     def __init__(self, *, n_features_per_view: int = 1000, gene_lists: Mapping[str, str | None] | None = None) -> None:

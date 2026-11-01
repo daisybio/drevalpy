@@ -37,12 +37,12 @@ def log10_and_set_na(x: np.ndarray) -> np.ndarray:
 
 @register(
     "normalizedProteomics",
+    side=Side.SAMPLE,
     description="Proteomics view with log10 transform, median centering, and imputation.",
 )
 class NormalizedProteomicsSampleFeaturizer(Featurizer):
     """Match sklearn baseline proteomics preprocessing."""
 
-    sides: ClassVar[frozenset[Side]] = frozenset({"sample"})
     input_views: ClassVar[tuple[str, ...]] = ("proteomics",)
 
     def __init__(

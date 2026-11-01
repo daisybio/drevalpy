@@ -21,12 +21,12 @@ _BLOCK = "drug_graph"
 
 @register(
     "drugGraph",
+    side=Side.DRUG,
     description="PyG molecular graphs loaded from pre-computed view or computed on the fly via rdkit.",
 )
 class DrugGraphFeaturizer(Featurizer):
     """Expose drug graphs for graph predictors, with on-the-fly fallback."""
 
-    sides: ClassVar[frozenset[Side]] = frozenset({"drug"})
     input_views: ClassVar[tuple[str, ...]] = ("drug_graph",)
     source_views: ClassVar[tuple[str, ...]] = ("canonical_smiles",)
 

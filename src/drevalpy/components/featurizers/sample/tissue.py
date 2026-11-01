@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, ClassVar, Self
+from typing import Any, Self
 
 import numpy as np
 
@@ -30,11 +30,9 @@ def _tissue_labels(source: FeatureSource, ids: np.ndarray) -> list[str | None]:
     return [None if label is None or (isinstance(label, float) and np.isnan(label)) else str(label) for label in raw]
 
 
-@register("tissue", description="One-hot encoding of tissue or lineage labels for sample entities.")
+@register("tissue", side=Side.SAMPLE, description="One-hot encoding of tissue or lineage labels for sample entities.")
 class TissueFeaturizer(Featurizer):
     """Map each sample to a dense one-hot tissue vector."""
-
-    sides: ClassVar[frozenset[Side]] = frozenset({"sample"})
 
     def __init__(self, *, allow_missing: bool = False) -> None:
         """Initialize instance state.

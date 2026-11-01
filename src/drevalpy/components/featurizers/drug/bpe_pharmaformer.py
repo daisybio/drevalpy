@@ -54,6 +54,7 @@ _BPE_PHARMAFORMER_REFERENCE = LiteratureReference(
 
 @register(
     "bpePharmaformer",
+    side=Side.DRUG,
     description="BPE PharmaFormer token rows computed via fit/transform (set-dependent).",
     reference=_BPE_PHARMAFORMER_REFERENCE,
 )
@@ -64,7 +65,6 @@ class BpePharmaformerDrugFeaturizer(Featurizer):
     and applied to encode any SMILES during transform.
     """
 
-    sides: ClassVar[frozenset[Side]] = frozenset({"drug"})
     input_views: ClassVar[tuple[str, ...]] = ("bpe_smiles",)
     source_views: ClassVar[tuple[str, ...]] = ("canonical_smiles",)
 

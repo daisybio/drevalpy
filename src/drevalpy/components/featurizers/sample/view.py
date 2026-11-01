@@ -1,8 +1,8 @@
-"""Generic raw dense pass-through featurizer for one omics view."""
+"""Sample pass-through featurizer: one dense omics view, unchanged."""
 
 from __future__ import annotations
 
-from typing import ClassVar, Self
+from typing import Self
 
 import numpy as np
 
@@ -14,11 +14,9 @@ from drevalpy.types.data.batch.feature_block import FeaturizerResult
 from drevalpy.types.data.feature_source import FeatureSource, Side
 
 
-@register("raw", description="Pass through one dense omics view without preprocessing.")
-class RawSampleFeaturizer(Featurizer):
+@register("view", side=Side.SAMPLE, description="Pass through one dense omics view without preprocessing.")
+class ViewSampleFeaturizer(Featurizer):
     """Featurize one omics view as a dense matrix without transformation."""
-
-    sides: ClassVar[frozenset[Side]] = frozenset({"sample"})
 
     def __init__(self, *, view: str, gene_list: str | None = None) -> None:
         """Bind the omics view to pass through.

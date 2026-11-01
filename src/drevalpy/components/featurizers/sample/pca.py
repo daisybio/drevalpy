@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, ClassVar, Self
+from typing import TYPE_CHECKING, Any, Self
 
 import numpy as np
 
@@ -16,11 +16,9 @@ if TYPE_CHECKING:
     from sklearn.decomposition import PCA
 
 
-@register("pca", description="PCA compression of one dense sample view fit on training samples.")
+@register("pca", side=Side.SAMPLE, description="PCA compression of one dense sample view fit on training samples.")
 class PCASampleFeaturizer(Featurizer):
     """Reduce one sample view with PCA."""
-
-    sides: ClassVar[frozenset[Side]] = frozenset({"sample"})
 
     def __init__(self, *, view: str, n_components: int = 128) -> None:
         """Bind the view to reduce and the target dimension.

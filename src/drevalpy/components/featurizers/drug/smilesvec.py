@@ -16,12 +16,12 @@ _SMILESVEC_MODEL_FILE = "drug.pubchem.canon.l8.ws20.txt"
 
 @register(
     "smilesvec",
+    side=Side.DRUG,
     description="SMILESVec drug embeddings computed on the fly via a pre-trained Word2Vec model.",
 )
 class SmilesVecDrugFeaturizer(PrecomputableFeaturizer):
     """SMILESVec featurizer using Word2Vec k-mer embeddings from PubChem corpus."""
 
-    sides: ClassVar[frozenset[Side]] = frozenset({"drug"})
     block: ClassVar[str | None] = "smilesvec"
     input_views: ClassVar[tuple[str, ...]] = ("smilesvec",)
     source_views: ClassVar[tuple[str, ...]] = ("canonical_smiles",)

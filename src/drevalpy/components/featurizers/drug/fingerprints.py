@@ -13,12 +13,12 @@ from drevalpy.types.data.feature_source import FeatureSource, Side
 
 @register(
     "fingerprints",
+    side=Side.DRUG,
     description="Morgan fingerprints loaded from pre-computed view or computed on the fly via rdkit.",
 )
 class FingerprintsFeaturizer(PrecomputableFeaturizer):
     """Morgan fingerprints featurizer with on-the-fly fallback."""
 
-    sides: ClassVar[frozenset[Side]] = frozenset({"drug"})
     block: ClassVar[str | None] = "fingerprints"
     input_views: ClassVar[tuple[str, ...]] = ("morgan_fingerprint",)
     source_views: ClassVar[tuple[str, ...]] = ("canonical_smiles",)

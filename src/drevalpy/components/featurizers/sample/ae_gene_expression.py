@@ -105,12 +105,12 @@ def train_or_load_autoencoder(
 
 @register(
     "aeGeneExpression",
+    side=Side.SAMPLE,
     description="Gene-expression autoencoder embeddings fitted on the unique training samples.",
 )
 class AEGeneExpressionFeaturizer(Featurizer):
     """Encode the genes of a gene list into the 512-dimensional DIPK latent space."""
 
-    sides: ClassVar[frozenset[Side]] = frozenset({"sample"})
     requires_early_stopping: ClassVar[bool] = True
     input_views: ClassVar[tuple[str, ...]] = ("gene_expression",)
 

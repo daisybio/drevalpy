@@ -22,12 +22,12 @@ _BLOCK = "molgnet_features"
 
 @register(
     "molgnet",
+    side=Side.DRUG,
     description="MolGNet drug embeddings loaded from pre-computed view or computed on the fly.",
 )
 class MolGNetDrugFeaturizer(Featurizer):
     """Expose variable-size MolGNet tensors with on-the-fly fallback."""
 
-    sides: ClassVar[frozenset[Side]] = frozenset({"drug"})
     input_views: ClassVar[tuple[str, ...]] = ("molgnet_features",)
     source_views: ClassVar[tuple[str, ...]] = ("canonical_smiles",)
 

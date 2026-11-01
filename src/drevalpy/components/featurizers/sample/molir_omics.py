@@ -21,11 +21,10 @@ if TYPE_CHECKING:
 _VIEWS = ("gene_expression", "mutations", "copy_number_variation_gistic")
 
 
-@register("molirOmics", description="MOLIR multi-omics input preparation.")
+@register("molirOmics", side=Side.SAMPLE, description="MOLIR multi-omics input preparation.")
 class MOLIROmicsFeaturizer(Featurizer):
     """Arcsinh-scale and select variable gene-expression features for MOLIR."""
 
-    sides: ClassVar[frozenset[Side]] = frozenset({"sample"})
     input_views: ClassVar[tuple[str, ...]] = _VIEWS
 
     def __init__(

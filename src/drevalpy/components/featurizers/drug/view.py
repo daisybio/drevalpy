@@ -13,11 +13,10 @@ from drevalpy.types.data.batch.feature_block import FeaturizerResult
 from drevalpy.types.data.feature_source import FeatureSource, Side
 
 
-@register("view", description="Pass through one dense drug view from a FeatureSource.")
+@register("view", side=Side.DRUG, description="Pass through one dense drug view from a FeatureSource.")
 class ViewDrugFeaturizer(Featurizer):
     """Featurize one drug view without additional transformation; the block is named after the view."""
 
-    sides: ClassVar[frozenset[Side]] = frozenset({"drug"})
     input_views: ClassVar[tuple[str, ...]] = ("morgan_fingerprint",)
 
     def __init__(self, *, view: str | None = None) -> None:

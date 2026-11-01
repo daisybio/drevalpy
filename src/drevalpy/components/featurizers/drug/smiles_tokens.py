@@ -31,6 +31,7 @@ VARIANTS_BLOCK = "smiles_token_variants"
 
 @register(
     "smilesTokens",
+    side=Side.DRUG,
     description="Atom-level SMILES token rows and an augmented bank of equivalent SMILES per drug (set-dependent).",
 )
 class SmilesTokensFeaturizer(Featurizer):
@@ -43,7 +44,6 @@ class SmilesTokensFeaturizer(Featurizer):
     maps to ``<unk>``. Drugs outside the fit get their own SMILES in every variant slot.
     """
 
-    sides: ClassVar[frozenset[Side]] = frozenset({"drug"})
     input_views: ClassVar[tuple[str, ...]] = (TOKENS_BLOCK,)
     source_views: ClassVar[tuple[str, ...]] = ("canonical_smiles",)
 

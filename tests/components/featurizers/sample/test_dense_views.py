@@ -20,10 +20,10 @@ from drevalpy.components.featurizers.sample.normalized_proteomics import (
 )
 from drevalpy.components.featurizers.sample.pca import PCASampleFeaturizer
 from drevalpy.components.featurizers.sample.pharmaformer_gene_expression import PharmaFormerGeneExpressionFeaturizer
-from drevalpy.components.featurizers.sample.raw import RawSampleFeaturizer
 from drevalpy.components.featurizers.sample.scaled_gene_expression import ScaledGeneExpressionFeaturizer
 from drevalpy.components.featurizers.sample.superfeltr_omics import SuperFELTROmicsFeaturizer
 from drevalpy.components.featurizers.sample.tissue import TissueFeaturizer
+from drevalpy.components.featurizers.sample.view import ViewSampleFeaturizer
 from drevalpy.errors import InvalidInputError
 from drevalpy.types.data.batch.feature_block import BlockSpec
 from tests.components.featurizers._helpers import mock_source, random_views
@@ -53,12 +53,12 @@ def _raw_features() -> MockFeatureSource:
 
 def test_raw_passes_through_view_and_requires_one() -> None:
     features = _raw_features()
-    featurizer = RawSampleFeaturizer(view="gene_expression")
+    featurizer = ViewSampleFeaturizer(view="gene_expression")
     entity_ids = np.array(["cl1", "cl2"], dtype=str)
     featurizer.fit(features, entity_ids)
     np.testing.assert_allclose(featurizer.transform(features, entity_ids).matrix, [[1.0, 2.0], [3.0, 4.0]])
     with pytest.raises(ValueError, match="requires an explicit view"):
-        RawSampleFeaturizer(view="")
+        ViewSampleFeaturizer(view="")
 
 
 def test_view_bound_featurizers_check_usability_on_their_own_view() -> None:
@@ -70,7 +70,7 @@ def test_view_bound_featurizers_check_usability_on_their_own_view() -> None:
     )
     ids = np.array(["cl1", "cl2"])
 
-    for featurizer in (RawSampleFeaturizer(view="methylation"), PCASampleFeaturizer(view="methylation")):
+    for featurizer in (ViewSampleFeaturizer(view="methylation"), PCASampleFeaturizer(view="methylation")):
         np.testing.assert_array_equal(featurizer.valid_mask(features, ids), [False, True])
     np.testing.assert_array_equal(all_nan_rows_mask(features, "gene_expression", ids), [True, False])
 
@@ -79,7 +79,7 @@ def test_raw_gene_list_keeps_the_listed_genes_in_list_order(tmp_path: Path, monk
     use_gene_lists(monkeypatch, tmp_path, {"mine": ["b"]})
     features = _raw_features()
     entity_ids = np.array(["cl1", "cl2"], dtype=str)
-    featurizer = RawSampleFeaturizer(view="mutations", gene_list="mine").fit(features, entity_ids)
+    featurizer = ViewSampleFeaturizer(view="mutations", gene_list="mine").fit(features, entity_ids)
 
     blocks = featurizer.transform(features, entity_ids).blocks
 
@@ -90,7 +90,7 @@ def test_raw_gene_list_keeps_the_listed_genes_in_list_order(tmp_path: Path, monk
 def test_raw_gene_list_raises_when_genes_are_missing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     use_gene_lists(monkeypatch, tmp_path, {"mine": ["a", "z"]})
     with pytest.raises(InvalidInputError, match="lacks 1 of 2 genes in 'mine'"):
-        RawSampleFeaturizer(view="mutations", gene_list="mine").fit(_raw_features(), np.array(["cl1"], dtype=str))
+        ViewSampleFeaturizer(view="mutations", gene_list="mine").fit(_raw_features(), np.array(["cl1"], dtype=str))
 
 
 def _pca_features() -> MockFeatureSource:

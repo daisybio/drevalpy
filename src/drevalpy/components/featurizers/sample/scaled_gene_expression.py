@@ -36,11 +36,14 @@ def rank_transform(matrix: np.ndarray, reference: np.ndarray) -> np.ndarray:
     return np.clip(percentile / max(1, reference.shape[0] - 1), 0.0, 1.0)
 
 
-@register("scaledGeneExpression", description="Gene expression with an arcsinh or rank transform and scaling.")
+@register(
+    "scaledGeneExpression",
+    side=Side.SAMPLE,
+    description="Gene expression with an arcsinh or rank transform and scaling.",
+)
 class ScaledGeneExpressionFeaturizer(Featurizer):
     """Match sklearn baseline gene-expression preprocessing."""
 
-    sides: ClassVar[frozenset[Side]] = frozenset({"sample"})
     input_views: ClassVar[tuple[str, ...]] = ("gene_expression",)
 
     def __init__(

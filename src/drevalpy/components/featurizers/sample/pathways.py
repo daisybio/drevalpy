@@ -17,7 +17,7 @@ from drevalpy.types.data.feature_source import FeatureSource, Side
 from drevalpy.types.data.views import PATHWAYS_GMT_KEY
 
 
-@register("pathways", description="GSVA pathway features computed per-split (set-dependent).")
+@register("pathways", side=Side.SAMPLE, description="GSVA pathway features computed per-split (set-dependent).")
 class PathwaysSampleFeaturizer(Featurizer):
     """Pathways sample featurizer component.
 
@@ -29,7 +29,6 @@ class PathwaysSampleFeaturizer(Featurizer):
     downloads into the cache on first use.
     """
 
-    sides: ClassVar[frozenset[Side]] = frozenset({"sample"})
     input_views: ClassVar[tuple[str, ...]] = ("pathways",)
     source_views: ClassVar[tuple[str, ...]] = ("gene_expression",)
 

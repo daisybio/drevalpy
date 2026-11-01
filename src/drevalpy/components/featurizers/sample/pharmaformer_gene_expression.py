@@ -19,11 +19,10 @@ if TYPE_CHECKING:
 _VIEW = "gene_expression"
 
 
-@register("pharmaFormerGeneExpression", description="Reduced landmark genes scaled for PharmaFormer.")
+@register("pharmaFormerGeneExpression", side=Side.SAMPLE, description="Reduced landmark genes scaled for PharmaFormer.")
 class PharmaFormerGeneExpressionFeaturizer(Featurizer):
     """Apply the PharmaFormer StandardScaler then MinMaxScaler sequence, fitted once per training sample."""
 
-    sides: ClassVar[frozenset[Side]] = frozenset({"sample"})
     input_views: ClassVar[tuple[str, ...]] = (_VIEW,)
 
     def __init__(self, *, gene_list: str | None = None) -> None:

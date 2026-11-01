@@ -20,7 +20,7 @@ from drevalpy.components.featurizers.drug.fingerprints import FingerprintsFeatur
 from drevalpy.components.featurizers.drug.smilesvec import SmilesVecDrugFeaturizer
 from drevalpy.components.featurizers.drug.view import ViewDrugFeaturizer
 from drevalpy.data import artifacts
-from drevalpy.registry.featurizer import featurizers
+from drevalpy.registry.featurizer import featurizer_registry
 from drevalpy.types.data.feature_source import FeatureSource
 from tests._import_shims import block_imports
 from tests.components.featurizers.drug._helpers import DrugSource
@@ -80,8 +80,8 @@ def test_a_stored_view_is_read_in_fitted_column_order(featurizer_cls, view, bloc
 
 
 def test_view_drug_featurizer_is_registered_for_the_drug_side_with_the_morgan_view_default() -> None:
-    assert featurizers.get("view") is ViewDrugFeaturizer
-    assert ViewDrugFeaturizer.sides == frozenset({"drug"})
+    assert featurizer_registry("drug").get("view") is ViewDrugFeaturizer
+    assert ViewDrugFeaturizer.side == "drug"
     assert ViewDrugFeaturizer.input_views == ("morgan_fingerprint",)
     assert ViewDrugFeaturizer.output_blocks({"view": "chemberta"})[0].name == "chemberta"
 

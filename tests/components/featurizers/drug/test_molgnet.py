@@ -16,7 +16,7 @@ from drevalpy.components.featurizers.drug.molgnet_pooled import (
     pool_molgnet,
 )
 from drevalpy.errors import InvalidInputError
-from drevalpy.registry.featurizer import featurizers
+from drevalpy.registry.featurizer import featurizer_registry
 from tests._import_shims import block_imports
 from tests.components.featurizers.drug._helpers import DrugSource
 
@@ -41,10 +41,10 @@ def _record_embeddings(monkeypatch: pytest.MonkeyPatch, embedding: np.ndarray | 
 
 
 def test_both_molgnet_featurizers_are_registered_drug_featurizers() -> None:
-    assert featurizers.get("molgnet") is MolGNetDrugFeaturizer
-    assert featurizers.get("molgnetPooled") is MolGNetPooledFeaturizer
-    assert MolGNetDrugFeaturizer.sides == frozenset({"drug"})
-    assert MolGNetPooledFeaturizer.sides == frozenset({"drug"})
+    assert featurizer_registry("drug").get("molgnet") is MolGNetDrugFeaturizer
+    assert featurizer_registry("drug").get("molgnetPooled") is MolGNetPooledFeaturizer
+    assert MolGNetDrugFeaturizer.side == "drug"
+    assert MolGNetPooledFeaturizer.side == "drug"
 
 
 def test_molgnet_returns_one_ragged_tensor_per_drug() -> None:
