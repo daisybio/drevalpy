@@ -32,7 +32,7 @@ class TestFoldCount:
         result = ModelResult("ElasticNet", "SyntheticDataset", [ordinary, robustness, randomized])
 
         assert result.n_folds == 1
-        assert result.n_runs == 3
+        assert len(result.runs) == 3
         assert result.select_runs() == [ordinary]
         assert result.select_runs(randomization="all", robustness="all") == [ordinary, robustness, randomized]
 

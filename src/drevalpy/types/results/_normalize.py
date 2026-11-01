@@ -6,8 +6,8 @@ from dataclasses import replace
 
 import numpy as np
 
-from drevalpy.evaluation import Metric
-from drevalpy.evaluation._scoring import run_metrics, run_per_group_score
+from drevalpy.evaluation import Metric, evaluate
+from drevalpy.evaluation._scoring import run_per_group_score
 from drevalpy.types.results.run import RunResult
 
 
@@ -44,7 +44,7 @@ def normalize_run(run: RunResult, ref_run: RunResult) -> RunResult:
         run,
         predictions=norm_pred,
         ground_truth=norm_gt,
-        metrics=run_metrics(norm_pred, norm_gt),
+        metrics=evaluate(norm_pred, norm_gt),
         trials=[replace(trial) for trial in run.trials] if run.trials else None,
         raw_metrics=dict(run.metrics),
         raw_per_drug_pearson=run_per_group_score(run, "drug", Metric.PEARSON),

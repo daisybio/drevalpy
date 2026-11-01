@@ -10,7 +10,6 @@ import pytest
 
 from drevalpy.components.contracts.feature_format import FeatureFormat
 from drevalpy.types.data.batch.feature_block import (
-    BlockSpec,
     FeatureBlock,
     FeaturizerResult,
     global_feature_block,
@@ -33,11 +32,6 @@ def test_numeric_feature_block_stores_values_and_format() -> None:
 def test_global_feature_block_is_not_entity_aligned() -> None:
     block = global_feature_block(np.array(["d1", "d2"], dtype=str))
     assert block.entity_aligned is False
-
-
-def test_block_spec_is_entity_aligned_unless_declared_global() -> None:
-    assert BlockSpec("view", FeatureFormat.NUMERIC_MATRIX).entity_aligned is True
-    assert BlockSpec("view", FeatureFormat.NUMERIC_MATRIX, entity_aligned=False).entity_aligned is False
 
 
 def test_feature_block_annotations_are_immutable() -> None:

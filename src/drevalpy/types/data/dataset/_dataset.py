@@ -16,26 +16,24 @@ so only the handful of runtime uses need a function-local import. See
 
 from __future__ import annotations
 
-import copy
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from upath import UPath as Path
 
-from drevalpy.types.enums.randomization import randomization_label
+from drevalpy.types.data.views import TISSUE_IDENTIFIER
+from drevalpy.types.enums.randomization import RandomizationType, randomization_label
 
-from ._dense import to_dense
-from ._feature_access import FeatureAccessMixin
+from ._anndata import layer_names, to_dense
 from ._io import plain_value, stored_randomization
-from ._randomization import RandomizationMixin
-from ._sample_column import SampleColumnMixin
+from ._randomization import randomized_mdata
 
 if TYPE_CHECKING:
     import mudata as md
     import pandas as pd
 
 
-class Dataset(FeatureAccessMixin, RandomizationMixin, SampleColumnMixin):
+class Dataset:
     """Single entry point for all dataset access in drevalpy.
 
     Wraps a MuData object containing a "response" modality (sample x drug
@@ -46,7 +44,8 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, SampleColumnMixin):
 
     Drug features are stored as ``response.varm`` entries, drug graphs in
     ``mdata.uns["drug_graphs"]``, and model-specific auxiliary data in other
-    ``mdata.uns`` keys.
+    ``mdata.uns`` keys. Featurizers read the views through a
+    :class:`~drevalpy.types.data.feature_source.FeatureSource`.
     """
 
     def __init__(
@@ -86,10 +85,10 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, SampleColumnMixin):
         stored_name = mdata.uns.get("dataset_name")
         name = stored_name if isinstance(stored_name, str) else resolved.stem
 
-        if "randomization_provenance" in mdata.uns:
-            mdata.uns["randomization_provenance"] = plain_value(mdata.uns["randomization_provenance"])
-
-        return cls(mdata, name=name, randomization=stored_randomization(mdata.uns))
+        dataset = cls(mdata, name=name, randomization=stored_randomization(mdata.uns))
+        if dataset.randomization_provenance is not None:
+            dataset.randomization_provenance = plain_value(dataset.randomization_provenance)
+        return dataset
 
     def save(self, path: str | Path) -> None:
         """Write this Dataset to an .h5mu file.
@@ -120,6 +119,15 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, SampleColumnMixin):
             self._mdata.uns.pop("randomization", None)
         else:
             self._mdata.uns["randomization"] = list(value)
+
+    @property
+    def randomization_provenance(self) -> dict[str, Any] | None:
+        """Seeds, type and views of the randomization test that built this dataset, or ``None``."""
+        return self._mdata.uns.get("randomization_provenance")
+
+    @randomization_provenance.setter
+    def randomization_provenance(self, value: dict[str, Any]) -> None:
+        self._mdata.uns["randomization_provenance"] = value
 
     @property
     def mdata(self) -> md.MuData:
@@ -178,10 +186,7 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, SampleColumnMixin):
 
         :returns: Layer names of the response modality, in insertion order.
         """
-        # anndata 0.13 yields a spurious ``None`` from ``layers.keys()``, even for
-        # a freshly constructed AnnData with a single layer, so filter to the real
-        # names rather than leaking a non-``str`` into a ``list[str]``.
-        return [name for name in self.response.layers.keys() if isinstance(name, str)]
+        return layer_names(self.response)
 
     # ------------------------------------------------------------------
     # Metadata
@@ -201,81 +206,53 @@ class Dataset(FeatureAccessMixin, RandomizationMixin, SampleColumnMixin):
         :param ids: 1-D array of sample IDs.
         :returns: 1-D array of tissue labels (NaN for unknown IDs).
         """
-        return self.sample_column("tissue", ids)
+        return self.sample_column(TISSUE_IDENTIFIER, ids)
 
-    # ------------------------------------------------------------------
-    # Subsetting
-    # ------------------------------------------------------------------
+    def sample_column(self, column: str, ids: np.ndarray) -> np.ndarray:
+        """Return one ``obs`` column for the given sample IDs.
 
-    def subset_samples(self, ids: np.ndarray) -> Dataset:
-        """Return a new Dataset restricted to the given samples.
-
-        Only keeps samples present in the response modality. Other modalities
-        are also subset to their intersection with *ids*.
-
-        :param ids: 1-D array of sample IDs to keep.
-        :returns: Independent Dataset containing the selected samples.
+        :param column: Name of a column of the sample metadata (``obs``), such as
+            ``"tissue"`` or ``"study"``.
+        :param ids: 1-D array of sample IDs.
+        :returns: 1-D array with one value per requested ID, in the order of *ids*.
+            IDs that are not samples of this dataset give NaN.
+        :raises KeyError: If *column* is not in ``obs``; the message lists the available columns.
         """
-        import mudata as md
-
-        ids = np.asarray(ids, dtype=str)
-        response_mask = np.isin(self.response.obs_names, ids)
-        kept_samples = self.response.obs_names[response_mask]
-
-        new_mods = {
-            name: adata[np.isin(adata.obs_names, kept_samples)].copy() for name, adata in self._mdata.mod.items()
-        }
-
-        with md.set_options(pull_on_update=False):
-            new_mdata = md.MuData(new_mods)
-        new_mdata.obs = self._mdata.obs.loc[self._mdata.obs.index.isin(kept_samples)].copy()
-        new_mdata.uns.update(copy.deepcopy(dict(self._mdata.uns)))
-        return Dataset(new_mdata, name=self.name, randomization=self.randomization)
-
-    def subset_drugs(self, ids: np.ndarray) -> Dataset:
-        """Return a new Dataset restricted to the given drugs.
-
-        Only the response modality has a drug axis; it is subset on var.
-        Other modalities (sample features) are kept unchanged.
-
-        :param ids: 1-D array of PubChem drug IDs to keep.
-        :returns: Independent Dataset containing the selected drugs.
-        """
-        import mudata as md
-
-        ids = np.asarray(ids, dtype=str)
-        drug_mask = np.isin(self.response.var_names, ids)
-
-        new_mods = {
-            name: adata[:, drug_mask].copy() if name == "response" else adata.copy()
-            for name, adata in self._mdata.mod.items()
-        }
-
-        with md.set_options(pull_on_update=False):
-            new_mdata = md.MuData(new_mods)
-        new_mdata.obs = self._mdata.obs.copy()
-        new_uns = copy.deepcopy(dict(self._mdata.uns))
-        graphs = new_uns.get("drug_graphs")
-        if isinstance(graphs, dict):
-            retained_drugs = set(map(str, new_mods["response"].var_names))
-            new_uns["drug_graphs"] = {drug_id: graph for drug_id, graph in graphs.items() if drug_id in retained_drugs}
-        new_mdata.uns.update(new_uns)
-        return Dataset(new_mdata, name=self.name, randomization=self.randomization)
+        obs = self._mdata.obs
+        if column not in obs.columns:
+            raise KeyError(f"Sample column '{column}' not found. Available: {list(obs.columns)}")
+        return obs[column].reindex(np.asarray(ids, dtype=str)).to_numpy()
 
     # ------------------------------------------------------------------
-    # Auxiliary data
+    # Randomization
     # ------------------------------------------------------------------
 
-    def get_uns(self, key: str) -> Any:
-        """Access arbitrary data from mdata.uns.
+    def with_randomized_views(
+        self,
+        views: list[str],
+        randomization_type: RandomizationType = RandomizationType.PERMUTATION,
+        random_state: int | None = None,
+        *,
+        randomization: tuple[str, str] | None = None,
+    ) -> Dataset:
+        """Return a copy of this Dataset with specified views randomized.
 
-        :param key: Key in the uns dict.
-        :returns: The stored value.
-        :raises KeyError: If the key does not exist.
+        For sample views (modalities or obsm keys), rows are permuted across
+        samples. For drug views (varm keys), rows are permuted across drugs.
+        For uns dict keys, values are reassigned to shuffled keys.
+
+        Raises ``KeyError`` if a view is not found in any storage location.
+
+        :param views: View names to randomize.
+        :param randomization_type: ``permutation`` shuffles rows; ``invariant`` replaces
+            each row with a random draw matching its mean and std. A value that is
+            not a :class:`RandomizationType` is rejected.
+        :param random_state: Seed for reproducibility.
+        :param randomization: Optional (mode, view) tuple to attach to the new dataset.
+        :returns: A new Dataset with the specified views randomized.
         """
-        if key not in self._mdata.uns:
-            raise KeyError(f"uns key '{key}' not found. Available: {list(self._mdata.uns.keys())}")
-        return self._mdata.uns[key]
+        new_mdata = randomized_mdata(self._mdata, views, RandomizationType(randomization_type), random_state)
+        return Dataset(new_mdata, name=self.name, randomization=randomization)
 
     # ------------------------------------------------------------------
     # Dunder methods

@@ -1,251 +1,222 @@
 """Feature access for featurizers: one :class:`FeatureSource` per entity side of a dataset.
 
-A ``FeatureSource(dataset, side, entity_ids)`` reads the views of one side: sample views are
-MuData modalities (plus ``pathway_features`` in ``response.obsm`` and ``tissue`` in the sample
-metadata), drug views are ``response.varm`` keys (plus ``canonical_smiles`` in ``response.var``
-and ``drug_graph`` in ``mdata.uns``). The side is a value, so one class serves both.
+A ``FeatureSource(dataset, side)`` is the only way a featurizer reads a dataset. Its views by
+side:
 
-Pre-computed featurizer outputs ("stored variants") belong to the data layer too:
-:meth:`FeatureSource.stored` reads them and :func:`store_variant` writes them. Each side keeps
-a JSON variant registry in ``mdata.uns`` mapping a featurizer's storage key to
-``{stored_key: hyperparameters}``; the matrix under ``stored_key`` is a MuData modality or,
-failing that, ``response.varm`` (drug side) or ``response.obsm`` (sample side).
+- sample: dense views are MuData modalities (looked up through
+  :func:`~drevalpy.types.data.views.find_view`) or, when no modality has the name,
+  ``response.obsm`` keys such as ``pathway_features``; :meth:`FeatureSource.tissue` reads the
+  ``tissue`` column of the sample metadata.
+- drug: dense views are ``response.varm`` keys; :meth:`FeatureSource.smiles` reads the
+  ``canonical_smiles`` column of ``response.var`` and :meth:`FeatureSource.graphs` the graphs in
+  ``mdata.uns["drug_graphs"]``.
+
+Dense views come back as float32 rows aligned to the requested IDs, NaN rows for unknown IDs.
+
+A view written by :func:`drevalpy.data.precompute.precompute` has the settings it was computed
+with recorded under :data:`PRECOMPUTED_VIEWS_KEY` in ``mdata.uns``;
+:meth:`FeatureSource.view_settings` reads them.
 """
 
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 
+from drevalpy.errors import InvalidInputError
 from drevalpy.types.data.dataset import Dataset
+from drevalpy.types.data.dataset._anndata import to_dense
 from drevalpy.types.data.dataset.aligned_fetch import aligned_fetch
+from drevalpy.types.data.views import (
+    DRUG_GRAPH_VIEW,
+    DRUG_GRAPHS_KEY,
+    EXPRESSION_UNIT_KEY,
+    SMILES_COLUMN,
+    TISSUE_IDENTIFIER,
+    find_view,
+    public_view_name,
+)
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 Side = Literal["sample", "drug"]
 
-_VARIANTS_UNS_KEYS: dict[Side, str] = {
-    "sample": "sample_featurizer_variants",
-    "drug": "drug_featurizer_variants",
-}
+_SIDES: tuple[Side, ...] = ("sample", "drug")
+
+#: ``mdata.uns`` key of the settings of precomputed views, a JSON object ``{side: {view: settings}}``.
+PRECOMPUTED_VIEWS_KEY = "precomputed_views"
 
 
-def _variant_registry(mdata: Any, side: Side) -> dict[str, dict[str, dict[str, Any]]]:
-    """Return the variant registry of *side*: ``{storage_key: {stored_key: hyperparameters}}``.
+def precomputed_views(mdata: Any) -> dict[str, dict[str, dict[str, Any]]]:
+    """Return the recorded settings of the precomputed views of *mdata*: ``{side: {view: settings}}``.
 
-    :param mdata: MuData whose ``uns`` holds the registry.
-    :param side: Side whose registry is read.
-    :returns: The registry, empty when none is stored.
+    :param mdata: MuData whose ``uns`` holds the record.
+    :returns: The record, empty when nothing is recorded.
     """
-    raw = mdata.uns.get(_VARIANTS_UNS_KEYS[side])
+    raw = mdata.uns.get(PRECOMPUTED_VIEWS_KEY)
     if raw is None:
         return {}
     return json.loads(raw) if isinstance(raw, str) else dict(raw)
 
 
-def _variant_key(mdata: Any, side: Side, storage_key: str, params: Mapping[str, Any] | None) -> str | None:
-    """Return the stored key of the variant of *storage_key* computed with *params*.
-
-    :param mdata: MuData whose ``uns`` holds the variant registry.
-    :param side: Side whose registry is read.
-    :param storage_key: Featurizer storage key the variants are filed under.
-    :param params: Hyperparameters the variant must have been computed with; ``None`` matches ``{}``.
-    :returns: The stored key, or ``None`` when no variant matches.
-    """
-    target = dict(params or {})
-    for key, variant_params in _variant_registry(mdata, side).get(storage_key, {}).items():
-        if variant_params == target:
-            return key
-    return None
-
-
-def store_variant(
-    dataset: Dataset,
-    side: Side,
-    storage_key: str,
-    matrix: np.ndarray,
-    params: Mapping[str, Any] | None = None,
-) -> str:
-    """Store a pre-computed featurizer output so :meth:`FeatureSource.stored` finds it.
-
-    The matrix goes to ``response.obsm`` (sample side, rows in ``response.obs_names`` order) or
-    ``response.varm`` (drug side, rows in ``response.var_names`` order) under a new indexed key,
-    which is filed under *storage_key* with *params* in the side's variant registry.
-
-    :param dataset: Dataset that receives the matrix.
-    :param side: Side of the featurizer that computed *matrix*.
-    :param storage_key: Featurizer storage key the variant is filed under.
-    :param matrix: Output with one row per sample (or drug) of the response modality.
-    :param params: Hyperparameters *matrix* was computed with; ``None`` files it as ``{}``.
-    :returns: The key the matrix is stored under.
-    """
-    mdata = dataset.mdata
-    registry = _variant_registry(mdata, side)
-    variants = registry.setdefault(storage_key, {})
-    safe_key = storage_key.replace("[", "_").replace("]", "").replace(":", "_")
-    stored_key = f"{safe_key}_{len(variants)}"
-    response = mdata.mod["response"]
-    if side == "drug":
-        response.varm[stored_key] = matrix
-    else:
-        response.obsm[stored_key] = matrix
-    variants[stored_key] = dict(params or {})
-    mdata.uns[_VARIANTS_UNS_KEYS[side]] = json.dumps(registry)
-    return stored_key
-
-
-def _aligned(names: Any, data: Any, entity_ids: np.ndarray) -> np.ndarray:
-    """Return the rows of *data* for *entity_ids*, NaN for IDs not in *names*.
-
-    :param names: Row names of *data*.
-    :param data: Stored matrix.
-    :param entity_ids: Entity IDs in the order the rows are wanted.
-    :returns: Float32 matrix with one row per ID.
-    """
-    import pandas as pd
-
-    return aligned_fetch(
-        pd.Index(names),
-        np.asarray(entity_ids, dtype=str),
-        np.asarray(data),
-        strict=False,
-        entity_label="entity",
-    )
-
-
 class FeatureSource:
     """The views of one entity side of a dataset, as featurizers read them."""
 
-    def __init__(self, dataset: Dataset, side: Side, entity_ids: np.ndarray) -> None:
+    def __init__(self, dataset: Dataset, side: Side) -> None:
         """Wrap *dataset* for feature access on *side*.
 
         :param dataset: The backing dataset.
         :param side: ``"sample"`` or ``"drug"``.
-        :param entity_ids: Entity IDs this source exposes.
         :raises ValueError: If *side* is not ``"sample"`` or ``"drug"``.
         """
-        if side not in _VARIANTS_UNS_KEYS:
+        if side not in _SIDES:
             msg = f"Unknown feature source side {side!r}. Available: drug, sample"
             raise ValueError(msg)
         self.side: Side = side
         self._dataset = dataset
-        self._ids = np.asarray(entity_ids, dtype=str)
 
-    @property
-    def identifiers(self) -> np.ndarray:
-        """All available entity IDs."""
-        return self._ids
-
-    @property
-    def mdata(self) -> Any:
-        """Underlying MuData object."""
-        return self._dataset.mdata
-
-    def get_metadata(self, key: str) -> Any:
-        """Return arbitrary metadata from the underlying Dataset.
-
-        :param key: ``mdata.uns`` key.
-        :returns: The stored value.
-        """
-        return self._dataset.get_uns(key)
-
-    def has_view(self, view: str) -> bool:
-        """Return whether the dataset holds *view* for this side.
-
-        Sample views: modality names, ``"pathway_features"`` (``response.obsm``) and ``"tissue"``
-        (sample metadata). Drug views: ``response.varm`` keys, ``"canonical_smiles"`` (a
-        ``response.var`` column) and ``"drug_graph"`` (graphs in ``mdata.uns``).
-
-        :param view: View name.
-        :returns: ``True`` when *view* can be read from this source.
-        """
-        if self.side == "sample":
-            if view == "pathway_features":
-                return "pathway_features" in self._dataset.response.obsm
-            if view == "tissue":
-                return "tissue" in self._dataset.sample_meta.columns
-        else:
-            if view == "canonical_smiles":
-                return "canonical_smiles" in self._dataset.response.var.columns
-            if view == "drug_graph":
-                return "drug_graphs" in self._dataset.mdata.uns
-        return self.get_feature_names(view) is not None
-
-    def stored(self, key: str, params: Mapping[str, Any] | None, ids: np.ndarray) -> np.ndarray | None:
-        """Return a pre-computed featurizer output for *ids*, if the dataset stores one.
-
-        :param key: Featurizer storage key the variants are filed under.
-        :param params: Hyperparameters the stored variant must match; ``None`` matches the
-            parameter-free variant.
-        :param ids: Entity IDs to align the stored rows to.
-        :returns: Float32 matrix with one row per ID (NaN for IDs the variant lacks), or ``None``
-            when the source has no MuData or no variant matches.
-        """
-        mdata = self.mdata
-        if mdata is None:
-            return None
-        stored_key = _variant_key(mdata, self.side, key, params)
-        if stored_key is None:
-            return None
-        if stored_key in mdata.mod:
-            modality = mdata.mod[stored_key]
-            return _aligned(modality.obs_names, modality.X, ids)
-        response = mdata.mod.get("response")
-        if response is None:
-            return None
+    def _dense(self, name: str) -> tuple[Any, np.ndarray] | None:
+        """Return the entity index and the matrix of dense view *name*, or ``None`` if this side lacks it."""
+        mdata = self._dataset.mdata
+        response = self._dataset.response
         if self.side == "drug":
-            if response.varm is None or stored_key not in response.varm:
+            if name not in (response.varm or {}):
                 return None
-            return _aligned(response.var_names, response.varm[stored_key], ids)
-        if response.obsm is None or stored_key not in response.obsm:
-            return None
-        return _aligned(response.obs_names, response.obsm[stored_key], ids)
+            return response.var_names, response.varm[name]
+        stored = find_view(name, mdata.mod)
+        if stored is not None:
+            return mdata.mod[stored].obs_names, mdata.mod[stored].X
+        if name in response.obsm:
+            return response.obs_names, response.obsm[name]
+        return None
 
-    def get_view_matrix(self, view: str, entity_ids: np.ndarray) -> np.ndarray:
-        """Return the ``(len(entity_ids), n_features)`` matrix of a dense numeric view.
+    def has_view(self, name: str) -> bool:
+        """Return whether the dataset holds view *name* for this side.
 
-        :param view: View name.
-        :param entity_ids: Entity IDs, in row order.
+        Besides the dense views, the sample side has ``"tissue"`` (sample metadata) and the drug
+        side ``"canonical_smiles"`` (a ``response.var`` column) and ``"drug_graph"`` (graphs in
+        ``mdata.uns``).
+
+        :param name: View name.
+        :returns: ``True`` when *name* can be read from this source.
+        """
+        if self.side == "sample" and name == TISSUE_IDENTIFIER:
+            return TISSUE_IDENTIFIER in self._dataset.sample_meta.columns
+        if self.side == "drug" and name == SMILES_COLUMN:
+            return SMILES_COLUMN in self._dataset.response.var.columns
+        if self.side == "drug" and name == DRUG_GRAPH_VIEW:
+            return DRUG_GRAPHS_KEY in self._dataset.mdata.uns
+        return self._dense(name) is not None
+
+    def view(self, name: str, ids: np.ndarray) -> np.ndarray:
+        """Return the ``(len(ids), n_features)`` float32 matrix of dense view *name*.
+
+        :param name: View name.
+        :param ids: Entity IDs, in row order; an ID the view lacks gets a NaN row and a warning.
         :returns: One row per ID.
+        :raises KeyError: If this side has no dense view *name*.
+        :raises InvalidInputError: If the drug view is an object array of per-drug arrays (such as ragged
+            MolGNet node features), which has no matrix form.
         """
-        if self.side == "sample":
-            return self._dataset.get_sample_features(view, entity_ids)
-        return self._dataset.get_drug_features(view, entity_ids)
+        import pandas as pd
 
-    def get_feature_names(self, view: str) -> tuple[str, ...] | None:
-        """Return the ordered feature names of a view.
+        found = self._dense(name)
+        if found is None:
+            if self.side == "drug":
+                available = sorted(self._dataset.response.varm or ())
+            else:
+                available = sorted(public_view_name(key) for key in self._dataset.mdata.mod)
+            raise KeyError(f"{self.side.capitalize()} view '{name}' not found. Available: {available}")
+        index, data = found
+        data = np.asarray(to_dense(data))
+        if data.dtype == object:
+            try:
+                data = data.astype(np.float32)
+            except (ValueError, TypeError) as err:
+                msg = (
+                    f"View '{name}' is an object array (one array per entity, such as ragged per-atom node "
+                    "features) and cannot be read as a (n_entities, n_features) matrix. A .h5mu file cannot "
+                    "store such a view; remove the key so the featurizer computes it from the SMILES instead."
+                )
+                raise InvalidInputError(msg) from err
+        return aligned_fetch(pd.Index(index), np.asarray(ids, dtype=str), data, strict=False, entity_label=self.side)
 
-        :param view: View name.
-        :returns: Column names, or ``None`` when the view has none.
+    def feature_names(self, name: str) -> tuple[str, ...] | None:
+        """Return the ordered feature names of dense view *name*.
+
+        :param name: View name.
+        :returns: Column names (positions as strings for an unnamed drug view), or ``None`` when the view is
+            absent or, as for ``response.obsm`` views, has no names.
         """
-        if self.side == "sample":
-            return self._dataset.get_sample_feature_names(view)
-        return self._dataset.get_drug_feature_names(view)
+        if self.side == "drug":
+            data = (self._dataset.response.varm or {}).get(name)
+            if data is None:
+                return None
+            if hasattr(data, "columns"):
+                return tuple(data.columns.astype(str))
+            return tuple(str(i) for i in range(data.shape[1]))
+        stored = find_view(name, self._dataset.mdata.mod)
+        return None if stored is None else tuple(self._dataset.mdata.mod[stored].var_names)
 
-    def get_entity_view(self, entity_id: str, view: str) -> Any:
-        """Return the raw value of *view* for one entity.
+    def view_settings(self, name: str) -> dict[str, Any] | None:
+        """Return the settings view *name* was precomputed with, or ``None`` when none are recorded.
 
-        ``"tissue"`` (sample) and ``"drug_graph"`` (drug) give the tissue label and the graph
-        dict, ``None`` when the dataset lacks them; other views give the entity's feature vector
-        (``None`` for a drug view the dataset lacks).
-
-        :param entity_id: Entity ID.
-        :param view: View name.
-        :returns: The per-entity value.
+        :param name: View name.
+        :returns: The recorded settings; ``None`` for a view the dataset ships without a record.
         """
-        ids = np.array([entity_id])
-        if self.side == "sample":
-            if view == "tissue":
-                try:
-                    return self._dataset.get_tissue(ids)[0]
-                except KeyError:
-                    return None
-            return self._dataset.get_sample_features(view, ids)[0]
-        if view == "drug_graph":
-            graphs = self._dataset.get_drug_graphs(ids)
-            return graphs[0] if graphs else None
-        try:
-            return self._dataset.get_drug_features(view, ids)[0]
-        except KeyError:
+        return precomputed_views(self._dataset.mdata).get(self.side, {}).get(name)
+
+    def expression_unit(self, name: str) -> str | None:
+        """Return the ``expression_unit`` recorded in the ``uns`` of sample view *name*.
+
+        :param name: View name.
+        :returns: The unit, or ``None`` when the view is absent or records none.
+        """
+        stored = find_view(name, self._dataset.mdata.mod)
+        if stored is None:
             return None
+        unit = self._dataset.mdata.mod[stored].uns.get(EXPRESSION_UNIT_KEY)
+        return None if unit is None else str(unit)
+
+    def smiles(self, ids: np.ndarray) -> pd.Series | None:
+        """Return the canonical SMILES of the drugs *ids*.
+
+        :param ids: Drug IDs.
+        :returns: SMILES indexed by *ids* (NaN for unknown drugs), or ``None`` when the dataset has none.
+        """
+        var = self._dataset.response.var
+        if SMILES_COLUMN not in var.columns:
+            return None
+        return var[SMILES_COLUMN].reindex(ids)
+
+    def graphs(self, ids: np.ndarray) -> list[dict[str, np.ndarray] | None]:
+        """Return the stored graph of every drug in *ids*.
+
+        Each graph dict has the keys ``"x"``, ``"edge_index"`` and ``"edge_attr"``.
+
+        :param ids: Drug IDs.
+        :returns: One graph per ID, ``None`` for a drug without one (every drug when none are stored).
+        """
+        graphs = self._dataset.mdata.uns.get(DRUG_GRAPHS_KEY, {})
+        return [graphs.get(drug_id) for drug_id in np.asarray(ids, dtype=str)]
+
+    def tissue(self, ids: np.ndarray) -> np.ndarray | None:
+        """Return the tissue label of every sample in *ids*.
+
+        :param ids: Sample IDs.
+        :returns: One label per ID (NaN for unknown samples), or ``None`` when the dataset has no tissues.
+        """
+        if TISSUE_IDENTIFIER not in self._dataset.sample_meta.columns:
+            return None
+        return self._dataset.get_tissue(ids)
+
+    def uns(self, key: str) -> Any:
+        """Return the dataset-level auxiliary value stored under *key* in ``mdata.uns``.
+
+        :param key: ``mdata.uns`` key, such as ``"pathways_gmt"`` or ``"sparsego"``.
+        :returns: The stored value, or ``None`` when the dataset has none.
+        """
+        return self._dataset.mdata.uns.get(key)

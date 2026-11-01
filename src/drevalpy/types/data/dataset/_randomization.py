@@ -1,4 +1,4 @@
-"""Mixin providing view randomization for Dataset."""
+"""View randomization behind :meth:`Dataset.with_randomized_views`."""
 
 from __future__ import annotations
 
@@ -11,12 +11,10 @@ from drevalpy.log import get_logger
 from drevalpy.types.data.views import find_view
 from drevalpy.types.enums.randomization import RandomizationType
 
-from ._dense import to_dense
+from ._anndata import to_dense
 
 if TYPE_CHECKING:
     import mudata as md
-
-    from drevalpy.types.data.dataset import Dataset
 
 logger = get_logger(__name__)
 
@@ -130,60 +128,31 @@ def _randomize_single_view(
         raise KeyError(f"View '{view}' not found in any storage location of the dataset.")
 
 
-class RandomizationMixin:
-    """Mixin that provides view randomization for Dataset.
+def randomized_mdata(
+    mdata: md.MuData, views: list[str], randomization_type: RandomizationType, random_state: int | None
+) -> md.MuData:
+    """Return a copy of *mdata* with *views* randomized; see :meth:`Dataset.with_randomized_views`.
 
-    Expects ``self._mdata`` to be a MuData object and ``self.name`` to be the dataset name.
+    :param mdata: MuData to copy.
+    :param views: View names to randomize.
+    :param randomization_type: How to randomize.
+    :param random_state: Seed for reproducibility.
+    :returns: The randomized copy, with the ``obs`` and ``uns`` of *mdata*.
     """
+    import mudata as md
 
-    _mdata: md.MuData
-    name: str
+    rng = np.random.default_rng(random_state)
+    new_mods: dict[str, md.AnnData] = {name: adata.copy() for name, adata in mdata.mod.items()}
+    new_uns: dict[str, Any] = {
+        key: copy.deepcopy(val) if isinstance(val, dict) else val for key, val in mdata.uns.items()
+    }
 
-    def with_randomized_views(
-        self,
-        views: list[str],
-        randomization_type: RandomizationType = RandomizationType.PERMUTATION,
-        random_state: int | None = None,
-        *,
-        randomization: tuple[str, str] | None = None,
-    ) -> Dataset:
-        """Return a copy of this Dataset with specified views randomized.
+    for view in views:
+        _randomize_single_view(view, new_mods, new_uns, rng, randomization_type)
 
-        For sample views (modalities or obsm keys), rows are permuted across
-        samples. For drug views (varm keys), rows are permuted across drugs.
-        For uns dict keys, values are reassigned to shuffled keys.
-
-        Raises ``KeyError`` if a view is not found in any storage location.
-
-        :param views: View names to randomize.
-        :param randomization_type: ``permutation`` shuffles rows; ``invariant`` replaces
-            each row with a random draw matching its mean and std. A value that is
-            not a :class:`RandomizationType` is rejected.
-        :param random_state: Seed for reproducibility.
-        :param randomization: Optional (mode, view) tuple to attach to the new dataset.
-        :returns: A new Dataset with the specified views randomized.
-        """
-        import mudata as md
-
-        from drevalpy.types.data.dataset import Dataset as DatasetCls
-
-        randomization_type = RandomizationType(randomization_type)
-        rng = np.random.default_rng(random_state)
-
-        new_mods: dict[str, md.AnnData] = {}
-        for mod_name, mod_adata in self._mdata.mod.items():
-            new_mods[mod_name] = mod_adata.copy()
-
-        new_uns: dict[str, Any] = {
-            key: copy.deepcopy(val) if isinstance(val, dict) else val for key, val in self._mdata.uns.items()
-        }
-
-        for view in views:
-            _randomize_single_view(view, new_mods, new_uns, rng, randomization_type)
-
-        with md.set_options(pull_on_update=False):
-            new_mdata = md.MuData(new_mods)
-        new_mdata.obs = self._mdata.obs.copy()
-        for key, val in new_uns.items():
-            new_mdata.uns[key] = val
-        return DatasetCls(new_mdata, name=self.name, randomization=randomization)
+    with md.set_options(pull_on_update=False):
+        new_mdata = md.MuData(new_mods)
+    new_mdata.obs = mdata.obs.copy()
+    for key, val in new_uns.items():
+        new_mdata.uns[key] = val
+    return new_mdata

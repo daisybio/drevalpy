@@ -18,14 +18,10 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class BlockSpec:
-    """Declare a named block emitted by a featurizer for compatibility checks.
-
-    ``entity_aligned=False`` declares a global block, stored once rather than per entity.
-    """
+    """Declare a named block emitted by a featurizer for compatibility checks."""
 
     name: str
     format: FeatureFormat
-    entity_aligned: bool = True
 
 
 @dataclass(frozen=True)

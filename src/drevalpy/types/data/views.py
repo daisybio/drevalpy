@@ -10,6 +10,9 @@ are told to) are read too. :func:`stored_view_name` is the name written into new
 files and :func:`public_view_name` its inverse, for messages and listings. All three
 pass a name that is not in the map through unchanged, so custom matrices and
 non-omics views keep working.
+
+The constants below are the one spelling of every other storage name a reader of the
+MuData needs: the ``obs`` and ``var`` columns and the ``uns`` keys.
 """
 
 from __future__ import annotations
@@ -17,6 +20,21 @@ from __future__ import annotations
 from collections.abc import Container
 from types import MappingProxyType
 from typing import Final
+
+#: Column of the sample metadata (``mdata.obs``) holding the tissue label; also its view name.
+TISSUE_IDENTIFIER: Final = "tissue"
+#: Column of ``response.var`` holding each drug's canonical SMILES; also its view name.
+SMILES_COLUMN: Final = "canonical_smiles"
+#: View name of the drug graphs, which are stored under :data:`DRUG_GRAPHS_KEY`.
+DRUG_GRAPH_VIEW: Final = "drug_graph"
+#: ``mdata.uns`` key of the drug graphs, ``{drug_id: {"x", "edge_index", "edge_attr"}}``.
+DRUG_GRAPHS_KEY: Final = "drug_graphs"
+#: ``mdata.uns`` key of the pathway gene sets, as GMT text.
+PATHWAYS_GMT_KEY: Final = "pathways_gmt"
+#: ``mdata.uns`` key of the SparseGO ontology mapping.
+SPARSEGO_KEY: Final = "sparsego"
+#: Key in the ``uns`` of an expression modality naming its unit, such as ``log2_tpm_plus_1``.
+EXPRESSION_UNIT_KEY: Final = "expression_unit"
 
 _STORED_NAMES: Final = MappingProxyType({"copy_number_variation_gistic": "copy_number_variation"})
 _PUBLIC_NAMES: Final = MappingProxyType({stored: public for public, stored in _STORED_NAMES.items()})

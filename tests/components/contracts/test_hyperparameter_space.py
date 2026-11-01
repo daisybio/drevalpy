@@ -7,6 +7,7 @@ from pydantic import ValidationError
 
 from drevalpy.components.contracts.hyperparameter_space import (
     TunableComponent,
+    admits,
     default_values,
     fixed_entries,
     is_fixed,
@@ -151,3 +152,79 @@ def test_fixed_entries_have_defaults_but_are_not_tunable() -> None:
     assert [name for name, spec in space.items() if is_fixed(spec)] == ["seed", "solver"]
     assert tunable_entries(space) == {"alpha": space["alpha"]}
     assert default_values(space, context="unit-test") == {"alpha": 0.5, "seed": 0, "solver": None}
+
+
+_INT = {"type": "int", "low": 2, "high": 5, "default": 3}
+_FLOAT = {"type": "float", "low": 0.1, "high": 0.5, "default": 0.2}
+_POW2 = {"type": "pow2", "low": 8, "high": 11, "default": 256}
+_LAYERS = {"type": "categorical", "choices": [[4, 2], (8, 4)], "default": [4, 2]}
+
+
+@pytest.mark.parametrize(
+    ("spec", "value", "expected"),
+    [
+        pytest.param(_INT, 3, True, id="int-inside"),
+        pytest.param(_INT, 2, True, id="int-low-edge"),
+        pytest.param(_INT, 5, True, id="int-high-edge"),
+        pytest.param(_INT, 1, False, id="int-below"),
+        pytest.param(_INT, 6, False, id="int-above"),
+        pytest.param(_INT, 3.0, False, id="int-given-a-float"),
+        pytest.param(_INT, True, False, id="int-given-a-bool"),
+        pytest.param(_FLOAT, 0.3, True, id="float-inside"),
+        pytest.param(_FLOAT, 0.1, True, id="float-low-edge"),
+        pytest.param(_FLOAT, 0.5, True, id="float-high-edge"),
+        pytest.param(_FLOAT, 0.05, False, id="float-below"),
+        pytest.param(_FLOAT, 0.6, False, id="float-above"),
+        pytest.param({**_FLOAT, "low": 0, "high": 2}, 1, True, id="float-given-an-int"),
+        pytest.param({**_FLOAT, "low": 0, "high": 2}, True, False, id="float-given-a-bool"),
+        pytest.param(_FLOAT, "0.3", False, id="float-given-a-string"),
+        pytest.param(_POW2, 256, True, id="pow2-low-edge"),
+        pytest.param(_POW2, 2048, True, id="pow2-high-edge"),
+        pytest.param(_POW2, 512, True, id="pow2-inside"),
+        pytest.param(_POW2, 128, False, id="pow2-below"),
+        pytest.param(_POW2, 4096, False, id="pow2-above"),
+        pytest.param(_POW2, 300, False, id="pow2-not-a-power"),
+        pytest.param(_POW2, 0, False, id="pow2-zero"),
+        pytest.param(_POW2, -256, False, id="pow2-negative"),
+        pytest.param(_POW2, 8, False, id="pow2-given-the-exponent"),
+        pytest.param({"type": "pow2", "default": 1}, True, False, id="pow2-given-a-bool"),
+        pytest.param(_LAYERS, [4, 2], True, id="categorical-list"),
+        pytest.param(_LAYERS, (4, 2), True, id="categorical-tuple-matches-list"),
+        pytest.param(_LAYERS, [8, 4], True, id="categorical-list-matches-tuple"),
+        pytest.param(_LAYERS, [2, 2], False, id="categorical-outside"),
+        pytest.param({"type": "categorical", "choices": ["a", "b"], "default": "a"}, "c", False, id="categorical-str"),
+        pytest.param({"choices": [1, 2], "default": 1}, 3, False, id="categorical-is-the-default-type"),
+        pytest.param({"type": "fixed", "default": 5}, 10_000, True, id="fixed-admits-anything"),
+        pytest.param(5, "anything", True, id="non-mapping-admits-anything"),
+        pytest.param({"type": "int", "default": 3}, -100, True, id="int-without-bounds"),
+        pytest.param({"type": "int", "low": 2, "default": 3}, 10**9, True, id="int-without-high"),
+        pytest.param({"type": "int", "low": 2, "default": 3}, 1, False, id="int-with-only-low"),
+        pytest.param({"type": "float", "high": 1.0, "default": 0.5}, -5.0, True, id="float-without-low"),
+        pytest.param({"type": "pow2", "default": 4}, 2**20, True, id="pow2-without-bounds"),
+        pytest.param({"type": "categorical", "default": "x"}, "y", True, id="categorical-without-choices"),
+    ],
+)
+def test_admits(spec, value, expected: bool) -> None:
+    assert admits(spec, value) is expected
+
+
+@pytest.mark.parametrize(
+    "spec",
+    [
+        pytest.param({"type": "int", "low": 50, "high": 200, "default": 10}, id="int"),
+        pytest.param({"type": "float", "low": 0.1, "high": 0.5, "default": 1.0}, id="float"),
+        pytest.param({"type": "pow2", "low": 9, "high": 11, "default": 256}, id="pow2"),
+        pytest.param({"type": "categorical", "choices": [[4, 2]], "default": [2, 2]}, id="categorical"),
+    ],
+)
+def test_validate_hyperparameter_space_rejects_a_default_outside_its_entry(spec) -> None:
+    with pytest.raises(ValueError, match="'default' outside the range or choices for 'knob'"):
+        validate_hyperparameter_space({"knob": spec}, context="unit-test")
+
+
+def test_configs_reject_a_default_outside_the_space() -> None:
+    with pytest.raises(ValidationError, match="'default' outside the range or choices for 'alpha'"):
+        PredictorConfig(
+            name="elasticNet",
+            hyperparameter_space={"alpha": {"type": "float", "low": 0.1, "high": 1.0, "default": 5.0}},
+        )

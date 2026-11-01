@@ -9,7 +9,7 @@ import numpy as np
 
 if TYPE_CHECKING:
     from drevalpy.types.data.dataset import Dataset
-    from drevalpy.types.data.split_mask import SplitMask
+    from drevalpy.types.data.pair_mask import PairMask
 
 
 @dataclass(frozen=True, slots=True)
@@ -28,7 +28,7 @@ class ResponseBatch:
     def from_dataset(
         cls,
         dataset: Dataset,
-        scope: SplitMask,
+        scope: PairMask,
         *,
         observed_only: bool = False,
     ) -> ResponseBatch:

@@ -1,13 +1,14 @@
-"""Densification of the matrices AnnData hands out."""
+"""Reading an AnnData: densified matrices and real layer names."""
 
 from __future__ import annotations
 
+import anndata as ad
 import numpy as np
 import pandas as pd
 import pytest
 from scipy import sparse
 
-from drevalpy.types.data.dataset._dense import to_dense
+from drevalpy.types.data.dataset._anndata import layer_names, to_dense
 
 
 class TestSparseInput:
@@ -59,3 +60,12 @@ class TestDenseInput:
     )
     def test_objects_without_toarray_pass_through(self, value):
         assert to_dense(value) is value
+
+
+class TestLayerNames:
+    def test_only_the_named_layers_in_insertion_order(self):
+        adata = ad.AnnData(X=np.zeros((1, 1), dtype=np.float32))
+        adata.layers["b"] = adata.X
+        adata.layers["a"] = adata.X
+
+        assert layer_names(adata) == ["b", "a"]
