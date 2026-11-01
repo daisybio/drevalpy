@@ -177,10 +177,10 @@ def single_drug_omics_batch(checkpoint_dir: Any) -> ModelInputBatch:
         drug=FeaturizerResult(
             np.array(["d1"]),
             {
-                "identity": numeric_feature_block(np.ones((1, 1), dtype=np.float32)),
-                "identity_categories": numeric_feature_block(np.array([["d1"]], dtype=object)),
+                "oneHot": numeric_feature_block(np.ones((1, 1), dtype=np.float32)),
+                "oneHot_categories": numeric_feature_block(np.array([["d1"]], dtype=object)),
             },
-            ("identity",),
+            ("oneHot",),
         ),
         early_stopping_response=validation,
         training_context=TrainingContext(checkpoint_dir=checkpoint_dir),
