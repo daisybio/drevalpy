@@ -82,7 +82,7 @@ def test_predictor_registration_rejects_space_without_default() -> None:
 def test_featurizer_registration_rejects_space_without_default() -> None:
     with pytest.raises(ValueError, match="missing 'default'"):
 
-        @register_featurizer("badSpaceFeat", description="missing default")
+        @register_featurizer("badSpaceFeat", side="sample", description="missing default")
         class BadSpaceFeat(Featurizer):
             def fit(self, source, train_ids, *, train_pair_ids=None, es_pair_ids=None):
                 return self
@@ -101,6 +101,7 @@ def test_configs_reject_a_space_without_default() -> None:
     with pytest.raises(ValidationError, match="missing 'default'"):
         FeaturizerConfig(
             name="pca",
+            side="sample",
             view="expression",
             hyperparameter_space={"n_components": {"type": "int", "low": 8, "high": 64}},
         )

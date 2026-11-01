@@ -21,7 +21,8 @@ with recorded under :data:`PRECOMPUTED_VIEWS_KEY` in ``mdata.uns``;
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING, Any, Literal
+from enum import StrEnum
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -42,9 +43,13 @@ from drevalpy.types.data.views import (
 if TYPE_CHECKING:
     import pandas as pd
 
-Side = Literal["sample", "drug"]
 
-_SIDES: tuple[Side, ...] = ("sample", "drug")
+class Side(StrEnum):
+    """The entity side a featurizer reads: the samples or the drugs."""
+
+    SAMPLE = "sample"
+    DRUG = "drug"
+
 
 #: ``mdata.uns`` key of the settings of precomputed views, a JSON object ``{side: {view: settings}}``.
 PRECOMPUTED_VIEWS_KEY = "precomputed_views"
@@ -69,13 +74,13 @@ class FeatureSource:
         """Wrap *dataset* for feature access on *side*.
 
         :param dataset: The backing dataset.
-        :param side: ``"sample"`` or ``"drug"``.
-        :raises ValueError: If *side* is not ``"sample"`` or ``"drug"``.
+        :param side: The side to read.
+        :raises ValueError: If *side* is not a side.
         """
-        if side not in _SIDES:
+        if side not in tuple(Side):
             msg = f"Unknown feature source side {side!r}. Available: drug, sample"
             raise ValueError(msg)
-        self.side: Side = side
+        self.side = Side(side)
         self._dataset = dataset
 
     def _dense(self, name: str) -> tuple[Any, np.ndarray] | None:
