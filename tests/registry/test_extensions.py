@@ -27,7 +27,7 @@ from drevalpy.registry._extensions import (
     load_extensions,
 )
 from drevalpy.registry.dataset._registry import DatasetRegistry
-from drevalpy.registry.featurizer import featurizers, get_featurizer
+from drevalpy.registry.featurizer import featurizer_registry, get_featurizer
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.registry.predictor import predictor_registry
 from tests._trusted_subprocess import run_trusted_python
@@ -42,10 +42,8 @@ from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult,
 from drevalpy.registry.featurizer import register as register_featurizer
 
 
-@register_featurizer({name!r}, description="toy")
+@register_featurizer({name!r}, side="sample", description="toy")
 class ToySampleFeaturizer(Featurizer):
-    sides = frozenset({{"sample"}})
-
     @classmethod
     def output_blocks(cls, config):
         return (BlockSpec("toy", FeatureFormat.NUMERIC_MATRIX),)
@@ -84,11 +82,11 @@ def test_load_extension_file_registers_components(tmp_path: Path) -> None:
         _SAMPLE_FEATURIZER_SOURCE.format(name="toySample") + _TOY_PREDICTOR_TEMPLATE.format(name="toyPredictor"),
         encoding="utf-8",
     )
-    assert "toySample" not in featurizers
+    assert "toySample" not in featurizer_registry("sample")
 
     load_extension_file(ext_file)
 
-    assert "toySample" in featurizers
+    assert "toySample" in featurizer_registry("sample")
     get_featurizer("toySample", "sample")
     get_predictor("toyPredictor")
 
@@ -466,7 +464,7 @@ class TestSubprocessImportIsolation:
             from drevalpy.registry.featurizer import get_featurizer
             from drevalpy.registry.predictor import get as get_predictor
 
-            get_featurizer("identity", "sample")
+            get_featurizer("oneHot", "sample")
             get_predictor("elasticNet")
             """)
         completed = run_trusted_python(script)
@@ -481,5 +479,5 @@ def test_an_unknown_predictor_in_an_empty_registry_raises() -> None:
 
 def test_an_unknown_featurizer_in_an_empty_registry_raises() -> None:
     empty_component_registries()
-    with pytest.raises(UnknownNameError, match="Unknown featurizer 'notRegisteredAnywhere'"):
-        get_featurizer("notRegisteredAnywhere")
+    with pytest.raises(UnknownNameError, match="Unknown sample featurizer 'notRegisteredAnywhere'"):
+        get_featurizer("notRegisteredAnywhere", "sample")

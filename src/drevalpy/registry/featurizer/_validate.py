@@ -4,9 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-#: The sides a featurizer can declare.
-SIDES: frozenset[str] = frozenset({"sample", "drug"})
-
 
 def _validate_views(name: str, cls: type[Any], attr: str) -> None:
     """Raise ``TypeError`` when the view declaration *attr* is not a tuple of names.
@@ -25,26 +22,17 @@ def _validate_views(name: str, cls: type[Any], attr: str) -> None:
 def validate_featurizer_declarations(name: str, cls: type[Any]) -> None:
     """Check the class-body declarations of a featurizer being registered.
 
-    A featurizer must derive from :class:`~drevalpy.components.featurizers.featurizer.Featurizer`,
-    declare a non-empty subset of ``{"sample", "drug"}`` as ``sides`` and its views as tuples of
-    names.
+    A featurizer must derive from :class:`~drevalpy.components.featurizers.featurizer.Featurizer`
+    and declare its views as tuples of names. Its side comes from the decorator, not the class.
 
     :param name: Registry name under which *cls* is being registered.
     :param cls: Featurizer class being registered.
     :raises TypeError: If *cls* is not a featurizer class or a view declaration is malformed.
-    :raises ValueError: If ``sides`` is empty or names an unknown side.
     """
     from drevalpy.components.featurizers.featurizer import Featurizer
 
     if not (isinstance(cls, type) and issubclass(cls, Featurizer)):
         msg = f"featurizer '{name}' must be a subclass of drevalpy.components.featurizers.featurizer.Featurizer"
         raise TypeError(msg)
-    sides = cls.sides
-    if not isinstance(sides, frozenset) or not sides or not sides <= SIDES:
-        msg = (
-            f"featurizer '{name}' ({cls.__name__}): sides must be a non-empty frozenset "
-            f"of 'sample'/'drug', got {sides!r}"
-        )
-        raise ValueError(msg)
     _validate_views(name, cls, "input_views")
     _validate_views(name, cls, "source_views")

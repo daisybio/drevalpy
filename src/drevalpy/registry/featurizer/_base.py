@@ -1,101 +1,124 @@
-"""The featurizer registry: one :class:`Registry` for both sides, its ``register`` decorator and the lookup.
+"""The featurizer registries, one per side, their ``register`` decorator and the lookup.
 
-A featurizer is registered once under a unique name. The sides it can be used on are a
-value it declares (``Featurizer.sides``), not a registry: :func:`get_featurizer` checks a
-requested side against that declaration, so a config slot picks the side and the class says
-whether it supports it.
+A featurizer works on exactly one side, which it names when it registers. Each side has a
+registry of its own, so a name is unique within a side: ``oneHot`` exists as a sample
+featurizer and as a drug featurizer, two registrations that share their code. A config slot
+picks the side, and the lookup reads that side's registry.
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
+from types import MappingProxyType
 from typing import Any, TypeVar
 
 from drevalpy.components.contracts.hyperparameter_space import validate_component_hyperparameter_space
+from drevalpy.errors import UnknownNameError
 from drevalpy.registry._component import LiteratureReference, component_decorator
 from drevalpy.registry._registry import Registry
-from drevalpy.registry.featurizer._validate import SIDES, validate_featurizer_declarations
+from drevalpy.registry.featurizer._validate import validate_featurizer_declarations
 from drevalpy.types.data.feature_source import Side
 
 C = TypeVar("C", bound=type[Any])
 
-#: Every registered featurizer class, in registration order.
-featurizers: Registry[type[Any]] = Registry("featurizer")
+#: The registered featurizer classes of each side, in registration order.
+featurizer_registries: Mapping[Side, Registry[type[Any]]] = MappingProxyType(
+    {side: Registry(f"{side} featurizer") for side in Side}
+)
+
+
+def _side(side: Side | str) -> Side:
+    """Return *side* as a :class:`Side`.
+
+    :param side: A side, or its value.
+    :returns: The side.
+    :raises ValueError: If *side* is not ``"sample"`` or ``"drug"``.
+    """
+    try:
+        return Side(side)
+    except ValueError:
+        msg = f"Unknown featurizer side {side!r}. Available: drug, sample"
+        raise ValueError(msg) from None
 
 
 def register(
     name: str,
     *,
+    side: Side,
     description: str,
     tags: Iterable[str] | None = None,
     reference: LiteratureReference | None = None,
 ) -> Callable[[C], C]:
-    """Return a class decorator that registers a featurizer under *name*.
+    """Return a class decorator that registers a featurizer under *name* on *side*.
 
-    The decorator sets ``name`` on the class. The sides come from the class's ``sides`` declaration.
+    The decorator sets ``name`` and ``side`` on the class. To offer the same featurizer on both
+    sides, register one subclass per side.
 
-    :param name: Unique registry name used in model configs and listings.
+    :param name: Registry name used in model configs and listings, unique within *side*.
+    :param side: The side the featurizer reads.
     :param description: Short human-readable summary.
     :param tags: Optional discovery tags.
     :param reference: Optional literature citation metadata.
     :returns: Class decorator that registers and returns the decorated class.
     """
+    resolved = _side(side)
 
     def validate(registered_name: str, cls: type[Any]) -> None:
         validate_component_hyperparameter_space(registered_name, cls)
         validate_featurizer_declarations(registered_name, cls)
 
     register_class = component_decorator(
-        featurizers, name, description=description, tags=tags, reference=reference, validate=validate
+        featurizer_registries[resolved],
+        name,
+        description=description,
+        tags=tags,
+        reference=reference,
+        validate=validate,
     )
 
     def decorator(cls: C) -> C:
         register_class(cls)
         cls.name = name
+        cls.side = resolved
         return cls
 
     return decorator
 
 
-def get_featurizer(name: str, side: Side | None = None) -> type[Any]:
-    """Return the featurizer class registered under *name*, checking that it supports *side*.
+def featurizer_registry(side: Side | str) -> Registry[type[Any]]:
+    """Return the registry of the featurizers of *side*.
 
-    An unknown *name* raises :class:`~drevalpy.errors.UnknownNameError`.
+    :param side: ``Side.SAMPLE`` or ``Side.DRUG``.
+    :returns: That side's registry.
+    """
+    return featurizer_registries[_side(side)]
+
+
+def get_featurizer(name: str, side: Side | str) -> type[Any]:
+    """Return the featurizer class registered under *name* on *side*.
+
+    An unknown *name* raises :class:`~drevalpy.errors.UnknownNameError`, which says so when
+    *name* is a featurizer of the other side.
 
     :param name: Registry name of the featurizer.
-    :param side: Side the featurizer is used on; ``None`` skips the side check.
-    :returns: Featurizer class registered under *name*.
-    """
-    cls = featurizers.get(name)
-    if side is not None:
-        _check_side(name, cls, side)
-    return cls
-
-
-def _check_side(name: str, cls: type[Any], side: str) -> None:
-    """Raise when *cls* does not declare *side* among its ``sides``.
-
-    :param name: Registry name of the featurizer, for the message.
-    :param cls: Featurizer class.
     :param side: Side the featurizer is used on.
-    :raises ValueError: If *side* is not ``"sample"`` or ``"drug"``, or *cls* does not support it.
+    :returns: Featurizer class registered under *name* on *side*.
+    :raises UnknownNameError: If *name* is not registered on *side*.
     """
-    if side not in SIDES:
-        msg = f"Unknown featurizer side {side!r}. Available: drug, sample"
-        raise ValueError(msg)
-    sides = frozenset(cls.sides)
-    if side not in sides:
-        msg = (
-            f"Featurizer {name!r} cannot be used on the {side} side; "
-            f"it supports only: {', '.join(sorted(sides)) or '<none>'}"
-        )
-        raise ValueError(msg)
+    resolved = _side(side)
+    registry = featurizer_registries[resolved]
+    if name not in registry:
+        other = Side.DRUG if resolved is Side.SAMPLE else Side.SAMPLE
+        if name in featurizer_registries[other]:
+            msg = f"{name!r} is a {other} featurizer and cannot be used on the {resolved} side"
+            raise UnknownNameError(msg)
+    return registry.get(name)
 
 
-def names_for_side(side: Side) -> tuple[str, ...]:
-    """Return the registered featurizers that support *side*.
+def names_for_side(side: Side | str) -> tuple[str, ...]:
+    """Return the names of the featurizers registered on *side*.
 
-    :param side: ``"sample"`` or ``"drug"``.
+    :param side: ``Side.SAMPLE`` or ``Side.DRUG``.
     :returns: Names in registration order.
     """
-    return tuple(name for name, cls in featurizers.items() if side in cls.sides)
+    return featurizer_registry(side).names()

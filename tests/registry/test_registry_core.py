@@ -11,7 +11,7 @@ from drevalpy.registry._builtins import BUILTIN_MODULES, builtin_names, get_skip
 from drevalpy.registry._component import featurizer_component_metadata
 from drevalpy.registry._registry import TableReprMixin
 from drevalpy.registry.dataset import dataset_registry
-from drevalpy.registry.featurizer import featurizers
+from drevalpy.registry.featurizer import featurizer_registries
 from drevalpy.registry.predictor import predictor_registry
 from drevalpy.registry.splitter import splitter_registry
 from drevalpy.registry.visualization import visualization_registry
@@ -52,7 +52,8 @@ def test_builtin_modules_are_unique() -> None:
 
 
 def test_builtin_names_follow_the_order_of_builtin_modules() -> None:
-    assert builtin_names(featurizers)[:3] == ("constant", "identity", "concatFeaturizers")
+    for registry in featurizer_registries.values():
+        assert builtin_names(registry)[:3] == ("constant", "oneHot", "concatFeaturizers")
     assert builtin_names(predictor_registry)[0] == "naiveMeanEffects"
     assert builtin_names(predictor_registry)[-1] == "neuralNetwork"
     assert builtin_names(splitter_registry) == ("LDO", "LSO", "LPO", "LStO", "LTO")
@@ -78,17 +79,19 @@ def test_restore_all_undoes_registrations_in_every_registry() -> None:
     assert "TRANSIENT" not in splitter_registry
 
 
-def test_builtin_featurizers_declare_sides_and_default_blocks() -> None:
-    for name, cls in featurizers.items():
-        assert cls.sides and cls.sides <= {"sample", "drug"}, name
-        meta = featurizer_component_metadata("featurizer", name, cls)
-        assert meta["sides"] == cls.sides, name
-        if not requires_explicit_view(name):
-            assert all(isinstance(block.format, FeatureFormat) for block in cls.output_blocks({})), name
+def test_builtin_featurizers_report_their_side_and_default_blocks() -> None:
+    for side, registry in featurizer_registries.items():
+        for name, cls in registry.items():
+            meta = featurizer_component_metadata("featurizer", name, cls)
+            assert meta["side"] == cls.side == side, name
+            if not requires_explicit_view(name, side):
+                assert all(isinstance(block.format, FeatureFormat) for block in cls.output_blocks({})), name
 
 
 def test_bpe_pharmaformer_has_literature_reference() -> None:
-    meta = featurizer_component_metadata("featurizer", "bpePharmaformer", featurizers.get("bpePharmaformer"))
+    meta = featurizer_component_metadata(
+        "featurizer", "bpePharmaformer", featurizer_registries["drug"].get("bpePharmaformer")
+    )
 
     assert meta["repo_url"] == "https://github.com/zhouyuru1205/PharmaFormer"
     assert meta["citation_doi"] == "10.1038/s41698-025-01082-6"
@@ -99,9 +102,8 @@ def test_bpe_pharmaformer_has_literature_reference() -> None:
 @pytest.mark.slow
 def test_fresh_process_registers_all_builtins() -> None:
     script = """
-from drevalpy.registry.featurizer import featurizers, names_for_side
+from drevalpy.registry.featurizer import names_for_side
 from drevalpy.registry.predictor import predictor_registry
-assert len(featurizers) == 27
 assert len(names_for_side("sample")) == 18
 assert len(names_for_side("drug")) == 12
 assert len(predictor_registry) == 30

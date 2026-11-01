@@ -14,10 +14,10 @@ from __future__ import annotations
 from typing import Any
 
 from drevalpy.registry._registry import Registry, Snapshot
-from drevalpy.registry.featurizer import featurizers
+from drevalpy.registry.featurizer import featurizer_registries
 from drevalpy.registry.predictor import predictor_registry
 
-_COMPONENT_REGISTRIES: tuple[Registry[Any], ...] = (featurizers, predictor_registry)
+_COMPONENT_REGISTRIES: tuple[Registry[Any], ...] = (*featurizer_registries.values(), predictor_registry)
 _BUILTIN_SNAPSHOTS: tuple[Snapshot[Any], ...] = tuple(registry.snapshot() for registry in _COMPONENT_REGISTRIES)
 
 

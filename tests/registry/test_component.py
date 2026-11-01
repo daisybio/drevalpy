@@ -16,7 +16,7 @@ from drevalpy.registry._component import (
     predictor_component_metadata,
 )
 from drevalpy.registry._registry import Registry
-from drevalpy.registry.featurizer import featurizers
+from drevalpy.registry.featurizer import featurizer_registry
 from drevalpy.registry.featurizer import register as register_featurizer
 from drevalpy.registry.predictor import predictor_registry
 from drevalpy.types.data.batch.feature_block import BlockSpec
@@ -158,7 +158,7 @@ def test_a_duplicate_name_is_rejected() -> None:
 
 def test_register_rejects_a_blank_description_before_the_class_body() -> None:
     with pytest.raises(ValueError, match="description must be a non-empty string"):
-        register_featurizer("blank", description="  ")
+        register_featurizer("blank", side="sample", description="  ")
 
 
 def _featurizer(output_format: FeatureFormat | None = FeatureFormat.NUMERIC_MATRIX, **attrs):
@@ -167,7 +167,7 @@ def _featurizer(output_format: FeatureFormat | None = FeatureFormat.NUMERIC_MATR
             raise ValueError("config-dependent")
         return (BlockSpec("a", output_format), BlockSpec("b", output_format))
 
-    return type("Featurizer", (), {"sides": frozenset({"drug"}), "output_blocks": classmethod(output_blocks)} | attrs)
+    return type("Featurizer", (), {"side": "drug", "output_blocks": classmethod(output_blocks)} | attrs)
 
 
 @pytest.fixture
@@ -187,14 +187,14 @@ def _empty_registries() -> None:
 )
 def test_featurizer_metadata(kwargs: dict, output_format: str) -> None:
     cls = _featurizer(**kwargs)
-    featurizers.register("f", cls, metadata={"description": "d", "tags": frozenset({"t"})})
+    featurizer_registry("drug").register("f", cls, metadata={"description": "d", "tags": frozenset({"t"})})
 
     meta = featurizer_component_metadata("featurizer", "f", cls)
 
     assert meta["output_format"] == output_format
     assert "precompute" not in meta
     assert (meta["registry"], meta["name"], meta["class_name"]) == ("featurizer", "f", "Featurizer")
-    assert (meta["description"], meta["tags"], meta["sides"]) == ("d", frozenset({"t"}), frozenset({"drug"}))
+    assert (meta["description"], meta["tags"], meta["side"]) == ("d", frozenset({"t"}), "drug")
     assert (meta["repo_url"], meta["citation"], meta["deviations"]) == ("", "", "")
 
 

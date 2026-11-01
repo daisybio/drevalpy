@@ -28,7 +28,7 @@ _PREDICTORS = "drevalpy.components.predictors"
 #: Modules whose import registers the built-in components, in registration order.
 BUILTIN_MODULES: tuple[str, ...] = (
     f"{_FEATURIZERS}.shared.constant",
-    f"{_FEATURIZERS}.shared.identity",
+    f"{_FEATURIZERS}.shared.one_hot",
     f"{_FEATURIZERS}.shared.concat",
     f"{_FEATURIZERS}.sample.ae_gene_expression",
     f"{_FEATURIZERS}.sample.bionic",
@@ -39,11 +39,11 @@ BUILTIN_MODULES: tuple[str, ...] = (
     f"{_FEATURIZERS}.sample.pathways",
     f"{_FEATURIZERS}.sample.pca",
     f"{_FEATURIZERS}.sample.pharmaformer_gene_expression",
-    f"{_FEATURIZERS}.sample.raw",
     f"{_FEATURIZERS}.sample.scaled_gene_expression",
     f"{_FEATURIZERS}.sample.sparsego_ontology",
     f"{_FEATURIZERS}.sample.superfeltr_omics",
     f"{_FEATURIZERS}.sample.tissue",
+    f"{_FEATURIZERS}.sample.view",
     f"{_FEATURIZERS}.drug.bpe_pharmaformer",
     f"{_FEATURIZERS}.drug.chemberta",
     f"{_FEATURIZERS}.drug.drug_graph",

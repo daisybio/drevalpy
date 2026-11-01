@@ -18,18 +18,20 @@ def all_registries() -> dict[str, Registry[Any]]:
     The zoo registry is returned as stored, without parsing the built-in presets: a
     snapshot of the still-empty zoo restores to empty, and the next access parses them.
 
-    :returns: Registries keyed by kind: ``predictor``, ``featurizer``, ``splitter``,
+    :returns: Registries keyed by kind: ``predictor``, ``sample_featurizer``, ``drug_featurizer``, ``splitter``,
         ``visualization`` and ``zoo``.
     """
     from drevalpy.models import zoo
-    from drevalpy.registry.featurizer import featurizers
+    from drevalpy.registry.featurizer import featurizer_registries
     from drevalpy.registry.predictor import predictor_registry
     from drevalpy.registry.splitter import splitter_registry
     from drevalpy.registry.visualization import visualization_registry
+    from drevalpy.types.data.feature_source import Side
 
     return {
         "predictor": predictor_registry,
-        "featurizer": featurizers,
+        "sample_featurizer": featurizer_registries[Side.SAMPLE],
+        "drug_featurizer": featurizer_registries[Side.DRUG],
         "splitter": splitter_registry,
         "visualization": visualization_registry,
         "zoo": zoo._ZOO,

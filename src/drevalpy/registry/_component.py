@@ -166,7 +166,7 @@ def _output_format(cls: type[Any]) -> str:
 
 
 def featurizer_component_metadata(registry_name: str, name: str, cls: type[Any]) -> dict[str, Any]:
-    """Return the catalog facts of a registered featurizer: the shared ones, its sides and output format.
+    """Return the catalog facts of a registered featurizer: the shared ones, its side and output format.
 
     A featurizer that declares its blocks through ``output_blocks`` reports the formats of its
     default-config blocks, joined; one that emits none reports ``""``.
@@ -176,10 +176,10 @@ def featurizer_component_metadata(registry_name: str, name: str, cls: type[Any])
     :param cls: Registered featurizer class.
     :returns: Catalog metadata dict.
     """
-    from drevalpy.registry.featurizer import featurizers
+    from drevalpy.registry.featurizer import featurizer_registry
 
-    meta = _component_metadata(featurizers, registry_name, name, cls)
-    meta["sides"] = frozenset(getattr(cls, "sides", ()))
+    meta = _component_metadata(featurizer_registry(cls.side), registry_name, name, cls)
+    meta["side"] = cls.side
     meta["output_format"] = _output_format(cls)
     return meta
 
