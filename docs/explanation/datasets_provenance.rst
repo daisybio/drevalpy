@@ -99,8 +99,16 @@ Bringing your own responses
 
 Your own screen can enter in two ways. If you have raw viability measurements, a
 curation step fits curves with the same CurveCurator procedure and produces the
-same response measures and quality metrics; the input needs the drug, the sample,
-the concentration and the measured intensity, with an optional replicate. If you
+same response measures and quality metrics. The input is one row per well: the
+drug, the sample, the concentration and the measured intensity. Optional columns
+place each well in the replicate hierarchy of its pair. An experiment is one
+independently seeded culture, so different experiments are biological replicates;
+a replicate is one dose series within an experiment, such as a plate, so the
+series of one experiment are technical replicates. The response of a pair is one
+curve fitted to all of its series together. Fitting every series on its own as
+well shows how far the replicates agree, and whether cultures differ more than
+plates do. A series with too few doses is fitted neither way, since a curve
+through it would rest on too little data. If you
 already have fitted responses, you provide a table of sample, drug and the measure
 directly. Leave-tissue-out splits also need a tissue for each sample. A dataset
 name that is not in the built-in list is treated as a custom load path. The

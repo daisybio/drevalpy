@@ -89,6 +89,20 @@ These affect only code, configurations and datasets written for an unreleased 2.
   ``single`` and ``train``.
 - The ``SRMF`` hyperparameter ``n_features`` and the ``Precily`` hyperparameter ``seed`` are
   removed; neither was used.
+- **Curation reads the replicate hierarchy.** In ``curate``, the ``replicate`` column of the
+  input labels one dose series of a pair within its experiment, such as a plate, instead of
+  numbering extra measurements of one curve; the pooled fit still uses every series. The new
+  optional columns ``experiment`` (one independently seeded culture) and ``position`` (the well
+  order, which splits a series whose every dose repeats k times into k series) complete it. Any
+  other column raises ``InvalidInputError`` unless it is listed in ``metadata=``. See
+  :ref:`how-to/bring_your_own_data:Prepare the dose-response table`.
+- **Curation skips short series.** A series with fewer than ``min_doses`` distinct doses
+  (default 4) is fitted neither in the pooled curve nor on its own.
+- **Curation runs in local processes.** ``curate(executor=...)`` is removed: the chunks are
+  fitted in ``max_workers`` local processes. Large screens run on a cluster through the
+  Nextflow pipeline ``drevalpy/curate``; see :doc:`/how-to/curate_at_scale`.
+- **drevalpy curate is a command group.** ``drevalpy curate INPUT OUTPUT`` is now
+  ``drevalpy curate run INPUT OUTPUT``.
 
 Samples instead of cell lines
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -196,6 +210,21 @@ New commands and functions
   dataset, and ``drevalpy predict MODEL_DIR --dataset DATASET --output FILE`` applies it. In Python they are
   ``drevalpy.train`` and the saved ``DRPModel``. See :doc:`/how-to/train_save_load`.
 - ``drevalpy --version`` prints the installed version.
+- ``curate(..., replicate_fits=True)`` and ``drevalpy curate run --replicate-fits`` also fit every
+  dose series on its own, into ``uns["replicate_fits"]``, to measure how well replicates agree
+  and to compare biological with technical variability. ``metadata=`` (``--metadata COL``,
+  repeatable) keeps further columns per series, and ``min_doses=`` (``--min-doses``) sets the
+  shortest series that is fitted. See :ref:`how-to/bring_your_own_data:Fit each replicate on its
+  own`.
+- ``drevalpy curate plan``, ``fit-chunk`` and ``collect`` run a curation as separate steps:
+  ``plan`` writes one self-contained file per chunk, ``fit-chunk`` fits one chunk on one core,
+  and ``collect`` assembles the same ``.h5ad`` as ``curate run``. Equal chunks are equal files,
+  so a workflow manager that caches by content refits only the chunks that changed. The Nextflow
+  pipeline `drevalpy/curate <https://github.com/drevalpy/curate>`__ runs these steps on SLURM,
+  AWS Batch and other schedulers. ``--max-chunk-size`` sets the number of curves per chunk. See
+  :doc:`/how-to/curate_at_scale`.
+- A curve that CurveCurator drops no longer stops ``curate``: the pair is missing from the
+  result and its series is ``fit_failed`` in the replicate-fits table.
 - The response transformations ``drug_mean`` and ``drug_tissue_mean`` subtract the mean of each drug, or of
   each drug and tissue, from the response. ``NaiveMeanEffectsPredictor`` is always fitted on the
   untransformed response.
@@ -229,7 +258,7 @@ Errors and logging
 - The randomization tests write their datasets to files named ``<mode>__<view>.h5mu``.
 - ``drevalpy run`` has no short ``-r`` for ``--randomization-mode``; repeat the long flag. A
   mode, ``--fit-speed`` or ``--join`` value that does not exist is rejected with the list of valid
-  choices (``drevalpy curate`` no longer takes ``--fit-type``, since OLS was its only value).
+  choices (``drevalpy curate run`` no longer takes ``--fit-type``, since OLS was its only value).
   ``drevalpy data synthetic`` prints an error when ``--n-drugs`` is over the number of drugs it
   can simulate.
 

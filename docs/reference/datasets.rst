@@ -90,7 +90,7 @@ downloaded again; a cached file that matches is used without network access.
 The cache directory is set by ``DREVALPY_CACHE_DIR``; see :doc:`environment`. A cached file is
 deleted and downloaded again if it cannot be parsed, or if it lacks the curve-quality layers
 listed below. A file given by path is used as it is. DrEvalPy has no loader for CSV or other
-formats; ``drevalpy curate`` fits dose-response curves and writes an ``.h5ad`` file instead.
+formats; ``drevalpy curate run`` fits dose-response curves and writes an ``.h5ad`` file instead.
 
 ``drevalpy data load NAME OUTPUT`` writes a loaded dataset to an ``.h5mu`` file.
 ``drevalpy.synthetic`` and ``drevalpy data synthetic`` build a small simulated dataset that
@@ -127,12 +127,10 @@ The file must have a modality named ``response``; without it loading raises ``Ke
    * - ``obsm["pathway_features"]``
      - Pathway features of the samples
    * - ``uns["replicate_fits"]``
-     - The curve fitted to each replicate dose series, one row per series: ``sample_id`` and
-       ``pubchem_id`` (the IDs of ``obs`` and ``var``), ``replicate``, ``n_doses``, the fit
-       ``status``, the measures and quality metrics of the layers, and columns that differ by
-       study
+     - Optional. The curve fitted to each dose series on its own, one row per series; see
+       `Replicate-fits table`_
 
-Layers written by ``drevalpy curate``:
+Layers written by ``drevalpy curate run``:
 
 .. list-table::
    :header-rows: 1
@@ -148,6 +146,60 @@ Layers written by ``drevalpy curate``:
        ``regulation``
    * - Parameter errors
      - ``pec50_error``, ``slope_error``, ``front_error``, ``back_error``
+
+Replicate-fits table
+~~~~~~~~~~~~~~~~~~~~
+
+``drevalpy curate run --replicate-fits`` and ``curate(..., replicate_fits=True)`` write
+``uns["replicate_fits"]``: a table with one row per dose series of a pair, a series being the
+wells of one ``replicate`` label within one ``experiment`` of the input. ``drevalpy curate collect``
+writes the same table for a plan made with ``--replicate-fits``. Text columns are categoricals and the metrics are
+``float32``. The columns, in order:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 70
+
+   * - Column
+     - Content
+   * - ``sample_id``, ``pubchem_id``
+     - The pair, as entries of ``obs_names`` and ``var_names``. In the built-in datasets these
+       are the canonical IDs; in a dataset you curate, the ``sample`` and ``drug`` labels of
+       your table
+   * - ``native_sample``, ``native_drug``
+     - The ``sample`` and ``drug`` labels of the input table, kept when a pipeline later
+       renames the IDs
+   * - ``replicate``
+     - ``0..n-1`` per pair: first the series with at least ``min_doses`` doses, then the
+       shorter ones, each group in the order of ``biological_replicate`` and then
+       ``technical_replicate``
+   * - ``series_key``
+     - The input's ``replicate`` label. A series split into repeat blocks by ``position`` gets
+       the suffix ``#k``, ``k`` being the block
+   * - ``experiment``
+     - The input's ``experiment`` label; empty when the input had no ``experiment`` column
+   * - ``biological_replicate``
+     - ``0..m-1`` per pair, one per experiment, in sorted order of ``experiment``
+   * - ``technical_replicate``
+     - ``0..k-1`` per experiment, one per series, in sorted order of ``series_key``
+   * - ``n_doses``
+     - The number of distinct doses of the series
+   * - ``source``
+     - ``replicate``: the series' own fit. ``pooled``: the pair has a single series that could
+       be fitted, and the row carries the pooled fit of the pair, which is fitted to that series
+   * - ``status``
+     - ``fitted``; ``fit_failed``, when CurveCurator could not fit the curve; or
+       ``too_few_doses``, when the series has fewer than ``min_doses`` distinct doses and was
+       fitted neither alone nor in the pooled curve. The metrics are ``NaN`` unless ``fitted``
+   * - ``pEC50`` and the layer names
+     - The metrics of the fit: ``pEC50``, then the layers in the order ``EC50``, ``IC50``,
+       ``LN_IC50``, ``AUC``, ``fold_change``, ``slope``, ``front``, ``back``, ``R2``,
+       ``RMSE``, ``p_value``, ``log_p_value``, ``f_value``, ``f_value_sam``,
+       ``relevance_score``, ``signal_quality``, ``regulation``, ``pec50_error``,
+       ``slope_error``, ``front_error``, ``back_error``
+   * - Further columns
+     - The ``metadata`` columns of the input, lowercased, with the values of a series joined by
+       ``;`` when they differ. The built-in datasets carry columns that differ by study
 
 Sample feature modalities
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -314,8 +366,9 @@ given several ``--dataset`` options. How to use it is in :doc:`/how-to/run_cross
    * - Response and layers
      - The union of the layers, with ``NaN`` for a pair the study did not measure
    * - ``response.uns["replicate_fits"]``
-     - The rows of every input, with ``<study>::`` before each ``sample_id``. Dropped with a
-       warning unless every input has it
+     - The rows of every input (see `Replicate-fits table`_), with ``<study>::`` before each
+       ``sample_id``. A column that only some inputs have is ``NaN`` in the rows of the others.
+       Dropped with a warning unless every input has it
    * - ``uns["dataset_name"]``
      - ``name``, or the input names joined by ``+``, such as ``GDSC2+CTRPv2``
    * - Not carried over
