@@ -55,7 +55,7 @@ class ToySampleFeaturizer(Featurizer):
         same order even from a source that stores them differently.
         """
         _ = train_pair_ids, es_pair_ids
-        names = source.get_feature_names(VIEW)
+        names = source.feature_names(VIEW)
         self._names = None if names is None else tuple(names)
         matrix = view_matrix(source, VIEW, train_ids, self._names)
         self._mean = matrix.mean(axis=0)

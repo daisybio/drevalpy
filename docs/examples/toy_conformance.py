@@ -1,7 +1,7 @@
 """Testing example: run drevalpy's conformance checks over the toy components.
 
-``drevalpy.testing`` ships the fixtures and checks a plugin's own suite needs, so
-no plugin has to hand-roll a dataset or re-derive what "conforms" means. This
+``drevalpy.synthetic`` and ``drevalpy.testing`` ship the fixtures and checks a plugin's
+own suite needs, so no plugin has to hand-roll a dataset or re-derive what "conforms" means. This
 module is what the docs build runs to prove the examples on the extensions page
 still work.
 """
@@ -10,14 +10,10 @@ from __future__ import annotations
 
 import numpy as np
 
+from drevalpy import synthetic
 from drevalpy.plugin import CurveQuality, ModelResult
 from drevalpy.registry import splitter
-from drevalpy.testing import (
-    FEATURIZER_CHECKS,
-    PREDICTOR_CHECKS,
-    build_synthetic_batch,
-    build_synthetic_dataset,
-)
+from drevalpy.testing import FEATURIZER_CHECKS, PREDICTOR_CHECKS, build_synthetic_batch
 from drevalpy.types.results import RunResult
 
 from .toy_block_predictor import BLOCK, ToyBlockRidgePredictor
@@ -34,12 +30,12 @@ PREDICTORS = (ToyMeanPredictor, ToyRidgePredictor, ToyBlockRidgePredictor)
 def check_components() -> None:
     """Run every shipped check against every toy featurizer and predictor.
 
-    ``build_synthetic_dataset`` returns a response-only dataset by default; the
-    ``omics`` argument adds the sample view ``ToySampleFeaturizer``
-    reads. ``build_synthetic_batch`` skips featurization entirely and draws the
-    feature matrices, which is what makes a predictor testable on its own.
+    ``synthetic`` holds the ``gene_expression`` view by default; the ``omics``
+    argument names the sample views ``ToySampleFeaturizer`` reads. ``build_synthetic_batch``
+    skips featurization entirely and draws the feature matrices, which is what makes a
+    predictor testable on its own.
     """
-    dataset = build_synthetic_dataset(omics=["gene_expression"])
+    dataset = synthetic(omics=["gene_expression"])
     batch = build_synthetic_batch(dataset, sample_block_names=(BLOCK,))
     for check in FEATURIZER_CHECKS:
         for featurizer in FEATURIZERS:
@@ -56,7 +52,7 @@ def check_splitter() -> None:
     directly is what matters: the registry wrapped it in the ``LSO`` leakage
     check, so a splitter that leaked would raise here.
     """
-    dataset = build_synthetic_dataset()
+    dataset = synthetic()
     folds = splitter.get("TOY_LSO")(dataset, n_splits=3, quality=CurveQuality.default())
     if len(folds) != 3:
         msg = f"TOY_LSO produced {len(folds)} folds, expected 3"

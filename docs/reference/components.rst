@@ -33,19 +33,22 @@ validated.
 Precomputable featurizers
 -------------------------
 
-A featurizer marked precomputable depends only on the entity (the sample or the drug), not on
-the training labels or the fold. Its output can therefore be computed once and stored in the
-dataset file. ``precompute(dataset, featurizer_name, side, hyperparameters, view=None)`` stores
-the output for a list of hyperparameter configurations, or for a given number of configurations
-drawn from the search space (seeded, so the draw is reproducible), together with the default
-configuration, and returns the keys it stored. ``precompute_all(dataset, n_variants=10)`` does
-this for every precomputable featurizer, on each side it supports, whose input data the dataset
-has. Both live in ``drevalpy.data.precompute``.
+A featurizer marked precomputable needs no fitting: its output for an entity (a sample or a
+drug) depends only on that entity's own data and on the featurizer's settings, not on the
+training entities or the fold. Its output can therefore be computed once and stored in the
+dataset as a view. ``precompute(dataset, featurizer_name, side)`` computes the output at the
+featurizer's default settings, stores it as the featurizer's view (a ``response.varm`` key on
+the drug side, a modality on the sample side) and records the settings under
+``precomputed_views`` in ``uns`` (see :doc:`datasets`). It returns the view it wrote, or
+``None`` when the dataset already held a view the featurizer reads. ``precompute_all(dataset)``
+does this for every precomputable featurizer, on each side it supports, whose source views the
+dataset has, and returns the views written. Both live in ``drevalpy.data.precompute``.
 
-The stored variants are listed under ``sample_featurizer_variants`` and
-``drug_featurizer_variants`` in ``uns``; see :doc:`datasets`. When a model is trained or
-predicts, a featurizer whose stored variant matches its hyperparameters uses that variant and is
-neither fitted nor applied.
+When a model is trained or predicts, a precomputable featurizer reads its view when the dataset
+holds it and either no settings are recorded for it, as for the views a dataset ships, or the
+recorded settings equal its own. Otherwise it computes its output, so a tuned setting such as
+``n_bits`` of ``fingerprints`` never reads a view computed with another value. Only the default
+settings are stored; there is one view per featurizer.
 
 Featurizers
 -----------

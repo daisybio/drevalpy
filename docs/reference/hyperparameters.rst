@@ -45,6 +45,16 @@ A ``fixed`` entry that also sets ``low``, ``high``, ``choices`` or ``log`` raise
 Fixed entries hold settings that are not tuned, such as a solver's ``random_state``; they still
 have a key, so ``with_hyperparameters`` can set them.
 
+Values must lie in their entry. A ``default`` outside its own range or choices raises
+``ValueError`` when the space is read. A value given to ``with_hyperparameters`` (or the
+``hyperparameters`` argument of ``DRPModel``) that tuning could not draw also raises: for example
+``n_bits=4096`` against ``{type: pow2, low: 9, high: 11}``. A list and a tuple with the same items
+count as the same choice, and ``fixed`` entries take any value. To use a value outside the space,
+widen it with ``hyperparameter_space`` in the model config (see `Overriding a space`_), or pass
+``check_values=False``, as in ``spec.with_hyperparameters({"max_epochs": 1}, check_values=False)``
+for a quick run; the keys are still checked. ``ModelSpec(...)`` and ``ModelSpec.load`` take stored
+values as they are.
+
 Example:
 
 .. code-block:: yaml
@@ -168,6 +178,9 @@ spaces are wider than 1.6.1 grids, so each grid value stays inside its range.
        ``num_layers=3``, ``dim_feedforward=2048``, ``dropout=0.1``, ``batch_size=128``
    * - ``SparseGO``
      - ``num_neurons_drug=[100, 50, 6]``, ``num_neurons_final=12``, ``num_neurons_per_final_GO=30``
+   * - ``EnsembleMF``
+     - fingerprints with ``n_bits=256``; the preset widens the ``n_bits`` space to 256 to 2048 so
+       that its default lies inside it
 
 The presets also read the gene lists of 1.6.1, so a dataset must hold every gene of the list:
 
@@ -202,9 +215,11 @@ part of the model's keys.
        alpha: {type: float, low: 0.01, high: 1.0, log: true, default: 0.1}
        l1_ratio: {type: float, low: 0.0, high: 1.0, default: 0.5}
 
-The same field exists on featurizers; see :doc:`recipes` for the featurizer forms. A loose
-value in the one-key form, such as ``{elasticNet: {alpha: 0.5}}``, sets the ``default`` of a
-declared parameter and does not change its range.
+The same field exists on featurizers; see :doc:`recipes` for the featurizer forms. The
+``defaults`` field, such as ``{name: elasticNet, defaults: {alpha: 0.5}}``, sets the ``default``
+of a parameter in the space and does not change its range. It edits the ``hyperparameter_space``
+given beside it, or the component's built-in space when none is given; a key that is not in that
+space raises. Fixed constructor values that are not tuned go under ``options``.
 
 Tuning
 ------

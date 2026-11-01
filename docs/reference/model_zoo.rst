@@ -7,12 +7,18 @@ complete model in ``drevalpy run``, ``drevalpy single`` and ``ModelSpec.from_nam
 
 Each built-in zoo preset is a YAML file in ``drevalpy/models/zoo``. It has the keys of a model
 configuration (``sample_featurizer``, ``drug_featurizer``, ``predictor``), so it can also
-override the hyperparameter spaces of its components; see :doc:`recipes` and
+set fixed options, defaults and hyperparameter spaces of its components; see :doc:`recipes` and
 :doc:`hyperparameters`. For example, ``MOLIR.yaml`` holds:
 
 .. code-block:: yaml
 
-   sample_featurizer: molirOmics
+   sample_featurizer:
+     name: molirOmics
+     options:
+       gene_lists:
+         gene_expression: gene_expression_intersection
+         mutations: mutations_intersection
+         copy_number_variation_gistic: copy_number_variation_gistic_intersection
    predictor: molir
 
 How zoo presets are named and added
@@ -35,8 +41,9 @@ Description
    The description of the predictor.
 
 Composition
-   The recipe of the zoo preset. Passing the recipe to ``drevalpy.models.config.from_recipe``
-   gives the same configuration; the command line and ``ModelSpec.from_name`` accept only
-   the zoo name. See :doc:`recipes`.
+   The recipe of the zoo preset, its ``model_id``. Passing it to
+   ``drevalpy.models.config.from_recipe`` gives the same components, but without the preset's
+   fixed options, defaults and hyperparameter spaces, which a recipe cannot express. See
+   :doc:`recipes`.
 
 .. include:: _generated_model_zoo.rst

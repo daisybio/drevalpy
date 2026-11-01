@@ -81,7 +81,7 @@ Folds
    * - Leakage check
      - Each fold is validated; a violation raises ``SplitValidationError``
    * - Returned value
-     - A list of ``SplitMasks``, each holding ``train``, ``test`` and ``val`` masks
+     - A list of ``Fold``, each holding ``train``, ``test`` and ``val`` masks
    * - ``drevalpy run`` and ``drevalpy.run``
      - Always ``n_splits=5``, ``random_state=seed``
 
@@ -185,7 +185,7 @@ name or the path of a ``.h5mu`` file. It writes one file per randomized dataset 
 mode is ``SVRC``. When every test is skipped it writes 0 files and exits with status 0.
 ``Dataset.load`` restores the ``randomization`` label of such a file, so ``drevalpy single``
 records it in the run and ``drevalpy aggregate`` keeps those runs apart from the ordinary
-ones. ``drevalpy single`` reads only a file path.
+ones.
 
 Robustness tests
 ----------------
@@ -193,7 +193,7 @@ Robustness tests
 A robustness test repeats training on the same fold with the order of the pairs shuffled, to
 show how much the result depends on it.
 
-``drevalpy.robustness(split_masks, n_repeats)`` returns ``n_repeats`` copies of a
+``drevalpy.robustness(fold, n_repeats)`` returns ``n_repeats`` copies of a
 fold. Copy ``repeat`` has its ``train``, ``test`` and ``val`` pairs shuffled with
 ``shuffled(seed=repeat)``, for ``repeat`` in ``range(n_repeats)``. The masks stay the same
 and the metadata gets ``robustness_repeat``.

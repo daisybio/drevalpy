@@ -32,6 +32,64 @@ Breaking changes from 1.6.0
   gone; run folds in parallel with ``drevalpy single`` instead
   (:doc:`/how-to/run_folds_in_parallel`).
 
+Breaking changes for code written against the 2.0 development branch
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+These affect only code, configurations and datasets written for an unreleased 2.0 build.
+
+- **Two spellings for a component in YAML.** A featurizer is a recipe string (``name``,
+  ``name[view]``, ``a+b``) or a mapping ``{name, view, featurizers, options, defaults,
+  hyperparameter_space}``; a predictor is a name or ``{name, defaults, hyperparameter_space}``.
+  The list form, the one-key mapping (``{"pca[methylation]": {n_components: 8}}``,
+  ``{elasticNet: {alpha: 0.5}}``) and ``{concatFeaturizers: {featurizers: [...]}}`` raise a
+  ``ValueError`` that shows the form to write instead. The new ``defaults`` field sets the default
+  of a tunable hyperparameter; ``options`` holds fixed values and may no longer name a tunable one.
+  See :ref:`reference/recipes:Featurizer forms in YAML`.
+- ``ModelConfig.model_id`` is the full recipe with views and concatenation children, such as
+  ``scaledGeneExpression+raw[mutations]:fingerprints:neuralNetwork``, and ``drevalpy list
+  zoo-presets`` shows it. Result directories are still named after the model.
+- **Precomputed features are views.** ``precompute(dataset, featurizer_name, side)`` stores one
+  view at the featurizer's default settings and records them under ``uns["precomputed_views"]``;
+  ``precompute_all`` takes no ``n_variants``. The ``sample_featurizer_variants`` and
+  ``drug_featurizer_variants`` keys are no longer read, and ``Featurizer.storage_key``,
+  ``stored_params`` and ``from_stored`` are removed: a featurizer that can be precomputed subclasses
+  ``PrecomputableFeaturizer`` (see :ref:`how-to/extend/write_featurizer:Reuse pre-computed features`).
+- **Featurizers read data through** ``FeatureSource(dataset, side)``: ``view(name, ids)``,
+  ``feature_names(name)``, ``has_view``, ``smiles``, ``graphs``, ``tissue``, ``uns`` and
+  ``view_settings``. ``get_view_matrix``, ``get_feature_names``, ``get_metadata`` and
+  ``get_entity_view`` are renamed or removed, and ``Dataset.get_sample_features``,
+  ``get_drug_features``, ``get_sample_feature_names``, ``get_drug_feature_names``,
+  ``get_drug_graphs``, ``get_uns``, ``subset_samples`` and ``subset_drugs`` are removed.
+- ``drevalpy.testing.build_synthetic_dataset`` is removed; use ``drevalpy.synthetic``.
+- ``LiteratureReference`` requires an ``http(s)`` ``repo_url``, a citation (``citation_text`` or
+  ``citation_doi``) and ``deviations``. Registered classes no longer carry ``description``,
+  ``tags`` or ``registry_name`` attributes; read them with ``registry.metadata(name)``.
+- Registries are imported from ``drevalpy.registry``: ``drevalpy.data.dataset_registry``,
+  ``drevalpy.data.splitter_registry``, the registry names in ``drevalpy.data.datasets`` (only
+  ``load`` stays) and in ``drevalpy.data.splitters`` (only ``observed_mask`` stays) are removed, as
+  are ``DatasetRegistry.builtin_sources``, ``builtin_datasets``, ``custom_sources``,
+  ``source_names``, ``unregister_dataset`` and ``unregister_source``. The LSO and LDO splitters
+  live in ``drevalpy.data.splitters.entity``, and the built-in split modes are listed as LDO, LSO,
+  LPO, LStO, LTO. ``register_splitter(validation=...)`` takes only canonical names, not ``"LCO"``.
+- ``graph_feature_block``, ``numeric_feature_block``, ``ragged_feature_block`` and
+  ``merge_feature_blocks`` are no longer in ``drevalpy.plugin``; import them from
+  ``drevalpy.types.data.batch.feature_block``. ``drevalpy.evaluation.GroupBy``,
+  ``PairMask.__and__``, ``__invert__`` and ``sum()``, and ``ModelResult.n_runs`` are removed.
+- **``SplitMasks`` is now ``Fold`` and ``SplitMask`` is ``PairMask``**, in
+  ``drevalpy.types.data.fold`` and ``drevalpy.types.data.pair_mask``. Parameters that take a fold
+  are called ``fold``: ``drevalpy.single(..., fold, ...)``, ``drevalpy.robustness(fold, n_repeats)``
+  and the ``FOLD`` argument of ``drevalpy single``. Fold files keep their format.
+- **Hyperparameter values are checked against the search space.** A ``default``, and every value
+  given to ``with_hyperparameters`` or ``DRPModel``, must lie in the entry's range or choices;
+  ``fixed`` entries take any value. Before, any value was accepted. Pass ``check_values=False`` to
+  use a value outside the space on purpose. The EnsembleMF preset declares its own fingerprint
+  space, with ``n_bits`` from 256 to 2048, so its 256-bit default lies inside it.
+- ``evaluate`` returns ``{}`` when no pair can be scored, instead of a ``NaN`` per metric.
+- ``HPOConfig`` is removed; the tuning settings are the ``hpo_*`` arguments of ``run``,
+  ``single`` and ``train``.
+- The ``SRMF`` hyperparameter ``n_features`` and the ``Precily`` hyperparameter ``seed`` are
+  removed; neither was used.
+
 Samples instead of cell lines
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -113,7 +171,7 @@ Defaults and results that changed
   ``MINIMIZATION_METRICS``, ``MAXIMIZATION_METRICS``, ``get_mode``, ``pearson``, ``spearman``, ``kendall``,
   ``is_constant``, ``ranges_are_constant`` and ``CONSTANT_ATOL`` are removed, and ``evaluate`` no longer takes a
   dataset. ``--hpo-metric`` lists the metric names and rejects an unknown one before any data is loaded, and
-  ``HPOConfig`` checks its metric and derives the Optuna direction from it instead of storing a ``mode``;
+  the tuning derives the Optuna direction from the metric instead of storing a ``mode``;
   ``drevalpy.models.tuning.validate_hpo_metric`` is removed.
 - **The mean-effects baseline works without tissue labels.** ``NaiveMeanEffectsPredictor`` on a dataset with no
   tissue information predicts the dataset mean plus the sample and drug effects.
@@ -144,11 +202,9 @@ New commands and functions
 - ``drevalpy.synthetic()`` and ``drevalpy data synthetic --output toy.h5mu`` build a small
   simulated dataset, by default 60 samples, 8 drugs and 6 tissues with a gene expression view.
   It needs no download, and its drugs differ so much in average potency that pooled scores
-  look good for models that rank samples poorly. ``drevalpy.testing.build_synthetic_dataset``
-  is an alias.
-- ``drevalpy data split`` and ``drevalpy experiments randomization`` accept a registered
-  dataset name as well as a file, like ``drevalpy run --dataset``. ``drevalpy single`` reads
-  only a file.
+  look good for models that rank samples poorly.
+- ``drevalpy data split``, ``drevalpy experiments randomization`` and ``drevalpy single`` accept a
+  registered dataset name as well as a file, like ``drevalpy run --dataset``.
 - ``drevalpy list zoo-presets`` and ``drevalpy list datasets`` show the model presets you can
   pass to ``run`` and the datasets you can load by name.
 - ``DREVALPY_EXTENSIONS_DIR`` is read by ``load_extensions()`` in Python, not only by the
@@ -228,16 +284,17 @@ Components and imports
   reads on each side as ``sample_inputs`` and ``drug_inputs``: ``Inputs.none()``, ``Inputs.matrix()`` or
   ``Inputs.blocks(...)``. A model whose parts disagree is rejected before training. Fitted components are
   saved by pickling them, so they need no state methods.
-- A global feature block is made with ``global_feature_block``, its side information is ``annotations``,
-  and a ``BlockSpec`` marks it with ``entity_aligned=False``.
-- ``precompute(dataset, featurizer_name, side, hyperparameters)`` and ``precompute_all(dataset)`` in
-  ``drevalpy.data.precompute`` store the featurizer variants, and the sampling of the configurations is
-  seeded.
+- A global feature block is made with ``global_feature_block``, and its side information is
+  ``annotations``.
+- ``precompute(dataset, featurizer_name, side)`` and ``precompute_all(dataset)`` in
+  ``drevalpy.data.precompute`` store the output of a featurizer that needs no fitting as a view, at its
+  default settings; a featurizer reads that view only when its own settings match. See
+  :ref:`reference/components:Precomputable featurizers`.
 - A file may store a sample view under its public name or under the stored name (``copy_number_variation``
   for ``copy_number_variation_gistic``); the public name wins when both exist.
-- ``drevalpy.types`` exports only ``Dataset``, ``SplitMask`` and ``SplitMasks``, and
+- ``drevalpy.types`` exports only ``Dataset``, ``PairMask`` and ``Fold``, and
   ``drevalpy.types.results`` only ``ExperimentResult``, ``ModelResult``, ``RunResult`` and
-  ``ExperimentFailedError``. Import every other type from the module that defines it. A ``SplitMask`` is
+  ``ExperimentFailedError``. Import every other type from the module that defines it. A ``PairMask`` is
   read-only and has a public ``pair_seed``.
 - A plot declares its ``PlotRequirement`` values, and
   ``drevalpy.visualization.requirements.requirements_met(experiment, requirements)`` checks them against an
@@ -258,7 +315,7 @@ Other changes since 1.6.0
   ``DREVALPY_CACHE_DIR`` overrides, instead of a ``--path_data`` directory.
 - Curated datasets keep the curve fitted to each replicate dose series in
   ``response.uns["replicate_fits"]``, one row per series, instead of the ``response_rr1`` and
-  ``response_rr2`` modalities. Subsetting and ``concat`` carry the table along; see
+  ``response_rr2`` modalities. ``concat`` carries the table along; see
   :ref:`reference/datasets:File layout`.
 - The built-in datasets are the gen6 files, each pinned by its sha256, and ``CCLE``,
   ``PRISM_19Q4`` and ``PRISM_20Q2`` are registered. A replicate is one dose series on one plate,

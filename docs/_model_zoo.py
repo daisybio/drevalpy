@@ -6,7 +6,6 @@ from pathlib import Path
 
 from _generated_io import write_text_if_changed
 
-from drevalpy.models.config import FeaturizerConfig, ModelConfig
 from drevalpy.models.zoo import get_zoo_config, list_zoo_names
 from drevalpy.registry._builtins import register_builtins
 from drevalpy.registry.predictor import predictor_registry
@@ -14,26 +13,6 @@ from drevalpy.types.enums.model_scope import ModelScope
 
 DOCS_DIR = Path(__file__).resolve().parent
 GENERATED_MODEL_ZOO = DOCS_DIR / "reference" / "_generated_model_zoo.rst"
-
-
-def _featurizer_recipe(feat: FeaturizerConfig | None) -> str:
-    if feat is None:
-        return ""
-    if feat.name == "concatFeaturizers":
-        parts = [_featurizer_recipe(child) for child in (feat.featurizers or ())]
-        return "+".join(parts) if parts else "concatFeaturizers"
-    if feat.view:
-        return f"{feat.name}[{feat.view}]"
-    return feat.name
-
-
-def _model_recipe(config: ModelConfig) -> str:
-    if config.sample_featurizer is None and config.drug_featurizer is None:
-        return config.predictor.name
-    parts = [_featurizer_recipe(config.sample_featurizer)]
-    if config.drug_featurizer is not None:
-        parts.append(_featurizer_recipe(config.drug_featurizer))
-    return ":".join([*parts, config.predictor.name])
 
 
 def _predictor_description(predictor_name: str) -> str:
@@ -55,7 +34,9 @@ def _render_scope_table(scope: ModelScope) -> list[str]:
     for name in list_zoo_names(include_external=False, scope=scope):
         config = get_zoo_config(name)
         description = _predictor_description(config.predictor.name)
-        recipe = _model_recipe(config)
+        recipe = config.model_id
+        if recipe is None:
+            raise RuntimeError(f"Zoo preset {name!r} has no recipe")
         lines.extend(
             [
                 f"   * - {name}",

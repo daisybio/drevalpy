@@ -10,6 +10,7 @@ from _generated_io import write_text_if_changed
 
 from drevalpy.components.featurizers._featurizer_label import requires_explicit_view
 from drevalpy.components.predictors.inputs import Inputs, predictor_inputs
+from drevalpy.plugin import PrecomputableFeaturizer
 from drevalpy.registry._builtins import builtin_names, get_skipped_builtin_modules, register_builtins
 from drevalpy.registry.featurizer import featurizers
 from drevalpy.registry.predictor import predictor_registry
@@ -52,20 +53,6 @@ def _output_formats(cls: type[Any], config: dict[str, Any]) -> str:
     return ", ".join(f"``{fmt}``" for fmt in formats) or "Those of its children"
 
 
-def _stores_outputs(cls: type[Any], config: dict[str, Any]) -> bool:
-    """Return whether the default instance looks up stored outputs, which is what ``precompute`` needs.
-
-    :param cls: Featurizer class.
-    :param config: Construction kwargs from :func:`_featurizer_config`.
-    :returns: ``True`` when ``stored_params()`` is not ``None``.
-    """
-    try:
-        featurizer = cls(**config)
-    except (TypeError, ValueError):
-        return False
-    return featurizer.storage_key is not None and featurizer.stored_params() is not None
-
-
 def _render_featurizers(rows: list[tuple[str, type[Any]]]) -> str:
     lines = [
         ".. list-table::",
@@ -85,7 +72,7 @@ def _render_featurizers(rows: list[tuple[str, type[Any]]]) -> str:
                 f"   * - ``{name}``",
                 f"     - {', '.join(sorted(cls.sides))}",
                 f"     - {_output_formats(cls, config)}",
-                f"     - {chr(0x2705) if _stores_outputs(cls, config) else chr(0x274C)}",
+                f"     - {chr(0x2705) if issubclass(cls, PrecomputableFeaturizer) else chr(0x274C)}",
                 f"     - {_description(name, featurizers.metadata(name))}",
             ]
         )

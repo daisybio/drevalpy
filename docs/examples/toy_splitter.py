@@ -18,7 +18,7 @@ from dataclasses import replace
 import numpy as np
 from sklearn.model_selection import KFold
 
-from drevalpy.plugin import CurveQuality, Dataset, SplitMask, SplitMasks, observed_mask, register_splitter
+from drevalpy.plugin import CurveQuality, Dataset, Fold, PairMask, observed_mask, register_splitter
 
 
 @register_splitter(
@@ -33,7 +33,7 @@ def toy_leave_sample_out(
     random_state: int = 42,
     *,
     quality: CurveQuality,
-) -> list[SplitMasks]:
+) -> list[Fold]:
     """Split so that every sample is tested exactly once.
 
     :param dataset: Dataset whose response matrix is split.
@@ -43,14 +43,14 @@ def toy_leave_sample_out(
         separately from the built-in ``LSO``.
     :param random_state: Seed for the fold assignment.
     :param quality: Curve-quality rule of the run; the extra ``min_r2`` threshold is added to it.
-    :returns: One :class:`~drevalpy.plugin.SplitMasks` per fold, each carrying
+    :returns: One :class:`~drevalpy.plugin.Fold` per fold, each carrying
         train/test/validation masks shaped like the response matrix.
     """
     _ = validation_ratio
     # ``min_r2`` is an extra this splitter opts into. Asking for it reads the
     # ``R2`` layer, even when the run used ``CurveQuality.off()``.
     observed = observed_mask(dataset, replace(quality, min_r2=0.5))
-    folds: list[SplitMasks] = []
+    folds: list[Fold] = []
     rng = np.random.default_rng(random_state)
 
     for train_rows, test_rows in KFold(n_splits=n_splits, shuffle=True, random_state=random_state).split(
@@ -59,10 +59,10 @@ def toy_leave_sample_out(
         shuffled = rng.permutation(train_rows)
         n_validation = max(1, len(shuffled) // 5)
         folds.append(
-            SplitMasks(
-                train=SplitMask(_rows_mask(observed, shuffled[n_validation:])),
-                test=SplitMask(_rows_mask(observed, test_rows)),
-                val=SplitMask(_rows_mask(observed, shuffled[:n_validation])),
+            Fold(
+                train=PairMask(_rows_mask(observed, shuffled[n_validation:])),
+                test=PairMask(_rows_mask(observed, test_rows)),
+                val=PairMask(_rows_mask(observed, shuffled[:n_validation])),
             )
         )
     return folds

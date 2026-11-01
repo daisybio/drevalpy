@@ -123,14 +123,14 @@ The file must have a modality named ``response``; without it loading raises ``Ke
    * - ``layers``
      - The other dose-response summaries and quality metrics, listed below
    * - ``varm``
-     - Drug features. A key may be written ``name:variant``
+     - Drug features, such as precomputed drug views
    * - ``obsm["pathway_features"]``
      - Pathway features of the samples
    * - ``uns["replicate_fits"]``
      - The curve fitted to each replicate dose series, one row per series: ``sample_id`` and
        ``pubchem_id`` (the IDs of ``obs`` and ``var``), ``replicate``, ``n_doses``, the fit
        ``status``, the measures and quality metrics of the layers, and columns that differ by
-       study. Subsetting a dataset keeps the rows of the kept samples and drugs
+       study
 
 Layers written by ``drevalpy curate``:
 
@@ -275,8 +275,9 @@ columns can be used as a grouping for per-group scores, for example ``group_by="
      - Content
    * - ``dataset_name``
      - The dataset name
-   * - ``sample_featurizer_variants``, ``drug_featurizer_variants``
-     - Featurizer outputs stored by the ``precompute`` function of ``drevalpy.data.precompute``
+   * - ``precomputed_views``
+     - The settings each view written by ``drevalpy.data.precompute`` was computed with, as JSON
+       ``{side: {view: settings}}``; see :doc:`components`
    * - ``drug_graphs``
      - Molecular graphs of the drugs
    * - ``pathways_gmt``
@@ -318,7 +319,7 @@ given several ``--dataset`` options. How to use it is in :doc:`/how-to/run_cross
    * - ``uns["dataset_name"]``
      - ``name``, or the input names joined by ``+``, such as ``GDSC2+CTRPv2``
    * - Not carried over
-     - Precomputed featurizer variants and the ``obsm`` and ``varm`` embeddings; ``concat`` warns
+     - The ``obsm`` and ``varm`` views and embeddings, precomputed drug views included; ``concat`` warns
 
 ``join="exact"`` requires every view that the inputs share to have identical feature names, in
 the same order; ``join="inner"`` keeps the features common to all inputs. With ``"exact"`` a view

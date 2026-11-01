@@ -55,7 +55,8 @@ Entry points
 
 ``evaluate(predictions, response, metrics=None)``
    Returns the pooled score of each metric as a ``dict`` keyed by name. ``metrics`` is ``None``
-   for every metric, one name, or several names.
+   for every metric, one name, or several names. Without a single usable pair it returns ``{}``,
+   so a fold average or a tuning trial skips the run instead of averaging ``NaN``.
 
 ``evaluate_per_group(predictions, response, metrics=None, *, labels, groups=None)``
    Scores each metric within every group of pairs, where ``labels`` holds the group of each pair
@@ -90,7 +91,7 @@ is not undefined: the model has no ranking skill, and the score is ``0.0``. Then
    * - Situation
      - Score
    * - No pair, for ``MSE``, ``RMSE`` or ``MAE``
-     - ``NaN``
+     - ``NaN`` within a group; ``evaluate`` returns ``{}`` when no pair is left at all
    * - Fewer than two pairs, for ``R^2`` or a correlation
      - ``NaN``
    * - Constant response (within ``1e-6``), for ``R^2`` or a correlation

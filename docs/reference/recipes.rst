@@ -129,38 +129,20 @@ A recipe needs no registration. To give it a short name, register it as a zoo pr
 Model identifier
 ----------------
 
-``ModelConfig.model_id`` writes a recipe from the names only. It drops the views and writes
-``concatFeaturizers`` for ``+``. For example, ``pca[gene_expression]:fingerprints:elasticNet``
-has the identifier ``pca:fingerprints:elasticNet``, and a single-drug model has an identifier
-such as ``scaledGeneExpression:singleDrugElasticNet``. It is ``None`` only for a model with a
-drug featurizer and no sample featurizer, which no recipe can express.
+``ModelConfig.model_id`` writes the recipe of a configuration, keeping the views and the
+concatenation children, so ``from_recipe(config.model_id)`` builds the same components. For
+example, ``pca[gene_expression]:fingerprints:elasticNet`` has that string as its identifier, and
+the zoo preset ``MultiViewNeuralNetwork`` has the identifier
+``scaledGeneExpression+raw[mutations]:fingerprints:neuralNetwork``. Fixed options, defaults and
+search spaces are not part of a recipe. The identifier is ``None`` only for a model with a drug
+featurizer and no sample featurizer, which no recipe can express.
 
 Featurizer forms in YAML
 ------------------------
 
 The ``sample_featurizer`` and ``drug_featurizer`` keys of a YAML file or a ``ModelConfig``
-take any of these forms.
-
-.. list-table::
-   :header-rows: 1
-   :widths: 40 60
-
-   * - Form
-     - Example
-   * - Name
-     - ``scaledGeneExpression``
-   * - Name with a view, or a ``+`` string
-     - ``raw[gene_expression]+raw[methylation]``
-   * - List, a concatenation
-     - ``[raw[gene_expression], raw[methylation]]``
-   * - Mapping with fields
-     - ``{name: raw, view: gene_expression}``
-   * - Mapping with children
-     - ``{name: concatFeaturizers, featurizers: [...]}``
-   * - One-key mapping
-     - ``{"pca[methylation]": {n_components: 8}}``
-
-The fields of the mapping form are:
+take one of two forms: a recipe string, such as ``scaledGeneExpression``, ``pca[methylation]``
+or ``raw[gene_expression]+raw[methylation]``, or a mapping with these fields:
 
 .. list-table::
    :header-rows: 1
@@ -169,21 +151,49 @@ The fields of the mapping form are:
    * - Field
      - Meaning
    * - ``name``
-     - Registry name
+     - Required. Registry name, or ``concatFeaturizers`` for a concatenation
    * - ``view``
      - The view to read
    * - ``featurizers``
-     - Children of a ``concatFeaturizers`` node
+     - Children of a ``concatFeaturizers`` node, each a recipe string or a mapping
    * - ``options``
-     - Fixed constructor values
+     - Fixed constructor values, such as a gene list. An option may not name a tunable
+       hyperparameter
+   * - ``defaults``
+     - New ``default`` values for tunable hyperparameters, such as ``{n_components: 8}``. A key
+       that is not in the search space raises
    * - ``hyperparameter_space``
      - The search space for this featurizer; see :doc:`hyperparameters`
 
-In the one-key form, each value under the key either replaces the ``default`` of a
-hyperparameter the component declares, or becomes a fixed entry in ``options`` if the
-component does not declare it. A predictor takes the one-key form too, as
-``{elasticNet: {alpha: 0.5}}``, but an option it does not declare raises an error. The
-predictor can also be ``{name: ..., hyperparameter_space: ...}``.
+For example, a concatenation whose children carry options and defaults:
+
+.. code-block:: yaml
+
+   sample_featurizer:
+     name: concatFeaturizers
+     featurizers:
+       - name: scaledGeneExpression
+         options:
+           gene_list: landmark_genes
+       - name: pca
+         view: methylation
+         defaults:
+           n_components: 8
+
+``options`` and ``defaults`` keep fixed values and tunable ones apart. A tunable
+hyperparameter under ``options`` raises, for example ``options of featurizer 'pca' name
+tunable hyperparameters (n_components); set their value under 'defaults' instead``, and a key
+under ``defaults`` that the search space lacks raises with the list of tunable keys. The
+``defaults`` edit the declared ``hyperparameter_space``, or the component's own space when none
+is declared, so tuning starts from them and an untuned run uses them.
+
+The ``predictor`` key takes a predictor name or a mapping with the fields ``name``,
+``defaults`` and ``hyperparameter_space``, for example
+``{name: elasticNet, defaults: {alpha: 0.5}}``.
+
+Other spellings, such as a list of featurizers or a one-key mapping like
+``{"pca[methylation]": {n_components: 8}}``, raise a ``ValueError`` that shows the form to
+write instead.
 
 A model configuration has the keys ``sample_featurizer``, ``drug_featurizer``, ``predictor``
 and ``prediction_mode`` (``regression`` by default). Other keys raise an error.

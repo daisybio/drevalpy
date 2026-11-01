@@ -101,7 +101,7 @@ A zoo preset configuration has these keys. Any other key is rejected.
    * - ``drug_featurizer``
      - Optional. A featurizer node
    * - ``predictor``
-     - Required. A predictor name, ``{name, hyperparameter_space}`` or a one-key mapping
+     - Required. A predictor name or ``{name, defaults, hyperparameter_space}``
    * - ``prediction_mode``
      - Optional, ``regression`` by default
 
