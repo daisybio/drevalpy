@@ -29,7 +29,7 @@ def _source(*, with_view: bool = True, names: tuple[str, ...] = ("g0", "g1")) ->
 
 
 class _Counting(Featurizer):
-    """Reads ``expr`` when the source holds it, else computes it from ``raw``; counts every call."""
+    """Reads ``expr`` when the source holds it, else computes it from ``view``; counts every call."""
 
     input_views: ClassVar[tuple[str, ...]] = ("expr",)
     source_views: ClassVar[tuple[str, ...]] = ("raw",)
@@ -208,9 +208,9 @@ def test_requires_early_stopping_without_a_usable_holdout_raises() -> None:
         prepare_features(featurizer, _source(), np.array(["a"]), fit=FitIds(np.array(["a"]), np.array([], dtype=str)))
 
 
-def test_a_featurizer_used_on_a_side_it_does_not_declare_raises() -> None:
+def test_a_featurizer_used_on_the_other_side_raises() -> None:
     class _DrugOnly(_Counting):
-        sides = frozenset({"drug"})
+        side = "drug"
 
-    with pytest.raises(ValueError, match="_DrugOnly cannot be used on the sample side; it supports only: drug"):
+    with pytest.raises(ValueError, match="_DrugOnly is a drug featurizer and cannot be used on the sample side"):
         prepare_features(_DrugOnly(), _source(), np.array(["a"]), fit=FitIds(np.array(["a"])))

@@ -34,7 +34,6 @@ def dataset(h5mu_path: UPath) -> Dataset:
 class _Scaled(PrecomputableFeaturizer):
     """Precomputable stub: ``scale`` times the first column of ``gene_expression``, as the ``scaled`` view."""
 
-    sides: ClassVar[frozenset[str]] = frozenset({"sample"})
     input_views: ClassVar[tuple[str, ...]] = ("scaled",)
     source_views: ClassVar[tuple[str, ...]] = ("gene_expression",)
     computed: ClassVar[list[float]] = []
@@ -52,9 +51,9 @@ class _Scaled(PrecomputableFeaturizer):
         return (source.view(self.source_views[0], ids)[:, :1] * self._scale).astype(np.float32)
 
 
-def _register(name: str, **attrs: Any) -> type[_Scaled]:
+def _register(name: str, side: str = "sample", **attrs: Any) -> type[_Scaled]:
     cls = type(f"_Scaled_{name}", (_Scaled,), {"computed": [], **attrs})
-    return register(name, description="precompute stub")(cls)
+    return register(name, side=side, description="precompute stub")(cls)
 
 
 def test_a_sample_view_is_written_with_its_settings_and_read_only_at_those_settings(dataset: Dataset) -> None:
@@ -93,7 +92,7 @@ def test_a_drug_view_lands_in_varm(dataset: Dataset) -> None:
 
     cls = _register(
         "drugScaled",
-        sides=frozenset({"drug"}),
+        side="drug",
         input_views=("drug_scaled",),
         source_views=("chemberta",),
         compute=compute,
@@ -117,7 +116,7 @@ def test_a_view_the_featurizer_already_reads_is_not_computed_again(dataset: Data
 def test_an_unsupported_side_or_a_featurizer_that_needs_fitting_raises(dataset: Dataset) -> None:
     _register("scaledStub")
 
-    with pytest.raises(ValueError, match="cannot be used on the drug side"):
+    with pytest.raises(ValueError, match="'scaledStub' is a sample featurizer and cannot be used on the drug side"):
         precompute(dataset, "scaledStub", "drug")
     with pytest.raises(ValueError, match="cannot be precomputed"):
         precompute(dataset, "pca", "sample")
@@ -126,8 +125,9 @@ def test_an_unsupported_side_or_a_featurizer_that_needs_fitting_raises(dataset: 
 def test_precompute_all_covers_eligible_featurizers_and_skips_the_rest(
     dataset: Dataset, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
-    from drevalpy.registry.featurizer import featurizers
+    from drevalpy.registry.featurizer import featurizer_registry
 
+    featurizers = featurizer_registry("sample")
     eligible = _register("eligibleStub", input_views=("eligible",))
     absent = _register("absentStub", input_views=("absent",), source_views=("not_a_view",))
 

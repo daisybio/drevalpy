@@ -52,10 +52,10 @@ def test_block_pair_matrix_aligns_named_block_and_rejects_missing() -> None:
     batch = naive_batch(
         sample_features=AB,
         sample_pair_idx=np.array([1, 0], dtype=np.int64),
-        sample_blocks={"identity": AB},
+        sample_blocks={"oneHot": AB},
     )
 
-    np.testing.assert_allclose(block_pair_matrix(batch, "identity"), [[0, 1], [1, 0]])
+    np.testing.assert_allclose(block_pair_matrix(batch, "oneHot"), [[0, 1], [1, 0]])
     with pytest.raises(ValueError, match="Required sample block 'tissue' is missing"):
         block_pair_matrix(batch, "tissue")
 

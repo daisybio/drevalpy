@@ -7,50 +7,53 @@ from pydantic import ValidationError
 
 from drevalpy.components.featurizers._featurizer_label import requires_explicit_view
 from drevalpy.models.config import FeaturizerConfig, ModelConfig, PredictorConfig, from_recipe
+from drevalpy.types.data.feature_source import Side
 
 
 def test_selector_uses_view_brackets() -> None:
-    assert FeaturizerConfig(name="pca", view="gene_expression").selector == "pca[gene_expression]"
-    assert FeaturizerConfig(name="raw", view="mutations").selector == "raw[mutations]"
-    assert FeaturizerConfig(name="landmarkGenes").selector == "landmarkGenes"
-    assert FeaturizerConfig(name="fingerprints").selector == "fingerprints"
+    assert FeaturizerConfig(name="pca", side="sample", view="gene_expression").selector == "pca[gene_expression]"
+    assert FeaturizerConfig(name="view", side="sample", view="mutations").selector == "view[mutations]"
+    assert FeaturizerConfig(name="landmarkGenes", side="sample").selector == "landmarkGenes"
+    assert FeaturizerConfig(name="fingerprints", side="drug").selector == "fingerprints"
 
 
 def test_explicit_view_requirement() -> None:
-    assert requires_explicit_view("raw") and requires_explicit_view("pca")
-    assert not requires_explicit_view("landmarkGenes")
+    assert requires_explicit_view("view", Side.SAMPLE) and requires_explicit_view("pca", Side.SAMPLE)
+    assert not requires_explicit_view("landmarkGenes", Side.SAMPLE)
 
 
 def test_unique_selectors_allow_same_name_different_views() -> None:
-    config = FeaturizerConfig.model_validate(
+    config = FeaturizerConfig.parse(
         {
             "name": "concatFeaturizers",
             "featurizers": [
-                {"name": "raw", "view": "gene_expression"},
-                {"name": "raw", "view": "mutations"},
+                {"name": "view", "view": "gene_expression"},
+                {"name": "view", "view": "mutations"},
             ],
         },
+        "sample",
     )
-    assert [leaf.selector for leaf in config.leaves()] == ["raw[gene_expression]", "raw[mutations]"]
+    assert [leaf.selector for leaf in config.leaves()] == ["view[gene_expression]", "view[mutations]"]
 
 
 def test_featurizer_config_rejects_duplicate_qualified_selector() -> None:
-    with pytest.raises(ValidationError, match="Duplicate featurizer selector 'raw\\[gene_expression\\]'"):
-        FeaturizerConfig.model_validate(
+    with pytest.raises(ValidationError, match="Duplicate featurizer selector 'view\\[gene_expression\\]'"):
+        FeaturizerConfig.parse(
             {
                 "name": "concatFeaturizers",
                 "featurizers": [
-                    {"name": "raw", "view": "gene_expression"},
-                    {"name": "raw", "view": "gene_expression"},
+                    {"name": "view", "view": "gene_expression"},
+                    {"name": "view", "view": "gene_expression"},
                 ],
             },
+            "sample",
         )
 
 
 def test_recipe_string_selector_uniqueness() -> None:
     with pytest.raises(ValueError, match="Duplicate featurizer selector"):
-        from_recipe("raw[expression]+raw[expression]:fingerprints:randomForest")
-    config = from_recipe("raw[expression]+raw[mutations]:fingerprints:randomForest")
+        from_recipe("view[expression]+view[expression]:fingerprints:randomForest")
+    config = from_recipe("view[expression]+view[mutations]:fingerprints:randomForest")
     assert isinstance(config, ModelConfig)
     assert config.sample_featurizer is not None
     assert config.sample_featurizer.name == "concatFeaturizers"
@@ -59,8 +62,8 @@ def test_recipe_string_selector_uniqueness() -> None:
 @pytest.fixture
 def model_config() -> ModelConfig:
     return ModelConfig(
-        sample_featurizer=FeaturizerConfig(name="pca", view="gene_expression"),
-        drug_featurizer=FeaturizerConfig(name="fingerprints"),
+        sample_featurizer=FeaturizerConfig(name="pca", side="sample", view="gene_expression"),
+        drug_featurizer=FeaturizerConfig(name="fingerprints", side="drug"),
         predictor=PredictorConfig(name="elasticNet"),
     )
 
@@ -77,8 +80,8 @@ def test_leaf_kwargs_fill_hyperparameter_defaults_from_the_registry(model_config
     ("leaf", "key", "expected"),
     [
         (
-            FeaturizerConfig.model_validate(
-                {"name": "pca", "view": "gene_expression", "defaults": {"n_components": 16}}
+            FeaturizerConfig.parse(
+                {"name": "pca", "view": "gene_expression", "defaults": {"n_components": 16}}, "sample"
             ),
             "n_components",
             16,
@@ -86,6 +89,7 @@ def test_leaf_kwargs_fill_hyperparameter_defaults_from_the_registry(model_config
         (
             FeaturizerConfig(
                 name="pca",
+                side="sample",
                 view="gene_expression",
                 hyperparameter_space={"n_components": {"type": "int", "low": 2, "high": 4, "default": 3}},
             ),
@@ -93,7 +97,7 @@ def test_leaf_kwargs_fill_hyperparameter_defaults_from_the_registry(model_config
             3,
         ),
         (
-            FeaturizerConfig(name="raw", view="gene_expression", options={"view": "mutations"}),
+            FeaturizerConfig(name="view", side="sample", view="gene_expression", options={"view": "mutations"}),
             "view",
             "mutations",
         ),

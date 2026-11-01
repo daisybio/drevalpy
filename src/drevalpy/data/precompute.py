@@ -66,7 +66,7 @@ def precompute(dataset: Dataset, featurizer_name: str, side: Side) -> str | None
 
     :param dataset: Dataset whose entities are featurized and which receives the view.
     :param featurizer_name: Registry name of the featurizer.
-    :param side: Side to featurize; the featurizer must support it.
+    :param side: Side to featurize, whose registry holds *featurizer_name*.
     :returns: The view written, or ``None`` when the dataset already held it.
     :raises ValueError: If the featurizer cannot be precomputed (it is not a ``PrecomputableFeaturizer``).
     """
@@ -78,7 +78,7 @@ def precompute(dataset: Dataset, featurizer_name: str, side: Side) -> str | None
         msg = f"featurizer {featurizer_name!r} needs fitting or reads no view of its own, so it cannot be precomputed"
         raise ValueError(msg)
     featurizer = cls(**cls.default_hyperparameters())
-    ids = np.asarray(dataset.sample_ids if side == "sample" else dataset.drug_ids, dtype=str)
+    ids = np.asarray(dataset.sample_ids if side == Side.SAMPLE else dataset.drug_ids, dtype=str)
     source = FeatureSource(dataset, side)
     if featurizer.reads_view(source):
         return None
@@ -89,7 +89,7 @@ def precompute(dataset: Dataset, featurizer_name: str, side: Side) -> str | None
 
 
 def precompute_all(dataset: Dataset) -> list[str]:
-    """Pre-compute every registered precomputable featurizer, on each side it supports.
+    """Pre-compute every registered precomputable featurizer, on its side.
 
     A featurizer is skipped when the dataset lacks its source views; one that fails is logged
     and skipped.
@@ -98,13 +98,13 @@ def precompute_all(dataset: Dataset) -> list[str]:
     :returns: The views written.
     """
     from drevalpy.components.featurizers._dense import PrecomputableFeaturizer
-    from drevalpy.registry.featurizer import featurizers
+    from drevalpy.registry.featurizer import featurizer_registries
 
     written: list[str] = []
-    for name, cls in featurizers.items():
-        if not issubclass(cls, PrecomputableFeaturizer):
-            continue
-        for side in sorted(cls.sides):
+    for side, registry in featurizer_registries.items():
+        for name, cls in registry.items():
+            if not issubclass(cls, PrecomputableFeaturizer):
+                continue
             source = FeatureSource(dataset, side)
             if not all(source.has_view(view) for view in cls.source_views):
                 logger.debug("Skipping %s: source views %s not available", name, cls.source_views)

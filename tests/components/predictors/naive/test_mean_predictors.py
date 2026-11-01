@@ -228,7 +228,7 @@ def _pair_batch(sample_blocks, response=None, cell_idx=(0, 1), drug_idx=(0, 1), 
 
 @pytest.mark.parametrize("tissue", [None, np.empty((2, 0))], ids=["no-tissue-block", "empty-tissue-block"])
 def test_without_tissue_decomposes_cell_and_drug_and_round_trips(tissue) -> None:
-    blocks = {"identity": CELL} | ({} if tissue is None else {"tissue": tissue})
+    blocks = {"oneHot": CELL} | ({} if tissue is None else {"tissue": tissue})
     response = np.array([1.0, 2.0, 5.0, 8.0])
     predictor = NaiveMeanEffectsPredictor()
     predictor.fit(_pair_batch(blocks, response, (0, 0, 1, 1), (0, 1, 0, 1)))
@@ -247,7 +247,7 @@ def test_without_tissue_decomposes_cell_and_drug_and_round_trips(tissue) -> None
 def test_with_tissue_blocks_adds_tissue_then_within_tissue_cell_effects() -> None:
     cell = one_hot(["cl1", "cl2", "cl3"], ["cl1", "cl2", "cl3"])
     tissue = np.array([[1.0, 0.0], [1.0, 0.0], [0.0, 1.0]])  # cl1, cl2 -> lung; cl3 -> blood
-    blocks = {"identity": cell, "tissue": tissue}
+    blocks = {"oneHot": cell, "tissue": tissue}
     response = np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0])
     predictor = NaiveMeanEffectsPredictor()
     predictor.fit(_pair_batch(blocks, response, (0, 0, 1, 1, 2, 2), (0, 1, 0, 1, 0, 1), cell))

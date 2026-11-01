@@ -49,7 +49,7 @@ class NaiveTissueDrugMeanPredictor(Predictor):
     """Naive tissue drug mean predictor component."""
 
     sample_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("tissue", FeatureFormat.NUMERIC_MATRIX))
-    drug_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("identity", FeatureFormat.NUMERIC_MATRIX))
+    drug_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("oneHot", FeatureFormat.NUMERIC_MATRIX))
 
     _dataset_mean: float | None = None
     _effects: np.ndarray | None = None

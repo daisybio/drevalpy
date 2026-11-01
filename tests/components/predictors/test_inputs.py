@@ -29,9 +29,9 @@ EXPECTED: dict[str, tuple[Inputs, Inputs]] = {
     "naiveMean": (_NONE, _NONE),
     "naiveDrugMean": (Inputs.blocks(), Inputs.blocks()),
     "naiveSampleMean": (Inputs.blocks(), Inputs.blocks()),
-    "naiveMeanEffects": (_blocks("identity"), _blocks("identity")),
+    "naiveMeanEffects": (_blocks("oneHot"), _blocks("oneHot")),
     "naiveTissueMean": (_blocks("tissue"), Inputs.blocks()),
-    "naiveTissueDrugMean": (_blocks("tissue"), _blocks("identity")),
+    "naiveTissueDrugMean": (_blocks("tissue"), _blocks("oneHot")),
     **{
         name: (_MATRIX, _MATRIX)
         for name in (

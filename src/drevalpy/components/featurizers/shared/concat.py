@@ -1,4 +1,4 @@
-"""Concatenating featurizer, for either entity side.
+"""Concatenating featurizer, registered as ``concatFeaturizers`` on both sides.
 
 Each child is fitted and transformed on the entities that are usable for every child, and the
 children's numeric blocks are merged into one result.
@@ -16,44 +16,40 @@ from drevalpy.components.featurizers._featurizer_label import CONCAT
 from drevalpy.components.featurizers.featurizer import Featurizer
 from drevalpy.registry.featurizer import register
 from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult, merge_feature_blocks
-from drevalpy.types.data.feature_source import FeatureSource
+from drevalpy.types.data.feature_source import FeatureSource, Side
 
 
-def _build_children(featurizers: list[Any]) -> list[Featurizer]:
+def _build_children(featurizers: list[Any], side: Side | None) -> list[Featurizer]:
     """Return the child featurizers: built instances as they are, configs instantiated.
 
     :param featurizers: Built featurizers, or config payloads (mappings or ``FeaturizerConfig``).
+    :param side: Side of the concat featurizer, given to child configs that set none.
     :returns: Child featurizer instances.
     """
     if all(isinstance(item, Featurizer) for item in featurizers):
         return list(featurizers)
     from drevalpy.models.config.featurizer import FeaturizerConfig
 
-    parent = FeaturizerConfig.model_validate(
-        {
-            "name": CONCAT,
-            "featurizers": [
-                item.model_dump(mode="python") if isinstance(item, FeaturizerConfig) else item for item in featurizers
-            ],
-        }
-    )
+    children = [
+        item if isinstance(item, FeaturizerConfig) else FeaturizerConfig.parse(item, side) for item in featurizers
+    ]
+    parent = FeaturizerConfig(name=CONCAT, side=side or children[0].side, featurizers=tuple(children))
     return [child.create_instance() for child in parent.featurizers or ()]
 
 
-@register(CONCAT, description="Concatenate the dense outputs of several featurizers of one side.")
 class ConcatFeaturizer(Featurizer):
     """Fit child featurizers independently and concatenate their dense outputs."""
 
     def __init__(self, *, featurizers: list[Any] | None = None) -> None:
         """Bind the child featurizers.
 
-        :param featurizers: Child featurizers, either built instances or config mappings; must be non-empty.
+        :param featurizers: Child featurizers, either built instances or configs of this side; must be non-empty.
         :raises ValueError: If *featurizers* is empty.
         """
         if not featurizers:
             msg = "featurizers must be a non-empty list"
             raise ValueError(msg)
-        self._children = _build_children(featurizers)
+        self._children = _build_children(featurizers, getattr(type(self), "side", None))
 
     @classmethod
     def output_blocks(cls, config: Mapping[str, Any]) -> tuple[BlockSpec, ...]:
@@ -124,3 +120,13 @@ class ConcatFeaturizer(Featurizer):
                 raise ValueError(msg)
             child_blocks.append(blocks)
         return FeaturizerResult.from_blocks(merge_feature_blocks(*child_blocks), ids)
+
+
+@register(CONCAT, side=Side.SAMPLE, description="Concatenate the dense outputs of several sample featurizers.")
+class SampleConcatFeaturizer(ConcatFeaturizer):
+    """Concatenation of sample featurizers."""
+
+
+@register(CONCAT, side=Side.DRUG, description="Concatenate the dense outputs of several drug featurizers.")
+class DrugConcatFeaturizer(ConcatFeaturizer):
+    """Concatenation of drug featurizers."""

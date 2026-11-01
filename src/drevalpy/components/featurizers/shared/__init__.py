@@ -1,1 +1,1 @@
-"""Featurizers registered once for both entity sides; they behave the same on either side."""
+"""Featurizers offered on both entity sides: one registration per side, sharing their code."""

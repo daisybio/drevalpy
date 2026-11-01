@@ -8,10 +8,10 @@ import numpy as np
 import pytest
 from pydantic import ValidationError
 
-from drevalpy.components.featurizers.sample.raw import RawSampleFeaturizer
+from drevalpy.components.featurizers.sample.view import ViewSampleFeaturizer
 from drevalpy.components.featurizers.shared.concat import ConcatFeaturizer
 from drevalpy.components.featurizers.shared.constant import ConstantFeaturizer
-from drevalpy.components.featurizers.shared.identity import IdentityFeaturizer
+from drevalpy.components.featurizers.shared.one_hot import OneHotFeaturizer
 from drevalpy.models._feature_preparation import FitIds, prepare_features
 from drevalpy.models.config import FeaturizerConfig
 from drevalpy.registry.featurizer import get_featurizer
@@ -62,17 +62,18 @@ def _run(featurizer, source, ids) -> FeaturizerResult:
 
 
 def _raw_configs() -> list[FeaturizerConfig]:
-    return [FeaturizerConfig(name="raw", view=view) for view in ("gene_expression", "mutations")]
+    return [FeaturizerConfig(name="view", side="sample", view=view) for view in ("gene_expression", "mutations")]
 
 
 @pytest.mark.parametrize(
     ("name", "cls"),
-    [("concatFeaturizers", ConcatFeaturizer), ("constant", ConstantFeaturizer), ("identity", IdentityFeaturizer)],
+    [("concatFeaturizers", ConcatFeaturizer), ("constant", ConstantFeaturizer), ("oneHot", OneHotFeaturizer)],
 )
-def test_each_shared_featurizer_is_registered_once_for_both_sides(name: str, cls: type) -> None:
-    assert get_featurizer(name, "sample") is cls
-    assert get_featurizer(name, "drug") is cls
-    assert cls.sides == frozenset({"sample", "drug"})
+def test_each_shared_featurizer_is_registered_once_per_side(name: str, cls: type) -> None:
+    sample, drug = get_featurizer(name, "sample"), get_featurizer(name, "drug")
+    assert sample is not drug
+    assert issubclass(sample, cls) and issubclass(drug, cls)
+    assert (sample.side, drug.side) == ("sample", "drug")
 
 
 def test_sample_concat_merges_the_children_blocks() -> None:
@@ -88,13 +89,13 @@ def test_sample_concat_merges_the_children_blocks() -> None:
 
 def test_drug_concat_builds_its_children_for_the_drug_side() -> None:
     featurizer = ConcatFeaturizer(
-        featurizers=[FeaturizerConfig(name="fingerprints"), FeaturizerConfig(name="identity")]
+        featurizers=[FeaturizerConfig(name="fingerprints", side="drug"), FeaturizerConfig(name="oneHot", side="drug")]
     )
 
     result = _run(featurizer, _drug_features(), _DRUG_IDS)
 
     assert result.matrix.shape == (2, 5)
-    assert set(result.blocks) == {"fingerprints", "identity", "identity_categories"}
+    assert set(result.blocks) == {"fingerprints", "oneHot", "oneHot_categories"}
 
 
 def test_concat_pads_entities_unusable_for_any_child() -> None:
@@ -110,8 +111,8 @@ def test_concat_pads_entities_unusable_for_any_child() -> None:
 def test_concat_of_the_same_featurizer_on_two_views_names_blocks_by_view() -> None:
     featurizer = ConcatFeaturizer(
         featurizers=[
-            FeaturizerConfig(name="pca", view="gene_expression").create_instance({"n_components": 1}),
-            FeaturizerConfig(name="pca", view="proteomics").create_instance({"n_components": 1}),
+            FeaturizerConfig(name="pca", side="sample", view="gene_expression").create_instance({"n_components": 1}),
+            FeaturizerConfig(name="pca", side="sample", view="proteomics").create_instance({"n_components": 1}),
         ],
     )
 
@@ -124,15 +125,15 @@ def test_concat_of_the_same_featurizer_on_two_views_names_blocks_by_view() -> No
 def test_concat_rejects_duplicate_block_names_and_selectors() -> None:
     featurizer = ConcatFeaturizer(
         featurizers=[
-            FeaturizerConfig(name="raw", view="gene_expression"),
-            FeaturizerConfig(name="scaledGeneExpression"),
+            FeaturizerConfig(name="view", side="sample", view="gene_expression"),
+            FeaturizerConfig(name="scaledGeneExpression", side="sample"),
         ]
     )
     with pytest.raises(ValueError, match="Duplicate featurizer block name 'gene_expression'"):
         _run(featurizer, _sample_features(), _IDS)
 
-    duplicate = FeaturizerConfig(name="raw", view="gene_expression")
-    with pytest.raises(ValidationError, match="Duplicate featurizer selector 'raw\\[gene_expression\\]'"):
+    duplicate = FeaturizerConfig(name="view", side="sample", view="gene_expression")
+    with pytest.raises(ValidationError, match="Duplicate featurizer selector 'view\\[gene_expression\\]'"):
         ConcatFeaturizer(featurizers=[duplicate, duplicate])
 
 
@@ -143,7 +144,7 @@ def test_concat_rejects_non_numeric_children_and_empty_lists() -> None:
             values[:] = [np.arange(2) for _ in ids]
             return FeaturizerResult(ids, {"tokens": ragged_feature_block(values)}, ())
 
-    featurizer = ConcatFeaturizer(featurizers=[IdentityFeaturizer(), _Tokens()])
+    featurizer = ConcatFeaturizer(featurizers=[OneHotFeaturizer(), _Tokens()])
     with pytest.raises(ValueError, match="child _Tokens emits non-numeric blocks \\['tokens'\\]"):
         _run(featurizer, _drug_features(), _DRUG_IDS)
     with pytest.raises(ValueError, match="non-empty list"):
@@ -152,17 +153,17 @@ def test_concat_rejects_non_numeric_children_and_empty_lists() -> None:
 
 def test_concat_accepts_pre_built_featurizer_instances() -> None:
     featurizer = ConcatFeaturizer(
-        featurizers=[RawSampleFeaturizer(view="gene_expression"), RawSampleFeaturizer(view="mutations")]
+        featurizers=[ViewSampleFeaturizer(view="gene_expression"), ViewSampleFeaturizer(view="mutations")]
     )
 
     assert _run(featurizer, _sample_features(), _IDS).matrix.shape == (2, 4)
 
 
 def test_concat_requires_early_stopping_when_a_child_does() -> None:
-    child = type("IdentityFeaturizer", (IdentityFeaturizer,), {"requires_early_stopping": True})()
+    child = type("OneHotFeaturizer", (OneHotFeaturizer,), {"requires_early_stopping": True})()
     featurizer = ConcatFeaturizer(featurizers=[child])
 
-    with pytest.raises(ValueError, match="IdentityFeaturizer requires a usable early-stopping holdout"):
+    with pytest.raises(ValueError, match="OneHotFeaturizer requires a usable early-stopping holdout"):
         featurizer.fit(_sample_features(), _IDS)
 
 
@@ -192,7 +193,7 @@ def test_constant_is_a_ones_column(side: str) -> None:
 @pytest.mark.parametrize("side", ["sample", "drug"])
 def test_identity_one_hot_blocks_and_pickling(side: str) -> None:
     source = MockFeatureSource({}, side=side)
-    featurizer = IdentityFeaturizer()
+    featurizer = OneHotFeaturizer()
     featurizer.fit(source, np.array(["e2", "e1"], dtype=str))
     ids = np.array(["e2", "e1", "e3"], dtype=str)
 
@@ -200,6 +201,6 @@ def test_identity_one_hot_blocks_and_pickling(side: str) -> None:
     restored = pickle.loads(pickle.dumps(featurizer))  # noqa: S301 -- pickled in the same expression
 
     np.testing.assert_array_equal(result.matrix, [[0, 1], [1, 0], [0, 0]])
-    assert set(result.blocks) == {"identity", "identity_categories"}
-    assert list(result.blocks["identity_categories"].values) == ["e1", "e2"]
+    assert set(result.blocks) == {"oneHot", "oneHot_categories"}
+    assert list(result.blocks["oneHot_categories"].values) == ["e1", "e2"]
     np.testing.assert_array_equal(prepare_features(restored, source, ids, fit=None).matrix, result.matrix)

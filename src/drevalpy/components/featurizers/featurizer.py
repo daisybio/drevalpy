@@ -2,11 +2,10 @@
 
 A featurizer turns the views of one entity side into a
 :class:`~drevalpy.types.data.batch.feature_block.FeaturizerResult`. What it
-declares on the class body is read without instantiating it: the sides it
-supports, the views it reads (``input_views``, empty for a featurizer that needs
-only entity IDs), the raw views it computes from when a view is absent
-(``source_views``) and, through :meth:`Featurizer.output_blocks` and
-:meth:`Featurizer.views`, the blocks it emits and the views it reads for a config.
+declares on the class body is read without instantiating it: the views it
+reads (``input_views``, empty for a featurizer that needs only entity IDs), the
+raw views it computes from when a view is absent (``source_views``) and, through
+:meth:`Featurizer.output_blocks` and :meth:`Featurizer.views`, the blocks it emits and the views it reads for a config.
 
 The caller (``models/_feature_preparation.prepare_features``) owns everything around
 ``fit`` and ``transform``: which entities are usable (:meth:`Featurizer.valid_mask`),
@@ -33,8 +32,8 @@ class Featurizer(TunableComponent, ABC):
 
     #: Registry name, set by the registry.
     name: ClassVar[str]
-    #: Entity sides the featurizer can be used on.
-    sides: ClassVar[frozenset[Side]] = frozenset({"sample", "drug"})
+    #: The entity side the featurizer reads, set by the registry.
+    side: ClassVar[Side]
     #: Views the featurizer reads; empty when it needs only entity IDs.
     input_views: ClassVar[tuple[str, ...]] = ()
     #: Raw views the featurizer computes its input from when an input view is absent.

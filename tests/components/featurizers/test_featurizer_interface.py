@@ -45,8 +45,8 @@ def _source(names: tuple[str, ...] = ("g0", "g1")) -> MockFeatureSource:
     )
 
 
-def test_declaration_defaults() -> None:
-    assert Featurizer.sides == frozenset({"sample", "drug"})
+def test_an_unregistered_featurizer_has_no_side() -> None:
+    assert not hasattr(Featurizer, "side")
 
 
 @pytest.mark.parametrize(

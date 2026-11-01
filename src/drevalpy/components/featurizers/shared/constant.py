@@ -1,4 +1,4 @@
-"""Constant (one-category / intercept) featurizer, for either entity side."""
+"""Constant (one-category / intercept) featurizer, registered as ``constant`` on both sides."""
 
 from __future__ import annotations
 
@@ -11,10 +11,9 @@ from drevalpy.components.contracts.feature_format import FeatureFormat
 from drevalpy.components.featurizers.featurizer import Featurizer
 from drevalpy.registry.featurizer import register
 from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult, numeric_feature_block
-from drevalpy.types.data.feature_source import FeatureSource
+from drevalpy.types.data.feature_source import FeatureSource, Side
 
 
-@register("constant", description="Constant one-column intercept features with no entity identity.")
 class ConstantFeaturizer(Featurizer):
     """Emit a single column of ones for every entity."""
 
@@ -57,3 +56,13 @@ class ConstantFeaturizer(Featurizer):
         _ = source
         matrix = np.ones((len(ids), 1), dtype=np.float32)
         return FeaturizerResult(ids, {"constant": numeric_feature_block(matrix)}, ("constant",))
+
+
+@register("constant", side=Side.SAMPLE, description="Constant one-column intercept features with no sample identity.")
+class SampleConstantFeaturizer(ConstantFeaturizer):
+    """A column of ones for every sample."""
+
+
+@register("constant", side=Side.DRUG, description="Constant one-column intercept features with no drug identity.")
+class DrugConstantFeaturizer(ConstantFeaturizer):
+    """A column of ones for every drug."""

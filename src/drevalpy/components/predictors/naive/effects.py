@@ -28,8 +28,8 @@ from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 class NaiveMeanEffectsPredictor(Predictor):
     """Naive mean effects predictor component."""
 
-    sample_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("identity", FeatureFormat.NUMERIC_MATRIX))
-    drug_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("identity", FeatureFormat.NUMERIC_MATRIX))
+    sample_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("oneHot", FeatureFormat.NUMERIC_MATRIX))
+    drug_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("oneHot", FeatureFormat.NUMERIC_MATRIX))
 
     _dataset_mean: float | None = None
     _tissue_effects: np.ndarray | None = None
@@ -38,8 +38,8 @@ class NaiveMeanEffectsPredictor(Predictor):
 
     def _cell_and_tissue(self, batch: ModelInputBatch) -> tuple[np.ndarray, np.ndarray]:
         """Return pair-aligned sample identity and tissue matrices; the tissue matrix has no columns if absent."""
-        if "identity" in batch.sample.blocks:
-            cell = block_pair_matrix(batch, "identity")
+        if "oneHot" in batch.sample.blocks:
+            cell = block_pair_matrix(batch, "oneHot")
         else:
             cell = require_pair_matrix(batch, side="sample")
         if "tissue" in batch.sample.blocks:

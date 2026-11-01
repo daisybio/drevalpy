@@ -1,4 +1,4 @@
-"""One-hot identity featurizer, for either entity side."""
+"""One-hot encoding of entity IDs, registered as ``oneHot`` on both sides."""
 
 from __future__ import annotations
 
@@ -17,11 +17,13 @@ from drevalpy.types.data.batch.feature_block import (
     global_feature_block,
     numeric_feature_block,
 )
-from drevalpy.types.data.feature_source import FeatureSource
+from drevalpy.types.data.feature_source import FeatureSource, Side
+
+#: Name of the featurizer and of the block it emits.
+ONE_HOT = "oneHot"
 
 
-@register("identity", description="One-hot encoding of entity identifiers.")
-class IdentityFeaturizer(Featurizer):
+class OneHotFeaturizer(Featurizer):
     """Encode entity IDs as dense one-hot vectors over the training entities."""
 
     def __init__(self) -> None:
@@ -30,13 +32,13 @@ class IdentityFeaturizer(Featurizer):
 
     @classmethod
     def output_blocks(cls, config: Mapping[str, Any]) -> tuple[BlockSpec, ...]:
-        """Return the ``identity`` block.
+        """Return the ``oneHot`` block.
 
         :param config: Unused construction kwargs.
-        :returns: One numeric ``identity`` block.
+        :returns: One numeric ``oneHot`` block.
         """
         _ = config
-        return (BlockSpec("identity", FeatureFormat.NUMERIC_MATRIX),)
+        return (BlockSpec(ONE_HOT, FeatureFormat.NUMERIC_MATRIX),)
 
     def fit(
         self,
@@ -59,18 +61,28 @@ class IdentityFeaturizer(Featurizer):
         return self
 
     def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerResult:
-        """Emit the one-hot ``identity`` block and the fitted category labels as metadata.
+        """Emit the ``oneHot`` block and the fitted category labels as metadata.
 
         :param source: Unused.
         :param ids: Identifiers to encode; unseen identifiers become all-zero rows.
-        :returns: Result with ``identity`` and ``identity_categories`` blocks.
+        :returns: Result with ``oneHot`` and ``oneHot_categories`` blocks.
         """
         _ = source
         return FeaturizerResult(
             ids,
             {
-                "identity": numeric_feature_block(self._encoder.transform(ids)),
-                "identity_categories": global_feature_block(np.asarray(self._encoder.categories, dtype=str)),
+                ONE_HOT: numeric_feature_block(self._encoder.transform(ids)),
+                f"{ONE_HOT}_categories": global_feature_block(np.asarray(self._encoder.categories, dtype=str)),
             },
-            ("identity",),
+            (ONE_HOT,),
         )
+
+
+@register(ONE_HOT, side=Side.SAMPLE, description="One-hot encoding of sample identifiers.")
+class SampleOneHotFeaturizer(OneHotFeaturizer):
+    """One-hot encoding of sample IDs."""
+
+
+@register(ONE_HOT, side=Side.DRUG, description="One-hot encoding of drug identifiers.")
+class DrugOneHotFeaturizer(OneHotFeaturizer):
+    """One-hot encoding of drug IDs."""
