@@ -15,7 +15,7 @@ from drevalpy.cli.main import app
 from drevalpy.curation import FIT_SPEEDS
 from drevalpy.types.results import ExperimentResult
 from tests.cli._helpers import HELP_ENV, Recorder, make_runner, patch_worker, plain
-from tests.curation.conftest import build_dose_response_df
+from tests.curation.conftest import build_dose_response_df, build_replicated_wells
 from tests.synthetic import DEFAULT_DATASET_NAME, make_experiment_result, make_run_result
 
 runner = make_runner()
@@ -189,7 +189,7 @@ def test_supported_suffixes_are_read(
     else:
         dose_response_df.to_parquet(path)
 
-    result = runner.invoke(app, ["curate", str(path), str(tmp_path / "out.h5ad")])
+    result = runner.invoke(app, ["curate", "run", str(path), str(tmp_path / "out.h5ad")])
 
     assert result.exit_code == 0, result.output
     assert len(curate_worker.args[0]) == len(dose_response_df)
@@ -199,29 +199,55 @@ def test_unsupported_suffix_is_rejected_before_the_fitter(curate_worker: Recorde
     path = tmp_path / "input.tsv"
     path.write_text("drug\tsample\n")
 
-    result = runner.invoke(app, ["curate", str(path), str(tmp_path / "out.h5ad")], env=HELP_ENV)
+    result = runner.invoke(app, ["curate", "run", str(path), str(tmp_path / "out.h5ad")], env=HELP_ENV)
 
     assert result.exit_code == 2
     assert "Unsupported file format: .tsv" in plain(result.output)
     assert curate_worker.call_count == 0
 
 
+_DEFAULT_CURATE_KWARGS = {
+    "replicate_fits": False,
+    "min_doses": 4,
+    "metadata": (),
+    "normalize": False,
+    "fit_speed": "exhaustive",
+    "max_chunk_size": 2000,
+    "max_workers": 4,
+}
+
+
 def test_fit_option_defaults_and_overrides(curate_worker: Recorder, input_csv: UPath, tmp_path: UPath) -> None:
     out = str(tmp_path / "out.h5ad")
 
-    runner.invoke(app, ["curate", str(input_csv), out])
-    assert curate_worker.kwargs == {"max_workers": 4, "normalize": False, "fit_speed": "exhaustive"}
+    runner.invoke(app, ["curate", "run", str(input_csv), out])
+    assert curate_worker.kwargs == _DEFAULT_CURATE_KWARGS
 
     curate_worker.calls.clear()
-    runner.invoke(app, ["curate", str(input_csv), out, "-c", "2", "--normalize", "--fit-speed", "fast"])
-    assert curate_worker.kwargs == {"max_workers": 2, "normalize": True, "fit_speed": "fast"}
+    runner.invoke(app, ["curate", "run", str(input_csv), out, "-c", "2", "--normalize", "--fit-speed", "fast"])
+    assert curate_worker.kwargs == {**_DEFAULT_CURATE_KWARGS, "max_workers": 2, "normalize": True, "fit_speed": "fast"}
+
+
+def test_replicate_fit_options_reach_the_fitter(curate_worker: Recorder, input_csv: UPath, tmp_path: UPath) -> None:
+    out = str(tmp_path / "out.h5ad")
+    flags = ["--replicate-fits", "--min-doses", "3", "--metadata", "plate", "--metadata", "date"]
+
+    runner.invoke(app, ["curate", "run", str(input_csv), out, *flags, "--max-chunk-size", "50"])
+
+    assert curate_worker.kwargs == {
+        **_DEFAULT_CURATE_KWARGS,
+        "replicate_fits": True,
+        "min_doses": 3,
+        "metadata": ("plate", "date"),
+        "max_chunk_size": 50,
+    }
 
 
 @pytest.mark.parametrize("speed", FIT_SPEEDS)
 def test_every_library_fit_speed_is_accepted_case_insensitively(
     curate_worker: Recorder, input_csv: UPath, tmp_path: UPath, speed: str
 ) -> None:
-    runner.invoke(app, ["curate", str(input_csv), str(tmp_path / "out.h5ad"), "--fit-speed", speed.upper()])
+    runner.invoke(app, ["curate", "run", str(input_csv), str(tmp_path / "out.h5ad"), "--fit-speed", speed.upper()])
 
     assert curate_worker.kwargs["fit_speed"] == speed
 
@@ -232,7 +258,7 @@ def test_every_library_fit_speed_is_accepted_case_insensitively(
 def test_invalid_options_are_usage_errors_before_the_fitter(
     curate_worker: Recorder, input_csv: UPath, tmp_path: UPath, extra: list[str]
 ) -> None:
-    result = runner.invoke(app, ["curate", str(input_csv), str(tmp_path / "out.h5ad"), *extra])
+    result = runner.invoke(app, ["curate", "run", str(input_csv), str(tmp_path / "out.h5ad"), *extra])
 
     assert result.exit_code == 2
     assert curate_worker.call_count == 0
@@ -247,7 +273,7 @@ def test_csv_to_h5ad_round_trip_with_the_real_fitter(tmp_path: UPath) -> None:
     handlers, level = list(logger.handlers), logger.level
     try:
         result = runner.invoke(
-            app, ["curate", str(input_path), str(output_path), "--cores", "1", "--fit-speed", "fast"]
+            app, ["curate", "run", str(input_path), str(output_path), "--cores", "1", "--fit-speed", "fast"]
         )
     finally:
         logger.handlers[:] = handlers
@@ -257,3 +283,47 @@ def test_csv_to_h5ad_round_trip_with_the_real_fitter(tmp_path: UPath) -> None:
     adata = anndata.read_h5ad(output_path)
     assert adata.shape == (3, 2)
     assert {"EC50", "AUC"} <= set(adata.layers)
+
+
+@pytest.mark.slow
+def test_plan_fit_chunk_and_collect_give_the_same_curves_as_run(tmp_path: UPath) -> None:
+    input_path = tmp_path / "input.parquet"
+    build_replicated_wells().to_parquet(input_path)
+    fit = ["--fit-speed", "fast", "--replicate-fits", "--metadata", "plate_date", "--max-chunk-size", "2"]
+    logger = logging.getLogger("drevalpy")
+    handlers, level = list(logger.handlers), logger.level
+    try:
+        assert runner.invoke(app, ["curate", "run", str(input_path), str(tmp_path / "run.h5ad"), *fit]).exit_code == 0
+        assert runner.invoke(app, ["curate", "plan", str(input_path), str(tmp_path / "plan"), *fit]).exit_code == 0
+        chunks = sorted((tmp_path / "plan" / "chunks").iterdir())
+        (tmp_path / "fitted").mkdir()
+        for chunk in chunks:
+            result = runner.invoke(app, ["curate", "fit-chunk", str(chunk), str(tmp_path / "fitted" / chunk.name)])
+            assert result.exit_code == 0, result.output
+        result = runner.invoke(
+            app, ["curate", "collect", str(tmp_path / "plan"), str(tmp_path / "fitted"), str(tmp_path / "steps.h5ad")]
+        )
+    finally:
+        logger.handlers[:] = handlers
+        logger.setLevel(level)
+
+    assert result.exit_code == 0, result.output
+    assert len(chunks) > 2
+    run, steps = anndata.read_h5ad(tmp_path / "run.h5ad"), anndata.read_h5ad(tmp_path / "steps.h5ad")
+    np.testing.assert_array_equal(run.X, steps.X)
+    assert run.layers.keys() == steps.layers.keys()
+    pd.testing.assert_frame_equal(run.uns["replicate_fits"], steps.uns["replicate_fits"])
+
+
+def test_collect_names_the_chunks_without_a_fit(tmp_path: UPath) -> None:
+    input_path = tmp_path / "input.parquet"
+    build_dose_response_df().to_parquet(input_path)
+    runner.invoke(app, ["curate", "plan", str(input_path), str(tmp_path / "plan")])
+    (tmp_path / "fitted").mkdir()
+
+    result = runner.invoke(
+        app, ["curate", "collect", str(tmp_path / "plan"), str(tmp_path / "fitted"), str(tmp_path / "out.h5ad")]
+    )
+
+    assert result.exit_code == 1
+    assert "pooled-00000" in result.output
