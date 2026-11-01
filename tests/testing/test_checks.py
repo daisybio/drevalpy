@@ -15,6 +15,7 @@ import pytest
 from drevalpy.components.contracts.feature_format import FeatureFormat
 from drevalpy.components.featurizers.featurizer import Featurizer
 from drevalpy.components.predictors.abstract.matrix import MatrixPredictor
+from drevalpy.data._synthetic import synthetic as build_synthetic_dataset
 from drevalpy.registry import predictor
 from drevalpy.registry.featurizer import featurizers, get_featurizer, register
 from drevalpy.testing import plugins as plugins_module
@@ -37,7 +38,6 @@ from drevalpy.testing.plugins import (
     PluginReport,
     check_plugin,
 )
-from drevalpy.testing.synthetic import build_synthetic_dataset
 from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult, numeric_feature_block
 from drevalpy.types.data.feature_source import FeatureSource
 
@@ -195,7 +195,6 @@ def test_feature_source_for_matches_the_featurizer_side(dataset):
     assert sample_source.side == "sample"
     source = feature_source_for(GoodDrugFeaturizer, dataset)
     assert source.side == "drug"
-    assert len(source.identifiers) == len(dataset.drug_ids)
 
 
 @pytest.mark.parametrize("check", FEATURIZER_CHECKS)

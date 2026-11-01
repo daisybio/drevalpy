@@ -23,7 +23,7 @@ def robustness_cmd(
     from rich.progress import Progress
 
     from drevalpy.experiment._robustness import robustness
-    from drevalpy.types import SplitMasks
+    from drevalpy.types import Fold
 
     inp = UPath(splits_dir)
     out = UPath(output_dir)
@@ -37,7 +37,7 @@ def robustness_cmd(
     with Progress() as progress:
         task = progress.add_task("Processing folds", total=len(fold_files))
         for fold_file in fold_files:
-            fold = SplitMasks.load(str(fold_file))
+            fold = Fold.load(str(fold_file))
             variants = robustness(fold, n_repeats)
             for repeat, variant in enumerate(variants):
                 out_path = out / f"{fold_file.stem}_repeat_{repeat}.npz"
@@ -45,4 +45,4 @@ def robustness_cmd(
                 total += 1
             progress.advance(task)
 
-    typer.echo(f"Wrote {total} robustness splits to {out}")
+    typer.echo(f"Wrote {total} robustness folds to {out}")

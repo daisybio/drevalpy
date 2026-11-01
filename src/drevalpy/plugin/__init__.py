@@ -17,7 +17,12 @@ The conformance checks for a plugin's own test suite are in :mod:`drevalpy.testi
 """
 
 from drevalpy.components.contracts.feature_format import FeatureFormat
-from drevalpy.components.featurizers._dense import FeatureMismatchError, dense_result, view_matrix
+from drevalpy.components.featurizers._dense import (
+    FeatureMismatchError,
+    PrecomputableFeaturizer,
+    dense_result,
+    view_matrix,
+)
 from drevalpy.components.featurizers.featurizer import Featurizer, all_nan_rows_mask
 from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
@@ -27,27 +32,18 @@ from drevalpy.data.quality import CurveQuality, curve_quality_mask
 from drevalpy.data.splitters import observed_mask
 from drevalpy.errors import DrEvalError, InvalidInputError, UnknownNameError
 from drevalpy.registry import load_extensions
-from drevalpy.registry.components._metadata import LiteratureReference
+from drevalpy.registry._component import LiteratureReference
 from drevalpy.registry.featurizer import register as register_featurizer
 from drevalpy.registry.predictor import register as register_predictor
 from drevalpy.registry.splitter import Splitter, SplitValidationError, Validation
 from drevalpy.registry.splitter import register as register_splitter
 from drevalpy.registry.visualization import register as register_visualization
-from drevalpy.types.data.batch.feature_block import (
-    BlockSpec,
-    FeatureBlock,
-    FeaturizerResult,
-    global_feature_block,
-    graph_feature_block,
-    merge_feature_blocks,
-    numeric_feature_block,
-    ragged_feature_block,
-)
+from drevalpy.types.data.batch.feature_block import BlockSpec, FeatureBlock, FeaturizerResult, global_feature_block
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.types.data.dataset import Dataset
 from drevalpy.types.data.feature_source import FeatureSource, Side
-from drevalpy.types.data.split_mask import SplitMask
-from drevalpy.types.data.split_masks import SplitMasks
+from drevalpy.types.data.fold import Fold
+from drevalpy.types.data.pair_mask import PairMask
 from drevalpy.types.enums.model_scope import ModelScope
 from drevalpy.types.enums.prediction_mode import PredictionMode
 from drevalpy.types.results import ExperimentResult, ModelResult
@@ -67,6 +63,7 @@ __all__ = [
     "FeatureSource",
     "Featurizer",
     "FeaturizerResult",
+    "Fold",
     "Inputs",
     "InvalidInputError",
     "LiteratureReference",
@@ -74,14 +71,14 @@ __all__ = [
     "ModelInputBatch",
     "ModelResult",
     "ModelScope",
+    "PairMask",
     "Plot",
     "PlotRequirement",
+    "PrecomputableFeaturizer",
     "PredictionMode",
     "Predictor",
     "Section",
     "Side",
-    "SplitMask",
-    "SplitMasks",
     "SplitValidationError",
     "Splitter",
     "UnknownNameError",
@@ -90,12 +87,8 @@ __all__ = [
     "curve_quality_mask",
     "dense_result",
     "global_feature_block",
-    "graph_feature_block",
     "load_extensions",
-    "merge_feature_blocks",
-    "numeric_feature_block",
     "observed_mask",
-    "ragged_feature_block",
     "register_featurizer",
     "register_predictor",
     "register_splitter",

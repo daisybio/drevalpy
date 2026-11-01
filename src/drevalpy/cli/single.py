@@ -24,8 +24,8 @@ from ._options import (
 
 def single_cmd(
     model: Annotated[str, typer.Argument(help="Model name (e.g. ElasticNet, RandomForest).")],
-    dataset: Annotated[str, typer.Argument(help="Path to a .h5mu dataset file.")],
-    split: Annotated[str, typer.Argument(help="Path to a fold .npz split file.")],
+    dataset: Annotated[str, typer.Argument(help="Registered dataset name or path to a .h5mu file.")],
+    fold: Annotated[str, typer.Argument(help="Path to a fold .npz file, as written by `drevalpy data split`.")],
     output: Annotated[str, typer.Argument(help="Output path for the result .npz file.")],
     hpo: Hpo = True,
     hpo_metric: HpoMetric = Metric.RMSE,
@@ -39,16 +39,16 @@ def single_cmd(
 ) -> None:
     """Train a model on one fold, predict on test set, and save results."""
     from drevalpy._single import single as run_single
+    from drevalpy.data import load
     from drevalpy.models import ModelSpec
     from drevalpy.registry.splitter import canonical
-    from drevalpy.types import SplitMasks
-    from drevalpy.types.data.dataset import Dataset
+    from drevalpy.types import Fold
 
     model_spec = ModelSpec.from_name(model)
     transformer = resolve_response_transformation(response_transformation)
-    ds = Dataset.load(dataset)
-    split_masks = SplitMasks.load(split)
-    split_masks.metadata["split_mode"] = canonical(split_masks.metadata.get("split_mode", split_mode))
+    ds = load(dataset)
+    loaded = Fold.load(fold)
+    loaded.metadata["split_mode"] = canonical(loaded.metadata.get("split_mode", split_mode))
 
     out = UPath(output)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -56,7 +56,7 @@ def single_cmd(
     result = run_single(
         model_spec,
         ds,
-        split_masks,
+        loaded,
         hyperparameter_tuning=hpo,
         response_transformation=transformer,
         hpo_metric=hpo_metric,

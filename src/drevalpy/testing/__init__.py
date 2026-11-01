@@ -1,10 +1,8 @@
 """Test utilities for drevalpy plugins and components.
 
 Everything a plugin's test suite needs to exercise its own components without a
-downloaded dataset:
+downloaded dataset, beside the in-memory dataset of :func:`drevalpy.synthetic`:
 
-* :func:`build_synthetic_dataset` - an in-memory :class:`~drevalpy.plugin.Dataset`;
-  an alias of :func:`drevalpy.data.synthetic`.
 * :func:`build_synthetic_batch` - a featurized batch a predictor can train on.
 * :func:`check_plugin` - assert the plugin's entry point loaded and its
   components resolve through the registries.
@@ -30,7 +28,6 @@ from .conformance import (
     feature_source_for,
 )
 from .plugins import ENTRY_POINT_GROUP, PluginCheckError, PluginReport, check_plugin
-from .synthetic import build_synthetic_dataset
 
 __all__ = [
     "ConformanceError",
@@ -40,7 +37,6 @@ __all__ = [
     "PluginCheckError",
     "PluginReport",
     "build_synthetic_batch",
-    "build_synthetic_dataset",
     "check_featurizer_fit_transform",
     "check_featurizer_instantiates",
     "check_featurizer_pickle_round_trip",

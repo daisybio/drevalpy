@@ -7,7 +7,7 @@ from typing import Annotated
 import typer
 from upath import UPath
 
-from drevalpy.cli._quality import MinAbsFoldChange, MinRelevanceScore, NoQualityFilter, quality_from_cli
+from drevalpy.cli._options import MinAbsFoldChange, MinRelevanceScore, NoQualityFilter, quality_from_cli
 
 
 def split_dataset(

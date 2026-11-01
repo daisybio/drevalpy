@@ -62,7 +62,7 @@ def _component_details(display_name: str, registry: Registry[type[Any]]) -> Call
     :param registry: Registry holding the component classes.
     :returns: Function from an entry name to its catalog facts.
     """
-    from drevalpy.registry.components._metadata import featurizer_component_metadata, predictor_component_metadata
+    from drevalpy.registry._component import featurizer_component_metadata, predictor_component_metadata
 
     build = predictor_component_metadata if display_name == "predictors" else featurizer_component_metadata
     return lambda name: build(display_name, name, registry.get(name))
@@ -134,6 +134,7 @@ def _unknown_entry(kind: str, name: str, valid: list[str]) -> UnknownNameError:
 
 def list_zoo_presets(name: EntryName = None) -> None:
     """List zoo presets, the named model configurations accepted by ``run``."""
+    from drevalpy.models.config._parse import format_featurizer_recipe
     from drevalpy.models.zoo import get_zoo_config, list_zoo_names
 
     from ._render import format_value, render_mapping, render_rows
@@ -168,8 +169,10 @@ def list_zoo_presets(name: EntryName = None) -> None:
             "Recipe": config.model_id,
             "Scope": config.scope.value,
             "Prediction mode": config.prediction_mode.value,
-            "Sample featurizer": config.sample_featurizer.name if config.sample_featurizer else None,
-            "Drug featurizer": config.drug_featurizer.name if config.drug_featurizer else None,
+            "Sample featurizer": format_featurizer_recipe(config.sample_featurizer)
+            if config.sample_featurizer
+            else None,
+            "Drug featurizer": format_featurizer_recipe(config.drug_featurizer) if config.drug_featurizer else None,
             "Predictor": config.predictor.name,
         },
         title=name,

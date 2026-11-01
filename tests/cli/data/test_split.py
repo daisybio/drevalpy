@@ -8,7 +8,7 @@ from upath import UPath
 
 from drevalpy.cli.main import app
 from drevalpy.data.quality import CurveQuality
-from drevalpy.types import SplitMask, SplitMasks
+from drevalpy.types import Fold, PairMask
 from drevalpy.types.data.dataset import Dataset
 from tests.cli._helpers import FakeDataset, Recorder, make_runner, patch_worker, plain
 
@@ -17,17 +17,17 @@ runner = make_runner()
 N_FOLDS = 3
 
 
-def _make_fold(fold_index: int) -> SplitMasks:
+def _make_fold(fold_index: int) -> Fold:
     train = np.zeros((2, 2), dtype=bool)
     train[0, 0] = True
     test = np.zeros((2, 2), dtype=bool)
     test[1, 1] = True
     val = np.zeros((2, 2), dtype=bool)
     val[0, 1] = True
-    return SplitMasks(
-        train=SplitMask(train),
-        test=SplitMask(test),
-        val=SplitMask(val),
+    return Fold(
+        train=PairMask(train),
+        test=PairMask(test),
+        val=PairMask(val),
         metadata={"fold_index": fold_index},
     )
 
@@ -114,7 +114,7 @@ def test_writes_one_reloadable_file_per_fold_and_echoes_the_count(splitter: Reco
     result = runner.invoke(app, ["data", "split", "TOYv1", str(out_dir)])
 
     assert sorted(p.name for p in out_dir.glob("*.npz")) == [f"fold_{i}.npz" for i in range(N_FOLDS)]
-    assert SplitMasks.load(out_dir / "fold_1.npz").metadata["fold_index"] == 1
+    assert Fold.load(out_dir / "fold_1.npz").metadata["fold_index"] == 1
     assert f"Wrote {N_FOLDS} folds to {out_dir}" in plain(result.output)
 
 
@@ -135,9 +135,9 @@ def test_the_quality_rule_reaches_the_written_folds_and_lco_writes_lso_folds(
 
     assert quality.exit_code == 0, quality.output
     assert alias.exit_code == 0, alias.output
-    fold = SplitMasks.load(str(tmp_path / "folds" / "fold_0.npz"))
+    fold = Fold.load(str(tmp_path / "folds" / "fold_0.npz"))
     assert fold.metadata["quality"] == CurveQuality(min_relevance_score=4.0).to_metadata()
-    assert SplitMasks.load(str(tmp_path / "lco" / "fold_0.npz")).metadata["split_mode"] == "LSO"
+    assert Fold.load(str(tmp_path / "lco" / "fold_0.npz")).metadata["split_mode"] == "LSO"
 
 
 @pytest.mark.slow

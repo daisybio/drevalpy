@@ -15,12 +15,15 @@ from ._options import (
     HpoMetric,
     HpoNumTrials,
     HpoRandomState,
+    MinAbsFoldChange,
+    MinRelevanceScore,
     NJobs,
+    NoQualityFilter,
     ResponseTransformation,
     ResponseTransformationOption,
+    quality_from_cli,
     resolve_response_transformation,
 )
-from ._quality import MinAbsFoldChange, MinRelevanceScore, NoQualityFilter, quality_from_cli
 
 #: File of the model directory that holds the checkpoint.
 MODEL_FILE = "model.zip"

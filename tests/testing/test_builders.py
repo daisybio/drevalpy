@@ -1,4 +1,4 @@
-"""Tests for the shipped synthetic builders: ``drevalpy.testing.synthetic`` names and ``testing.batch``."""
+"""Tests for the shipped synthetic batch builder ``drevalpy.testing.batch``."""
 
 from __future__ import annotations
 
@@ -6,17 +6,8 @@ import numpy as np
 import pytest
 from sklearn.linear_model import Ridge
 
-import drevalpy.data._synthetic as builder
-from drevalpy.testing import synthetic as compat
+from drevalpy.data._synthetic import synthetic as build_synthetic_dataset
 from drevalpy.testing.batch import N_DRUG_FEATURES, N_SAMPLE_FEATURES, build_synthetic_batch, observed_pairs
-from drevalpy.testing.synthetic import build_synthetic_dataset
-
-
-def test_compat_names_are_the_builders() -> None:
-    assert compat.build_synthetic_dataset is builder.synthetic
-    for name in ("N_SAMPLES", "N_DRUGS", "N_TISSUES", "N_FEATURES", "DATASET_NAME", "SEED", "MEASURE"):
-        assert getattr(compat, name) == getattr(builder, name)
-    assert all(hasattr(compat, name) for name in compat.__all__)
 
 
 @pytest.fixture(scope="module")

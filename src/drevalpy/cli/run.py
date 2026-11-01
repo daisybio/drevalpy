@@ -16,21 +16,21 @@ from ._options import (
     HpoMetric,
     HpoNumTrials,
     HpoRandomState,
+    MinAbsFoldChange,
+    MinRelevanceScore,
     NJobs,
+    NoQualityFilter,
     RandomizationMode,
     ResponseTransformation,
     ResponseTransformationOption,
     WandbProject,
+    quality_from_cli,
     resolve_response_transformation,
 )
-from ._quality import MinAbsFoldChange, MinRelevanceScore, NoQualityFilter, quality_from_cli
 from ._summary import format_grouped_summary, resolve_group_by_dataset
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
-
     from drevalpy.models import ModelSpec
-    from drevalpy.types.results.failure import RunFailure
 
 
 def _model_specs(models: list[str], sample: list[str], drug: list[str], predictors: list[str]) -> list[ModelSpec]:
@@ -60,16 +60,6 @@ def _model_specs(models: list[str], sample: list[str], drug: list[str], predicto
     for spec in specs:
         unique.setdefault(spec.name, spec)
     return list(unique.values())
-
-
-def _echo_failures(failures: Sequence[RunFailure]) -> None:
-    """Print the failed runs of an experiment to stderr.
-
-    :param failures: The recorded failures.
-    """
-    typer.echo(f"{len(failures)} run(s) failed:", err=True)
-    for failure in failures:
-        typer.echo(f"  {failure}", err=True)
 
 
 def run_cmd(
@@ -129,6 +119,7 @@ def run_cmd(
 ) -> None:
     """Run the full evaluation pipeline."""
     from drevalpy._run import run
+    from drevalpy.types.results.failure import ExperimentFailedError
 
     transformer = resolve_response_transformation(response_transformation)
     model_specs = _model_specs(models or [], sample_featurizer or [], drug_featurizer or [], predictor or [])
@@ -161,5 +152,4 @@ def run_cmd(
     if group_by is not None:
         typer.echo(format_grouped_summary(result, group_by, group_dataset))
     if result.failures:
-        _echo_failures(result.failures)
-        raise typer.Exit(code=1)
+        raise ExperimentFailedError(result.failures)

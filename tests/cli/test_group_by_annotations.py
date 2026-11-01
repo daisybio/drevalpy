@@ -118,7 +118,7 @@ class TestRun:
     def test_an_annotation_grouping_scores_the_run_without_loading_the_dataset_twice(
         self, dataset_file: str, tmp_path: UPath, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        module = importlib.import_module("drevalpy._run")
+        module = importlib.import_module("drevalpy.data._resolve")
         loaded: list[str] = []
 
         def counting_load(name: str) -> Dataset:

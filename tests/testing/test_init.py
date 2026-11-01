@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-import importlib
-
 import pytest
 
+import drevalpy
 from drevalpy import testing
 from tests._barrel_surface import DeclaredSurface
 from tests._trusted_subprocess import run_trusted_python
@@ -29,31 +28,17 @@ EXPECTED_ORIGINS: dict[str, str] = {
     "observed_pairs": "drevalpy.testing.batch",
 }
 
-RENAMED_ORIGINS: dict[str, tuple[str, str]] = {
-    "build_synthetic_dataset": ("drevalpy.data._synthetic", "synthetic"),
-}
-
 
 class TestTestingSurface(DeclaredSurface):
     barrel = testing
     origins = EXPECTED_ORIGINS
-    unpinned_names = tuple(RENAMED_ORIGINS)
-    callable_names = tuple(RENAMED_ORIGINS)
-
-    @pytest.mark.parametrize(("alias", "origin"), sorted(RENAMED_ORIGINS.items()))
-    def test_renamed_alias_is_the_same_object(self, alias, origin):
-        module_name, attribute = origin
-
-        assert getattr(testing, alias) is getattr(importlib.import_module(module_name), attribute)
 
 
 class TestItShipsInTheWheel:
     pytestmark = pytest.mark.slow
 
     def test_every_submodule_is_in_the_built_wheel(self, built_wheel_contents):
-        expected = {
-            f"drevalpy/testing/{name}.py" for name in ("__init__", "batch", "conformance", "plugins", "synthetic")
-        }
+        expected = {f"drevalpy/testing/{name}.py" for name in ("__init__", "batch", "conformance", "plugins")}
         assert expected <= built_wheel_contents
 
     def test_it_is_importable_without_pytest(self):
@@ -73,7 +58,7 @@ def test_the_advertised_workflow_runs_end_to_end():
     from drevalpy.registry import predictor
     from drevalpy.registry.featurizer import get_featurizer
 
-    batch = testing.build_synthetic_batch(testing.build_synthetic_dataset())
+    batch = testing.build_synthetic_batch(drevalpy.synthetic())
     for check in testing.PREDICTOR_CHECKS:
         check(predictor.get("ridge"), batch)
     for check in testing.FEATURIZER_CHECKS:

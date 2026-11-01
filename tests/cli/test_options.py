@@ -1,4 +1,4 @@
-"""Tests for the option definitions the commands share (:mod:`drevalpy.cli._options`, `_quality`, `_summary`)."""
+"""Tests for the option definitions the commands share (:mod:`drevalpy.cli._options`, `_summary`)."""
 
 from __future__ import annotations
 
@@ -15,13 +15,16 @@ from drevalpy.cli._options import (
     HpoMetric,
     HpoNumTrials,
     HpoRandomState,
+    MinAbsFoldChange,
+    MinRelevanceScore,
+    NoQualityFilter,
     RandomizationMode,
     ResponseTransformation,
     ResponseTransformationOption,
     WandbProject,
+    quality_from_cli,
     resolve_response_transformation,
 )
-from drevalpy.cli._quality import MinAbsFoldChange, MinRelevanceScore, NoQualityFilter, quality_from_cli
 from drevalpy.cli._summary import format_grouped_summary
 from drevalpy.data.quality import CurveQuality
 from drevalpy.evaluation import Metric, evaluate

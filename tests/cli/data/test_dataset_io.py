@@ -109,7 +109,7 @@ class TestSyntheticWriting:
 
     def test_options_set_the_loaded_dataset(self, tmp_path: UPath) -> None:
         import drevalpy
-        from drevalpy.data.utils import TISSUE_IDENTIFIER
+        from drevalpy.types.data.views import TISSUE_IDENTIFIER
 
         args = ["--n-samples", "40", "--n-drugs", "5", "--n-tissues", "4", "--name", "STUDY_A"]
         result = runner.invoke(app, ["data", "synthetic", "--output", str(tmp_path / "big.h5mu"), *args])

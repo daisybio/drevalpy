@@ -10,7 +10,7 @@ from drevalpy.cli.experiments import experiments_app
 from drevalpy.cli.experiments.randomization import randomization_cmd
 from drevalpy.cli.experiments.robustness import robustness_cmd
 from drevalpy.cli.main import app
-from drevalpy.types import SplitMask, SplitMasks
+from drevalpy.types import Fold, PairMask
 from tests.cli._helpers import (
     FakeDataset,
     GroupSurface,
@@ -232,47 +232,47 @@ N_PERMUTATIONS_DEFAULT = 5
 def _write_fold(path: UPath, fold_index: int) -> None:
     rng = np.random.default_rng(fold_index)
     assignment = rng.integers(0, 3, size=(3, 3))
-    SplitMasks(
-        train=SplitMask(assignment == 0),
-        test=SplitMask(assignment == 1),
-        val=SplitMask(assignment == 2),
+    Fold(
+        train=PairMask(assignment == 0),
+        test=PairMask(assignment == 1),
+        val=PairMask(assignment == 2),
         metadata={"fold_index": fold_index},
     ).save(path)
 
 
 @pytest.fixture()
-def splits_dir(tmp_path: UPath) -> UPath:
-    path = tmp_path / "splits"
+def folds_dir(tmp_path: UPath) -> UPath:
+    path = tmp_path / "folds"
     path.mkdir()
     for fold_index in range(2):
         _write_fold(path / f"fold_{fold_index}.npz", fold_index)
     return path
 
 
-def _invoke_robustness(splits_dir: UPath, out_dir: UPath, *extra: str):
-    return runner.invoke(app, ["experiments", "robustness", str(splits_dir), str(out_dir), *extra])
+def _invoke_robustness(folds_dir: UPath, out_dir: UPath, *extra: str):
+    return runner.invoke(app, ["experiments", "robustness", str(folds_dir), str(out_dir), *extra])
 
 
 @pytest.mark.parametrize("kind", ["empty", "no-npz", "absent"])
 def test_a_directory_without_folds_is_an_exit_one_error_and_creates_no_output(tmp_path: UPath, kind: str) -> None:
-    splits = tmp_path / "splits"
+    folds_dir = tmp_path / "folds"
     if kind != "absent":
-        splits.mkdir()
+        folds_dir.mkdir()
     if kind == "no-npz":
-        (splits / "notes.txt").write_text("not a fold")
+        (folds_dir / "notes.txt").write_text("not a fold")
 
-    result = _invoke_robustness(splits, tmp_path / "out")
+    result = _invoke_robustness(folds_dir, tmp_path / "out")
 
     assert result.exit_code == 1
-    assert f"Error: No .npz files found in {splits}" in plain(result.output)
+    assert f"Error: No .npz files found in {folds_dir}" in plain(result.output)
     assert "Traceback" not in result.output
     assert not (tmp_path / "out").exists()
 
 
-def test_default_generates_one_variant_per_fold_and_repeat(splits_dir: UPath, tmp_path: UPath) -> None:
+def test_default_generates_one_variant_per_fold_and_repeat(folds_dir: UPath, tmp_path: UPath) -> None:
     out_dir = tmp_path / "nested" / "out"
 
-    result = _invoke_robustness(splits_dir, out_dir)
+    result = _invoke_robustness(folds_dir, out_dir)
 
     assert result.exit_code == 0, result.output
     assert len(list(out_dir.glob("*.npz"))) == 2 * N_PERMUTATIONS_DEFAULT
@@ -280,11 +280,11 @@ def test_default_generates_one_variant_per_fold_and_repeat(splits_dir: UPath, tm
 
 @pytest.mark.parametrize("flag", ["--n-repeats", "-n"])
 def test_permutation_count_names_files_after_fold_and_repeat_and_echoes_the_count(
-    splits_dir: UPath, tmp_path: UPath, flag: str
+    folds_dir: UPath, tmp_path: UPath, flag: str
 ) -> None:
     out_dir = tmp_path / "out"
 
-    result = _invoke_robustness(splits_dir, out_dir, flag, "2")
+    result = _invoke_robustness(folds_dir, out_dir, flag, "2")
 
     assert sorted(p.name for p in out_dir.glob("*.npz")) == [
         "fold_0_repeat_0.npz",
@@ -292,31 +292,31 @@ def test_permutation_count_names_files_after_fold_and_repeat_and_echoes_the_coun
         "fold_1_repeat_0.npz",
         "fold_1_repeat_1.npz",
     ]
-    assert f"Wrote 4 robustness splits to {out_dir}" in plain(result.output)
+    assert f"Wrote 4 robustness folds to {out_dir}" in plain(result.output)
 
 
-def test_variants_record_their_repeat_and_preserve_metadata_and_masks(splits_dir: UPath, tmp_path: UPath) -> None:
+def test_variants_record_their_repeat_and_preserve_metadata_and_masks(folds_dir: UPath, tmp_path: UPath) -> None:
     out_dir = tmp_path / "out"
-    _invoke_robustness(splits_dir, out_dir, "-n", "2")
+    _invoke_robustness(folds_dir, out_dir, "-n", "2")
 
-    variant = SplitMasks.load(out_dir / "fold_1_repeat_1.npz")
-    original = SplitMasks.load(splits_dir / "fold_1.npz")
+    variant = Fold.load(out_dir / "fold_1_repeat_1.npz")
+    original = Fold.load(folds_dir / "fold_1.npz")
     assert variant.metadata["robustness_repeat"] == 1
     assert variant.metadata["fold_index"] == 1
     np.testing.assert_array_equal(variant.train.mask, original.train.mask)
 
 
 def test_zero_permutations_writes_nothing_and_a_non_integer_count_is_a_usage_error(
-    splits_dir: UPath, tmp_path: UPath
+    folds_dir: UPath, tmp_path: UPath
 ) -> None:
-    _invoke_robustness(splits_dir, tmp_path / "out", "-n", "0")
+    _invoke_robustness(folds_dir, tmp_path / "out", "-n", "0")
 
     assert list((tmp_path / "out").glob("*.npz")) == []
-    assert _invoke_robustness(splits_dir, tmp_path / "out2", "-n", "several").exit_code == 2
+    assert _invoke_robustness(folds_dir, tmp_path / "out2", "-n", "several").exit_code == 2
 
 
 class TestRobustnessOnRealFiles:
-    """A shuffled split trains through ``single`` and is recorded under its robustness repeat."""
+    """A shuffled fold trains through ``single`` and is recorded under its robustness repeat."""
 
     pytestmark = pytest.mark.slow
 

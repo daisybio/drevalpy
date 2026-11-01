@@ -40,9 +40,9 @@ def resolve_group_by_dataset(group_by: str | None, dataset: list[str] | None) ->
             f"--group-by {group_by} reads a dataset annotation; pass --dataset (or use one of {', '.join(GROUPINGS)}).",
             param_hint="--group-by",
         )
-    from drevalpy._run import _resolve_dataset
+    from drevalpy.data._resolve import resolve_dataset
 
-    resolved = _resolve_dataset(dataset)
+    resolved = resolve_dataset(dataset)
     try:
         group_labeller(group_by, resolved)
     except ValueError as error:

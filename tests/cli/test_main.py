@@ -71,7 +71,7 @@ MISSING_ARGUMENTS = [
     ["experiments", "randomization", "ElasticNet"],
     ["experiments", "randomization", "ElasticNet", "TOYv1"],
     ["experiments", "robustness"],
-    ["experiments", "robustness", "splits"],
+    ["experiments", "robustness", "folds"],
 ]
 
 

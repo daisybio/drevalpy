@@ -29,13 +29,13 @@ import numpy as np
 
 from drevalpy.components.featurizers.featurizer import Featurizer
 from drevalpy.components.predictors.abstract.base import Predictor
+from drevalpy.data import synthetic
 from drevalpy.types.data.batch.feature_block import FeaturizerResult
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.types.data.dataset import Dataset
 from drevalpy.types.data.feature_source import FeatureSource, Side
 
 from .batch import build_synthetic_batch
-from .synthetic import build_synthetic_dataset
 
 
 class ConformanceError(AssertionError):
@@ -69,7 +69,7 @@ def feature_source_for(cls: type[Featurizer], dataset: Dataset) -> FeatureSource
     :returns: A source for that side.
     """
     side = _side(cls)
-    return FeatureSource(dataset, side, _entity_ids(cls, dataset))
+    return FeatureSource(dataset, side)
 
 
 def _entity_ids(cls: type[Featurizer], dataset: Dataset) -> np.ndarray:
@@ -126,11 +126,11 @@ def check_featurizer_fit_transform(
 
     :param cls: Featurizer class to exercise.
     :param dataset: Dataset to featurize. Defaults to
-        :func:`~drevalpy.testing.build_synthetic_dataset`, which suffices for a
+        :func:`drevalpy.synthetic`, which suffices for a
         featurizer that reads no view; pass a dataset carrying the required views otherwise.
     :param \*\*kwargs: Constructor keyword arguments.
     """
-    dataset = dataset if dataset is not None else build_synthetic_dataset()
+    dataset = dataset if dataset is not None else synthetic()
     instance = check_featurizer_instantiates(cls, **kwargs)
     source = feature_source_for(cls, dataset)
     entity_ids = _entity_ids(cls, dataset)
@@ -177,7 +177,7 @@ def check_featurizer_pickle_round_trip(
     """
     import joblib
 
-    dataset = dataset if dataset is not None else build_synthetic_dataset()
+    dataset = dataset if dataset is not None else synthetic()
     source = feature_source_for(cls, dataset)
     entity_ids = _entity_ids(cls, dataset)
 
@@ -256,7 +256,7 @@ def check_predictor_fit_predict(
         dataset.
     :param \*\*kwargs: Constructor keyword arguments.
     """
-    batch = batch if batch is not None else build_synthetic_batch(build_synthetic_dataset())
+    batch = batch if batch is not None else build_synthetic_batch(synthetic())
     instance = check_predictor_instantiates(cls, **kwargs)
 
     instance.fit(batch)
@@ -291,7 +291,7 @@ def check_predictor_pickle_round_trip(
     """
     import joblib
 
-    batch = batch if batch is not None else build_synthetic_batch(build_synthetic_dataset())
+    batch = batch if batch is not None else build_synthetic_batch(synthetic())
 
     trained = check_predictor_instantiates(cls, **kwargs)
     trained.fit(batch)
