@@ -6,8 +6,9 @@ from typing import Any, ClassVar
 
 import numpy as np
 
+from drevalpy.components.predictors.abstract.base import fit_response
 from drevalpy.components.predictors.inputs import Inputs
-from drevalpy.components.predictors.single_drug_routing import iter_drug_masks, routing_keys, run_per_drug
+from drevalpy.components.predictors.single_drug_routing import iter_drug_masks, predict_per_drug, run_per_drug
 from drevalpy.components.predictors.sklearn_tabular import SklearnTabularPredictor
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.types.enums.model_scope import ModelScope
@@ -47,12 +48,9 @@ class SingleDrugSklearnPredictor(SklearnTabularPredictor):
 
         :param batch: Training batch; one estimator is fitted on the pairs of each known drug, in
             ``batch.training_context.n_jobs`` worker processes.
-        :raises RuntimeError: If ``batch.response`` is None.
         """
         x = self._sample_matrix(batch)
-        if batch.response is None:
-            raise RuntimeError("batch.response is required for fit")
-        y = batch.response.ravel()
+        y = fit_response(batch).ravel()
         tasks = ((drug_id, (x[mask], y[mask])) for drug_id, mask in iter_drug_masks(batch))
         self._estimators = run_per_drug(self._fit_estimator, tasks, batch.training_context.n_jobs)
 
@@ -74,12 +72,4 @@ class SingleDrugSklearnPredictor(SklearnTabularPredictor):
         :returns: One prediction per pair; NaN for pairs of drugs without a fitted estimator.
         """
         x = self._sample_matrix(batch)
-        keys = routing_keys(batch)
-        predictions = np.full(batch.n_pairs, np.nan, dtype=np.float64)
-        for drug_id in np.unique(keys):
-            estimator = self._estimators.get(str(drug_id))
-            if estimator is None:
-                continue
-            mask = keys == drug_id
-            predictions[mask] = np.asarray(estimator.predict(x[mask]), dtype=np.float64)
-        return predictions
+        return predict_per_drug(batch, self._estimators, lambda _drug_id, estimator, mask: estimator.predict(x[mask]))

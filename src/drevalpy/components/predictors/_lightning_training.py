@@ -7,22 +7,62 @@ few things that differ between them (``save_weights_only``, pinned devices, prec
 the accelerator, the progress bar, the logger, whether to checkpoint at all) are
 fields of :class:`LightningRun` rather than forks.
 
+Their Lightning modules compute one loss per batch, the same way in training and validation;
+:class:`LossSteps` gives them the two steps, so each writes only ``_loss_and_log``.
+
 ``pytorch_lightning`` is imported inside the entry point.
 """
 
 from __future__ import annotations
 
 import secrets
+from abc import abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from upath import UPath
 
+from drevalpy._utils.torch_io import load_state_dict
 from drevalpy.experiment._tracking import active_run
 
 if TYPE_CHECKING:
     import pytorch_lightning as pl
+    import torch
     from torch.utils.data import DataLoader
+
+
+class LossSteps:
+    """``training_step`` and ``validation_step`` of a Lightning module that logs one loss per batch.
+
+    Listed before ``pl.LightningModule`` in the bases, so its steps replace Lightning's placeholders.
+    """
+
+    @abstractmethod
+    def _loss_and_log(self, batch: Any, key: str) -> torch.Tensor:
+        """Compute the loss of one batch and log it under *key*.
+
+        :param batch: One loader batch.
+        :param key: ``"train_loss"`` or ``"val_loss"``, the name early stopping monitors.
+        :returns: The loss.
+        """
+
+    def training_step(self, batch: Any, batch_idx: int) -> torch.Tensor:
+        """Compute and log the training loss of one batch.
+
+        :param batch: One loader batch.
+        :param batch_idx: Index of the batch within the epoch; unused.
+        :returns: The loss to back-propagate.
+        """
+        return self._loss_and_log(batch, "train_loss")
+
+    def validation_step(self, batch: Any, batch_idx: int) -> torch.Tensor:
+        """Compute and log the validation loss of one batch.
+
+        :param batch: One loader batch.
+        :param batch_idx: Index of the batch within the epoch; unused.
+        :returns: The loss.
+        """
+        return self._loss_and_log(batch, "val_loss")
 
 
 @dataclass(frozen=True)
@@ -115,6 +155,16 @@ def run_lightning_fit(
     else:
         trainer.fit(model, train_loader, val_loader)
     return checkpoint_callback
+
+
+def reload_best_weights(model: pl.LightningModule, checkpoint: pl.callbacks.ModelCheckpoint | None) -> None:
+    """Load the best epoch's weights into *model*, if that epoch was checkpointed.
+
+    :param model: The module :func:`run_lightning_fit` trained.
+    :param checkpoint: Its return value; ``None`` or an empty path leaves the last epoch's weights.
+    """
+    if checkpoint is not None and checkpoint.best_model_path:
+        model.load_state_dict(load_state_dict(checkpoint.best_model_path)["state_dict"])
 
 
 def _loggers(*, default: bool = True) -> list[Any] | bool:

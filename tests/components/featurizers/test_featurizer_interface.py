@@ -26,7 +26,7 @@ class _PassThrough(Featurizer):
         train_pair_ids: np.ndarray | None = None,
         es_pair_ids: np.ndarray | None = None,
     ) -> Self:
-        self.names = source.get_feature_names("expr")
+        self.names = source.feature_names("expr")
         return self
 
     def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerResult:
@@ -47,8 +47,6 @@ def _source(names: tuple[str, ...] = ("g0", "g1")) -> MockFeatureSource:
 
 def test_declaration_defaults() -> None:
     assert Featurizer.sides == frozenset({"sample", "drug"})
-    assert Featurizer.storage_key is None
-    assert _PassThrough().stored_params() is None
 
 
 @pytest.mark.parametrize(

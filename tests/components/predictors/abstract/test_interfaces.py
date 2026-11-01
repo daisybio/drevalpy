@@ -12,10 +12,11 @@ from drevalpy.components.predictors.abstract.feature_free import FeatureFreePred
 from drevalpy.components.predictors.abstract.matrix import MatrixPredictor
 from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.components.predictors.sklearn_models import ElasticNetPredictor
+from drevalpy.data._synthetic import synthetic as build_synthetic_dataset
 from drevalpy.models.config import PredictorConfig
-from drevalpy.registry.components import predictor_component_metadata
+from drevalpy.registry._component import predictor_component_metadata
 from drevalpy.registry.predictor import predictor_registry
-from drevalpy.testing import build_synthetic_batch, build_synthetic_dataset
+from drevalpy.testing import build_synthetic_batch
 from drevalpy.types.data.batch.feature_block import FeaturizerResult, numeric_feature_block
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.types.data.batch.response_batch import ResponseBatch

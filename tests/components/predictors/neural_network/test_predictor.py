@@ -15,7 +15,7 @@ from drevalpy.components.predictors.neural_network.predictor import NeuralNetwor
 from drevalpy.models import DRPModel, ModelSpec
 from drevalpy.registry.predictor import get as get_predictor
 from tests.components.predictors._helpers import neural_batch, pickle_round_trip
-from tests.models.synthetic_fixtures import lso_split_masks, synthetic_model_dataset
+from tests.models.synthetic_fixtures import lso_fold, synthetic_model_dataset
 
 HPAMS = {"units_per_layer": [8, 4, 2], "dropout_prob": 0.0}
 
@@ -43,14 +43,15 @@ def test_registry_name_contracts_and_defaults() -> None:
 
 def test_neural_network_zoo_trains_on_synthetic_data() -> None:
     dataset = synthetic_model_dataset()
-    split = lso_split_masks()
+    fold = lso_fold()
 
     model = DRPModel(
         ModelSpec("SimpleNeuralNetwork", ModelSpec.from_name("scaledGeneExpression:fingerprints:neuralNetwork").config),
         {"max_epochs": 1, "batch_size": 2},
+        check_values=False,
     )
-    model.train(dataset, split.train)
-    preds = model.predict(dataset, split.test)
+    model.train(dataset, fold.train)
+    preds = model.predict(dataset, fold.test)
     assert preds.shape[0] > 0
     assert np.isfinite(preds).all()
 
@@ -82,7 +83,6 @@ def test_neural_network_pickle_round_trip() -> None:
 
     restored = pickle_round_trip(predictor)
     assert restored.is_fitted()
-    assert restored._input_dim == predictor._input_dim
     assert restored._hyperparameters == predictor._hyperparameters
     assert np.allclose(preds, restored.predict(neural_batch()))
 

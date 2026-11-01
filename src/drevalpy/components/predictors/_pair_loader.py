@@ -1,6 +1,6 @@
-"""Shared DataLoader factory with lazy pair-level index lookup.
+"""Shared DataLoader factory with lazy pair-level index lookup, and the eval loop that drains one.
 
-``torch`` is imported inside the two entry points. Predictor modules import
+``torch`` is imported inside the entry points. Predictor modules import
 ``make_pair_loader``, and ``drevalpy.registry`` imports those modules when it
 registers builtins, so a module-scope ``import torch`` would put ~0.35s on the
 startup path of every CLI invocation. See ``tests/test_import_cost_policy.py``.
@@ -8,9 +8,11 @@ startup path of every CLI invocation. See ``tests/test_import_cost_policy.py``.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Iterable
+
     import numpy as np
     import torch
     from torch.utils.data import DataLoader
@@ -87,3 +89,24 @@ def make_pair_loader(
 
     ds = IndexedPairDataset(*feature_specs, response=response)
     return DataLoader(ds, batch_size=batch_size, shuffle=shuffle, drop_last=drop_last)
+
+
+def collect_predictions(model: Any, batches: Iterable[Any], forward: Callable[[Any], torch.Tensor]) -> np.ndarray:
+    """Run *forward* over every batch with *model* in eval mode and gradients off.
+
+    :param model: Torch module; switched to eval mode before the pass.
+    :param batches: Loader batches, in pair order.
+    :param forward: Maps one batch to the model's output for it.
+    :returns: The outputs flattened and concatenated as float64; empty when there are no batches.
+    """
+    import numpy as np
+    import torch
+
+    model.eval()
+    chunks: list[np.ndarray] = []
+    with torch.no_grad():
+        for batch in batches:
+            chunks.append(forward(batch).detach().cpu().numpy().reshape(-1))
+    if not chunks:
+        return np.empty(0, dtype=np.float64)
+    return np.concatenate(chunks).astype(np.float64)

@@ -1,10 +1,10 @@
-"""Shared drug-id routing and per-drug fitting for single-drug predictors."""
+"""Shared drug-id routing and per-drug fitting and prediction for single-drug predictors."""
 
 from __future__ import annotations
 
 import random
 from collections.abc import Callable, Iterable, Iterator
-from typing import TypeVar
+from typing import Any, TypeVar
 
 import numpy as np
 
@@ -33,6 +33,26 @@ def iter_drug_masks(batch: ModelInputBatch) -> Iterator[tuple[str, np.ndarray]]:
     keys = routing_keys(batch)
     for drug_id in np.unique(keys):
         yield str(drug_id), keys == drug_id
+
+
+def predict_per_drug(
+    batch: ModelInputBatch,
+    models: dict[str, _Fitted],
+    predict_one: Callable[[str, _Fitted, np.ndarray], Any],
+) -> np.ndarray:
+    """Score each pair with the model of its drug.
+
+    :param batch: Pairs to score.
+    :param models: Fitted model per drug id.
+    :param predict_one: Called as ``predict_one(drug_id, model, pair_mask)``; returns that drug's predictions.
+    :returns: One prediction per pair; NaN for pairs of drugs without a model.
+    """
+    predictions = np.full(batch.n_pairs, np.nan, dtype=np.float64)
+    for drug_id, mask in iter_drug_masks(batch):
+        model = models.get(drug_id)
+        if model is not None:
+            predictions[mask] = np.asarray(predict_one(drug_id, model, mask), dtype=np.float64).ravel()
+    return predictions
 
 
 def run_per_drug(

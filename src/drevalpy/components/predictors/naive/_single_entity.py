@@ -6,7 +6,7 @@ from typing import ClassVar
 
 import numpy as np
 
-from drevalpy.components.predictors.abstract.base import Predictor
+from drevalpy.components.predictors.abstract.base import Predictor, fit_response
 from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.components.predictors.naive._matrix_means import (
     additive_effects,
@@ -30,12 +30,9 @@ class SingleEntityNaivePredictor(Predictor):
         """Fit on training data.
 
         :param batch: Training batch; its responses give the dataset mean and the per-entity effects.
-        :raises RuntimeError: If ``batch.response`` is None.
         """
-        y = batch.response
-        if y is None:
-            raise RuntimeError("batch.response is required for fit")
-        design = require_pair_matrix(batch, side=self._feature_side)
+        y = fit_response(batch)
+        design = self._design(batch)
         self._dataset_mean = float(np.mean(y))
         self._effects = additive_effects(design, y, baseline=self._dataset_mean)
 
@@ -49,5 +46,13 @@ class SingleEntityNaivePredictor(Predictor):
         if self._dataset_mean is None or self._effects is None:
             msg = "Call fit before predict"
             raise RuntimeError(msg)
-        design = require_pair_matrix(batch, side=self._feature_side)
+        design = self._design(batch)
         return predict_with_effects(design, self._effects, baseline=self._dataset_mean)
+
+    def _design(self, batch: ModelInputBatch) -> np.ndarray:
+        """Return the pair-level one-hot design matrix of the entity side.
+
+        :param batch: Batch to read.
+        :returns: One row per pair, one column per entity group.
+        """
+        return require_pair_matrix(batch, side=self._feature_side)

@@ -18,7 +18,7 @@ _NAMES = [f"g{i}" for i in range(8)]
 
 def _source_and_matrix(names: list[str]):
     source = mock_source(random_views({"v": names}))
-    return source, source.get_view_matrix("v", source.identifiers)
+    return source, source.view("v", source.identifiers)
 
 
 def test_feature_mismatch_error_is_a_value_error() -> None:

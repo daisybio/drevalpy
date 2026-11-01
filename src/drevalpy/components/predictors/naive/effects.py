@@ -7,7 +7,7 @@ from typing import ClassVar
 import numpy as np
 
 from drevalpy.components.contracts.feature_format import FeatureFormat
-from drevalpy.components.predictors.abstract.base import Predictor
+from drevalpy.components.predictors.abstract.base import Predictor, fit_response
 from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.components.predictors.naive._matrix_means import (
     additive_effects,
@@ -53,11 +53,8 @@ class NaiveMeanEffectsPredictor(Predictor):
 
         :param batch: Training batch; tissue effects are fitted first, then sample effects on the residual, then drug
             effects.
-        :raises RuntimeError: If ``batch.response`` is None.
         """
-        y = batch.response
-        if y is None:
-            raise RuntimeError("batch.response is required for fit")
+        y = fit_response(batch)
         cell, tissue = self._cell_and_tissue(batch)
         drugs = np.asarray(require_pair_matrix(batch, side="drug"), dtype=np.float64)
         self._dataset_mean = float(np.mean(y))

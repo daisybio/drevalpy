@@ -5,17 +5,13 @@ A featurizer turns the views of one entity side into a
 declares on the class body is read without instantiating it: the sides it
 supports, the views it reads (``input_views``, empty for a featurizer that needs
 only entity IDs), the raw views it computes from when a view is absent
-(``source_views``), the key its pre-computed outputs are stored under, and, through
-:meth:`Featurizer.output_blocks` and :meth:`Featurizer.views`, the blocks it emits and
-the views it reads for a config.
+(``source_views``) and, through :meth:`Featurizer.output_blocks` and
+:meth:`Featurizer.views`, the blocks it emits and the views it reads for a config.
 
 The caller (``models/_feature_preparation.prepare_features``) owns everything around
 ``fit`` and ``transform``: which entities are usable (:meth:`Featurizer.valid_mask`),
-the NaN-threshold warning, the stored-output lookup through
-:meth:`~drevalpy.types.data.feature_source.FeatureSource.stored` with
-:meth:`Featurizer.stored_params`, and padding unusable rows back in. So ``fit`` and
-``transform`` only ever see usable entity IDs, and a featurizer whose output is stored
-is neither fitted nor transformed: :meth:`Featurizer.from_stored` wraps the stored matrix.
+the NaN-threshold warning and padding unusable rows back in. So ``fit`` and
+``transform`` only ever see usable entity IDs.
 """
 
 from __future__ import annotations
@@ -43,9 +39,6 @@ class Featurizer(TunableComponent, ABC):
     input_views: ClassVar[tuple[str, ...]] = ()
     #: Raw views the featurizer computes its input from when an input view is absent.
     source_views: ClassVar[tuple[str, ...]] = ()
-    #: Key pre-computed outputs are stored under. Registration sets it to the registry name
-    #: when neither the class nor a base declares one.
-    storage_key: ClassVar[str | None] = None
     #: Fraction of unusable entities above which ``prepare_features`` logs a warning.
     nan_threshold: ClassVar[float] = 0.2
     #: Whether ``fit`` needs at least one usable early-stopping pair; ``prepare_features`` raises otherwise.
@@ -84,32 +77,6 @@ class Featurizer(TunableComponent, ABC):
         if isinstance(view, str) and view.strip():
             return (view,)
         return cls.input_views
-
-    def stored_params(self) -> Mapping[str, Any] | None:
-        """Return the hyperparameters a stored output must have been computed with.
-
-        :returns: Hyperparameters to match (``{}`` matches the parameter-free variant), or
-            ``None`` (the default) when stored outputs are never looked up.
-        """
-        return None
-
-    def from_stored(self, source: FeatureSource, ids: np.ndarray, matrix: np.ndarray) -> FeaturizerResult:
-        """Wrap a stored output matrix as the result of :meth:`transform`.
-
-        Called instead of ``fit`` and ``transform`` when :meth:`stored_params` is not ``None``
-        and the source stores a matching variant. A featurizer that returns stored
-        parameters overrides this, usually with
-        :func:`~drevalpy.components.featurizers._dense.dense_result`.
-
-        :param source: Feature source of the featurizer's side.
-        :param ids: Usable entity IDs, in output order.
-        :param matrix: Stored matrix with one row per ID.
-        :returns: Blocks with one row per ID, in the order of *ids*.
-        :raises NotImplementedError: Always, unless overridden.
-        """
-        _ = source, ids, matrix
-        msg = f"{type(self).__name__} returns stored_params() but does not implement from_stored()"
-        raise NotImplementedError(msg)
 
     def valid_mask(self, source: FeatureSource, ids: np.ndarray) -> np.ndarray:
         """Return which entities have usable input.
@@ -166,72 +133,9 @@ def all_nan_rows_mask(source: FeatureSource, view: str, ids: np.ndarray) -> np.n
     """
     all_valid = np.ones(len(ids), dtype=bool)
     try:
-        matrix = source.get_view_matrix(view, ids)
+        matrix = source.view(view, ids)
     except (KeyError, TypeError, ValueError):
         return all_valid
     if matrix.ndim != 2 or matrix.dtype.kind not in ("f", "i", "u"):
         return all_valid
     return ~np.all(np.isnan(matrix), axis=1)
-
-
-def usable(featurizer: Featurizer, source: FeatureSource, ids: np.ndarray) -> np.ndarray:
-    """Return :meth:`Featurizer.valid_mask` of *featurizer* for *ids*.
-
-    :param featurizer: Featurizer whose missing-input policy applies.
-    :param source: Feature source of the featurizer's side.
-    :param ids: Entity IDs to check; may repeat.
-    :returns: Boolean array with one entry per ID.
-    """
-    return featurizer.valid_mask(source, ids)
-
-
-def stored_output(featurizer: Featurizer, source: FeatureSource, ids: np.ndarray) -> np.ndarray | None:
-    """Return the stored output of *featurizer* for *ids*, if the source stores a matching variant.
-
-    Storage is looked up only when the featurizer has a ``storage_key`` and its
-    :meth:`Featurizer.stored_params` is not ``None``. The decision depends on the source and
-    the parameters only, so fit and transform on the same source make the same one.
-
-    :param featurizer: Featurizer whose stored output is wanted.
-    :param source: Feature source of the featurizer's side.
-    :param ids: Entity IDs to align the stored rows to.
-    :returns: Stored matrix with one row per ID, or ``None``.
-    """
-    params = featurizer.stored_params()
-    if featurizer.storage_key is None or params is None:
-        return None
-    return source.stored(featurizer.storage_key, params, ids)
-
-
-def fit_unless_stored(
-    featurizer: Featurizer,
-    source: FeatureSource,
-    train_ids: np.ndarray,
-    *,
-    train_pair_ids: np.ndarray | None,
-    es_pair_ids: np.ndarray | None,
-) -> None:
-    """Fit *featurizer* on usable training entities, unless its output is stored.
-
-    :param featurizer: Featurizer to fit.
-    :param source: Feature source of the featurizer's side.
-    :param train_ids: Usable training entity IDs, unique, in first-seen order.
-    :param train_pair_ids: Entity ID of every usable training pair.
-    :param es_pair_ids: Entity ID of every usable early-stopping pair.
-    """
-    if stored_output(featurizer, source, train_ids) is None:
-        featurizer.fit(source, train_ids, train_pair_ids=train_pair_ids, es_pair_ids=es_pair_ids)
-
-
-def transform_or_stored(featurizer: Featurizer, source: FeatureSource, ids: np.ndarray) -> FeaturizerResult:
-    """Return the blocks of usable *ids*: the stored output when there is one, else :meth:`Featurizer.transform`.
-
-    :param featurizer: Fitted featurizer.
-    :param source: Feature source of the featurizer's side.
-    :param ids: Usable entity IDs, in output order; may be empty.
-    :returns: Blocks with one row per ID.
-    """
-    stored = stored_output(featurizer, source, ids)
-    if stored is not None:
-        return featurizer.from_stored(source, ids, stored)
-    return featurizer.transform(source, ids)

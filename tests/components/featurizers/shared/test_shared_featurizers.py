@@ -98,9 +98,10 @@ def test_drug_concat_builds_its_children_for_the_drug_side() -> None:
 
 
 def test_concat_pads_entities_unusable_for_any_child() -> None:
-    ids = np.array(["cl1", "cl3"], dtype=str)
+    featurizer = ConcatFeaturizer(featurizers=_raw_configs())
+    _run(featurizer, _sample_features(), np.array(["cl1"], dtype=str))
 
-    result = _run(ConcatFeaturizer(featurizers=_raw_configs()), _sample_features(), ids)
+    result = prepare_features(featurizer, _sample_features(), np.array(["cl1", "cl3"], dtype=str), fit=None)
 
     assert np.isnan(result.matrix[1]).all()
     np.testing.assert_allclose(result.matrix[0], [1.0, 2.0, 0.0, 1.0])
@@ -109,8 +110,8 @@ def test_concat_pads_entities_unusable_for_any_child() -> None:
 def test_concat_of_the_same_featurizer_on_two_views_names_blocks_by_view() -> None:
     featurizer = ConcatFeaturizer(
         featurizers=[
-            FeaturizerConfig(name="pca", view="gene_expression", options={"n_components": 1}),
-            FeaturizerConfig(name="pca", view="proteomics", options={"n_components": 1}),
+            FeaturizerConfig(name="pca", view="gene_expression").create_instance({"n_components": 1}),
+            FeaturizerConfig(name="pca", view="proteomics").create_instance({"n_components": 1}),
         ],
     )
 

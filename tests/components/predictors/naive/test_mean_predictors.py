@@ -14,7 +14,7 @@ from drevalpy.components.predictors.naive.tissue import NaiveTissueDrugMeanPredi
 from drevalpy.models import DRPModel, ModelSpec
 from tests.components.predictors._helpers import pickle_round_trip
 from tests.components.predictors.naive._helpers import naive_batch, one_hot
-from tests.models.synthetic_fixtures import lso_split_masks, synthetic_model_dataset_identity
+from tests.models.synthetic_fixtures import lso_fold, synthetic_model_dataset_identity
 
 CELL = one_hot(["cl1", "cl2"], ["cl1", "cl2"])
 DRUGS = one_hot(["d1", "d2"], ["d1", "d2"])
@@ -203,16 +203,16 @@ def test_naive_tissue_drug_mean_interaction_table_and_guards() -> None:
 def test_naive_tissue_model_trains_predicts_and_reloads(tmp_path) -> None:
     dataset = synthetic_model_dataset_identity()
     dataset.mdata.obs["tissue"] = ["Lung", "Blood"]
-    split = lso_split_masks()
+    fold = lso_fold()
     model = DRPModel(ModelSpec.from_name("NaiveTissueMeanPredictor"))
-    model.train(dataset, split.train)
-    preds = model.predict(dataset, split.test)
+    model.train(dataset, fold.train)
+    preds = model.predict(dataset, fold.test)
     assert np.isfinite(preds).all()
 
     model.save(str(tmp_path / "model"))
     loaded = type(model).load(str(tmp_path / "model"))
 
-    assert np.allclose(preds, loaded.predict(dataset, split.test))
+    assert np.allclose(preds, loaded.predict(dataset, fold.test))
 
 
 def _pair_batch(sample_blocks, response=None, cell_idx=(0, 1), drug_idx=(0, 1), cell=CELL):

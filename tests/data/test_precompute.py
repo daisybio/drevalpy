@@ -1,24 +1,22 @@
-"""Pre-computing featurizer outputs into a dataset and reading them back as stored variants."""
+"""Pre-computing featurizer outputs into a dataset as views and reading them back."""
 
 from __future__ import annotations
 
 import logging
-from collections.abc import Mapping
-from typing import Any, ClassVar, Self
+from typing import Any, ClassVar
 
 import numpy as np
 import pytest
 from upath import UPath
 
-from drevalpy.components.featurizers._dense import dense_result
-from drevalpy.components.featurizers.featurizer import Featurizer
+from drevalpy.components.featurizers._dense import PrecomputableFeaturizer
+from drevalpy.components.featurizers.drug.fingerprints import FingerprintsFeaturizer
 from drevalpy.data.precompute import precompute, precompute_all
 from drevalpy.models._feature_preparation import FitIds, prepare_features
-from drevalpy.registry.featurizer import get_featurizer, register
-from drevalpy.types.data.batch.feature_block import FeaturizerResult
+from drevalpy.registry.featurizer import register
 from drevalpy.types.data.dataset import Dataset
-from drevalpy.types.data.feature_source import FeatureSource
-from tests.synthetic import N_DRUGS, N_SAMPLES, build_synthetic_dataset
+from drevalpy.types.data.feature_source import FeatureSource, precomputed_views
+from tests.synthetic import N_DRUGS, build_synthetic_dataset
 
 
 @pytest.fixture(scope="module")
@@ -33,113 +31,96 @@ def dataset(h5mu_path: UPath) -> Dataset:
     return Dataset.load(h5mu_path)
 
 
-class _Scaled(Featurizer):
-    """Stored-capable stub: ``scale`` times the first column of its view, one column per entity."""
+class _Scaled(PrecomputableFeaturizer):
+    """Precomputable stub: ``scale`` times the first column of ``gene_expression``, as the ``scaled`` view."""
 
     sides: ClassVar[frozenset[str]] = frozenset({"sample"})
-    input_views: ClassVar[tuple[str, ...]] = ("gene_expression",)
-    calls: ClassVar[list[dict[str, Any]]] = []
+    input_views: ClassVar[tuple[str, ...]] = ("scaled",)
+    source_views: ClassVar[tuple[str, ...]] = ("gene_expression",)
+    computed: ClassVar[list[float]] = []
 
-    def __init__(self, scale: float = 1.0, view: str | None = None) -> None:
+    def __init__(self, scale: float = 1.0) -> None:
         self._scale = scale
-        self._view = view or self.input_views[0]
+        super().__init__(self.input_views[0], {"scale": scale})
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
         return {"scale": {"type": "float", "low": 0.5, "high": 4.0, "default": 1.0}}
 
-    def stored_params(self) -> Mapping[str, Any] | None:
-        return {"scale": self._scale}
-
-    def from_stored(self, source: FeatureSource, ids: np.ndarray, matrix: np.ndarray) -> FeaturizerResult:
-        return dense_result(ids, self._view, matrix, ("first",))
-
-    def valid_mask(self, source: FeatureSource, ids: np.ndarray) -> np.ndarray:
-        return np.ones(len(ids), dtype=bool)
-
-    def fit(
-        self,
-        source: FeatureSource,
-        train_ids: np.ndarray,
-        *,
-        train_pair_ids: np.ndarray | None = None,
-        es_pair_ids: np.ndarray | None = None,
-    ) -> Self:
-        type(self).calls.append({"view": self._view, "scale": self._scale, "n": len(train_ids)})
-        return self
-
-    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerResult:
-        matrix = source.get_view_matrix(self._view, ids)[:, :1] * self._scale
-        return dense_result(ids, self._view, matrix.astype(np.float32), ("first",))
+    def compute(self, source: FeatureSource, ids: np.ndarray) -> np.ndarray:
+        type(self).computed.append(self._scale)
+        return (source.view(self.source_views[0], ids)[:, :1] * self._scale).astype(np.float32)
 
 
 def _register(name: str, **attrs: Any) -> type[_Scaled]:
-    cls = type(f"_Scaled_{name}", (_Scaled,), {"calls": [], **attrs})
+    cls = type(f"_Scaled_{name}", (_Scaled,), {"computed": [], **attrs})
     return register(name, description="precompute stub")(cls)
 
 
-def test_the_default_and_the_given_configs_are_stored_and_read_back(dataset: Dataset) -> None:
+def test_a_sample_view_is_written_with_its_settings_and_read_only_at_those_settings(dataset: Dataset) -> None:
     cls = _register("scaledStub")
 
-    keys = precompute(dataset, "scaledStub", "sample", [{"scale": 2.0}])
+    assert precompute(dataset, "scaledStub", "sample") == "scaled"
 
-    assert keys == ["scaledStub_0", "scaledStub_1"]
-    assert [call["scale"] for call in cls.calls] == [1.0, 2.0]
-    assert all(call["n"] == N_SAMPLES for call in cls.calls)
-    ids = dataset.sample_ids[[3, 0]]
-    stored = FeatureSource(dataset, "sample", ids).stored("scaledStub", {"scale": 2.0}, ids)
-    expected = dataset.get_sample_features("gene_expression", ids)[:, :1] * 2.0
-    np.testing.assert_allclose(stored, expected, rtol=1e-6)
-
-
-def test_prepare_features_uses_the_stored_variant_instead_of_fitting(dataset: Dataset) -> None:
-    cls = _register("scaledStub")
+    assert cls.computed == [1.0]
+    assert precomputed_views(dataset.mdata) == {"sample": {"scaled": {"scale": 1.0}}}
     ids = dataset.sample_ids
-    computed = prepare_features(cls(scale=3.0), FeatureSource(dataset, "sample", ids), ids, fit=FitIds(ids))
-    precompute(dataset, "scaledStub", "sample", [{"scale": 3.0}])
-    cls.calls.clear()
-
-    stored = prepare_features(cls(scale=3.0), FeatureSource(dataset, "sample", ids), ids, fit=FitIds(ids))
-
-    assert cls.calls == []
-    np.testing.assert_array_equal(stored.matrix, computed.matrix)
-
-
-def test_a_drug_side_variant_lands_in_varm(dataset: Dataset) -> None:
-    _register("drugScaled", sides=frozenset({"drug"}), input_views=("morgan_fingerprint",))
-
-    (key,) = precompute(dataset, "drugScaled", "drug", [])
-
-    assert dataset.mdata.mod["response"].varm[key].shape == (N_DRUGS, 1)
+    source = FeatureSource(dataset, "sample")
+    cls.computed.clear()
+    read = prepare_features(cls(), source, ids, fit=FitIds(ids))
+    other = prepare_features(cls(scale=2.0), source, ids, fit=FitIds(ids))
+    assert cls.computed == [2.0]
+    expected = FeatureSource(dataset, "sample").view("gene_expression", ids)[:, :1]
+    np.testing.assert_allclose(read.matrix, expected, rtol=1e-6)
+    np.testing.assert_allclose(other.matrix, expected * 2.0, rtol=1e-6)
 
 
-def test_a_variant_already_stored_is_not_computed_again(dataset: Dataset) -> None:
-    cls = _register("scaledStub")
-    precompute(dataset, "scaledStub", "sample", [])
-    cls.calls.clear()
-
-    assert precompute(dataset, "scaledStub", "sample", [{"scale": 1.0}]) == []
-    assert cls.calls == []
-
-
-def test_the_view_is_forwarded_and_int_hyperparameters_are_drawn(dataset: Dataset) -> None:
-    cls = _register("scaledStub")
-
-    keys = precompute(dataset, "scaledStub", "sample", 2, view="methylation")
-
-    assert len(keys) == 3
-    assert {call["view"] for call in cls.calls} == {"methylation"}
-    assert cls.calls[0]["scale"] == 1.0
-
-
-def test_an_unsupported_side_or_a_featurizer_without_stored_outputs_raises(dataset: Dataset) -> None:
+def test_the_record_survives_saving(dataset: Dataset, tmp_path: UPath) -> None:
     _register("scaledStub")
-    _register("unstored", stored_params=lambda self: None)
+    precompute(dataset, "scaledStub", "sample")
+    path = UPath(tmp_path) / "with_view.h5mu"
+
+    dataset.save(path)
+    reloaded = Dataset.load(path)
+
+    assert FeatureSource(reloaded, "sample").view_settings("scaled") == {"scale": 1.0}
+    assert _Scaled().reads_view(FeatureSource(reloaded, "sample"))
+
+
+def test_a_drug_view_lands_in_varm(dataset: Dataset) -> None:
+    def compute(self: _Scaled, source: FeatureSource, ids: np.ndarray) -> np.ndarray:
+        return source.view("chemberta", ids)[:, :1]
+
+    cls = _register(
+        "drugScaled",
+        sides=frozenset({"drug"}),
+        input_views=("drug_scaled",),
+        source_views=("chemberta",),
+        compute=compute,
+    )
+
+    assert precompute(dataset, "drugScaled", "drug") == "drug_scaled"
+
+    assert dataset.mdata.mod["response"].varm["drug_scaled"].shape == (N_DRUGS, 1)
+    assert cls().reads_view(FeatureSource(dataset, "drug"))
+
+
+def test_a_view_the_featurizer_already_reads_is_not_computed_again(dataset: Dataset) -> None:
+    cls = _register("scaledStub")
+    precompute(dataset, "scaledStub", "sample")
+    cls.computed.clear()
+
+    assert precompute(dataset, "scaledStub", "sample") is None
+    assert cls.computed == []
+
+
+def test_an_unsupported_side_or_a_featurizer_that_needs_fitting_raises(dataset: Dataset) -> None:
+    _register("scaledStub")
 
     with pytest.raises(ValueError, match="cannot be used on the drug side"):
-        precompute(dataset, "scaledStub", "drug", [])
-    with pytest.raises(ValueError, match="never looks up stored outputs"):
-        precompute(dataset, "unstored", "sample", [])
+        precompute(dataset, "scaledStub", "drug")
+    with pytest.raises(ValueError, match="cannot be precomputed"):
+        precompute(dataset, "pca", "sample")
 
 
 def test_precompute_all_covers_eligible_featurizers_and_skips_the_rest(
@@ -147,35 +128,41 @@ def test_precompute_all_covers_eligible_featurizers_and_skips_the_rest(
 ) -> None:
     from drevalpy.registry.featurizer import featurizers
 
-    eligible = _register("eligibleStub")
-    unstored = _register("unstoredStub", stored_params=lambda self: None)
-    absent = _register("absentStub", input_views=("not_a_view",))
+    eligible = _register("eligibleStub", input_views=("eligible",))
+    absent = _register("absentStub", input_views=("absent",), source_views=("not_a_view",))
 
-    def broken_transform(self: _Scaled, source: FeatureSource, ids: np.ndarray) -> FeaturizerResult:
+    def broken(self: _Scaled, source: FeatureSource, ids: np.ndarray) -> np.ndarray:
         raise ValueError("boom")
 
-    _register("brokenStub", transform=broken_transform)
-    original = {name: cls for name, cls in featurizers.items()}
+    _register("brokenStub", input_views=("broken",), compute=broken)
+    original = dict(featurizers.items())
     monkeypatch.setattr(featurizers, "items", lambda: tuple((n, c) for n, c in original.items() if "Stub" in n))
 
     with caplog.at_level(logging.WARNING, logger="drevalpy.data.precompute"):
-        precompute_all(dataset, n_variants=1)
+        written = precompute_all(dataset)
 
-    assert len(eligible.calls) == 2
-    assert unstored.calls == [] and absent.calls == []
+    assert "eligible" in written
+    assert eligible.computed == [1.0]
+    assert absent.computed == []
     assert any("Failed to precompute brokenStub: boom" in record.getMessage() for record in caplog.records)
 
 
-def test_a_builtin_featurizer_round_trips_through_storage(dataset: Dataset) -> None:
-    ids = dataset.sample_ids
-    pca = get_featurizer("pca", "sample")
-    computed = prepare_features(
-        pca(view="gene_expression", n_components=2), FeatureSource(dataset, "sample", ids), ids, fit=FitIds(ids)
-    )
+def test_fingerprints_are_written_at_their_defaults_and_other_bit_counts_compute(dataset: Dataset) -> None:
+    pytest.importorskip("rdkit")
+    del dataset.mdata.mod["response"].varm["morgan_fingerprint"]
 
-    precompute(dataset, "pca", "sample", [{"n_components": 2}], view="gene_expression")
-    stored = prepare_features(
-        pca(view="gene_expression", n_components=2), FeatureSource(dataset, "sample", ids), ids, fit=FitIds(ids)
-    )
+    assert precompute(dataset, "fingerprints", "drug") == "morgan_fingerprint"
 
-    np.testing.assert_allclose(stored.matrix, computed.matrix, rtol=1e-5, atol=1e-6)
+    source = FeatureSource(dataset, "drug")
+    assert dataset.mdata.mod["response"].varm["morgan_fingerprint"].shape == (N_DRUGS, 2048)
+    assert source.view_settings("morgan_fingerprint") == FingerprintsFeaturizer().settings
+    assert FingerprintsFeaturizer().reads_view(source)
+    assert not FingerprintsFeaturizer(n_bits=512).reads_view(source)
+
+
+def test_an_unrecorded_shipped_view_is_read_whatever_the_settings(dataset: Dataset) -> None:
+    source = FeatureSource(dataset, "drug")
+
+    assert source.view_settings("morgan_fingerprint") is None
+    assert FingerprintsFeaturizer(n_bits=512).reads_view(source)
+    assert precompute(dataset, "fingerprints", "drug") is None

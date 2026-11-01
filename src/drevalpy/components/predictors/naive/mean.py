@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
+from drevalpy.components.predictors.abstract.base import fit_response
 from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
 from drevalpy.registry.predictor import register
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
@@ -23,11 +24,8 @@ class NaiveMeanPredictor(FeatureFreePredictor):
         """Fit on training data.
 
         :param batch: Training batch; only its responses are used.
-        :raises RuntimeError: If ``batch.response`` is None.
         """
-        if batch.response is None:
-            raise RuntimeError("batch.response is required for fit")
-        self._dataset_mean = float(np.mean(batch.response))
+        self._dataset_mean = float(np.mean(fit_response(batch)))
 
     def _predict(self, batch: ModelInputBatch) -> np.ndarray:
         """Predict responses for each pair in the batch.

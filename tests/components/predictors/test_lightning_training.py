@@ -98,7 +98,7 @@ def test_the_monitored_metric_follows_whether_a_validation_loader_is_supplied(
 
 
 def test_checkpoints_land_in_distinct_randomised_subdirectories_and_only_the_best_is_kept(tmp_path) -> None:
-    from drevalpy._utils.torch_io import load_torch_payload
+    import torch
 
     train_loader, val_loader = _loaders(with_validation=False)
     dirs = set()
@@ -112,17 +112,17 @@ def test_checkpoints_land_in_distinct_randomised_subdirectories_and_only_the_bes
     assert "version-" in str(checkpoint.dirpath)
     assert checkpoint.save_top_k == 1
     assert len(list(UPath(checkpoint.dirpath).glob("*.ckpt"))) == 1
-    assert "optimizer_states" in load_torch_payload(checkpoint.best_model_path, map_location="cpu", weights_only=False)
+    assert "optimizer_states" in torch.load(checkpoint.best_model_path, map_location="cpu", weights_only=False)
 
 
 def test_save_weights_only_produces_a_checkpoint_without_optimizer_state(tmp_path) -> None:
-    from drevalpy._utils.torch_io import load_torch_payload
+    import torch
 
     train_loader, val_loader = _loaders(with_validation=False)
 
     checkpoint = run_lightning_fit(_TinyModule(), train_loader, val_loader, _run(tmp_path, save_weights_only=True))
 
-    payload = load_torch_payload(checkpoint.best_model_path, map_location="cpu", weights_only=False)
+    payload = torch.load(checkpoint.best_model_path, map_location="cpu", weights_only=False)
     assert "state_dict" in payload
     assert "optimizer_states" not in payload
 

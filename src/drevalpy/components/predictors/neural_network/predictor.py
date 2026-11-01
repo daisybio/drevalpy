@@ -6,10 +6,9 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
 
-from drevalpy._utils.torch_io import load_state_dict
-from drevalpy.components.predictors._lightning_training import LightningRun, run_lightning_fit
-from drevalpy.components.predictors._pair_loader import make_pair_loader
-from drevalpy.components.predictors.abstract.base import Predictor
+from drevalpy.components.predictors._lightning_training import LightningRun, reload_best_weights, run_lightning_fit
+from drevalpy.components.predictors._pair_loader import collect_predictions, make_pair_loader
+from drevalpy.components.predictors.abstract.base import Predictor, response_rows
 from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.registry.predictor import register
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
@@ -54,7 +53,6 @@ class NeuralNetworkPredictor(Predictor):
         """
         super().__init__(hyperparameters)
         self._model: FeedForwardNetwork | None = None
-        self._input_dim: int | None = None
         self._is_fitted = False
 
     @classmethod
@@ -74,36 +72,24 @@ class NeuralNetworkPredictor(Predictor):
             "patience": {"type": "fixed", "default": 5},
         }
 
-    def _materialize(self, input_dim: int) -> FeedForwardNetwork:
-        """Allocate the network once input dimensionality is known.
-
-        :param input_dim: Flattened feature width for one response pair.
-        :returns: The freshly initialized network, also stored on the predictor.
-        """
-        from drevalpy.components.predictors.neural_network.network import FeedForwardNetwork
-
-        self._input_dim = input_dim
-        self._model = FeedForwardNetwork(
-            hyperparameters={
-                "units_per_layer": self._hyperparameters["units_per_layer"],
-                "dropout_prob": self._hyperparameters["dropout_prob"],
-            },
-            input_dim=input_dim,
-        )
-        self._is_fitted = False
-        return self._model
-
     def _fit(self, batch: ModelInputBatch) -> None:
         """Fit on training data using lazy pair-level lookup.
 
         :param batch: Training batch with the response and optional early-stopping pairs.
         """
-        input_dim = self._compute_input_dim(batch)
-        self._materialize(input_dim)
+        from drevalpy.components.predictors.neural_network.network import FeedForwardNetwork
+
+        self._model = FeedForwardNetwork(
+            hyperparameters={
+                "units_per_layer": self._hyperparameters["units_per_layer"],
+                "dropout_prob": self._hyperparameters["dropout_prob"],
+            },
+            input_dim=self._compute_input_dim(batch),
+        )
+        self._is_fitted = False
         if batch.n_pairs == 0:
-            self._is_fitted = False
             return
-        self._train_with_optional_early_stopping(batch)
+        self._train_with_optional_early_stopping(batch, self._model)
         self._is_fitted = True
 
     @staticmethod
@@ -170,20 +156,15 @@ class NeuralNetworkPredictor(Predictor):
         y_val = np.asarray(es_resp.response, dtype=np.float32).reshape(-1)
         if len(y_val) == 0:
             return None
-        es_cell_idx = batch.sample.rows_for(es_resp.sample_ids)
-        es_drug_idx = None if batch.drug is None else batch.drug.rows_for(es_resp.drug_ids)
+        es_cell_idx, es_drug_idx = response_rows(batch, es_resp)
         return self._build_pair_loader(batch, es_cell_idx, es_drug_idx, y_val, shuffle=False, drop_last=False)
 
-    def _train_with_optional_early_stopping(self, batch: ModelInputBatch) -> None:
-        """Train the network, early-stopping on validation loss when validation pairs exist.
+    def _train_with_optional_early_stopping(self, batch: ModelInputBatch, model: FeedForwardNetwork) -> None:
+        """Train *model*, early-stopping on validation loss when validation pairs exist.
 
         :param batch: Training batch.
-        :raises RuntimeError: If the network has not been materialized.
+        :param model: The freshly initialised network.
         """
-        if self._model is None:
-            msg = "Neural network predictor must be materialized before training"
-            raise RuntimeError(msg)
-
         y = np.asarray(batch.response, dtype=np.float32).reshape(-1)
         batch_size = min(int(self._hyperparameters["batch_size"]), batch.n_pairs)
         train_loader = self._build_pair_loader(
@@ -195,7 +176,7 @@ class NeuralNetworkPredictor(Predictor):
             drop_last=batch_size < batch.n_pairs,
         )
         checkpoint = run_lightning_fit(
-            self._model,
+            model,
             train_loader,
             self._validation_loader(batch),
             LightningRun(
@@ -207,8 +188,7 @@ class NeuralNetworkPredictor(Predictor):
                 logger=False,
             ),
         )
-        if checkpoint is not None and checkpoint.best_model_path:
-            self._model.load_state_dict(load_state_dict(checkpoint.best_model_path)["state_dict"])
+        reload_best_weights(model, checkpoint)
 
     def _predict(self, batch: ModelInputBatch) -> np.ndarray:
         """Predict using lazy pair-level lookup (no full feature expansion).
@@ -230,12 +210,5 @@ class NeuralNetworkPredictor(Predictor):
             drop_last=False,
         )
 
-        self._model.eval()
-        predictions: list[np.ndarray] = []
-        with torch.no_grad():
-            for tensors in loader:
-                x = torch.cat(tensors, dim=1)
-                preds = self._model(x).cpu().numpy()
-                predictions.append(preds)
-
-        return np.concatenate(predictions, axis=0).astype(np.float64).reshape(-1)
+        model = self._model
+        return collect_predictions(model, loader, lambda tensors: model(torch.cat(tensors, dim=1)))

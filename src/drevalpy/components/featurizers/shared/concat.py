@@ -1,7 +1,6 @@
 """Concatenating featurizer, for either entity side.
 
-Each child is fitted and transformed on the entities that are usable for every child, with
-the same stored-output lookup ``prepare_features`` applies to a top-level featurizer, and the
+Each child is fitted and transformed on the entities that are usable for every child, and the
 children's numeric blocks are merged into one result.
 """
 
@@ -13,17 +12,11 @@ from typing import Any, Self
 import numpy as np
 
 from drevalpy.components.contracts.feature_format import FeatureFormat
-from drevalpy.components.featurizers.featurizer import (
-    Featurizer,
-    fit_unless_stored,
-    transform_or_stored,
-    usable,
-)
+from drevalpy.components.featurizers._featurizer_label import CONCAT
+from drevalpy.components.featurizers.featurizer import Featurizer
 from drevalpy.registry.featurizer import register
 from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult, merge_feature_blocks
 from drevalpy.types.data.feature_source import FeatureSource
-
-CONCAT_NAME = "concatFeaturizers"
 
 
 def _build_children(featurizers: list[Any]) -> list[Featurizer]:
@@ -38,7 +31,7 @@ def _build_children(featurizers: list[Any]) -> list[Featurizer]:
 
     parent = FeaturizerConfig.model_validate(
         {
-            "name": CONCAT_NAME,
+            "name": CONCAT,
             "featurizers": [
                 item.model_dump(mode="python") if isinstance(item, FeaturizerConfig) else item for item in featurizers
             ],
@@ -47,7 +40,7 @@ def _build_children(featurizers: list[Any]) -> list[Featurizer]:
     return [child.create_instance() for child in parent.featurizers or ()]
 
 
-@register(CONCAT_NAME, description="Concatenate the dense outputs of several featurizers of one side.")
+@register(CONCAT, description="Concatenate the dense outputs of several featurizers of one side.")
 class ConcatFeaturizer(Featurizer):
     """Fit child featurizers independently and concatenate their dense outputs."""
 
@@ -89,7 +82,7 @@ class ConcatFeaturizer(Featurizer):
         :param ids: Entity IDs to check.
         :returns: Boolean array with one entry per ID.
         """
-        return np.logical_and.reduce([usable(child, source, ids) for child in self._children])
+        return np.logical_and.reduce([child.valid_mask(source, ids) for child in self._children])
 
     def fit(
         self,
@@ -111,7 +104,7 @@ class ConcatFeaturizer(Featurizer):
         for child in self._children:
             if child.requires_early_stopping and (es_pair_ids is None or len(es_pair_ids) == 0):
                 raise ValueError(f"{type(child).__name__} requires a usable early-stopping holdout")
-            fit_unless_stored(child, source, train_ids, train_pair_ids=train_pair_ids, es_pair_ids=es_pair_ids)
+            child.fit(source, train_ids, train_pair_ids=train_pair_ids, es_pair_ids=es_pair_ids)
         return self
 
     def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerResult:
@@ -124,7 +117,7 @@ class ConcatFeaturizer(Featurizer):
         """
         child_blocks = []
         for child in self._children:
-            blocks = transform_or_stored(child, source, ids).blocks
+            blocks = child.transform(source, ids).blocks
             wrong = [name for name, block in blocks.items() if block.format != FeatureFormat.NUMERIC_MATRIX]
             if wrong:
                 msg = f"concat featurizer child {type(child).__name__} emits non-numeric blocks {wrong}"

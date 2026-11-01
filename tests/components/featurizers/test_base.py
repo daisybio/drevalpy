@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import numpy as np
 import pytest
 
 from drevalpy.components.contracts.feature_format import FeatureFormat
@@ -97,7 +96,7 @@ def test_literature_featurizer_views_exist_in_the_fixture(name: str, synthetic_d
         pytest.skip(f"{name} reads views the fixture cannot supply")
     cls = get_featurizer(name)
     side = "sample" if "sample" in cls.sides else "drug"
-    source = FeatureSource(synthetic_dataset, side, np.asarray([]))
+    source = FeatureSource(synthetic_dataset, side)
     views = cls.views(_config(name))
     if not views:
         pytest.skip(f"{name} reads no view")

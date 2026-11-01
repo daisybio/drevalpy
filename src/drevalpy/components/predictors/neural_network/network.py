@@ -9,8 +9,10 @@ import pytorch_lightning as pl
 import torch
 from torch import nn
 
+from drevalpy.components.predictors._lightning_training import LossSteps
 
-class FeedForwardNetwork(pl.LightningModule):
+
+class FeedForwardNetwork(LossSteps, pl.LightningModule):
     """Feed-forward regression network with batch normalization and dropout."""
 
     def __init__(self, hyperparameters: dict[str, Any], input_dim: int) -> None:
@@ -38,7 +40,6 @@ class FeedForwardNetwork(pl.LightningModule):
         self.loss = nn.MSELoss()
         self.fully_connected_layers = nn.ModuleList()
         self.batch_norm_layers = nn.ModuleList()
-        self.dropout_layer: nn.Dropout | None = None
 
         self.fully_connected_layers.append(nn.Linear(input_dim, self.n_units_per_layer[0]))
         self.batch_norm_layers.append(nn.BatchNorm1d(self.n_units_per_layer[0]))
@@ -60,17 +61,21 @@ class FeedForwardNetwork(pl.LightningModule):
         for index in range(len(self.fully_connected_layers) - 2):
             hidden = self.fully_connected_layers[index](hidden)
             hidden = self.batch_norm_layers[index](hidden)
-            if self.dropout_layer is not None:
-                hidden = self.dropout_layer(hidden)
+            hidden = self.dropout_layer(hidden)
             hidden = torch.relu(hidden)
         hidden = torch.relu(self.fully_connected_layers[-2](hidden))
         return self.fully_connected_layers[-1](hidden).squeeze(dim=-1)
 
-    def _loss_and_log(self, features: torch.Tensor, response: torch.Tensor, name: str) -> torch.Tensor:
-        """Compute the MSE loss and log it under *name*."""
-        predictions = self(features)
-        loss = self.loss(predictions, response)
-        self.log(name, loss, on_step=True, on_epoch=True, prog_bar=True)
+    def _loss_and_log(self, batch: Sequence[torch.Tensor], key: str) -> torch.Tensor:
+        """Compute the MSE loss of one batch and log it under *key*, per step and per epoch.
+
+        :param batch: Feature tensors followed by the response tensor.
+        :param key: ``"train_loss"`` or ``"val_loss"``.
+        :returns: The MSE loss.
+        """
+        features, response = self._unpack_batch(batch)
+        loss = self.loss(self(features), response)
+        self.log(key, loss, on_step=True, on_epoch=True, prog_bar=True)
         return loss
 
     @staticmethod
@@ -86,28 +91,6 @@ class FeedForwardNetwork(pl.LightningModule):
         """
         features = torch.cat(list(batch[:-1]), dim=1)
         return features, batch[-1]
-
-    def training_step(self, batch: Sequence[torch.Tensor], batch_idx: int) -> torch.Tensor:
-        """Compute and log training loss for one batch.
-
-        :param batch: Feature tensors followed by the response tensor.
-        :param batch_idx: Index of the batch within the epoch; unused.
-        :returns: The MSE loss.
-        """
-        _ = batch_idx
-        features, response = self._unpack_batch(batch)
-        return self._loss_and_log(features, response, name="train_loss")
-
-    def validation_step(self, batch: Sequence[torch.Tensor], batch_idx: int) -> torch.Tensor:
-        """Compute and log validation loss for one batch.
-
-        :param batch: Feature tensors followed by the response tensor.
-        :param batch_idx: Index of the batch within the epoch; unused.
-        :returns: The MSE loss.
-        """
-        _ = batch_idx
-        features, response = self._unpack_batch(batch)
-        return self._loss_and_log(features, response, name="val_loss")
 
     def configure_optimizers(self) -> torch.optim.Optimizer:
         """Build the Adam optimizer used by the original predictor.

@@ -7,13 +7,10 @@ from typing import ClassVar
 import numpy as np
 
 from drevalpy.components.contracts.feature_format import FeatureFormat
-from drevalpy.components.predictors.abstract.base import Predictor
+from drevalpy.components.predictors.abstract.base import Predictor, fit_response
 from drevalpy.components.predictors.inputs import Inputs
-from drevalpy.components.predictors.naive._matrix_means import (
-    additive_effects,
-    predict_with_effects,
-    require_pair_matrix,
-)
+from drevalpy.components.predictors.naive._matrix_means import require_pair_matrix
+from drevalpy.components.predictors.naive._single_entity import SingleEntityNaivePredictor
 from drevalpy.registry.predictor import register
 from drevalpy.types.data.batch.feature_block import BlockSpec
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
@@ -24,48 +21,23 @@ from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
     tags=("baseline",),
     description="Predict per-tissue mean response with global fallback.",
 )
-class NaiveTissueMeanPredictor(Predictor):
+class NaiveTissueMeanPredictor(SingleEntityNaivePredictor):
     """Naive tissue mean predictor component."""
 
     sample_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("tissue", FeatureFormat.NUMERIC_MATRIX))
-    drug_inputs: ClassVar[Inputs] = Inputs.blocks()
 
-    _dataset_mean: float | None = None
-    _effects: np.ndarray | None = None
+    def _design(self, batch: ModelInputBatch) -> np.ndarray:
+        """Return the pair-level one-hot tissue matrix.
 
-    def _fit(self, batch: ModelInputBatch) -> None:
-        """Fit on training data.
-
-        :param batch: Training batch.
+        :param batch: Batch to read.
+        :returns: One row per pair, one column per tissue.
         :raises ValueError: If the tissue featurizer produced no columns.
-        :raises RuntimeError: If ``batch.response`` is None.
         """
-        design = require_pair_matrix(batch, side="sample")
+        design = super()._design(batch)
         if design.shape[1] == 0:
             msg = "NaiveTissueMeanPredictor requires tissue featurizer output"
             raise ValueError(msg)
-        y = batch.response
-        if y is None:
-            raise RuntimeError("batch.response is required for fit")
-        self._dataset_mean = float(np.mean(y))
-        self._effects = additive_effects(design, y, baseline=self._dataset_mean)
-
-    def _predict(self, batch: ModelInputBatch) -> np.ndarray:
-        """Predict responses for each pair in the batch.
-
-        :param batch: Pairs to score.
-        :returns: Dataset mean plus the effect of each pair's tissue.
-        :raises RuntimeError: If the predictor has not been fitted.
-        :raises ValueError: If the tissue featurizer produced no columns.
-        """
-        if self._dataset_mean is None or self._effects is None:
-            msg = "Call fit before predict"
-            raise RuntimeError(msg)
-        design = require_pair_matrix(batch, side="sample")
-        if design.shape[1] == 0:
-            msg = "NaiveTissueMeanPredictor requires tissue featurizer output"
-            raise ValueError(msg)
-        return predict_with_effects(design, self._effects, baseline=self._dataset_mean)
+        return design
 
 
 @register(
@@ -87,16 +59,13 @@ class NaiveTissueDrugMeanPredictor(Predictor):
 
         :param batch: Training batch.
         :raises ValueError: If the tissue or drug featurizer produced no columns.
-        :raises RuntimeError: If ``batch.response`` is None.
         """
         tissue = require_pair_matrix(batch, side="sample")
         drugs = require_pair_matrix(batch, side="drug")
         if tissue.shape[1] == 0 or drugs.shape[1] == 0:
             msg = "NaiveTissueDrugMeanPredictor requires tissue featurizer output"
             raise ValueError(msg)
-        y = batch.response
-        if y is None:
-            raise RuntimeError("batch.response is required for fit")
+        y = fit_response(batch)
         self._dataset_mean = float(np.mean(y))
         tissue64 = np.asarray(tissue, dtype=np.float64)
         drugs64 = np.asarray(drugs, dtype=np.float64)

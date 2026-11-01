@@ -16,8 +16,32 @@ from drevalpy.types.enums.prediction_mode import PredictionMode
 
 if TYPE_CHECKING:
     from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
+    from drevalpy.types.data.batch.response_batch import ResponseBatch
 
 _logger = get_logger(__name__)
+
+
+def fit_response(batch: ModelInputBatch) -> np.ndarray:
+    """Return the training responses of *batch*, which :meth:`Predictor.fit` has checked are present.
+
+    :param batch: Batch passed to ``_fit``.
+    :returns: ``batch.response``.
+    :raises RuntimeError: If the batch has no responses, i.e. ``_fit`` was called directly on a prediction batch.
+    """
+    if batch.response is None:
+        raise RuntimeError("batch.response is required for fit")
+    return batch.response
+
+
+def response_rows(batch: ModelInputBatch, response: ResponseBatch) -> tuple[np.ndarray, np.ndarray | None]:
+    """Index the pairs of *response* (usually the early-stopping one) into *batch*'s entity tables.
+
+    :param batch: Batch whose sample and drug feature tables are indexed.
+    :param response: Pairs to look up.
+    :returns: ``(sample_rows, drug_rows)``; ``drug_rows`` is ``None`` when the batch has no drug features.
+    """
+    sample_rows = batch.sample.rows_for(response.sample_ids)
+    return sample_rows, None if batch.drug is None else batch.drug.rows_for(response.drug_ids)
 
 
 class Predictor(TunableComponent, ABC):
@@ -78,8 +102,7 @@ class Predictor(TunableComponent, ABC):
         """
         response = batch.early_stopping_response
         if response is not None:
-            cl_idx = batch.sample.rows_for(response.sample_ids)
-            drug_idx = None if batch.drug is None else batch.drug.rows_for(response.drug_ids)
+            cl_idx, drug_idx = response_rows(batch, response)
             stopping = replace(
                 batch,
                 sample_ids=response.sample_ids,

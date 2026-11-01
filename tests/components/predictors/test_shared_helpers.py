@@ -17,9 +17,13 @@ class _Holder(DevicePicklingMixin):
     def __init__(self) -> None:
         import torch
 
-        self._device = select_device()
+        super().__init__()
         self._model = torch.nn.Linear(2, 1)
         self._nets = [torch.nn.Linear(2, 1), None]
+
+
+def test_the_device_is_selected_on_construction() -> None:
+    assert _Holder()._device == select_device()
 
 
 def test_select_device_follows_cuda_availability(monkeypatch) -> None:
