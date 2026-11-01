@@ -135,7 +135,7 @@ def test_from_name_prefers_a_zoo_name_and_accepts_a_feature_free_token() -> None
     [
         ("NotAModel", "Unknown model spec 'NotAModel'"),
         ("pca:elasticNet", "requires an explicit view"),
-        ("raw[gene_expression]:fingerprints:naiveTissueMean", "needs sample block"),
+        ("view[gene_expression]:fingerprints:naiveTissueMean", "needs sample block"),
         ("a:b:c:d", "Malformed model recipe"),
     ],
 )
@@ -172,30 +172,30 @@ def test_result_types_are_frozen_and_the_signature_is_keyword_only() -> None:
 
 def test_grid_keeps_valid_products_and_reports_the_skipped_with_reasons() -> None:
     result = combinations(
-        sample=["raw[gene_expression]", "pca[gene_expression]"],
+        sample=["view[gene_expression]", "pca[gene_expression]"],
         drug=["fingerprints"],
         predictors=["elasticNet", "naiveTissueMean"],
     )
 
     assert [spec.name for spec in result.specs] == [
-        "raw[gene_expression]:fingerprints:elasticNet",
+        "view[gene_expression]:fingerprints:elasticNet",
         "pca[gene_expression]:fingerprints:elasticNet",
     ]
     assert [item.recipe for item in result.skipped] == [
-        "raw[gene_expression]:fingerprints:naiveTissueMean",
+        "view[gene_expression]:fingerprints:naiveTissueMean",
         "pca[gene_expression]:fingerprints:naiveTissueMean",
     ]
     assert result.skipped[0].reason == (
-        "Predictor 'naiveTissueMean' needs sample block(s) ['tissue'] but the sample featurizer 'raw' "
+        "Predictor 'naiveTissueMean' needs sample block(s) ['tissue'] but the sample featurizer 'view' "
         "emits [gene_expression]"
     )
     assert all("\n" not in item.reason for item in result.skipped)
 
 
 def test_concat_atom_supplies_the_block_a_predictor_needs() -> None:
-    result = combinations(sample=["raw[gene_expression]+tissue"], drug=["constant"], predictors=["naiveTissueMean"])
+    result = combinations(sample=["view[gene_expression]+tissue"], drug=["constant"], predictors=["naiveTissueMean"])
 
-    assert [spec.name for spec in result.specs] == ["raw[gene_expression]+tissue:constant:naiveTissueMean"]
+    assert [spec.name for spec in result.specs] == ["view[gene_expression]+tissue:constant:naiveTissueMean"]
     assert result.skipped == []
 
 
@@ -229,19 +229,19 @@ def test_unknown_component_is_skipped_with_the_registry_message() -> None:
     assert result.skipped == [
         SkippedCombination("nope:fingerprints:elasticNet", result.skipped[0].reason),
     ]
-    assert result.skipped[0].reason.startswith("Unknown featurizer 'nope'")
+    assert result.skipped[0].reason.startswith("Unknown sample featurizer 'nope'")
 
 
 def test_no_valid_combination_raises_with_every_reason() -> None:
     with pytest.raises(InvalidInputError, match="No valid combination among 2") as caught:
         combinations(
-            sample=["raw[gene_expression]", "pca[gene_expression]"],
+            sample=["view[gene_expression]", "pca[gene_expression]"],
             drug=["fingerprints"],
             predictors=["naiveTissueMean"],
         )
 
     message = str(caught.value)
-    for sample in ("raw", "pca"):
+    for sample in ("view", "pca"):
         assert f"{sample}[gene_expression]:fingerprints:naiveTissueMean: Predictor 'naiveTissueMean' needs" in message
 
 

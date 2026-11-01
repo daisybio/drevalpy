@@ -12,7 +12,6 @@ from typing import TYPE_CHECKING, Any
 
 from drevalpy.components.contracts.feature_format import FeatureFormat
 from drevalpy.components.predictors.inputs import Inputs, predictor_inputs
-from drevalpy.registry.featurizer import get_featurizer
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.data.batch.feature_block import BlockSpec
 from drevalpy.types.data.feature_source import Side
@@ -92,19 +91,16 @@ def validate(config: ModelConfig) -> ModelConfig:
         return config
     _validate_prediction_mode(config, pred_cls)
     sides: tuple[tuple[Side, FeaturizerConfig | None], ...] = (
-        ("sample", config.sample_featurizer),
-        ("drug", config.drug_featurizer),
+        (Side.SAMPLE, config.sample_featurizer),
+        (Side.DRUG, config.drug_featurizer),
     )
     for side, featurizer in sides:
-        if featurizer is not None:
-            for leaf in featurizer.leaves():
-                get_featurizer(leaf.name, side)
         inputs = predictor_inputs(pred_cls, side)
         if inputs.kind == "none":
             if featurizer is not None:
                 raise ValueError(f"Predictor {name!r} reads no {side} features and forbids a {side}_featurizer")
         elif featurizer is not None:
             _validate_inputs(name, side, inputs, featurizer)
-        elif not (side == "drug" and pred_cls.scope is ModelScope.SINGLE_DRUG):
+        elif not (side is Side.DRUG and pred_cls.scope is ModelScope.SINGLE_DRUG):
             raise ValueError(f"Predictor {name!r} requires a {side}_featurizer")
     return config

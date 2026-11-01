@@ -185,7 +185,7 @@ def test_equivalent_specs_have_matching_predictions(model_name: str, hp: dict) -
 
 
 def test_custom_recipe_spec_has_matching_checkpoint_round_trip(tmp_path) -> None:
-    spec = ModelSpec("PcaIdentityRF", from_recipe("pca[gene_expression]:identity:randomForest"))
+    spec = ModelSpec("PcaIdentityRF", from_recipe("pca[gene_expression]:oneHot:randomForest"))
     dataset = synthetic_model_dataset_gene_expression_fingerprints()
     fold = lso_fold()
     model = DRPModel(spec, RF_HP, check_values=False)

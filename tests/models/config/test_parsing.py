@@ -25,14 +25,14 @@ from drevalpy.registry.predictor import get as get_predictor
     ("recipe", "expected"),
     [
         ("scaledGeneExpression", [("scaledGeneExpression", None)]),
-        ("raw[copy_number_variation_gistic]", [("raw", "copy_number_variation_gistic")]),
-        ("fingerprints+identity", [("fingerprints", None), ("identity", None)]),
+        ("view[copy_number_variation_gistic]", [("view", "copy_number_variation_gistic")]),
+        ("fingerprints+oneHot", [("fingerprints", None), ("oneHot", None)]),
         (
-            "raw[expression]+pca[proteomics]+scaledGeneExpression",
-            [("raw", "expression"), ("pca", "proteomics"), ("scaledGeneExpression", None)],
+            "view[expression]+pca[proteomics]+scaledGeneExpression",
+            [("view", "expression"), ("pca", "proteomics"), ("scaledGeneExpression", None)],
         ),
-        ("  raw[expression] + raw[mutations]  ", [("raw", "expression"), ("raw", "mutations")]),
-        ("raw[a+b]", [("raw", "a+b")]),
+        ("  view[expression] + view[mutations]  ", [("view", "expression"), ("view", "mutations")]),
+        ("view[a+b]", [("view", "a+b")]),
         ("notARegisteredName", [("notARegisteredName", None)]),
     ],
     ids=["bare", "long-view", "two-bare", "three-mixed", "whitespace", "plus-inside-brackets", "unregistered"],
@@ -41,7 +41,9 @@ def test_featurizer_atoms_are_parsed(recipe: str, expected: list[tuple[str, str 
     assert parse_featurizer_atoms(recipe) == expected
 
 
-@pytest.mark.parametrize("recipe", ["a+", "+a", "a++b", "a+[", "]+a", "raw[a:b]", "[x]", "a[b][c]", "", "   ", "raw[]"])
+@pytest.mark.parametrize(
+    "recipe", ["a+", "+a", "a++b", "a+[", "]+a", "view[a:b]", "[x]", "a[b][c]", "", "   ", "view[]"]
+)
 def test_featurizer_recipe_rejects_malformed_shapes(recipe: str) -> None:
     with pytest.raises(ValueError, match="Malformed featurizer recipe"):
         parse_featurizer_atoms(recipe)
@@ -56,15 +58,15 @@ def test_featurizer_error_mentions_non_empty_atoms() -> None:
     ("recipe", "expected"),
     [
         ("scaledGeneExpression", {"name": "scaledGeneExpression"}),
-        ("raw[expression]", {"name": "raw", "view": "expression"}),
+        ("view[expression]", {"name": "view", "view": "expression"}),
         (
-            "raw[expression]+pca[methylation]",
+            "view[expression]+pca[methylation]",
             {
                 "name": "concatFeaturizers",
-                "featurizers": [{"name": "raw", "view": "expression"}, {"name": "pca", "view": "methylation"}],
+                "featurizers": [{"name": "view", "view": "expression"}, {"name": "pca", "view": "methylation"}],
             },
         ),
-        ("raw[a+b]", {"name": "raw", "view": "a+b"}),
+        ("view[a+b]", {"name": "view", "view": "a+b"}),
         # Expansion transcribes without judging: unknown names and views pass through.
         ("scaledGeneExpression[gene_expression]", {"name": "scaledGeneExpression", "view": "gene_expression"}),
         ("notARegisteredName", {"name": "notARegisteredName"}),
@@ -91,16 +93,16 @@ def _slots(spec: str) -> tuple[str | None, str | None, str]:
 
 
 def test_model_recipe_payload_carries_exactly_the_config_field_keys() -> None:
-    assert parse_model_recipe("raw[expression]+landmarkGenes:fingerprints:randomForest") == {
+    assert parse_model_recipe("view[expression]+landmarkGenes:fingerprints:randomForest") == {
         "sample_featurizer": {
             "name": "concatFeaturizers",
-            "featurizers": [{"name": "raw", "view": "expression"}, {"name": "landmarkGenes"}],
+            "featurizers": [{"name": "view", "view": "expression"}, {"name": "landmarkGenes"}],
         },
         "drug_featurizer": {"name": "fingerprints"},
         "predictor": "randomForest",
     }
-    payload = parse_model_recipe("raw[expression]:raw[expression]:randomForest")
-    assert payload["sample_featurizer"] == payload["drug_featurizer"] == {"name": "raw", "view": "expression"}
+    payload = parse_model_recipe("view[expression]:view[expression]:randomForest")
+    assert payload["sample_featurizer"] == payload["drug_featurizer"] == {"name": "view", "view": "expression"}
 
 
 def test_two_part_model_recipe_leaves_the_drug_slot_unset() -> None:
@@ -117,7 +119,7 @@ def test_two_part_model_recipe_leaves_the_drug_slot_unset() -> None:
         ("elasticNet", (None, None, "elasticNet")),
         ("scaledGeneExpression:fingerprints:elasticNet", ("scaledGeneExpression", "fingerprints", "elasticNet")),
         (
-            "raw[expression]+raw[mutations]:fingerprints:randomForest",
+            "view[expression]+view[mutations]:fingerprints:randomForest",
             ("concatFeaturizers", "fingerprints", "randomForest"),
         ),
         (
@@ -132,7 +134,7 @@ def test_model_recipe_slots_are_split(spec: str, expected: tuple[str | None, str
 
 
 @pytest.mark.parametrize(
-    "spec", ["a:b:c:d", " :b:c", ":x", "a::b", "a:", "raw[a:b]:x:y", "raw[a:b]:fingerprints:randomForest"]
+    "spec", ["a:b:c:d", " :b:c", ":x", "a::b", "a:", "view[a:b]:x:y", "view[a:b]:fingerprints:randomForest"]
 )
 def test_model_recipe_rejects_malformed_specs(spec: str) -> None:
     with pytest.raises(ValueError, match="Malformed model recipe"):
@@ -152,8 +154,8 @@ def test_model_recipe_rejects_blank_specs(spec: str) -> None:
         (("scaledGeneExpression", None, "singleDrugElasticNet"), "scaledGeneExpression:singleDrugElasticNet"),
         (("scaledGeneExpression", "fingerprints", "elasticNet"), "scaledGeneExpression:fingerprints:elasticNet"),
         (
-            ("raw[expression]+raw[mutations]", "fingerprints", "randomForest"),
-            "raw[expression]+raw[mutations]:fingerprints:randomForest",
+            ("view[expression]+view[mutations]", "fingerprints", "randomForest"),
+            "view[expression]+view[mutations]:fingerprints:randomForest",
         ),
     ],
     ids=["predictor-only", "two-slot", "three-slot", "concat-slot"],
@@ -177,9 +179,22 @@ def _space(cls: type, **defaults: Any) -> dict[str, Any]:
     return {key: {**spec, "default": defaults[key]} if key in defaults else spec for key, spec in space.items()}
 
 
+def _side_of(raw: object) -> str:
+    """The side a test featurizer config is used on: the drug side for ``fingerprints``."""
+    return "drug" if "fingerprints" in repr(raw) else "sample"
+
+
+def _sided(fields: dict, side: str) -> dict:
+    """*fields* with ``side`` set on the node and its concat children, as normalizing writes them."""
+    sided = {**fields, "side": side}
+    if "featurizers" in fields:
+        sided["featurizers"] = [_sided(child, side) for child in fields["featurizers"]]
+    return sided
+
+
 _CANONICAL_CONCAT = {
     "name": "concatFeaturizers",
-    "featurizers": [{"name": "raw", "view": "gene_expression"}, {"name": "raw", "view": "mutations"}],
+    "featurizers": [{"name": "view", "view": "gene_expression"}, {"name": "view", "view": "mutations"}],
 }
 _PCA_SPACE = {"n_components": {"type": "int", "low": 2, "high": 99, "default": 5}}
 
@@ -188,14 +203,14 @@ _PCA_SPACE = {"n_components": {"type": "int", "low": 2, "high": 99, "default": 5
     ("raw", "expected"),
     [
         ("scaledGeneExpression", {"name": "scaledGeneExpression"}),
-        ("raw[gene_expression]", {"name": "raw", "view": "gene_expression"}),
-        ("raw[gene_expression]+raw[mutations]", _CANONICAL_CONCAT),
-        ({"name": "raw", "view": "gene_expression"}, {"name": "raw", "view": "gene_expression"}),
+        ("view[gene_expression]", {"name": "view", "view": "gene_expression"}),
+        ("view[gene_expression]+view[mutations]", _CANONICAL_CONCAT),
+        ({"name": "view", "view": "gene_expression"}, {"name": "view", "view": "gene_expression"}),
         (_CANONICAL_CONCAT, _CANONICAL_CONCAT),
         (
             {
                 "name": "concatFeaturizers",
-                "featurizers": ["raw[gene_expression]", {"name": "raw", "view": "mutations"}],
+                "featurizers": ["view[gene_expression]", {"name": "view", "view": "mutations"}],
             },
             _CANONICAL_CONCAT,
         ),
@@ -205,7 +220,10 @@ _PCA_SPACE = {"n_components": {"type": "int", "low": 2, "high": 99, "default": 5
         ),
         (
             {"name": "fingerprints", "defaults": {"n_bits": 512}},
-            {"name": "fingerprints", "hyperparameter_space": _space(get_featurizer("fingerprints"), n_bits=512)},
+            {
+                "name": "fingerprints",
+                "hyperparameter_space": _space(get_featurizer("fingerprints", "drug"), n_bits=512),
+            },
         ),
         (
             {"name": "pca", "view": "methylation", "hyperparameter_space": _PCA_SPACE, "defaults": {"n_components": 8}},
@@ -220,7 +238,7 @@ _PCA_SPACE = {"n_components": {"type": "int", "low": 2, "high": 99, "default": 5
             {
                 "name": "landmarkGenes",
                 "options": {"arcsinh": False},
-                "hyperparameter_space": _space(get_featurizer("landmarkGenes"), standardize=False),
+                "hyperparameter_space": _space(get_featurizer("landmarkGenes", "sample"), standardize=False),
             },
         ),
     ],
@@ -238,22 +256,31 @@ _PCA_SPACE = {"n_components": {"type": "int", "low": 2, "high": 99, "default": 5
     ],
 )
 def test_accepted_featurizer_spellings_normalize_to_canonical_fields(raw: object, expected: dict) -> None:
-    assert normalize_featurizer(raw) == expected
-    assert FeaturizerConfig.model_validate(raw) == FeaturizerConfig.model_validate(expected)
+    side = _side_of(raw)
+    assert normalize_featurizer(raw, side) == _sided(expected, side)
+    assert FeaturizerConfig.parse(raw, side) == FeaturizerConfig.parse(expected, side)
+
+
+def test_normalizing_needs_a_side_and_keeps_a_matching_one() -> None:
+    with pytest.raises(ValueError, match="featurizer 'pca' needs a side"):
+        normalize_featurizer({"name": "pca", "view": "methylation"})
+    assert normalize_featurizer({"name": "pca", "view": "methylation", "side": "sample"})["side"] == "sample"
+    with pytest.raises(ValueError, match="featurizer 'fingerprints' has side 'drug' but is used on the sample side"):
+        normalize_featurizer({"name": "fingerprints", "side": "drug"}, "sample")
 
 
 @pytest.mark.parametrize(
     ("raw", "error", "match"),
     [
         (
-            ["raw[gene_expression]", "raw[mutations]"],
+            ["view[gene_expression]", "view[mutations]"],
             ValueError,
-            "featurizer list is not accepted; write 'raw[gene_expression]+raw[mutations]'",
+            "featurizer list is not accepted; write 'view[gene_expression]+view[mutations]'",
         ),
         (
-            ["identity", {"name": "tissue"}],
+            ["oneHot", {"name": "tissue"}],
             ValueError,
-            "write {'name': 'concatFeaturizers', 'featurizers': ['identity', {'name': 'tissue'}]}",
+            "write {'name': 'concatFeaturizers', 'featurizers': ['oneHot', {'name': 'tissue'}]}",
         ),
         (
             {"fingerprints": {"n_bits": 512}},
@@ -268,26 +295,26 @@ def test_accepted_featurizer_spellings_normalize_to_canonical_fields(raw: object
             "write {'name': 'pca', 'view': 'methylation'}",
         ),
         (
-            {"concatFeaturizers": {"featurizers": ["scaledGeneExpression", "raw[mutations]"]}},
+            {"concatFeaturizers": {"featurizers": ["scaledGeneExpression", "view[mutations]"]}},
             ValueError,
-            "write {'name': 'concatFeaturizers', 'featurizers': ['scaledGeneExpression', 'raw[mutations]']}",
+            "write {'name': 'concatFeaturizers', 'featurizers': ['scaledGeneExpression', 'view[mutations]']}",
         ),
         ({"view": "methylation", "options": {}}, ValueError, "needs a 'name' key, got keys ['options', 'view']"),
         (
             {"name": "fingerprints", "defaults": {"not_a_knob": 1}},
             ValueError,
-            "defaults of featurizer 'fingerprints': 'not_a_knob' is not a tunable hyperparameter "
+            "defaults of drug featurizer 'fingerprints': 'not_a_knob' is not a tunable hyperparameter "
             "(tunable: n_bits, radius, use_chirality, use_counts); put fixed constructor values under 'options'",
         ),
         (
             {"name": "fingerprints", "defaults": 5},
             ValueError,
-            "defaults of featurizer 'fingerprints' must be a mapping",
+            "defaults of drug featurizer 'fingerprints' must be a mapping",
         ),
         (
             {"name": "pca", "view": "methylation", "options": {"n_components": 4}},
             ValueError,
-            "options of featurizer 'pca' name tunable hyperparameters (n_components); "
+            "options of sample featurizer 'pca' name tunable hyperparameters (n_components); "
             "set their value under 'defaults' instead",
         ),
         (
@@ -313,33 +340,34 @@ def test_accepted_featurizer_spellings_normalize_to_canonical_fields(raw: object
 )
 def test_rejected_featurizer_spellings_name_the_canonical_form(raw: object, error: type[Exception], match: str) -> None:
     with pytest.raises(error, match=re.escape(match)):
-        normalize_featurizer(raw)
+        normalize_featurizer(raw, _side_of(raw))
 
 
 @pytest.mark.parametrize(
     ("name", "view"),
-    [("raw", "expression"), ("raw", "custom_test_view"), ("fingerprints", "ignored")],
+    [("view", "expression"), ("view", "custom_test_view"), ("fingerprints", "ignored")],
     ids=["canonical", "custom-view", "non-view-parametric"],
 )
 def test_views_are_passed_through_unchanged(name, view) -> None:
-    payload = normalize_featurizer({"name": name, "view": view})
-    assert payload == {"name": name, "view": view}
-    assert normalize_featurizer(f"{name}[{view}]") == payload
+    side = _side_of(name)
+    payload = normalize_featurizer({"name": name, "view": view}, side)
+    assert payload == {"name": name, "view": view, "side": side}
+    assert normalize_featurizer(f"{name}[{view}]", side) == payload
 
 
 @pytest.mark.parametrize(
     ("raw", "match"),
     [
-        ("raw", "requires an explicit view"),
+        ("view", "requires an explicit view"),
         ("pca", "requires an explicit view"),
         ({"name": "pca"}, "requires an explicit view"),
         ({"name": "pca", "view": "  "}, "view must be a non-empty string"),
     ],
-    ids=["raw", "pca", "missing", "blank"],
+    ids=["view", "pca", "missing", "blank"],
 )
 def test_view_parametric_featurizer_without_a_usable_view_is_rejected(raw, match) -> None:
     with pytest.raises(ValueError, match=match):
-        FeaturizerConfig.model_validate(raw)
+        FeaturizerConfig.parse(raw, "sample")
 
 
 PREDICTOR_SPACE = {"n_estimators": {"type": "int", "low": 2, "high": 20, "default": 4}}
@@ -398,22 +426,23 @@ def test_rejected_predictor_spellings_name_the_canonical_form(raw: object, error
 
 
 def test_defaults_do_not_mutate_the_class_space() -> None:
-    original = get_featurizer("fingerprints").get_hyperparameter_space()
-    normalize_featurizer({"name": "fingerprints", "defaults": {"n_bits": 512}})
-    assert get_featurizer("fingerprints").get_hyperparameter_space() == original
+    original = get_featurizer("fingerprints", "drug").get_hyperparameter_space()
+    normalize_featurizer({"name": "fingerprints", "defaults": {"n_bits": 512}}, "drug")
+    assert get_featurizer("fingerprints", "drug").get_hyperparameter_space() == original
 
 
 def test_the_suggested_form_of_a_nested_removed_spelling_is_canonical_all_the_way_down() -> None:
     with pytest.raises(ValueError, match="A featurizer list is not accepted") as info:
-        normalize_featurizer(["identity", {"tissue": {"allow_missing": True}}])
+        normalize_featurizer(["oneHot", {"tissue": {"allow_missing": True}}], "sample")
     hint = str(info.value).split("; write ", 1)[1]
     assert hint == repr(
         {
             "name": "concatFeaturizers",
-            "featurizers": ["identity", {"name": "tissue", "options": {"allow_missing": True}}],
+            "featurizers": ["oneHot", {"name": "tissue", "options": {"allow_missing": True}}],
         }
     )
-    assert normalize_featurizer(ast.literal_eval(hint))["featurizers"][1] == {
+    assert normalize_featurizer(ast.literal_eval(hint), "sample")["featurizers"][1] == {
         "name": "tissue",
+        "side": "sample",
         "options": {"allow_missing": True},
     }

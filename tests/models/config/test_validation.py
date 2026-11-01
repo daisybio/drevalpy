@@ -9,7 +9,7 @@ from drevalpy.components.contracts.feature_format import FeatureFormat
 from drevalpy.components.featurizers._featurizer_label import CONCAT
 from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.models.config import FeaturizerConfig, ModelConfig, PredictorConfig, validate
-from drevalpy.registry.featurizer import featurizers
+from drevalpy.registry.featurizer import featurizer_registry
 from drevalpy.types.data.batch.feature_block import BlockSpec
 from tests.models.config._stubs import (
     register_block_predictor_stub,
@@ -28,8 +28,8 @@ def _clear_registries() -> None:
 
 def _dense_model_config(**overrides) -> ModelConfig:
     slots = {
-        "sample_featurizer": FeaturizerConfig(name="denseSample", view="gene_expression"),
-        "drug_featurizer": FeaturizerConfig(name="denseDrug", view="fingerprints"),
+        "sample_featurizer": FeaturizerConfig(name="denseSample", side="sample", view="gene_expression"),
+        "drug_featurizer": FeaturizerConfig(name="denseDrug", side="drug", view="fingerprints"),
         "predictor": PredictorConfig(name="densePred"),
     }
     slots.update(overrides)
@@ -58,15 +58,15 @@ def test_featurizer_in_a_slot_of_a_side_it_does_not_support_fails() -> None:
     register_dense_trio()
     with pytest.raises(
         (ValueError, ValidationError),
-        match="Featurizer 'denseDrug' cannot be used on the sample side; it supports only: drug",
+        match="'denseDrug' is a drug featurizer and cannot be used on the sample side",
     ):
-        _dense_model_config(sample_featurizer=FeaturizerConfig(name="denseDrug"))
+        _dense_model_config(sample_featurizer=FeaturizerConfig(name="denseDrug", side="sample"))
 
 
 def test_unknown_sample_featurizer_fails() -> None:
     register_dense_trio()
-    with pytest.raises((ValueError, ValidationError), match="Unknown featurizer 'missing'"):
-        _dense_model_config(sample_featurizer=FeaturizerConfig(name="missing"))
+    with pytest.raises((ValueError, ValidationError), match="Unknown sample featurizer 'missing'"):
+        _dense_model_config(sample_featurizer=FeaturizerConfig(name="missing", side="sample"))
 
 
 def test_graph_featurizer_with_matrix_predictor_fails() -> None:
@@ -75,7 +75,7 @@ def test_graph_featurizer_with_matrix_predictor_fails() -> None:
     register_matrix_predictor_stub("densePred")
 
     with pytest.raises((ValueError, ValidationError), match="Sample featurizer output_format|numeric_matrix"):
-        _dense_model_config(sample_featurizer=FeaturizerConfig(name="graphSample"))
+        _dense_model_config(sample_featurizer=FeaturizerConfig(name="graphSample", side="sample"))
 
 
 def test_graph_format_match_passes_for_block_predictor() -> None:
@@ -85,8 +85,8 @@ def test_graph_format_match_passes_for_block_predictor() -> None:
 
     validate(
         ModelConfig(
-            sample_featurizer=FeaturizerConfig(name="graphSample"),
-            drug_featurizer=FeaturizerConfig(name="graphDrug"),
+            sample_featurizer=FeaturizerConfig(name="graphSample", side="sample"),
+            drug_featurizer=FeaturizerConfig(name="graphDrug", side="drug"),
             predictor=PredictorConfig(name="graphPred"),
         )
     )
@@ -106,8 +106,8 @@ def test_block_schema_reports_missing_named_block() -> None:
         match=r"blockPred.*needs sample block\(s\) \['gene_expression'\].*emits \[wrong_name\]",
     ):
         ModelConfig(
-            sample_featurizer=FeaturizerConfig(name="cellBlocks"),
-            drug_featurizer=FeaturizerConfig(name="drugBlocks"),
+            sample_featurizer=FeaturizerConfig(name="cellBlocks", side="sample"),
+            drug_featurizer=FeaturizerConfig(name="drugBlocks", side="drug"),
             predictor=PredictorConfig(name="blockPred"),
         )
 
@@ -117,7 +117,7 @@ def test_matrix_inputs_accept_any_numeric_blocks() -> None:
     register_featurizer_stub("denseDrug", side="drug")
     register_matrix_predictor_stub("densePred")
 
-    validate(_dense_model_config(sample_featurizer=FeaturizerConfig(name="cellBlocks")))
+    validate(_dense_model_config(sample_featurizer=FeaturizerConfig(name="cellBlocks", side="sample")))
 
 
 def test_block_inputs_accept_a_featurizer_emitting_them() -> None:
@@ -127,7 +127,8 @@ def test_block_inputs_accept_a_featurizer_emitting_them() -> None:
 
     validate(
         _dense_model_config(
-            sample_featurizer=FeaturizerConfig(name="cellBlocks"), predictor=PredictorConfig(name="blockPred")
+            sample_featurizer=FeaturizerConfig(name="cellBlocks", side="sample"),
+            predictor=PredictorConfig(name="blockPred"),
         )
     )
 
@@ -144,8 +145,8 @@ def test_block_inputs_name_the_missing_block_and_what_is_emitted() -> None:
         match=r"needs sample block\(s\) \['gene_expression', 'tissue'\].*emits \[wrong_name\]",
     ):
         ModelConfig(
-            sample_featurizer=FeaturizerConfig(name="cellBlocks"),
-            drug_featurizer=FeaturizerConfig(name="denseDrug"),
+            sample_featurizer=FeaturizerConfig(name="cellBlocks", side="sample"),
+            drug_featurizer=FeaturizerConfig(name="denseDrug", side="drug"),
             predictor=PredictorConfig(name="blockPred"),
         )
 
@@ -158,7 +159,8 @@ def test_block_alternatives_need_one_of_them() -> None:
 
     validate(
         _dense_model_config(
-            sample_featurizer=FeaturizerConfig(name="cellBlocks"), predictor=PredictorConfig(name="blockPred")
+            sample_featurizer=FeaturizerConfig(name="cellBlocks", side="sample"),
+            predictor=PredictorConfig(name="blockPred"),
         )
     )
 
@@ -169,7 +171,7 @@ def test_none_inputs_forbid_a_featurizer() -> None:
 
     with pytest.raises((ValueError, ValidationError), match="reads no sample features"):
         ModelConfig(
-            sample_featurizer=FeaturizerConfig(name="denseSample", view="gene_expression"),
+            sample_featurizer=FeaturizerConfig(name="denseSample", side="sample", view="gene_expression"),
             drug_featurizer=None,
             predictor=PredictorConfig(name="naiveMean"),
         )
@@ -203,7 +205,7 @@ def test_single_drug_scope_needs_no_drug_featurizer() -> None:
     restore_builtin_components()
     validate(
         ModelConfig(
-            sample_featurizer=FeaturizerConfig(name="scaledGeneExpression"),
+            sample_featurizer=FeaturizerConfig(name="scaledGeneExpression", side="sample"),
             drug_featurizer=None,
             predictor=PredictorConfig(name="singleDrugElasticNet"),
         )
@@ -213,7 +215,7 @@ def test_single_drug_scope_needs_no_drug_featurizer() -> None:
 def test_view_fallback_emits_named_block() -> None:
     register_featurizer_stub("viewCell", side="sample")
 
-    config = FeaturizerConfig(name="viewCell", view="gene_expression")
+    config = FeaturizerConfig(name="viewCell", side="sample", view="gene_expression")
 
     assert config.output_blocks() == (BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),)
 
@@ -225,18 +227,18 @@ def test_declared_output_block_specs_win() -> None:
         output_block_specs=(BlockSpec("fingerprints", FeatureFormat.NUMERIC_MATRIX),),
     )
 
-    config = FeaturizerConfig(name="declaredDrug", view="ignored")
+    config = FeaturizerConfig(name="declaredDrug", side="drug", view="ignored")
 
     assert config.output_blocks() == (BlockSpec("fingerprints", FeatureFormat.NUMERIC_MATRIX),)
 
 
 def test_nested_concat_flattens_child_blocks() -> None:
-    from drevalpy.components.featurizers.shared.concat import ConcatFeaturizer
+    from drevalpy.components.featurizers.shared.concat import SampleConcatFeaturizer
 
     register_featurizer_stub("denseSample", side="sample")
-    featurizers.register(CONCAT, ConcatFeaturizer)
+    featurizer_registry("sample").register(CONCAT, SampleConcatFeaturizer)
 
-    config = FeaturizerConfig.model_validate(
+    config = FeaturizerConfig.parse(
         {
             "name": "concatFeaturizers",
             "featurizers": [
@@ -248,7 +250,8 @@ def test_nested_concat_flattens_child_blocks() -> None:
                     ],
                 },
             ],
-        }
+        },
+        "sample",
     )
     assert config.output_blocks() == (
         BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),
@@ -261,6 +264,7 @@ def test_sparsego_expression_and_mutations_block_names() -> None:
     for default, block in (("expression", "gene_expression"), ("mutations", "mutations")):
         config = FeaturizerConfig(
             name="sparsegoOntology",
+            side="sample",
             hyperparameter_space={
                 "input_type": {"type": "categorical", "choices": ["expression", "mutations"], "default": default}
             },

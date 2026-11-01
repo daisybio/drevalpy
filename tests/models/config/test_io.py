@@ -27,7 +27,7 @@ def test_two_part_multi_drug_recipe_rejected() -> None:
 
 
 def test_recipe_with_plus_concat_and_bracket_views() -> None:
-    config = from_recipe("raw[expression]+raw[mutations]:fingerprints+identity:randomForest")
+    config = from_recipe("view[expression]+view[mutations]:fingerprints+oneHot:randomForest")
     assert config.sample_featurizer is not None
     assert config.drug_featurizer is not None
     assert config.sample_featurizer.name == config.drug_featurizer.name == "concatFeaturizers"
@@ -35,9 +35,9 @@ def test_recipe_with_plus_concat_and_bracket_views() -> None:
     sample_children = config.sample_featurizer.featurizers
     drug_children = config.drug_featurizer.featurizers
     assert sample_children is not None and drug_children is not None
-    assert [(child.name, child.view) for child in sample_children] == [("raw", "expression"), ("raw", "mutations")]
-    assert [child.name for child in drug_children] == ["fingerprints", "identity"]
-    assert config.model_id == "raw[expression]+raw[mutations]:fingerprints+identity:randomForest"
+    assert [(child.name, child.view) for child in sample_children] == [("view", "expression"), ("view", "mutations")]
+    assert [child.name for child in drug_children] == ["fingerprints", "oneHot"]
+    assert config.model_id == "view[expression]+view[mutations]:fingerprints+oneHot:randomForest"
 
 
 @pytest.mark.parametrize(
@@ -47,7 +47,7 @@ def test_recipe_with_plus_concat_and_bracket_views() -> None:
         ("randomForest", "Predictor 'randomForest' requires a sample_featurizer"),
         ("scaledGeneExpression:fingerprints:elasticNet:extra", "Malformed model recipe"),
         ("scaledGeneExpression:fingerprints:bogusPredictor", "Unknown predictor 'bogusPredictor'"),
-        ("bogusFeaturizer:fingerprints:elasticNet", r"^Unknown featurizer 'bogusFeaturizer'"),
+        ("bogusFeaturizer:fingerprints:elasticNet", r"^Unknown sample featurizer 'bogusFeaturizer'"),
     ],
 )
 def test_recipe_errors(spec: str, match: str) -> None:
@@ -82,10 +82,8 @@ from drevalpy.components.predictors.abstract.feature_free import FeatureFreePred
 from drevalpy.registry.predictor import register as register_predictor
 from drevalpy.registry.featurizer import register as register_featurizer
 
-@register_featurizer("resolverSample", description="ext")
+@register_featurizer("resolverSample", side="sample", description="ext")
 class ResolverSampleFeaturizer(Featurizer):
-    sides = frozenset({"sample"})
-
     @classmethod
     def output_blocks(cls, config):
         return (BlockSpec("ext", FeatureFormat.NUMERIC_MATRIX),)
@@ -139,7 +137,7 @@ def test_from_recipe_forms() -> None:
 def test_from_dict_sections_and_recipe_strings() -> None:
     config = from_dict(
         {
-            "sample_featurizer": "raw[expression]+raw[mutations]",
+            "sample_featurizer": "view[expression]+view[mutations]",
             "drug_featurizer": "fingerprints",
             "predictor": {"name": "randomForest", "defaults": {"n_estimators": 60}},
         }
@@ -154,7 +152,7 @@ def test_from_dict_sections_and_recipe_strings() -> None:
 def test_from_yaml(tmp_path: Path) -> None:
     path = tmp_path / "model.yaml"
     path.write_text(
-        yaml.safe_dump({"sample_featurizer": "constant", "drug_featurizer": "identity", "predictor": "naiveDrugMean"}),
+        yaml.safe_dump({"sample_featurizer": "constant", "drug_featurizer": "oneHot", "predictor": "naiveDrugMean"}),
         encoding="utf-8",
     )
 

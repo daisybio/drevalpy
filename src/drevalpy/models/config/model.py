@@ -9,6 +9,7 @@ from drevalpy.models.config.featurizer import FeaturizerConfig
 from drevalpy.models.config.predictor import PredictorConfig
 from drevalpy.models.config.validation import validate
 from drevalpy.registry.predictor import get as get_predictor
+from drevalpy.types.data.feature_source import Side
 from drevalpy.types.enums.model_scope import ModelScope
 from drevalpy.types.enums.prediction_mode import PredictionMode
 
@@ -28,6 +29,22 @@ class ModelConfig(BaseModel):
     predictor: PredictorConfig
     prediction_mode: PredictionMode = PredictionMode.REGRESSION
 
+    @model_validator(mode="before")
+    @classmethod
+    def _side_featurizer_slots(cls, data: object) -> object:
+        """Read each featurizer slot for its side, so its nodes look up that side's registry.
+
+        :param data: The fields, as a mapping.
+        :returns: The fields with each featurizer slot validated for its side.
+        """
+        if not isinstance(data, dict):
+            return data
+        fields = dict(data)
+        for slot, side in (("sample_featurizer", Side.SAMPLE), ("drug_featurizer", Side.DRUG)):
+            if fields.get(slot) is not None:
+                fields[slot] = FeaturizerConfig.parse(fields[slot], side)
+        return fields
+
     _validate_semantics = model_validator(mode="after")(validate)
 
     @property
@@ -46,7 +63,7 @@ class ModelConfig(BaseModel):
         """The model recipe of this config, which ``from_recipe`` reads back into the same components.
 
         Each featurizer slot is written with its views and concat children
-        (``raw[gene_expression]+raw[mutations]:fingerprints:elasticNet``); fixed options and
+        (``view[gene_expression]+view[mutations]:fingerprints:elasticNet``); fixed options and
         search spaces are not part of a recipe. A drug featurizer without a sample featurizer
         cannot be expressed as one.
 

@@ -12,6 +12,7 @@ from drevalpy.components.featurizers._featurizer_label import CONCAT, requires_e
 from drevalpy.models.config._parse import normalize_featurizer
 from drevalpy.models.config.immutable import FrozenMapping, thaw_value
 from drevalpy.registry.featurizer import get_featurizer
+from drevalpy.types.data.feature_source import Side
 
 if TYPE_CHECKING:
     from drevalpy.components.featurizers.featurizer import Featurizer
@@ -27,12 +28,14 @@ class FeaturizerConfig(BaseModel):
     ``hyperparameter_space`` declaring what tuning may vary. ``featurizers`` makes the
     node a tree, holding children for ``concatFeaturizers``. Combine several views by
     nesting one single-``view`` child per view under a concat node, which is what the
-    ``raw[gene_expression]+raw[mutations]`` shorthand expands to. The side a featurizer
-    runs on is not part of the node: it is the model config slot that holds it.
+    ``view[gene_expression]+view[mutations]`` shorthand expands to. ``side`` says which
+    side's registry ``name`` is looked up in; a model config fills it in from the slot holding
+    the node, and concat children inherit it.
 
-    Accepts a recipe string (``name``, ``name[view]``, ``a+b``) or these fields as a mapping,
-    plus ``defaults``, which moves the ``default`` of search-space entries and is folded into
-    ``hyperparameter_space`` (:func:`~drevalpy.models.config._parse.normalize_featurizer`).
+    Accepts these fields as a mapping, plus ``defaults``, which moves the ``default`` of
+    search-space entries and is folded into ``hyperparameter_space``
+    (:func:`~drevalpy.models.config._parse.normalize_featurizer`).
+    :meth:`parse` also reads a recipe string (``name``, ``name[view]``, ``a+b``) for a given side.
     Validation is front-loaded here so a bad recipe fails at load time instead of mid-run.
 
     ``tuple`` fields plus ``frozen=True`` make an accidental in-place edit of a shared or
@@ -44,6 +47,7 @@ class FeaturizerConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     name: str
+    side: Side
     view: str | None = None
     featurizers: tuple[FeaturizerConfig, ...] | None = None
     options: FrozenMapping | None = None
@@ -54,12 +58,33 @@ class FeaturizerConfig(BaseModel):
     def _normalize_recipe_input(cls, data: object) -> object:
         """Rewrite any accepted spelling of a featurizer into this model's own fields.
 
-        :param data: A recipe string or a mapping of fields.
-        :returns: Canonical field mapping, or *data* unchanged if it is neither.
+        :param data: A mapping of fields, ``side`` included.
+        :returns: Canonical field mapping, or *data* unchanged if it is not a mapping or list.
         """
-        if not isinstance(data, (str, list, dict)):
+        if not isinstance(data, (list, dict)):
             return data
         return normalize_featurizer(data)
+
+    @classmethod
+    def parse(cls, raw: object, side: Side | str | None) -> FeaturizerConfig:
+        """Validate a featurizer config in any accepted spelling for *side*.
+
+        :param raw: A recipe string (``name``, ``name[view]``, ``a+b``), a mapping of fields or a
+            ``FeaturizerConfig``.
+        :param side: The side the featurizer is used on; ``None`` takes the side *raw* sets.
+        :returns: The validated config.
+        :raises ValueError: If *raw* is a config of the other side, or does not validate.
+        """
+        if isinstance(raw, FeaturizerConfig):
+            if side is not None and raw.side != side:
+                raise ValueError(f"featurizer {raw.name!r} has side {raw.side.value!r} but is used on the {side} side")
+            return raw
+        return cls.model_validate(normalize_featurizer(raw, None if side is None else str(side)))
+
+    @property
+    def featurizer_class(self) -> type[Featurizer]:
+        """The registered featurizer class this node names on its side."""
+        return get_featurizer(self.name, self.side)
 
     @model_validator(mode="after")
     def _validate_hyperparameter_space(self) -> FeaturizerConfig:
@@ -102,7 +127,7 @@ class FeaturizerConfig(BaseModel):
         :returns: This config, unchanged.
         :raises ValueError: If the featurizer needs an explicit view and none is set.
         """
-        if requires_explicit_view(self.name) and not self.view:
+        if requires_explicit_view(self.name, self.side) and not self.view:
             msg = f"Featurizer {self.name!r} requires an explicit view, e.g. {self.name}[gene_expression]"
             raise ValueError(msg)
         return self
@@ -121,6 +146,10 @@ class FeaturizerConfig(BaseModel):
             if not self.featurizers:
                 msg = "concatFeaturizers requires a non-empty featurizers list"
                 raise ValueError(msg)
+            other = [child.name for child in self.featurizers if child.side != self.side]
+            if other:
+                msg = f"concatFeaturizers on the {self.side} side cannot hold featurizers of the other side: {other}"
+                raise ValueError(msg)
         elif self.featurizers is not None:
             msg = f"Featurizer {self.name!r} does not accept nested featurizers"
             raise ValueError(msg)
@@ -128,7 +157,7 @@ class FeaturizerConfig(BaseModel):
 
     @model_validator(mode="after")
     def _require_unique_selectors(self) -> FeaturizerConfig:
-        """Reject a concat tree that repeats the same leaf selector, e.g. ``raw[gene_expression]``.
+        """Reject a concat tree that repeats the same leaf selector, e.g. ``view[gene_expression]``.
 
         Duplicates would silently emit the same feature block twice. The same base name on
         different views is fine.
@@ -173,7 +202,7 @@ class FeaturizerConfig(BaseModel):
         :returns: Keyword arguments for featurizer construction.
         """
         kwargs: dict[str, Any] = dict(self.options or {})
-        space = self.hyperparameter_space or get_featurizer(self.name).get_hyperparameter_space()
+        space = self.hyperparameter_space or self.featurizer_class.get_hyperparameter_space()
         for key, spec in space.items():
             if isinstance(spec, Mapping) and "default" in spec:
                 kwargs.setdefault(key, spec["default"])
@@ -186,16 +215,14 @@ class FeaturizerConfig(BaseModel):
 
         :returns: View names, leaf by leaf.
         """
-        return [view for leaf in self.leaves() for view in get_featurizer(leaf.name).views(leaf.leaf_kwargs())]
+        return [view for leaf in self.leaves() for view in leaf.featurizer_class.views(leaf.leaf_kwargs())]
 
     def output_blocks(self) -> tuple[BlockSpec, ...]:
         """Return the blocks this tree emits, at default hyperparameters: the leaves' blocks in order.
 
         :returns: Block specs emitted by the featurizer tree.
         """
-        return tuple(
-            spec for leaf in self.leaves() for spec in get_featurizer(leaf.name).output_blocks(leaf.leaf_kwargs())
-        )
+        return tuple(spec for leaf in self.leaves() for spec in leaf.featurizer_class.output_blocks(leaf.leaf_kwargs()))
 
     def create_instance(self, hyperparameters: Mapping[str, Any] | None = None) -> Featurizer:
         """Instantiate the configured featurizer from the registry.
@@ -211,7 +238,7 @@ class FeaturizerConfig(BaseModel):
             or config payloads under the ``featurizers`` key.
         :returns: Featurizer instance for this config.
         """
-        cls = get_featurizer(self.name)
+        cls = self.featurizer_class
         hp = thaw_value(dict(self.options or {}))
         hp.update(thaw_value(dict(hyperparameters or {})))
         if self.view is not None:

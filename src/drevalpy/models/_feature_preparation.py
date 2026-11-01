@@ -68,17 +68,17 @@ def _warn_if_above_threshold(featurizer: Featurizer, valid: np.ndarray, step: st
 
 
 def _check_side(featurizer: Featurizer, source: FeatureSource) -> None:
-    """Raise when *featurizer* does not support the side of *source*.
+    """Raise when *featurizer* is registered on the other side than *source*.
+
+    An unregistered featurizer has no side and runs on either.
 
     :param featurizer: Featurizer to run.
     :param source: Feature source of one side.
-    :raises ValueError: If the side is not among the featurizer's ``sides``.
+    :raises ValueError: If the featurizer's ``side`` is not the side of *source*.
     """
-    if source.side not in featurizer.sides:
-        msg = (
-            f"{type(featurizer).__name__} cannot be used on the {source.side} side; "
-            f"it supports only: {', '.join(sorted(featurizer.sides))}"
-        )
+    side = getattr(featurizer, "side", None)
+    if side is not None and side != source.side:
+        msg = f"{type(featurizer).__name__} is a {side} featurizer and cannot be used on the {source.side} side"
         raise ValueError(msg)
 
 

@@ -48,8 +48,6 @@ def register_featurizer_stub(
     """
 
     class Stub(Featurizer):
-        sides = frozenset({side})
-
         def __init__(self, view: str | None = None, **kwargs) -> None:
             self._view = view
 
@@ -66,7 +64,7 @@ def register_featurizer_stub(
         def transform(self, source, ids) -> FeaturizerResult:
             return FeaturizerResult(ids, {}, ())
 
-    return register_featurizer(name, description=f"{side} stub")(Stub)
+    return register_featurizer(name, side=side, description=f"{side} stub")(Stub)
 
 
 def register_matrix_predictor_stub(name: str = "densePred") -> type:

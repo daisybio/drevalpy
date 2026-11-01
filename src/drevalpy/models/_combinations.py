@@ -15,7 +15,7 @@ from drevalpy.models.spec import ModelSpec, UnknownModelError
 class SkippedCombination:
     """A combination of components that was not turned into a model spec.
 
-    :ivar recipe: The recipe that was tried, such as ``"raw[gene_expression]:fingerprints:naiveTissueMean"``.
+    :ivar recipe: The recipe that was tried, such as ``"view[gene_expression]:fingerprints:naiveTissueMean"``.
     :ivar reason: Why it was skipped, as reported by config validation.
     """
 
@@ -50,7 +50,7 @@ def combinations(
     including views, so they are unique; duplicate recipes are dropped.
 
     :param sample: Sample featurizer recipes, such as ``"pca[gene_expression]"`` or
-        ``"raw[gene_expression]+tissue"``. Empty means no sample featurizer.
+        ``"view[gene_expression]+tissue"``. Empty means no sample featurizer.
     :param drug: Drug featurizer recipes, such as ``"fingerprints"``. Empty means no drug
         featurizer; a recipe cannot name a drug featurizer without a sample featurizer.
     :param predictors: Predictor names, such as ``"elasticNet"``.

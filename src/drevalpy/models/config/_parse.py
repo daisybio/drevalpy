@@ -17,8 +17,8 @@ A featurizer slot is either a recipe string or the canonical mapping;
 :func:`normalize_featurizer` is the one place that reads them::
 
     "scaledGeneExpression"                     name=scaledGeneExpression
-    "raw[gene_expression]"                     name=raw, view=gene_expression
-    "raw[gene_expression]+raw[mutations]"      name=concatFeaturizers, two children
+    "view[gene_expression]"                     name=raw, view=gene_expression
+    "view[gene_expression]+view[mutations]"      name=concatFeaturizers, two children
     {"name": "pca", "view": "methylation",     canonical: name, view, featurizers (concat
      "options": {...}, "defaults": {...}}      children), options, hyperparameter_space, defaults
 
@@ -52,7 +52,7 @@ _NAME = pp.Regex(r"[^\[\]+:\s]+")
 """Featurizer or predictor name: anything that is not a delimiter or whitespace."""
 
 _VIEW = pp.Regex(r"[^\[\]:]+")
-"""View token. Deliberately allows ``+`` so ``raw[a+b]`` stays a single atom and the error
+"""View token. Deliberately allows ``+`` so ``view[a+b]`` stays a single atom and the error
 names the unusable view instead of a truncated featurizer name."""
 
 _SLOT_SEP = ":"
@@ -91,7 +91,7 @@ def _require_text(text: str, what: str) -> str:
 def parse_featurizer_atoms(token: str) -> list[tuple[str, str | None]]:
     """Parse a featurizer recipe into its atoms.
 
-    :param token: Recipe string such as ``"raw[gene_expression]+scaledGeneExpression"``.
+    :param token: Recipe string such as ``"view[gene_expression]+scaledGeneExpression"``.
     :returns: One ``(name, view)`` pair per atom, with *view* ``None`` when unbracketed.
     :raises ValueError: If *token* is not a well-formed featurizer recipe.
     """
@@ -108,7 +108,7 @@ def expand_featurizer_recipe(token: str) -> dict[str, Any]:
     A single atom expands to one mapping; ``+``-joined atoms expand to a concat node over them.
     A blank or malformed *token* raises ``ValueError``.
 
-    :param token: Recipe string such as ``"raw[gene_expression]+scaledGeneExpression"``.
+    :param token: Recipe string such as ``"view[gene_expression]+scaledGeneExpression"``.
     :returns: Featurizer or concat-featurizer field mapping.
     """
     atoms = parse_featurizer_atoms(_require_text(token, "Featurizer token"))
@@ -277,40 +277,83 @@ def _reject_removed_featurizer_spelling(raw: list[Any] | dict[str, Any]) -> NoRe
     )
 
 
-def normalize_featurizer(raw: Any) -> dict[str, Any]:
-    """Return the canonical ``FeaturizerConfig`` fields of a recipe string or canonical mapping.
+def _resolve_side(fields: dict[str, Any], side: str | None) -> str:
+    """Return the side of a featurizer mapping: its own ``side``, else *side*.
 
-    ``defaults`` is folded into ``hyperparameter_space``; children of a concat node are
-    normalized the same way.
+    :param fields: Featurizer field mapping.
+    :param side: Side of the slot or concat parent holding it, or ``None``.
+    :returns: The side's value.
+    :raises ValueError: If neither gives a side, or the two disagree.
+    """
+    own = fields.get("side")
+    if own is None and side is None:
+        raise ValueError(
+            f"featurizer {fields['name']!r} needs a side: put it in a model config's sample_featurizer or "
+            "drug_featurizer slot, or set 'side'"
+        )
+    if own is not None and side is not None and str(own) != str(side):
+        raise ValueError(f"featurizer {fields['name']!r} has side {str(own)!r} but is used on the {side} side")
+    return str(side if own is None else own)
+
+
+def _featurizer_fields(raw: Any) -> dict[str, Any]:
+    """Return a featurizer config's fields as a fresh mapping, expanding a recipe string.
 
     :param raw: Recipe string or mapping with ``name``.
-    :returns: Canonical field mapping.
-    :raises ValueError: If *raw* is a list, a mapping without ``name``, or carries ``defaults`` or
-        ``options`` that do not fit the featurizer's search space.
+    :returns: The fields, not yet normalized.
     :raises TypeError: If *raw* is not a string, list or mapping.
     """
     if isinstance(raw, str):
-        fields = expand_featurizer_recipe(raw)
-    elif isinstance(raw, list) or (isinstance(raw, dict) and "name" not in raw):
+        return expand_featurizer_recipe(raw)
+    if isinstance(raw, list) or (isinstance(raw, dict) and "name" not in raw):
         _reject_removed_featurizer_spelling(raw)
-    elif not isinstance(raw, dict):
+    if not isinstance(raw, dict):
         raise TypeError(f"Featurizer config must be a recipe string or a mapping with 'name', got {type(raw)!r}")
-    else:
-        fields = dict(raw)
-    what = f"featurizer {fields['name']!r}"
+    return dict(raw)
+
+
+def normalize_featurizer(raw: Any, side: str | None = None) -> dict[str, Any]:
+    """Return the canonical ``FeaturizerConfig`` fields of a recipe string or canonical mapping.
+
+    ``defaults`` is folded into ``hyperparameter_space``; children of a concat node are
+    normalized the same way and inherit its side. A *raw* that is not a string, list or mapping
+    raises ``TypeError``.
+
+    :param raw: Recipe string or mapping with ``name``.
+    :param side: Side of the slot holding the featurizer; ``None`` requires *raw* to set ``side``.
+    :returns: Canonical field mapping, ``side`` included.
+    :raises ValueError: If *raw* is a list, a mapping without ``name``, has no side or another side
+        than *side*, or carries ``defaults`` or ``options`` that do not fit the featurizer's search space.
+    """
+    fields = _featurizer_fields(raw)
+    fields["side"] = side = _resolve_side(fields, side)
+    what = f"{side} featurizer {fields['name']!r}"
     declared = fields.get("hyperparameter_space")
     if fields.get("options"):
-        _reject_tunable_options(get_featurizer(fields["name"]), declared, fields["options"], what)
+        _reject_tunable_options(get_featurizer(fields["name"], side), declared, fields["options"], what)
     if "defaults" in fields:
         fields["hyperparameter_space"] = _space_with_defaults(
-            get_featurizer(fields["name"]), declared, fields.pop("defaults"), what
+            get_featurizer(fields["name"], side), declared, fields.pop("defaults"), what
         )
     children = fields.get("featurizers")
     if children is not None:
         if not isinstance(children, (list, tuple)):
             raise ValueError("featurizers must be a list when set")
-        fields["featurizers"] = [normalize_featurizer(child) for child in children]
+        fields["featurizers"] = [
+            child if _is_config(child) else normalize_featurizer(child, side) for child in children
+        ]
     return fields
+
+
+def _is_config(value: Any) -> bool:
+    """Return whether *value* is an already validated ``FeaturizerConfig``.
+
+    :param value: A featurizer config in any spelling.
+    :returns: ``True`` for a ``FeaturizerConfig`` instance.
+    """
+    from drevalpy.models.config.featurizer import FeaturizerConfig
+
+    return isinstance(value, FeaturizerConfig)
 
 
 def normalize_predictor(raw: Any) -> dict[str, Any]:

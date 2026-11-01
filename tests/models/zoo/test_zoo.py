@@ -74,11 +74,11 @@ def test_scope_listing_partitions_the_zoo() -> None:
     [
         ("ElasticNet", "scaledGeneExpression", "fingerprints", "elasticNet"),
         ("NaivePredictor", None, None, "naiveMean"),
-        ("NaiveSampleMeanPredictor", "identity", "constant", ...),
-        ("NaiveDrugMeanPredictor", "constant", "identity", ...),
+        ("NaiveSampleMeanPredictor", "oneHot", "constant", ...),
+        ("NaiveDrugMeanPredictor", "constant", "oneHot", ...),
         ("NaiveTissueMeanPredictor", "tissue", "constant", ...),
-        ("NaiveTissueDrugMeanPredictor", "tissue", "identity", ...),
-        ("NaiveMeanEffectsPredictor", "concatFeaturizers", "identity", ...),
+        ("NaiveTissueDrugMeanPredictor", "tissue", "oneHot", ...),
+        ("NaiveMeanEffectsPredictor", "concatFeaturizers", "oneHot", ...),
         ("SingleDrugElasticNet", "scaledGeneExpression", None, "singleDrugElasticNet"),
         ("SingleDrugRandomForest", "scaledGeneExpression", None, "singleDrugRandomForest"),
         ("MOLIR", ..., None, ...),
@@ -103,7 +103,7 @@ def test_naive_mean_effects_concatenates_identity_and_a_tolerant_tissue() -> Non
     assert sample is not None
     children = sample.featurizers
     assert children is not None
-    assert [child.name for child in children] == ["identity", "tissue"]
+    assert [child.name for child in children] == ["oneHot", "tissue"]
     assert children[1].options is not None
     assert children[1].options["allow_missing"] is True
 
@@ -120,7 +120,7 @@ def test_multi_view_zoo_presets_use_the_1_6_1_default_views(name: str) -> None:
         {"gene_list": "landmark_genes"},
     )
     assert (mutations.name, mutations.view, dict(mutations.options)) == (
-        "raw",
+        "view",
         "mutations",
         {"gene_list": "drug_target_genes_all_drugs"},
     )

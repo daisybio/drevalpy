@@ -141,13 +141,12 @@ class ModelSpec:
     @property
     def requires_early_stopping(self) -> bool:
         """Whether any configured component requires a stopping holdout."""
-        from drevalpy.registry.featurizer import get_featurizer
         from drevalpy.registry.predictor import get as get_predictor
 
         if get_predictor(self.config.predictor.name).requires_early_stopping:
             return True
         for root in (self.config.sample_featurizer, self.config.drug_featurizer):
-            if root is not None and any(get_featurizer(leaf.name).requires_early_stopping for leaf in root.leaves()):
+            if root is not None and any(leaf.featurizer_class.requires_early_stopping for leaf in root.leaves()):
                 return True
         return False
 

@@ -12,7 +12,6 @@ from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any
 
 from drevalpy.models.hyperparameters import FEATURIZER_SLOTS, PREDICTOR_SLOT, key
-from drevalpy.registry.featurizer import get_featurizer
 from drevalpy.registry.predictor import get as get_predictor
 
 if TYPE_CHECKING:
@@ -36,7 +35,7 @@ def space(config: ModelConfig) -> dict[str, Any]:
         if root is None:
             continue
         for leaf in root.leaves():
-            leaf_space = _effective_space(leaf.hyperparameter_space, get_featurizer(leaf.name))
+            leaf_space = _effective_space(leaf.hyperparameter_space, leaf.featurizer_class)
             merged.update({key(FEATURIZER_SLOTS[side], leaf.selector, name): spec for name, spec in leaf_space.items()})
     predictor = config.predictor
     predictor_space = _effective_space(predictor.hyperparameter_space, get_predictor(predictor.name))

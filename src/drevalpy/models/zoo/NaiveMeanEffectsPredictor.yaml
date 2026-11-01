@@ -1,9 +1,9 @@
 sample_featurizer:
   name: concatFeaturizers
   featurizers:
-    - identity
+    - oneHot
     - name: tissue
       options:
         allow_missing: true
-drug_featurizer: identity
+drug_featurizer: oneHot
 predictor: naiveMeanEffects

@@ -4,7 +4,7 @@ sample_featurizer:
     - name: scaledGeneExpression
       options:
         gene_list: landmark_genes
-    - name: raw
+    - name: view
       view: mutations
       options:
         gene_list: drug_target_genes_all_drugs

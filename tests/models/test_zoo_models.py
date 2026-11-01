@@ -45,6 +45,7 @@ def _construct_global_model_spec(whole_name: str, model_name: str) -> ModelSpec:
             "SimpleNeuralNetwork",
             drug_featurizer=FeaturizerConfig(
                 name="view",
+                side="drug",
                 options={"view": "chemberta"},
             ),
         )
@@ -54,13 +55,16 @@ def _construct_global_model_spec(whole_name: str, model_name: str) -> ModelSpec:
             "PaccMann",
             sample_featurizer=FeaturizerConfig(
                 name="landmarkGenes",
+                side="sample",
                 options={
                     "gene_list_stem": "gene_list_paccmann_network_prop_reduced",
                     "arcsinh": False,
                     "fit_on_pairs": True,
                 },
             ),
-            drug_featurizer=FeaturizerConfig(name="smilesTokens", options={"padding_length": 64, "n_variants": 4}),
+            drug_featurizer=FeaturizerConfig(
+                name="smilesTokens", side="drug", options={"padding_length": 64, "n_variants": 4}
+            ),
         )
         return ModelSpec(model_name, config)
     return ModelSpec.from_name(model_name)
@@ -201,7 +205,7 @@ def test_multi_view_neural_network_custom_views(synthetic_dataset: Dataset) -> N
     spec = ModelSpec(
         "MultiViewNeuralNetwork",
         _zoo_config_variant(
-            "MultiViewNeuralNetwork", sample_featurizer=FeaturizerConfig(name="raw", view="methylation")
+            "MultiViewNeuralNetwork", sample_featurizer=FeaturizerConfig(name="view", side="sample", view="methylation")
         ),
     )
     model = DRPModel(spec, {"units_per_layer": [2, 2], "dropout_prob": 0.3, "max_epochs": 1}, check_values=False)
