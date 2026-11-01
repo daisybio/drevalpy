@@ -90,7 +90,7 @@ def built_wheel_contents(tmp_path_factory: pytest.TempPathFactory) -> frozenset[
 
 
 class MockFeatureSource(FeatureSource):
-    """Test helper implementing the FeatureSource ABC."""
+    """In-memory feature source: per-entity view values and optional names or ``uns`` metadata."""
 
     def __init__(
         self,
@@ -101,8 +101,8 @@ class MockFeatureSource(FeatureSource):
     ):
         """Initialize with features dict and optional metadata.
 
-        :param features: Mapping of entity_id -> {view_name -> feature_array}.
-        :param meta_info: Optional mapping of view_name -> feature names or metadata.
+        :param features: Mapping of entity_id -> {view_name -> feature_array}; ``"tissue"`` holds the label.
+        :param meta_info: Optional mapping of view_name -> feature names, or of ``uns`` key -> value.
         :param side: Entity side the source serves.
         """
         self.side = side
@@ -111,37 +111,49 @@ class MockFeatureSource(FeatureSource):
 
     @property
     def identifiers(self) -> np.ndarray:
-        """All available entity IDs."""
+        """All entity IDs of the mock."""
         return np.array(list(self._features.keys()))
-
-    @property
-    def mdata(self) -> Any:
-        """No MuData backing for mocks."""
-        return None
 
     @property
     def features(self) -> dict[str, dict[str, Any]]:
         """Direct access to the backing features dict."""
         return self._features
 
-    def get_view_matrix(self, view: str, entity_ids: np.ndarray) -> np.ndarray:
+    def has_view(self, name: str) -> bool:
+        """Report the views that have feature names."""
+        return self.feature_names(name) is not None
+
+    def view(self, name: str, ids: np.ndarray) -> np.ndarray:
         """Return (len(ids), n_features) float array for a dense numeric view."""
-        rows = [np.asarray(self._features[str(eid)][view], dtype=np.float64).ravel() for eid in entity_ids]
+        rows = [np.asarray(self._features[str(eid)][name], dtype=np.float64).ravel() for eid in ids]
         return np.vstack(rows)
 
-    def get_feature_names(self, view: str) -> tuple[str, ...] | None:
+    def feature_names(self, name: str) -> tuple[str, ...] | None:
         """Return ordered feature/column names for a view, or None."""
-        meta = self._meta_info.get(view)
+        meta = self._meta_info.get(name)
         return tuple(str(n) for n in meta) if meta is not None else None
 
-    def get_entity_view(self, entity_id: str, view: str) -> Any:
-        """Return the raw per-entity object for non-numeric views (graphs, etc.)."""
-        entity = self._features.get(str(entity_id))
-        if entity is None:
-            return None
-        return entity.get(view)
+    def view_settings(self, name: str) -> dict[str, Any] | None:
+        """No view of a mock records settings."""
+        return None
 
-    def get_metadata(self, key: str) -> Any:
+    def expression_unit(self, name: str) -> str | None:
+        """No view of a mock records a unit."""
+        return None
+
+    def smiles(self, ids: np.ndarray) -> Any:
+        """A mock has no SMILES."""
+        return None
+
+    def tissue(self, ids: np.ndarray) -> np.ndarray | None:
+        """Return the ``"tissue"`` value of every entity, NaN where it has none."""
+        labels = []
+        for eid in ids:
+            raw = self._features.get(str(eid), {}).get("tissue")
+            labels.append(np.nan if raw is None else np.asarray(raw).reshape(-1)[0])
+        return np.array(labels, dtype=object)
+
+    def uns(self, key: str) -> Any:
         """Return arbitrary metadata (e.g. ontology structures)."""
         return self._meta_info.get(key)
 

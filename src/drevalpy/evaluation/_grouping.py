@@ -15,6 +15,8 @@ from typing import TYPE_CHECKING, Final
 
 import numpy as np
 
+from drevalpy.data._concat_tables import STUDY_SEPARATOR
+
 if TYPE_CHECKING:
     from collections.abc import Callable
 
@@ -35,41 +37,26 @@ _ID_ATTRIBUTE: Final[dict[str, str]] = {"drug": "drug_ids", "sample": "sample_id
 #: Prefixes that select the axis of an annotation grouping, such as ``"sample:tissue"``.
 _AXES: Final[tuple[str, ...]] = ("sample", "drug")
 
-#: Separates the study from the source sample ID in the sample IDs of a concatenated dataset.
-STUDY_SEPARATOR: Final[str] = "::"
-
 #: The label a dataset writes for an annotation it could not resolve.
 UNKNOWN_LABEL: Final[str] = "unknown"
-
-
-def group_labels(run: RunResult, grouping: GroupBy, dataset: Dataset | None = None) -> np.ndarray:
-    """Return the grouping labels of a run.
-
-    Raises ``ValueError`` if ``grouping`` is not a built-in grouping or an annotation column of ``dataset``,
-    is a bare name found on both axes, or needs a ``dataset`` that was not given.
-
-    :param run: Run whose identifier arrays to read.
-    :param grouping: ``"drug"``, ``"sample"`` or ``"study"``, or the name of a sample or drug annotation
-        column of ``dataset``. ``"sample:<column>"`` and ``"drug:<column>"`` pick the axis explicitly.
-    :param dataset: Dataset whose annotations label the pairs; needed only for an annotation ``grouping``.
-    :returns: The run's ``drug_ids`` or ``sample_ids`` array. For ``"study"``, an object array
-        of the sample ID prefixes before ``"::"`` (the study of a concatenated dataset), NaN
-        where a sample ID has no prefix. For an annotation, an object array of the annotation of each
-        pair's sample (drug) as a string, NaN where it is missing, empty, ``"unknown"`` or the ID is not
-        in the dataset; see :func:`defined_labels`.
-    """
-    return group_labeller(grouping, dataset)(run)
 
 
 def group_labeller(grouping: GroupBy, dataset: Dataset | None = None) -> Callable[[RunResult], np.ndarray]:
     """Resolve a grouping once into a function that labels the pairs of any run.
 
-    Use this instead of :func:`group_labels` to score several runs, so the dataset annotation is looked up once.
+    The dataset annotation is looked up once, so one labeller scores many runs.
 
-    :param grouping: As for :func:`group_labels`.
-    :param dataset: As for :func:`group_labels`.
-    :returns: A function from a run to its label array, as returned by :func:`group_labels`.
-    :raises ValueError: As for :func:`group_labels`, before any run is labelled.
+    :param grouping: ``"drug"``, ``"sample"`` or ``"study"``, or the name of a sample or drug annotation
+        column of ``dataset``. ``"sample:<column>"`` and ``"drug:<column>"`` pick the axis explicitly.
+    :param dataset: Dataset whose annotations label the pairs; needed only for an annotation ``grouping``.
+    :returns: A function from a run to its labels: the run's ``drug_ids`` or ``sample_ids`` array. For
+        ``"study"``, an object array of the sample ID prefixes before ``"::"`` (the study of a
+        concatenated dataset), NaN where a sample ID has no prefix. For an annotation, an object array
+        of the annotation of each pair's sample (drug) as a string, NaN where it is missing, empty,
+        ``"unknown"`` or the ID is not in the dataset; see :func:`defined_labels`.
+    :raises ValueError: If ``grouping`` is not a built-in grouping or an annotation column of ``dataset``,
+        is a bare name found on both axes, or needs a ``dataset`` that was not given; before any run is
+        labelled.
     """
     if grouping in _ID_ATTRIBUTE:
 
@@ -165,7 +152,7 @@ def _study_of(sample_ids: np.ndarray) -> np.ndarray:
 def defined_labels(labels: np.ndarray) -> np.ndarray:
     """Return which pairs have a group, i.e. a label that is not NaN.
 
-    :param labels: Labels as returned by :func:`group_labels`.
+    :param labels: Labels as returned by a :func:`group_labeller`.
     :returns: Boolean array, all True unless the labels are an object array holding NaN.
     """
     if labels.dtype != object:

@@ -28,7 +28,7 @@ before pushing, not only the files you touched last.
   lives in one function that every caller goes through (`views.find_view` for every view
   lookup, `models/hyperparameters.qualify` for every user-given hyperparameter key).
 - **Derive, don't store twice.** A value that follows from another is computed from it
-  (`HPOConfig.direction` reads the metric). A saved file holds each value once, and v2
+  (the tuning direction is the metric's `Metric.direction`). A saved file holds each value once, and v2
   formats carry no legacy fallbacks.
 - **Enums for closed sets.** A fixed set of choices is a `StrEnum` (`Metric`,
   `RandomizationType`), so errors and the CLI list the valid options.

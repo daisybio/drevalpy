@@ -117,7 +117,7 @@ class TestMetric:
         assert LibraryFunction("scipy.stats", "pearsonr") == Metric.PEARSON.function
 
     def test_the_public_names_of_the_package(self) -> None:
-        expected = {"GroupBy", "Metric", "MetricKind", "PerGroupScores", "evaluate", "evaluate_per_group"}
+        expected = {"Metric", "MetricKind", "PerGroupScores", "evaluate", "evaluate_per_group"}
 
         assert set(drevalpy.evaluation.__all__) == expected
         assert len(drevalpy.evaluation.__all__) == len(expected)

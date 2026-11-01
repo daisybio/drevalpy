@@ -12,6 +12,8 @@ from typing import Final
 
 import numpy as np
 
+from ._grouping import defined_labels
+
 #: Absolute tolerance of :func:`is_constant`; ``np.isclose`` adds its default relative tolerance (``1e-5``).
 CONSTANT_ATOL: Final[float] = 1e-6
 
@@ -29,17 +31,21 @@ def is_constant(values: np.ndarray) -> bool:
     return bool(np.isclose(np.max(values), np.min(values), atol=CONSTANT_ATOL))
 
 
-def _one_dimensional(*arrays: object) -> list[np.ndarray]:
-    r"""Convert to arrays and check that they are one-dimensional and equally long.
+def _finite(y_pred: object, y_true: object, *aligned: object) -> list[np.ndarray]:
+    r"""Check the shapes and keep the pairs where both the prediction and the response are finite.
 
-    :param \*arrays: The arrays.
-    :returns: The arrays as numpy arrays.
-    :raises ValueError: If they are not one-dimensional and equally long.
+    :param y_pred: Prediction per pair.
+    :param y_true: Observed response per pair, in the same order.
+    :param \*aligned: Further per-pair arrays (labels) filtered alike.
+    :returns: ``y_pred`` and ``y_true`` as ``float64``, then *aligned*, all restricted to the finite pairs.
+    :raises ValueError: If the inputs are not one-dimensional and equally long.
     """
-    converted = [np.asarray(array) for array in arrays]
+    converted = [np.asarray(array) for array in (y_pred, y_true, *aligned)]
     if converted[0].ndim != 1 or any(array.shape != converted[0].shape for array in converted):
         raise ValueError("Predictions, response and labels must be one-dimensional and equally long")
-    return converted
+    y_pred, y_true = converted[0].astype(np.float64), converted[1].astype(np.float64)
+    usable = np.isfinite(y_pred) & np.isfinite(y_true)
+    return [y_pred[usable], y_true[usable], *(array[usable] for array in converted[2:])]
 
 
 @dataclass(frozen=True, eq=False)
@@ -63,9 +69,7 @@ class Pairs:
         :param y_true: Observed response per pair, in the same order.
         :returns: The usable pairs, possibly none.
         """
-        y_pred, y_true = (array.astype(np.float64) for array in _one_dimensional(y_pred, y_true))
-        usable = np.isfinite(y_pred) & np.isfinite(y_true)
-        return cls(y_pred[usable], y_true[usable])
+        return cls(*_finite(y_pred, y_true))
 
     def __len__(self) -> int:
         """Return the number of pairs."""
@@ -88,22 +92,21 @@ def group_pairs(
     y_true: object,
     groups: np.ndarray | None = None,
 ) -> tuple[np.ndarray, list[Pairs]]:
-    """Split the finite pairs by label.
+    """Split the finite pairs that have a group by label.
 
     Raises ``ValueError`` if the inputs are not one-dimensional and equally long.
 
-    :param labels: Group label per pair. Every label must be comparable with the others (filter
-        undefined labels out first, with :func:`drevalpy.evaluation._grouping.defined_labels`).
+    :param labels: Group label per pair; a NaN label (see :func:`drevalpy.evaluation._grouping.defined_labels`)
+        puts the pair in no group.
     :param y_pred: Prediction per pair.
     :param y_true: Observed response per pair.
     :param groups: A fixed, sorted group axis: pairs whose label is not on it are dropped, groups
         without pairs are kept. ``None`` uses the sorted labels of the finite pairs.
     :returns: The group axis and the pairs of each group, in input order within a group.
     """
-    labels, y_pred, y_true = _one_dimensional(labels, y_pred, y_true)
-    y_pred, y_true = y_pred.astype(np.float64), y_true.astype(np.float64)
-    usable = np.isfinite(y_pred) & np.isfinite(y_true)
-    labels, y_pred, y_true = labels[usable], y_pred[usable], y_true[usable]
+    y_pred, y_true, labels = _finite(y_pred, y_true, labels)
+    grouped = defined_labels(labels)
+    labels, y_pred, y_true = labels[grouped], y_pred[grouped], y_true[grouped]
     groups = np.unique(labels) if groups is None else np.asarray(groups)
     if groups.size == 0:
         return groups, []

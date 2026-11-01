@@ -7,12 +7,10 @@ arrays. For an experiment, :meth:`drevalpy.types.results.ExperimentResult.summar
 ``group_by`` gives the per-group scores of every model.
 """
 
-from ._grouping import GroupBy
 from ._metrics import Metric, MetricKind
 from ._scoring import PerGroupScores, evaluate, evaluate_per_group
 
 __all__ = [
-    "GroupBy",
     "Metric",
     "MetricKind",
     "PerGroupScores",

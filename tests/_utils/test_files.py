@@ -8,12 +8,10 @@ from pathlib import Path
 
 import pytest
 import torch
-from torch_geometric.data import Data
 
 from drevalpy._utils.filenames import safe_filename, unique_safe_filenames
 from drevalpy._utils.torch_io import (
     load_state_dict,
-    load_torch_payload,
     save_state_dict,
     save_torch_payload,
 )
@@ -60,15 +58,6 @@ def test_load_state_dict_from_path_and_map_location(tmp_path: Path, as_str: bool
     assert loaded["layer.bias"].device.type == "cpu"
 
 
-def test_load_torch_payload_restores_graph_objects_when_not_weights_only(tmp_path: Path) -> None:
-    graph = Data(x=torch.ones((2, 3)), edge_index=torch.tensor([[0], [1]], dtype=torch.long))
-    save_torch_payload(graph, tmp_path / "graph.pt")
-    loaded = load_torch_payload(tmp_path / "graph.pt", weights_only=False)
-    assert isinstance(loaded, Data)
-    assert torch.equal(loaded.x, graph.x)
-    assert torch.equal(loaded.edge_index, graph.edge_index)
-
-
-def test_load_torch_payload_rejects_invalid_bytes() -> None:
+def test_load_state_dict_rejects_invalid_bytes() -> None:
     with pytest.raises((pickle.UnpicklingError, RuntimeError)):
-        load_torch_payload(b"not-a-torch-checkpoint")
+        load_state_dict(b"not-a-torch-checkpoint")

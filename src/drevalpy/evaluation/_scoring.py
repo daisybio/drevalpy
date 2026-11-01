@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from ._grouping import GroupBy, defined_labels, group_labels
+from ._grouping import GroupBy, group_labeller
 from ._metrics import Metric, score_pairs
 from ._pairs import Pairs, group_pairs
 
@@ -63,33 +63,21 @@ def mean_of_defined(values: ArrayLike) -> float:
 def evaluate(predictions: ArrayLike, response: ArrayLike, metrics: MetricSelection = None) -> dict[str, float]:
     """Compute pooled scores: each metric over all pairs where prediction and response are finite.
 
+    This is what a run or a tuning trial records in its ``metrics``. Without a single usable pair the
+    result is ``{}``: nothing was scored, so fold averages and tuning skip it instead of turning ``NaN``.
+
     Raises ``ValueError`` if the inputs are not one-dimensional and equally long, or a name is unknown.
 
     :param predictions: Prediction per pair.
     :param response: Observed response per pair, in the same order.
     :param metrics: The metrics to score: ``None`` for all of them, one name, or several names.
-    :returns: Score by metric name, in the requested order; ``NaN`` where the data cannot support a
-        metric and ``0.0`` for a correlation of a constant prediction (see :mod:`drevalpy.evaluation._metrics`).
+    :returns: Score by metric name, in the requested order, or ``{}``; ``NaN`` where the data cannot
+        support a metric and ``0.0`` for a correlation of a constant prediction (see
+        :mod:`drevalpy.evaluation._metrics`).
     """
     selected = _select(metrics)
     pairs = Pairs.finite(predictions, response)
-    return {metric.value: score_pairs(metric, pairs) for metric in selected}
-
-
-def run_metrics(predictions: ArrayLike, response: ArrayLike) -> dict[str, float]:
-    """Compute the pooled scores a run or a tuning trial records in its ``metrics``.
-
-    Every metric, as :func:`evaluate` scores it, except that a run without a single usable pair records
-    ``{}``: it was not scored at all, so fold averages and tuning skip it instead of turning ``NaN``.
-
-    Raises ``ValueError`` if the inputs are not one-dimensional and equally long.
-
-    :param predictions: Prediction per pair of the run.
-    :param response: Observed response per pair.
-    :returns: Score by metric name for every metric, or ``{}``.
-    """
-    pairs = Pairs.finite(predictions, response)
-    return {metric.value: score_pairs(metric, pairs) for metric in Metric} if len(pairs) else {}
+    return {metric.value: score_pairs(metric, pairs) for metric in selected} if len(pairs) else {}
 
 
 @dataclass(frozen=True, eq=False)
@@ -132,7 +120,7 @@ def evaluate_per_group(
 ) -> PerGroupScores:
     """Compute each metric within every group of pairs.
 
-    An unknown metric name also raises ``ValueError``.
+    Raises ``ValueError`` if the inputs are not one-dimensional and equally long, or a name is unknown.
 
     :param predictions: Prediction per pair.
     :param response: Observed response per pair, in the same order.
@@ -141,19 +129,9 @@ def evaluate_per_group(
     :param groups: A fixed, sorted group axis shared by several calls (for example one per model);
         groups without pairs are kept and score ``NaN``. ``None`` uses the sorted labels of the usable pairs.
     :returns: The scores within each group and their means.
-    :raises ValueError: If the inputs are not one-dimensional and equally long.
     """
     selected = _select(metrics)
-    labels, predictions, response = np.asarray(labels), np.asarray(predictions), np.asarray(response)
-    if labels.ndim != 1 or not labels.shape == predictions.shape == response.shape:
-        raise ValueError("Predictions, response and labels must be one-dimensional and equally long")
-    grouped = defined_labels(labels)
-    axis, per_group = group_pairs(
-        labels[grouped],
-        predictions[grouped],
-        response[grouped],
-        None if groups is None else np.asarray(groups),
-    )
+    axis, per_group = group_pairs(labels, predictions, response, None if groups is None else np.asarray(groups))
     values = {
         metric.value: np.array([score_pairs(metric, pairs) for pairs in per_group], dtype=np.float64)
         for metric in selected
@@ -170,5 +148,5 @@ def run_per_group_score(run: RunResult, group_by: GroupBy, metric: Metric | str)
     :returns: The mean over the defined groups, ``NaN`` if there are none.
     """
     metric = Metric(metric)
-    scores = evaluate_per_group(run.predictions, run.ground_truth, metric, labels=group_labels(run, group_by))
+    scores = evaluate_per_group(run.predictions, run.ground_truth, metric, labels=group_labeller(group_by)(run))
     return scores.mean()[metric.value]

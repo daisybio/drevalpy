@@ -9,7 +9,7 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 from drevalpy.evaluation import Metric, PerGroupScores, evaluate, evaluate_per_group
 from drevalpy.evaluation._pairs import CONSTANT_ATOL
-from drevalpy.evaluation._scoring import mean_of_defined, run_metrics, run_per_group_score
+from drevalpy.evaluation._scoring import mean_of_defined, run_per_group_score
 from tests.synthetic import make_run_result
 
 
@@ -44,8 +44,8 @@ def test_evaluate_accepts_a_single_name_a_single_member_and_an_iterable() -> Non
     assert list(evaluate(predictions, response, [Metric.KENDALL, Metric.MSE])) == ["Kendall", "MSE"]
 
 
-def test_evaluate_with_all_nan_predictions() -> None:
-    assert np.isnan(evaluate(np.array([np.nan, np.nan]), np.array([1.0, 2.0]), ["RMSE"])["RMSE"])
+def test_evaluate_without_a_usable_pair_scores_nothing() -> None:
+    assert evaluate(np.array([np.nan, np.nan]), np.array([1.0, 2.0]), ["RMSE"]) == {}
 
 
 @pytest.mark.parametrize("metrics", ["nope", ["nope"], ["MSE", "nope"]])
@@ -92,24 +92,19 @@ def test_a_constant_prediction_keeps_the_r2_formula() -> None:
 def test_scoring_rejects_alignment_errors(predictions, targets):
     with pytest.raises(ValueError, match="one-dimensional and equally long"):
         evaluate(predictions, targets)
-    with pytest.raises(ValueError, match="one-dimensional and equally long"):
-        run_metrics(predictions, targets)
 
 
-class TestRunMetrics:
+class TestPooledScores:
     def test_a_run_without_a_usable_pair_records_no_metrics(self):
-        assert run_metrics(np.array([np.nan, 2.0]), np.array([1.0, np.nan])) == {}
+        assert evaluate(np.array([np.nan, 2.0]), np.array([1.0, np.nan])) == {}
 
-    def test_a_run_with_usable_pairs_records_every_metric_as_evaluate_does(self):
-        predictions, response = np.array([1.0, 2.0, 4.0, np.nan]), np.array([1.0, 3.0, 4.5, 2.0])
-
-        scores = run_metrics(predictions, response)
+    def test_a_run_with_usable_pairs_records_every_metric(self):
+        scores = evaluate(np.array([1.0, 2.0, 4.0, np.nan]), np.array([1.0, 3.0, 4.5, 2.0]))
 
         assert list(scores) == list(Metric)
-        assert scores == evaluate(predictions, response)
 
     def test_a_single_pair_records_nan_for_the_metrics_it_cannot_support(self):
-        scores = run_metrics(np.array([1.0]), np.array([3.0]))
+        scores = evaluate(np.array([1.0]), np.array([3.0]))
 
         assert scores["MSE"] == 4.0
         assert np.isnan(scores["Pearson"])

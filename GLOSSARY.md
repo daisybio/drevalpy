@@ -43,14 +43,24 @@ One named feature table on one side, such as the sample view
 _Avoid_: omics view, feature view, omics layer, modality (except when describing
 the stored file)
 
+**Precomputed view**:
+A view that `precompute` wrote from the output of a featurizer that needs no
+fitting, at the featurizer's default settings, which it records with the view.
+A featurizer reads it only when its own settings match, or when the view has no
+recorded settings.
+_Avoid_: stored variant, stored output, cached features
+
 **Split mode**:
 The rule that decides which pairs are held out for testing: leave-pair-out
-(LPO), leave-sample-out (LSO), leave-tissue-out (LTO) or leave-drug-out (LDO).
+(LPO), leave-sample-out (LSO), leave-tissue-out (LTO), leave-drug-out (LDO) or
+leave-study-out (LStO).
 _Avoid_: setting, test mode, leave-out mode, mode, LCO, leave-cell-line-out
 
 **Fold**:
-One of the splits a split mode produces: the pairs to train on, to stop early on
-and to test on.
+One of the partitions a split mode produces: the pairs to train on, the pairs to
+validate on (used for tuning, with a part held out for early stopping), and the
+pairs to test on.
+_Avoid_: split (as a noun), split masks, fold masks
 
 ## Models
 
@@ -157,7 +167,7 @@ with stress tests.
 _Avoid_: benchmark (for this meaning)
 
 **Run**:
-One model trained and evaluated on one split.
+One model trained and evaluated on one fold.
 _Avoid_: fold run, execution
 
 **Metric**:
