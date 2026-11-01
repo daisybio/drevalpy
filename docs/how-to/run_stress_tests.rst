@@ -246,5 +246,4 @@ Run the tests as separate jobs
 jobs, write the shuffled folds with ``drevalpy experiments robustness`` and train each with
 ``drevalpy single``. To train the randomized datasets as separate jobs, write them with
 ``drevalpy experiments randomization`` (or ``drevalpy.randomization`` in Python) and train each
-with ``single``. ``experiments randomization`` accepts a registered dataset name or a file;
-``single`` reads only a file. :doc:`/how-to/run_folds_in_parallel` shows the steps.
+with ``single``. Both accept a registered dataset name or a file. :doc:`/how-to/run_folds_in_parallel` shows the steps.

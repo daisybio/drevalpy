@@ -140,8 +140,10 @@ Credit the source of a ported model
 
 ``LiteratureReference`` is optional provenance metadata for components ported from a paper or
 repository. Pass it as ``reference=`` to the register decorator, as ``toyRidge`` does above. It
-does not change training, composition or saved models. ``repo_url`` is required;
-``citation_text``, ``citation_doi`` and ``deviations`` are optional strings.
+does not change training, composition or saved models. It needs a ``repo_url`` (``http`` or
+``https``), a citation (``citation_text``, ``citation_doi`` or both) and ``deviations``, which says
+how the port differs from the original; constructing a reference without them raises
+``ValueError``.
 
 .. code-block:: python
 
@@ -189,9 +191,10 @@ feature-free baseline defined below through the Python API.
 
 .. code-block:: python
 
-   from drevalpy.testing import PREDICTOR_CHECKS, build_synthetic_batch, build_synthetic_dataset
+   from drevalpy import synthetic
+   from drevalpy.testing import PREDICTOR_CHECKS, build_synthetic_batch
 
-   dataset = build_synthetic_dataset(omics=["gene_expression"])
+   dataset = synthetic(omics=["gene_expression"])
    batch = build_synthetic_batch(dataset, sample_block_names=("gene_expression",))
    for check in PREDICTOR_CHECKS:
        check(LeastSquaresPredictor, batch)

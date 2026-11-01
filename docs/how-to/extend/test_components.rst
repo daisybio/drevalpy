@@ -3,12 +3,12 @@ Test your components
 
 .. interface: python
 
-``drevalpy.testing`` ships in the wheel so that a plugin's own test suite can import it. It
-removes the two things that otherwise block an offline CI job for a plugin: every registered
+``drevalpy.testing`` ships in the wheel so that a plugin's own test suite can import it.
+Together with ``drevalpy.synthetic``, it removes the two things that otherwise block an offline CI job for a plugin: every registered
 dataset lives in a credentialed bucket, and a predictor needs a fully featurized batch.
 
-What ``drevalpy.testing`` provides
-----------------------------------
+What ``drevalpy.synthetic`` and ``drevalpy.testing`` provide
+------------------------------------------------------------
 
 .. list-table::
    :header-rows: 1
@@ -16,10 +16,10 @@ What ``drevalpy.testing`` provides
 
    * - Helper
      - What it gives you
-   * - ``build_synthetic_dataset(...)``
-     - An in-memory ``Dataset`` (60 samples, 8 drugs and 6 tissues by default). It is
-       response-only unless you pass ``omics=[...]`` to add the sample views your featurizer
-       reads. It is an alias of ``drevalpy.synthetic``.
+   * - ``drevalpy.synthetic(...)``
+     - An in-memory ``Dataset`` (60 samples, 8 drugs and 6 tissues by default). It holds the
+       ``gene_expression`` view by default; pass ``omics=[...]`` for the sample views your
+       featurizer reads, or ``omics=()`` for a response-only dataset.
    * - ``build_synthetic_batch(dataset, sample_block_names=(), drug_block_names=(), ...)``
      - A ``ModelInputBatch`` with drawn features and a learnable response, so a predictor is
        testable without composing a model.
@@ -27,7 +27,7 @@ What ``drevalpy.testing`` provides
      - Every measured sample-drug pair, as a ``ResponseBatch``.
    * - ``FEATURIZER_CHECKS`` / ``PREDICTOR_CHECKS``
      - A tuple of three conformance checks each, ready to parametrize over. The third check of
-       each is a pickle round trip (``check_featurizer_state_round_trip``,
+       each is a pickle round trip (``check_featurizer_pickle_round_trip``,
        ``check_predictor_pickle_round_trip``).
    * - ``check_plugin(name)``
      - Assert that an installed plugin's entry point is declared and loads, and that its
@@ -49,8 +49,9 @@ raises ``ConformanceError``, which subclasses ``AssertionError``.
 
    import numpy as np
 
+   from drevalpy import synthetic
    from drevalpy.plugin import Featurizer, Side, dense_result, register_featurizer, view_matrix
-   from drevalpy.testing import FEATURIZER_CHECKS, build_synthetic_dataset
+   from drevalpy.testing import FEATURIZER_CHECKS
 
 
    @register_featurizer("logExpression", description="log1p of the gene_expression view.")
@@ -59,7 +60,7 @@ raises ``ConformanceError``, which subclasses ``AssertionError``.
        input_views: ClassVar[tuple[str, ...]] = ("gene_expression",)
 
        def fit(self, source, train_ids, *, train_pair_ids=None, es_pair_ids=None):
-           names = source.get_feature_names("gene_expression")
+           names = source.feature_names("gene_expression")
            self._names = None if names is None else tuple(names)
            return self
 
@@ -68,12 +69,12 @@ raises ``ConformanceError``, which subclasses ``AssertionError``.
            return dense_result(ids, "gene_expression", np.log1p(np.clip(matrix, 0.0, None)), self._names)
 
 
-   dataset = build_synthetic_dataset(omics=["gene_expression"])
+   dataset = synthetic(omics=["gene_expression"])
    for check in FEATURIZER_CHECKS:
        check(LogExpressionFeaturizer, dataset)
 
 Pass ``omics=[...]`` with every view your featurizer lists in ``input_views``. A featurizer that
-reads no view works against the default response-only dataset.
+reads no view works against a response-only dataset (``omics=()``) too.
 
 Check a predictor
 -----------------
@@ -114,7 +115,7 @@ This block uses the built-in ``LSO``; substitute your own mode name.
    from drevalpy.plugin import CurveQuality
    from drevalpy.registry import splitter
 
-   folds = splitter.get("LSO")(build_synthetic_dataset(), n_splits=3, quality=CurveQuality.default())
+   folds = splitter.get("LSO")(synthetic(), n_splits=3, quality=CurveQuality.default())
    assert len(folds) == 3
 
 Plots have no conformance check either: call ``sections(result)`` on a result and save each
@@ -132,14 +133,15 @@ the reader's own package, so it is shown but not run here.
 
    import pytest
 
-   from drevalpy.testing import FEATURIZER_CHECKS, build_synthetic_dataset
+   from drevalpy import synthetic
+   from drevalpy.testing import FEATURIZER_CHECKS
 
    from my_plugin.featurizers import MyFeaturizer
 
 
    @pytest.mark.parametrize("check", FEATURIZER_CHECKS)
    def test_my_featurizer_conforms(check):
-       check(MyFeaturizer, build_synthetic_dataset(omics=["gene_expression"]))
+       check(MyFeaturizer, synthetic(omics=["gene_expression"]))
 
 Check the installed plugin
 --------------------------

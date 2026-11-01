@@ -179,7 +179,7 @@ The model below asks for a methylation view that the simulated dataset does not 
 
       .. code-block:: text
 
-         5 run(s) failed:
+         Error: 5 run(s) failed:
            raw[methylation]:fingerprints:ridge fold 0: KeyError: "Modality 'methylation' not found. Available: ['gene_expression', 'response']"
            raw[methylation]:fingerprints:ridge fold 1: KeyError: "Modality 'methylation' not found. Available: ['gene_expression', 'response']"
            raw[methylation]:fingerprints:ridge fold 2: KeyError: "Modality 'methylation' not found. Available: ['gene_expression', 'response']"

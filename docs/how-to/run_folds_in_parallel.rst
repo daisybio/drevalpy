@@ -32,7 +32,7 @@ The fold files are small and hold only masks over the pairs of the dataset; see
          drevalpy data split toy.h5mu splits --mode LPO
 
       The command writes ``splits/fold_0.npz`` to ``splits/fold_4.npz``. Instead of the file it
-      accepts a registered dataset name, as ``run --dataset`` does; ``single`` reads only a file.
+      accepts a registered dataset name, as ``run --dataset`` and ``single`` do.
 
    .. tab-item:: Python
       :sync: python
@@ -117,13 +117,13 @@ decide the result.
 
          import drevalpy
          from drevalpy import ModelSpec
-         from drevalpy.types import SplitMasks
+         from drevalpy.types import Fold
          from drevalpy.types.results import ExperimentResult
 
 
          def train(fold_path):
              dataset = drevalpy.load("toy.h5mu")
-             fold = SplitMasks.load(fold_path)
+             fold = Fold.load(fold_path)
              spec = ModelSpec.from_name("NaiveMeanEffectsPredictor")
              return drevalpy.single(spec, dataset, fold, hyperparameter_tuning=False)
 

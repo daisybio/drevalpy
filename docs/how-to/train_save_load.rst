@@ -61,13 +61,13 @@ model, so the predictions are in the units of the response.
 
          import drevalpy
          from drevalpy import DRPModel
-         from drevalpy.types import SplitMask
+         from drevalpy.types import PairMask
 
          dataset = drevalpy.synthetic()
          final_model = drevalpy.train("ElasticNet", dataset, hyperparameter_tuning=False)
          final_model.save("final_elastic_net")
 
-         every_pair = SplitMask(np.isfinite(dataset.response_matrix))
+         every_pair = PairMask(np.isfinite(dataset.response_matrix))
          applied = DRPModel.load("final_elastic_net.zip").predict(dataset, every_pair)
          print(applied.shape)
 
@@ -87,7 +87,7 @@ A ``DRPModel`` is a model that you train and predict with. Build it from a ``Mod
 model fits with exactly these values and does not tune. :doc:`/how-to/tune_hyperparameters` shows how to
 search for them.
 
-``train`` and ``predict`` take a **scope**: a ``SplitMask`` that says which pairs to use. A fold from
+``train`` and ``predict`` take a **scope**: a ``PairMask`` that says which pairs to use. A fold from
 :doc:`/how-to/load_and_split` has the scopes ``train``, ``val`` and ``test``. Train on
 ``train_val``, the training and validation pairs together, as ``run`` does for the final fit,
 and predict the ``test`` pairs.

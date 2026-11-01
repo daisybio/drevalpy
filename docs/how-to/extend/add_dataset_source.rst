@@ -173,11 +173,10 @@ redirected only so that the example leaves your normal cache alone.
          from unittest import mock
 
          import drevalpy
-         from drevalpy.testing import build_synthetic_dataset
 
          screens = Path("screens").resolve()
          screens.mkdir(exist_ok=True)
-         build_synthetic_dataset().save(screens / "LocalScreen.h5mu")
+         drevalpy.synthetic().save(screens / "LocalScreen.h5mu")
 
          registry.dataset.register_source("lab_files", screens.as_uri())
          registry.dataset.register_dataset("LocalScreen", source="lab_files", file="LocalScreen.h5mu")

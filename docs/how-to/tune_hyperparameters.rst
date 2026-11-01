@@ -180,8 +180,8 @@ Set the values yourself
 -----------------------
 
 To skip the search, fit with fixed values. With tuning off, every fold uses the **defaults** of
-the model. Set a default by giving the parameter as a value in the one-key form of the predictor,
-here ``alpha`` = 0.01. This does not change the range of the space, so it matters when tuning is
+the model. Set a default under ``defaults`` in the mapping form of the predictor, here
+``alpha`` = 0.01. This does not change the range of the space, so it matters when tuning is
 off. For a single fit with values of your choice, without any experiment, see
 :doc:`/how-to/train_save_load`.
 
@@ -198,7 +198,8 @@ off. For a single fit with values of your choice, without any experiment, see
          sample_featurizer: scaledGeneExpression
          drug_featurizer: fingerprints
          predictor:
-           elasticNet:
+           name: elasticNet
+           defaults:
              alpha: 0.01
 
       Then run it with tuning off:
@@ -219,7 +220,7 @@ off. For a single fit with values of your choice, without any experiment, see
              {
                  "sample_featurizer": "scaledGeneExpression",
                  "drug_featurizer": "fingerprints",
-                 "predictor": {"elasticNet": {"alpha": 0.01}},
+                 "predictor": {"name": "elasticNet", "defaults": {"alpha": 0.01}},
              }
          )
          fixed = ModelSpec("FixedElasticNet", fixed_config)

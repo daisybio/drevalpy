@@ -13,8 +13,8 @@ Register a splitter function
 Decorate a function with ``register_splitter(mode, description, validation, *, replace=False,
 aliases=())``. The registry calls it as
 ``fn(dataset, n_splits, validation_ratio, random_state, quality=quality)`` and expects a list
-of ``SplitMasks``, one per fold. The ``quality`` keyword is required: registering a function
-without a ``quality`` parameter raises ``InvalidInputError`` (a ``ValueError``). Each ``SplitMasks`` holds ``train``, ``test`` and ``val`` masks shaped like the
+of ``Fold``, one per fold. The ``quality`` keyword is required: registering a function
+without a ``quality`` parameter raises ``InvalidInputError`` (a ``ValueError``). Each ``Fold`` holds ``train``, ``test`` and ``val`` masks shaped like the
 response matrix.
 
 The dataset argument is typed as ``Dataset`` from ``drevalpy.plugin``, a runtime-checkable
@@ -45,8 +45,8 @@ Declare the leakage constraint
 - ``"LStO"``: no study appears in both train and test (the ``study`` sample column).
 
 The registry wraps your function, so the check also runs when someone calls the registered
-splitter directly. A violation raises ``SplitValidationError``. The registry also
-accepts a legacy alias for ``"LSO"`` here.
+splitter directly. A violation raises ``SplitValidationError``. ``validation`` takes only these
+canonical names, not mode aliases such as ``"LCO"``.
 
 Avoid name clashes and keep old names working
 ---------------------------------------------
@@ -71,8 +71,7 @@ and gets the canonical mode back.
    import numpy as np
 
    import drevalpy
-   from drevalpy.plugin import SplitMask, SplitMasks, observed_mask, register_splitter
-   from drevalpy.testing import build_synthetic_dataset
+   from drevalpy.plugin import PairMask, Fold, observed_mask, register_splitter
 
 
    @register_splitter(
@@ -92,15 +91,15 @@ and gets the canonical mode back.
            return mask
 
        return [
-           SplitMasks(
-               train=SplitMask(keep(train_rows[1:])),
-               test=SplitMask(keep(test_rows)),
-               val=SplitMask(keep(train_rows[:1])),
+           Fold(
+               train=PairMask(keep(train_rows[1:])),
+               test=PairMask(keep(test_rows)),
+               val=PairMask(keep(train_rows[:1])),
            )
        ]
 
 
-   dataset = build_synthetic_dataset()
+   dataset = drevalpy.synthetic()
    folds = drevalpy.split(dataset, mode="PARITY", n_splits=1)
    assert folds[0].metadata["split_mode"] == "EVEN_ODD_LSO"
 
@@ -129,10 +128,10 @@ To tighten the rule, change it before the call:
 
    from dataclasses import replace
 
+   from drevalpy import synthetic
    from drevalpy.plugin import CurveQuality, observed_mask
-   from drevalpy.testing import build_synthetic_dataset
 
-   dataset = build_synthetic_dataset()
+   dataset = synthetic()
    strict = observed_mask(dataset, replace(CurveQuality.default(), min_r2=0.8))
    everything = observed_mask(dataset, CurveQuality.off())
    assert strict.sum() <= everything.sum()

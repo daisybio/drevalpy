@@ -53,7 +53,7 @@ only, so a predictor needs a preset before ``drevalpy run`` can use it.
                  return self
 
              def transform(self, source, ids):
-                 matrix = source.get_view_matrix("gene_expression", ids)
+                 matrix = source.view("gene_expression", ids)
                  return dense_result(ids, "gene_expression", np.log1p(np.clip(matrix, 0.0, None)), None)
 
 
@@ -107,7 +107,7 @@ only, so a predictor needs a preset before ``drevalpy run`` can use it.
                  return self
 
              def transform(self, source, ids):
-                 matrix = source.get_view_matrix("gene_expression", ids)
+                 matrix = source.view("gene_expression", ids)
                  return dense_result(ids, "gene_expression", np.log1p(np.clip(matrix, 0.0, None)), None)
 
 

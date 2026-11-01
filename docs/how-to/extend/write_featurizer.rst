@@ -50,13 +50,14 @@ supports. It implements two methods:
        Keep the order of ``ids``, which may be empty.
 
 ``source`` is a ``FeatureSource`` for the featurizer's side. ``source.side`` is ``"sample"`` or
-``"drug"``, ``source.get_view_matrix(view, ids)`` reads rows of a view and
-``source.has_view(view)`` tells whether the dataset holds it.
+``"drug"``, ``source.view(view, ids)`` reads rows of a view, ``source.feature_names(view)`` its
+column names, and ``source.has_view(view)`` tells whether the dataset holds it. ``smiles(ids)``,
+``graphs(ids)``, ``tissue(ids)`` and ``uns(key)`` read the SMILES strings, drug graphs, tissue
+labels and dataset-level payloads.
 
 Model training calls both methods only with usable entity IDs: it drops the entities whose
 input row is entirely NaN (``valid_mask``) beforehand and pads NaN rows back in afterwards. The
-featurizer itself never sees them, and never sees stored outputs either (see
-:ref:`below <write-featurizer-stored>`). A fitted featurizer is saved with the model by pickling
+featurizer itself never sees them. A fitted featurizer is saved with the model by pickling
 it, so keep its fitted state in ordinary attributes.
 
 Declare what it reads and emits
@@ -162,20 +163,22 @@ A featurizer whose logic does not depend on the side keeps the default ``sides``
 Reuse pre-computed features
 ---------------------------
 
-A featurizer whose output depends only on the entity, not on the training entities, can have
-its output stored in the dataset by ``drevalpy.data.precompute`` (see
-:doc:`/reference/components`). To take part, override two methods:
+A featurizer that needs no fitting, whose output for an entity depends only on that entity's
+own data and on its settings, can have its output stored in the dataset as a view by
+``drevalpy.data.precompute`` (see :doc:`/reference/components`). To take part, subclass
+``drevalpy.plugin.PrecomputableFeaturizer``:
 
-``stored_params()``
-   Return the hyperparameters a stored output must have been computed with, or ``{}`` when it
-   has none. The default, ``None``, means that stored outputs are never looked up.
-``from_stored(source, ids, matrix)``
-   Wrap a stored matrix as the result ``transform`` would have returned, usually with
-   ``dense_result``.
+- call ``super().__init__(view, settings)`` with the view that holds the output and the
+  hyperparameter values that decide it, such as ``{"radius": 2, "n_bits": 2048}``;
+- implement ``compute(source, ids)``, which returns one dense row per entity;
+- list the views ``compute`` reads in ``source_views``, so ``precompute_all`` skips a dataset
+  that lacks them.
 
-When the dataset stores a matching output, model training calls ``from_stored`` instead of
-``fit`` and ``transform``. Outputs are stored under the class attribute ``storage_key``, which
-defaults to the registry name.
+The base class implements ``fit``, ``transform`` and ``valid_mask``. It reads the view when the
+dataset holds it and either no settings are recorded for it (a view the dataset ships) or the
+recorded settings equal its own; otherwise it calls ``compute``. A model with tuned settings
+therefore never reads a view that was computed with other ones. The built-in ``fingerprints``,
+``chemberta``, ``smilesvec`` and ``bionic`` featurizers work this way.
 
 Next steps
 ----------

@@ -61,13 +61,13 @@ syntax.
       .. code-block:: text
 
          Zoo presets
-          Name                   Recipe                                      Scope        Prediction mode   Origin
-          ──────────────────────────────────────────────────────────────────────────────────────────────────────────
-          AdaBoostDecisionTree   scaledGeneExpression:fingerprints:adaboost  multi_drug   regression        built-in
-          DIPK                   concatFeaturizers:molgnet:dipk              multi_drug   regression        built-in
-          DrugGNN                landmarkGenes:drugGraph:drugGNN             multi_drug   regression        built-in
-          ElasticNet             scaledGeneExpression:fingerprints:elasticNet multi_drug  regression        built-in
-          EnsembleMF             scaledGeneExpression:fingerprints:ensembleMF multi_drug  regression        built-in
+          Name                   Recipe                                        Scope        Prediction mode   Origin
+          ────────────────────────────────────────────────────────────────────────────────────────────────────────────
+          AdaBoostDecisionTree   scaledGeneExpression:fingerprints:adaboost    multi_drug   regression        built-in
+          DIPK                   dipkGeneExpression+bionic:molgnet:dipk        multi_drug   regression        built-in
+          DrugGNN                landmarkGenes:drugGraph:drugGNN               multi_drug   regression        built-in
+          ElasticNet             scaledGeneExpression:fingerprints:elasticNet  multi_drug   regression        built-in
+          EnsembleMF             scaledGeneExpression:fingerprints:ensembleMF  multi_drug   regression        built-in
           ...
 
       The three parts of a recipe come from the next three lists:
@@ -144,11 +144,11 @@ List split modes and plots
       .. code-block:: text
 
          Splitters
-          Mode   Description                                                Validation   Aliases
+          Name   Description                                                Validation   Aliases
           ──────────────────────────────────────────────────────────────────────────────────────
           LDO    Leave-Drug-Out: test folds contain unseen drugs            LDO          -
-          LPO    Leave-Pair-Out: groups by (sample, drug) pairs             LPO          -
           LSO    Leave-Sample-Out: test folds contain unseen samples        LSO          LCO
+          LPO    Leave-Pair-Out: groups by (sample, drug) pairs             LPO          -
           LStO   Leave-Study-Out: test folds contain one unseen study       LStO         -
           LTO    Leave-Tissue-Out: test folds contain unseen tissue types   LTO          -
 
@@ -168,7 +168,7 @@ List split modes and plots
 
       .. code-block:: text
 
-         ('LDO', 'LPO', 'LSO', 'LStO', 'LTO')
+         ('LDO', 'LSO', 'LPO', 'LStO', 'LTO')
          ('comparison_scatter', 'critical_difference', 'heatmap', 'leaderboard', 'regression_scatter', 'violin')
 
 List datasets and plugins

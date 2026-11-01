@@ -87,7 +87,7 @@ Map imports and objects
    * - ``dataset.split_dataset(split_method=..., n_cv_splits=...)`` and
        ``dataset.cv_splits``
      - ``drevalpy.split(dataset, mode, n_splits=5, validation_ratio=0.1,
-       random_state=42)``. It returns a list of ``SplitMasks``, each with the
+       random_state=42)``. It returns a list of ``Fold``, each with the
        boolean masks ``train``, ``val`` and ``test`` over the response matrix.
    * - ``dataset.save_splits(path)``, ``dataset.load_splits(path)``
      - ``drevalpy data split`` writes ``fold_N.npz`` files (:doc:`cli`).

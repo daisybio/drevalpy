@@ -193,13 +193,13 @@ validation data. The default ``random_state`` (``--seed`` on the command line) i
          print(len(folds))
          print(folds[0])
 
-      ``split`` returns one ``SplitMasks`` per fold, with a ``train``, a ``test`` and a ``val``
-      mask:
+      ``split`` returns a list of ``Fold`` objects, one per fold, each with a ``train``, a
+      ``test`` and a ``val`` ``PairMask``:
 
       .. code-block:: text
 
          5
-         SplitMasks
+         Fold
              Shape: (60, 8)
              Train: 338 pairs
              Test: 89 pairs
@@ -221,8 +221,8 @@ number of measured pairs. The rule is the default one unless you pass ``quality=
 (``CurveQuality.off()`` keeps every measured pair). On the command line, ``drevalpy data split``
 has ``--no-quality-filter``, ``--min-relevance-score`` and ``--min-abs-fold-change``.
 
-Check a split
--------------
+Check a fold
+------------
 
 The fold above holds out samples, so no test sample may occur in the training pairs. The check
 uses the sample index of each pair in a mask:
@@ -234,7 +234,7 @@ uses the sample index of each pair in a mask:
       :sync: cli
 
       The command line has no check command. Use the Python tab, which reads the ``.npz`` files
-      written above with ``SplitMasks.load("splits/fold_0.npz")``.
+      written above with ``Fold.load("splits/fold_0.npz")``.
 
    .. tab-item:: Python
       :sync: python
@@ -275,10 +275,10 @@ them:
 
       .. code-block:: python
 
-         from drevalpy.types import SplitMasks
+         from drevalpy.types import Fold
 
          fold.save("fold_0.npz")
-         print(SplitMasks.load("fold_0.npz").metadata["fold_id"])
+         print(Fold.load("fold_0.npz").metadata["fold_id"])
 
       .. code-block:: text
 

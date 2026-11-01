@@ -107,8 +107,9 @@ that mean different things. It raises ``ValueError`` if
 - a view has different feature names in two studies (the default ``join="exact"``), or the
   units of a view differ.
 
-Precomputed featurizer variants and the embeddings in ``obsm`` and ``varm`` are not carried over;
-``concat`` warns and the featurizers compute them again from the combined views.
+The drug views and embeddings in ``response.obsm`` and ``response.varm``, precomputed drug views
+included, are not carried over; ``concat`` warns and the featurizers compute them again from the
+combined views.
 
 Keep only the shared features
 -----------------------------
@@ -137,7 +138,9 @@ some of the studies have is dropped with a warning. A unit mismatch still raises
 
       .. code-block:: python
 
-         genes = screen_a.get_sample_feature_names("gene_expression")
+         from drevalpy.plugin import FeatureSource
+
+         genes = FeatureSource(screen_a, "sample").feature_names("gene_expression")
          narrow = drevalpy.synthetic(name="SCREEN_C", feature_names=genes[:12])
          try:
              concat([screen_a, narrow])
