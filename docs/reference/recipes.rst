@@ -56,8 +56,8 @@ Examples
      - Sample featurizer, drug featurizer, predictor
    * - ``pca[gene_expression]:fingerprints:elasticNet``
      - ``pca`` on the ``gene_expression`` view
-   * - ``raw[gene_expression]+raw[methylation]:fingerprints:elasticNet``
-     - Concatenation of two ``raw`` views
+   * - ``view[gene_expression]+view[methylation]:fingerprints:elasticNet``
+     - Concatenation of two ``view`` views
    * - ``scaledGeneExpression:singleDrugElasticNet``
      - Single-drug predictor, without a drug featurizer
    * - ``naiveMean``
@@ -76,17 +76,17 @@ Views
    :doc:`/how-to/evaluate_component_grids`.
 
 Featurizers that need a view
-   Some featurizers, among them ``raw`` and ``pca``, require an explicit view. ``raw`` without
+   Some featurizers, among them ``view`` and ``pca``, require an explicit view. ``view`` without
    a view raises ``requires an explicit view``. :doc:`components` lists the featurizers.
 
 Duplicate leaves
    One concatenation may not hold the same qualified featurizer twice, for example
-   ``raw[gene_expression]+raw[gene_expression]``.
+   ``view[gene_expression]+view[gene_expression]``.
 
 Sides
-   Each featurizer declares the sides it supports. A featurizer on the wrong side raises, for
-   example, ``Featurizer 'fingerprints' cannot be used on the sample side; it supports only:
-   drug``.
+   Each featurizer is registered on one side and is looked up in that side's registry. A
+   featurizer on the wrong side raises, for example, ``Unknown sample featurizer
+   'fingerprints'``, followed by the sample featurizers there are.
 
 Drug featurizer
    A multi-drug predictor that takes featurizers needs both a sample and a drug featurizer;
@@ -121,7 +121,7 @@ Where recipes are accepted
        valid ``sample:drug:predictor`` is built and the others are reported. See
        :doc:`/how-to/evaluate_component_grids`
    * - The ``sample_featurizer`` and ``drug_featurizer`` keys of YAML and ``ModelConfig``
-     - A featurizer part of a recipe, such as ``pca[methylation]`` or ``raw[a]+raw[b]``
+     - A featurizer part of a recipe, such as ``pca[methylation]`` or ``view[a]+view[b]``
 
 A recipe needs no registration. To give it a short name, register it as a zoo preset; see
 :doc:`extension_files`.
@@ -133,7 +133,7 @@ Model identifier
 concatenation children, so ``from_recipe(config.model_id)`` builds the same components. For
 example, ``pca[gene_expression]:fingerprints:elasticNet`` has that string as its identifier, and
 the zoo preset ``MultiViewNeuralNetwork`` has the identifier
-``scaledGeneExpression+raw[mutations]:fingerprints:neuralNetwork``. Fixed options, defaults and
+``scaledGeneExpression+view[mutations]:fingerprints:neuralNetwork``. Fixed options, defaults and
 search spaces are not part of a recipe. The identifier is ``None`` only for a model with a drug
 featurizer and no sample featurizer, which no recipe can express.
 
@@ -142,7 +142,7 @@ Featurizer forms in YAML
 
 The ``sample_featurizer`` and ``drug_featurizer`` keys of a YAML file or a ``ModelConfig``
 take one of two forms: a recipe string, such as ``scaledGeneExpression``, ``pca[methylation]``
-or ``raw[gene_expression]+raw[methylation]``, or a mapping with these fields:
+or ``view[gene_expression]+view[methylation]``, or a mapping with these fields:
 
 .. list-table::
    :header-rows: 1

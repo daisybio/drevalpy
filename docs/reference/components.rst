@@ -2,8 +2,10 @@ Components
 ==========
 
 A model is built from up to three components: a sample featurizer, a drug featurizer and a
-predictor. Featurizers and predictors are looked up by name in their registries. A featurizer is
-registered once and declares the sides it can be used on, sample, drug or both.
+predictor. Featurizers and predictors are looked up by name in their registries. Each side has a
+featurizer registry of its own, and a featurizer is registered on one side. A name is unique
+within its side: ``oneHot``, ``constant``, ``concatFeaturizers`` and ``view`` exist on both
+sides, as two registrations sharing their code.
 ``drevalpy list sample-featurizers``, ``drevalpy list drug-featurizers`` and
 ``drevalpy list predictors`` print the registered components, including those added by
 extensions. The tables below list the built-in ones. :doc:`recipes` describes how components are
@@ -41,7 +43,7 @@ featurizer's default settings, stores it as the featurizer's view (a ``response.
 the drug side, a modality on the sample side) and records the settings under
 ``precomputed_views`` in ``uns`` (see :doc:`datasets`). It returns the view it wrote, or
 ``None`` when the dataset already held a view the featurizer reads. ``precompute_all(dataset)``
-does this for every precomputable featurizer, on each side it supports, whose source views the
+does this for every precomputable featurizer, on its side, whose source views the
 dataset has, and returns the views written. Both live in ``drevalpy.data.precompute``.
 
 When a model is trained or predicts, a precomputable featurizer reads its view when the dataset
@@ -50,10 +52,15 @@ recorded settings equal its own. Otherwise it computes its output, so a tuned se
 ``n_bits`` of ``fingerprints`` never reads a view computed with another value. Only the default
 settings are stored; there is one view per featurizer.
 
-Featurizers
------------
+Sample featurizers
+------------------
 
-.. include:: _generated_featurizers.rst
+.. include:: _generated_sample_featurizers.rst
+
+Drug featurizers
+----------------
+
+.. include:: _generated_drug_featurizers.rst
 
 Predictors
 ----------

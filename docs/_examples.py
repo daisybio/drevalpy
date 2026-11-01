@@ -48,14 +48,16 @@ EXAMPLE_MODULES: tuple[str, ...] = (
 #: What importing the examples must add to each registry. Pinned rather than
 #: derived so a decorator that silently stops running is a build failure.
 EXPECTED_REGISTRATIONS: dict[str, tuple[str, ...]] = {
-    "featurizer": ("toyDrugHash", "toySample"),
+    "sample_featurizer": ("toySample",),
+    "drug_featurizer": ("toyDrugHash",),
     "predictor": ("toyBlockRidge", "toyMean", "toyRidge"),
     "splitter": ("TOY_LSO",),
     "visualization": ("toyResiduals",),
 }
 
 _LABELS = {
-    "featurizer": "Featurizer",
+    "sample_featurizer": "Sample featurizer",
+    "drug_featurizer": "Drug featurizer",
     "predictor": "Predictor",
     "splitter": "Split mode",
     "visualization": "Visualization",

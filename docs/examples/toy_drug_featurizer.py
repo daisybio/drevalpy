@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import hashlib
 from collections.abc import Mapping
-from typing import Any, ClassVar, Self
+from typing import Any, Self
 
 import numpy as np
 
@@ -31,6 +31,7 @@ N_COLUMNS = 8
 
 @register_featurizer(
     "toyDrugHash",
+    side=Side.DRUG,
     description="Deterministic pseudo-random drug features hashed from the drug identifier.",
 )
 class ToyDrugHashFeaturizer(Featurizer):
@@ -39,8 +40,6 @@ class ToyDrugHashFeaturizer(Featurizer):
     A stand-in for a real embedding: it reads no view, so it works
     against any dataset, including a response-only one.
     """
-
-    sides: ClassVar[frozenset[Side]] = frozenset({"drug"})
 
     @classmethod
     def output_blocks(cls, config: Mapping[str, Any]) -> tuple[BlockSpec, ...]:

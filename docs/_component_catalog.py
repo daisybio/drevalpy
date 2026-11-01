@@ -12,15 +12,17 @@ from drevalpy.components.featurizers._featurizer_label import requires_explicit_
 from drevalpy.components.predictors.inputs import Inputs, predictor_inputs
 from drevalpy.plugin import PrecomputableFeaturizer
 from drevalpy.registry._builtins import builtin_names, get_skipped_builtin_modules, register_builtins
-from drevalpy.registry.featurizer import featurizers
+from drevalpy.registry.featurizer import featurizer_registries
 from drevalpy.registry.predictor import predictor_registry
+from drevalpy.types.data.feature_source import Side
 
 DOCS_DIR = Path(__file__).resolve().parent
 GENERATED_CATALOGS = {
-    "featurizer": DOCS_DIR / "reference" / "_generated_featurizers.rst",
+    "sample_featurizer": DOCS_DIR / "reference" / "_generated_sample_featurizers.rst",
+    "drug_featurizer": DOCS_DIR / "reference" / "_generated_drug_featurizers.rst",
     "predictor": DOCS_DIR / "reference" / "_generated_predictors.rst",
 }
-EXPECTED_BUILTIN_COMPONENT_COUNTS = {"featurizer": 27, "predictor": 30}
+EXPECTED_BUILTIN_COMPONENT_COUNTS = {"sample_featurizer": 18, "drug_featurizer": 12, "predictor": 30}
 #: Built-in predictors per input kind; a predictor counts under ``matrix`` or ``blocks`` when either side has it.
 EXPECTED_PREDICTOR_INPUT_COUNTS = {"none": 1, "matrix": 14, "blocks": 15}
 
@@ -43,7 +45,7 @@ def _featurizer_config(name: str, cls: type[Any]) -> dict[str, Any]:
     :returns: Hyperparameter defaults, plus a placeholder view when the featurizer needs one.
     """
     config: dict[str, Any] = dict(cls.default_hyperparameters())
-    if requires_explicit_view(name):
+    if requires_explicit_view(name, cls.side):
         config["view"] = _PLACEHOLDER_VIEW
     return config
 
@@ -53,14 +55,13 @@ def _output_formats(cls: type[Any], config: dict[str, Any]) -> str:
     return ", ".join(f"``{fmt}``" for fmt in formats) or "Those of its children"
 
 
-def _render_featurizers(rows: list[tuple[str, type[Any]]]) -> str:
+def _render_featurizers(side: Side, rows: list[tuple[str, type[Any]]]) -> str:
     lines = [
         ".. list-table::",
         "   :header-rows: 1",
-        "   :widths: 22 12 16 12 38",
+        "   :widths: 22 18 14 46",
         "",
         "   * - Name",
-        "     - Sides",
         "     - Output format",
         "     - Precomputable",
         "     - Description",
@@ -70,10 +71,9 @@ def _render_featurizers(rows: list[tuple[str, type[Any]]]) -> str:
         lines.extend(
             [
                 f"   * - ``{name}``",
-                f"     - {', '.join(sorted(cls.sides))}",
                 f"     - {_output_formats(cls, config)}",
                 f"     - {chr(0x2705) if issubclass(cls, PrecomputableFeaturizer) else chr(0x274C)}",
-                f"     - {_description(name, featurizers.metadata(name))}",
+                f"     - {_description(name, featurizer_registries[side].metadata(name))}",
             ]
         )
     return "\n".join([*lines, ""])
@@ -138,24 +138,20 @@ def _builtin_rows(registry: Any) -> list[tuple[str, type[Any]]]:
     return sorted((name, cls) for name, cls in registry.items() if name in builtin)
 
 
-def _validate_builtin_catalog(
-    featurizer_rows: list[tuple[str, type[Any]]],
-    predictor_rows: list[tuple[str, type[Any]]],
-) -> None:
+def _validate_builtin_catalog(rows: dict[str, list[tuple[str, type[Any]]]]) -> None:
     """Fail generation when the built-in catalogs diverge from the supported set.
 
-    :param featurizer_rows: built-in featurizers
-    :param predictor_rows: built-in predictors
+    :param rows: built-in components keyed like :data:`EXPECTED_BUILTIN_COMPONENT_COUNTS`
     :raises RuntimeError: if component or input-kind counts diverge from expectations
     """
-    observed_counts = {"featurizer": len(featurizer_rows), "predictor": len(predictor_rows)}
+    observed_counts = {key: len(entries) for key, entries in rows.items()}
     if observed_counts != EXPECTED_BUILTIN_COMPONENT_COUNTS:
         raise RuntimeError(
             "Built-in component catalog counts do not match the supported set: "
             f"expected {EXPECTED_BUILTIN_COMPONENT_COUNTS}, got {observed_counts}"
             f"{_skipped_module_report()}"
         )
-    input_counts = dict(Counter(_input_kind(cls) for _, cls in predictor_rows))
+    input_counts = dict(Counter(_input_kind(cls) for _, cls in rows["predictor"]))
     if input_counts != EXPECTED_PREDICTOR_INPUT_COUNTS:
         raise RuntimeError(
             "Predictor input counts do not match the supported set: "
@@ -164,18 +160,17 @@ def _validate_builtin_catalog(
 
 
 def generate_component_catalog_rsts() -> dict[str, str]:
-    """Return deterministic RST tables for the built-in featurizers and predictors.
+    """Return deterministic RST tables for the built-in featurizers of each side and the predictors.
 
-    :returns: generated RST keyed by ``featurizer`` and ``predictor``
+    :returns: generated RST keyed by ``sample_featurizer``, ``drug_featurizer`` and ``predictor``
     """
     register_builtins()
-    featurizer_rows = _builtin_rows(featurizers)
-    predictor_rows = _builtin_rows(predictor_registry)
-    _validate_builtin_catalog(featurizer_rows, predictor_rows)
-    return {
-        "featurizer": _render_featurizers(featurizer_rows),
-        "predictor": _render_predictors(predictor_rows),
-    }
+    rows = {f"{side}_featurizer": _builtin_rows(featurizer_registries[side]) for side in Side}
+    rows["predictor"] = _builtin_rows(predictor_registry)
+    _validate_builtin_catalog(rows)
+    generated = {f"{side}_featurizer": _render_featurizers(side, rows[f"{side}_featurizer"]) for side in Side}
+    generated["predictor"] = _render_predictors(rows["predictor"])
+    return generated
 
 
 def write_generated_component_catalogs() -> tuple[Path, ...]:

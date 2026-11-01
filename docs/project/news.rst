@@ -46,7 +46,7 @@ These affect only code, configurations and datasets written for an unreleased 2.
   of a tunable hyperparameter; ``options`` holds fixed values and may no longer name a tunable one.
   See :ref:`reference/recipes:Featurizer forms in YAML`.
 - ``ModelConfig.model_id`` is the full recipe with views and concatenation children, such as
-  ``scaledGeneExpression+raw[mutations]:fingerprints:neuralNetwork``, and ``drevalpy list
+  ``scaledGeneExpression+view[mutations]:fingerprints:neuralNetwork``, and ``drevalpy list
   zoo-presets`` shows it. Result directories are still named after the model.
 - **Precomputed features are views.** ``precompute(dataset, featurizer_name, side)`` stores one
   view at the featurizer's default settings and records them under ``uns["precomputed_views"]``;
@@ -283,7 +283,7 @@ Cross-study evaluation, component grids and recorded failures
   logs a warning, keeps the failure in ``ExperimentResult.failures`` and writes ``failures.json``;
   ``on_error="raise"`` restores the old behavior. ``drevalpy run`` prints the failures and exits
   with status 1, and the report has a "Failed runs" table. If every run fails, ``run`` raises
-  ``ExperimentFailedError``. Each record in ``failures.json`` holds the ``identity`` of the failed run
+  ``ExperimentFailedError``. Each record in ``failures.json`` holds the ``oneHot`` of the failed run
   (model, dataset, split mode, fold, randomization and robustness repeat), the exception type and its message.
 - **Stress tests.** A randomization test or a robustness test is a stress test. The number of
   robustness repeats is ``--robustness-repeats`` (``robustness_repeats=``), saved as ``robustness_repeat``;
@@ -308,8 +308,10 @@ Cross-study evaluation, component grids and recorded failures
 Components and imports
 ~~~~~~~~~~~~~~~~~~~~~~
 
-- A featurizer subclasses ``Featurizer``, declares the sides it supports as ``sides`` and the blocks it emits
-  with ``output_blocks``, and is registered once with ``@register_featurizer``. A predictor declares what it
+- A featurizer subclasses ``Featurizer``, declares the blocks it emits with ``output_blocks``, and is
+  registered on one side with ``@register_featurizer(name, side=Side.SAMPLE)`` or ``side=Side.DRUG``.
+  Each side has its own featurizer registry; ``oneHot``, ``constant``, ``concatFeaturizers`` and ``view``
+  exist on both. A predictor declares what it
   reads on each side as ``sample_inputs`` and ``drug_inputs``: ``Inputs.none()``, ``Inputs.matrix()`` or
   ``Inputs.blocks(...)``. A model whose parts disagree is rejected before training. Fitted components are
   saved by pickling them, so they need no state methods.

@@ -50,8 +50,8 @@ What every registry offers
 
 The code registries are instances of one generic registry class. Each offers
 ``get(name)``, ``names()``, ``metadata(name)``, ``items()``, a membership test with
-``in`` and ``to_dataframe()`` for a summary table. The featurizer registry adds
-``names_for_side(side)``, which lists the featurizers usable on one side. The dataset
+``in`` and ``to_dataframe()`` for a summary table. There is one featurizer registry
+per side, ``featurizer_registry(side)``, so a name is unique within its side. The dataset
 registry names its operations for its two kinds of entry (below). The modules are
 listed in :doc:`/reference/python_api`.
 

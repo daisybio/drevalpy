@@ -1,8 +1,8 @@
 """Sample featurizer example: standardize one sample view.
 
-Shows the two methods every featurizer implements, ``fit`` and ``transform``, and the
-class-body declarations: ``sides`` (where the featurizer may be used) and ``input_views``
-(the views it reads). Model training calls both methods only with usable entity IDs; it
+Shows the two methods every featurizer implements, ``fit`` and ``transform``, the side it
+is registered on (``side=Side.SAMPLE``) and the class-body declaration ``input_views`` (the
+views it reads). Model training calls both methods only with usable entity IDs; it
 drops entities whose row is all NaN beforehand and pads them back in afterwards.
 """
 
@@ -27,12 +27,12 @@ VIEW = "gene_expression"
 
 @register_featurizer(
     "toySample",
+    side=Side.SAMPLE,
     description="Gene expression standardized with statistics learned on the training samples.",
 )
 class ToySampleFeaturizer(Featurizer):
     """Standardize the ``gene_expression`` view column by column."""
 
-    sides: ClassVar[frozenset[Side]] = frozenset({"sample"})
     input_views: ClassVar[tuple[str, ...]] = (VIEW,)
 
     def __init__(self) -> None:

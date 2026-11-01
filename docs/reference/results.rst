@@ -41,9 +41,9 @@ computed when a result is read.
 
 An experiment holds one dataset name and one split mode; ``ExperimentResult`` rejects runs
 that disagree. A model that comes from a grid or a recipe is named by its recipe, such as
-``raw[gene_expression]:fingerprints:ridge``. Its directory is that name with each character
+``view[gene_expression]:fingerprints:ridge``. Its directory is that name with each character
 Windows forbids in file names (``<>:"/\|?*``) replaced by ``_``, here
-``raw[gene_expression]_fingerprints_ridge``; when two names give the same directory, the later
+``view[gene_expression]_fingerprints_ridge``; when two names give the same directory, the later
 ones get the suffix ``-2``, ``-3``, and so on, so the directories follow from the list ``models``
 alone. The rule is the same on every operating system, so a result tree copies between machines
 unchanged. The dataset name of a concatenated dataset is the study names joined by ``+``.
@@ -54,14 +54,14 @@ Recorded failures
 ``drevalpy.run`` keeps going when a run raises and keeps a ``RunFailure`` for it, in the tuple
 ``ExperimentResult.failures``. ``ExperimentResult.save`` writes the records to ``failures.json``
 only when there is at least one, and ``ExperimentResult.load`` reads them back. The file is a
-JSON list; each entry has the keys ``identity``, ``error_type`` and ``message``.
-``identity`` is the identity of the run that failed:
+JSON list; each entry has the keys ``oneHot``, ``error_type`` and ``message``.
+``oneHot`` is the identity of the run that failed:
 
 .. list-table::
    :header-rows: 1
    :widths: 30 70
 
-   * - ``identity`` key
+   * - ``oneHot`` key
      - Content
    * - ``model_name``, ``dataset_name``, ``split_mode``
      - Names

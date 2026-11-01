@@ -34,7 +34,7 @@ to be checked, which the next sections describe.
 
 A *view* is a named table of features on one side, such as ``gene_expression``
 for samples or ``fingerprints`` for drugs. Featurizers read views. Some featurizers
-are bound to one view, while a few general ones, such as ``raw`` and ``pca``, take
+are bound to one view, while a few general ones, such as ``view`` and ``pca``, take
 the view as a parameter.
 
 Featurizers versus encoders
@@ -53,7 +53,7 @@ Feature formats and predictor inputs
 
 Features come in three formats: a numeric matrix, a graph, or a ragged sequence
 (sequences of different lengths, such as tokenized strings). Each featurizer
-declares the sides it can be used on and the named blocks it produces, each with a
+is registered on one side and declares the named blocks it produces, each with a
 format. Each predictor declares, per side, what it reads from that side's featurizer:
 
 - *None*: the side uses no features and forbids a featurizer. The overall-mean

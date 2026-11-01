@@ -61,7 +61,8 @@ CODE_LANGUAGES = RUNNABLE_LANGUAGES | frozenset(MISNAMED_LANGUAGES)
 GENERATED_INCLUDES = {
     "reference/cli.rst": ("_generated_cli.rst",),
     "reference/components.rst": (
-        "_generated_featurizers.rst",
+        "_generated_sample_featurizers.rst",
+        "_generated_drug_featurizers.rst",
         "_generated_predictors.rst",
     ),
     "reference/model_zoo.rst": ("_generated_model_zoo.rst",),
@@ -355,7 +356,7 @@ def test_component_catalog_is_registry_driven_and_synchronized() -> None:
     from _component_catalog import generate_component_catalog_rsts
 
     from drevalpy.registry._builtins import builtin_names
-    from drevalpy.registry.featurizer import featurizers
+    from drevalpy.registry.featurizer import featurizer_registry
     from drevalpy.registry.predictor import predictor_registry
 
     catalog = (DOCS / "reference" / "components.rst").read_text(encoding="utf-8")
@@ -373,7 +374,11 @@ def test_component_catalog_is_registry_driven_and_synchronized() -> None:
     generated = json.loads(completed.stdout)
     assert generated == generate_component_catalog_rsts()
 
-    for key, registry in (("featurizer", featurizers), ("predictor", predictor_registry)):
+    for key, registry in (
+        ("sample_featurizer", featurizer_registry("sample")),
+        ("drug_featurizer", featurizer_registry("drug")),
+        ("predictor", predictor_registry),
+    ):
         rows = {}
         for row in generated[key].split("   * - ``")[1:]:
             name, *_, description = row.rstrip("\n").split("\n")
@@ -507,7 +512,10 @@ def test_a_reference_page_that_drops_its_include_is_flagged(tmp_path: Path) -> N
     files = {rel: "".join(f".. include:: {n}\n" for n in names) for rel, names in GENERATED_INCLUDES.items()}
     assert not missing_includes(_tree(tmp_path, files))
     files["reference/components.rst"] = ".. include:: _generated_predictors.rst\n"
-    assert missing_includes(_tree(tmp_path, files)) == ["reference/components.rst: _generated_featurizers.rst"]
+    assert missing_includes(_tree(tmp_path, files)) == [
+        "reference/components.rst: _generated_sample_featurizers.rst",
+        "reference/components.rst: _generated_drug_featurizers.rst",
+    ]
 
 
 NESTED_NOTE = BOTH_TABS.replace(
