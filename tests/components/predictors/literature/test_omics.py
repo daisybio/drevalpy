@@ -58,8 +58,8 @@ def _batch(
             "copy_number_variation_gistic": numeric_feature_block(CNV, feature_names=CNV_FEATURES),
         },
         drug_blocks={
-            "identity": numeric_feature_block(np.eye(2, dtype=np.float32)),
-            "identity_categories": numeric_feature_block(np.array([["d1", "d2"]], dtype=object)),
+            "oneHot": numeric_feature_block(np.eye(2, dtype=np.float32)),
+            "oneHot_categories": numeric_feature_block(np.array([["d1", "d2"]], dtype=object)),
         },
         early_stopping_response=early_stopping_response,
         checkpoint_dir=checkpoint_dir,
