@@ -3,8 +3,8 @@
 Config validation is mostly about what the registries say about a component, not
 about what the component computes, so almost every test here first registers a
 throwaway featurizer or predictor whose only real content is its feature format. Those
-registrations were written out per test, which is what made ``test_validation.py``
-and ``test_block_specs.py`` read as near-clones of each other.
+registrations were written out per test, which made the validation tests read as
+near-clones of each other.
 
 Plain ``_``-prefixed module: the underscore keeps it out of collection.
 

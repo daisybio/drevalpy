@@ -23,8 +23,8 @@ from upath import UPath
 
 from drevalpy._utils.n_jobs import check_n_jobs
 from drevalpy.components.contracts.training_context import TrainingContext
-from drevalpy.components.featurizers._featurizer_label import qualified_featurizer_selector
-from drevalpy.models._feature_preparation import FitIds, prepare_features, unique_entity_ids, usable_responses
+from drevalpy.components.featurizers._featurizer_label import CONCAT
+from drevalpy.models._feature_preparation import FitIds, prepare_features, unique_entity_ids, usable_pairs
 from drevalpy.models.config.immutable import thaw_value
 from drevalpy.models.hyperparameters import FEATURIZER_SLOTS, PREDICTOR_SLOT, component_values
 from drevalpy.models.response_transformation._pipeline_ops import (
@@ -38,7 +38,7 @@ from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.types.data.batch.response_batch import ResponseBatch
 from drevalpy.types.data.dataset import Dataset
 from drevalpy.types.data.feature_source import FeatureSource
-from drevalpy.types.data.split_mask import SplitMask
+from drevalpy.types.data.pair_mask import PairMask
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -49,7 +49,7 @@ if TYPE_CHECKING:
     from drevalpy.models.response_transformation import ResponseTransformer
 
 
-def validate_fit_scopes(dataset: Dataset, scope: SplitMask, stopping: SplitMask | None) -> None:
+def validate_fit_scopes(dataset: Dataset, scope: PairMask, stopping: PairMask | None) -> None:
     """Check dataset-backed selections without imposing split-mode entity rules.
 
     :param dataset: Dataset that *scope* and *stopping* index into.
@@ -61,8 +61,8 @@ def validate_fit_scopes(dataset: Dataset, scope: SplitMask, stopping: SplitMask 
     if not isinstance(dataset, Dataset):
         raise TypeError("Model operations require a Dataset")
     for selection in (scope,) if stopping is None else (scope, stopping):
-        if not isinstance(selection, SplitMask):
-            raise TypeError("Model scope must be a SplitMask")
+        if not isinstance(selection, PairMask):
+            raise TypeError("Model scope must be a PairMask")
         if selection.shape != dataset.response_matrix.shape:
             raise ValueError("Model scope shape must match the dataset response matrix")
     if stopping is not None and np.any(scope.mask & stopping.mask):
@@ -78,12 +78,10 @@ class ModelState(Enum):
 
 
 def _build_featurizer(config: FeaturizerConfig, slot: str, values: Mapping[str, Any]) -> Featurizer:
-    if config.name == "concatFeaturizers":
+    if config.name == CONCAT:
         children = [_build_featurizer(child, slot, values) for child in (config.featurizers or ())]
         return config.create_instance({"featurizers": children})
-    return config.create_instance(
-        component_values(values, slot, qualified_featurizer_selector(config.name, config.view))
-    )
+    return config.create_instance(component_values(values, slot, config.selector))
 
 
 def _build_components(spec: ModelSpec) -> tuple[Featurizer | None, Featurizer | None, Predictor]:
@@ -121,6 +119,7 @@ class DRPModel:
         spec: ModelSpec,
         hyperparameters: Mapping[str, Any] | None = None,
         *,
+        check_values: bool = True,
         response_transformation: ResponseTransformer | None = None,
     ) -> None:
         """Configure a fresh model without training any components.
@@ -128,12 +127,14 @@ class DRPModel:
         :param spec: Named preset or custom component configuration.
         :param hyperparameters: Optional overrides under short or qualified keys, applied with
             :meth:`ModelSpec.with_hyperparameters`.
+        :param check_values: Passed to :meth:`ModelSpec.with_hyperparameters`; ``False`` accepts
+            *hyperparameters* outside the search space.
         :param response_transformation: Cloneable, invertible response transformation prototype.
         :raises TypeError: If spec is not a ModelSpec.
         """
         if not isinstance(spec, ModelSpec):
             raise TypeError("DRPModel requires a ModelSpec; use ModelSpec.from_name(name) for a preset")
-        self._spec = spec.with_hyperparameters(hyperparameters) if hyperparameters else spec
+        self._spec = spec.with_hyperparameters(hyperparameters, check_values=check_values) if hyperparameters else spec
         self._response_transformation = response_transformation
         self._fitted_response_transformation: ResponseTransformer | None = None
         self._sample_featurizer: Featurizer | None = None
@@ -172,9 +173,9 @@ class DRPModel:
     def train(
         self,
         dataset: Dataset,
-        scope: SplitMask,
+        scope: PairMask,
         *,
-        early_stopping_scope: SplitMask | None = None,
+        early_stopping_scope: PairMask | None = None,
         model_checkpoint_dir: str | UPath | None = None,
         n_jobs: int = 1,
     ) -> None:
@@ -202,8 +203,8 @@ class DRPModel:
     def _fit(
         self,
         dataset: Dataset,
-        scope: SplitMask,
-        early_stopping_scope: SplitMask | None,
+        scope: PairMask,
+        early_stopping_scope: PairMask | None,
         *,
         training_context: TrainingContext,
     ) -> None:
@@ -219,20 +220,15 @@ class DRPModel:
         stopping = (
             self._transformed_responses(dataset, early_stopping_scope) if early_stopping_scope is not None else None
         )
-        empty = np.array([], dtype=str)
-        sample_input, drug_input = self._feature_sources(
-            dataset,
-            unique_entity_ids(np.concatenate([output.sample_ids, stopping.sample_ids if stopping else empty])),
-            unique_entity_ids(np.concatenate([output.drug_ids, stopping.drug_ids if stopping else empty])),
+        sample_input, drug_input = self._feature_sources(dataset)
+        output, stopping = usable_pairs(
+            output,
+            stopping,
+            (("sample_ids", self._sample_featurizer, sample_input), ("drug_ids", self._drug_featurizer, drug_input)),
         )
-        output = usable_responses(output, sample_input, drug_input, self._sample_featurizer, self._drug_featurizer)
         if len(output) == 0:
             self.state = ModelState.EMPTY
             return
-        if stopping is not None:
-            stopping = usable_responses(
-                stopping, sample_input, drug_input, self._sample_featurizer, self._drug_featurizer
-            )
         batch = self._batch(
             output,
             sample_input,
@@ -253,7 +249,7 @@ class DRPModel:
             raise RuntimeError("Model has not been trained; call train() or load() before predict()")
         return self._predictor
 
-    def _transformed_responses(self, dataset: Dataset, scope: SplitMask) -> ResponseBatch:
+    def _transformed_responses(self, dataset: Dataset, scope: PairMask) -> ResponseBatch:
         """Return the observed responses in *scope*, transformed by the fitted response transformation.
 
         Only training-time extractions are transformed; prediction reads the raw matrix.
@@ -272,11 +268,9 @@ class DRPModel:
             response.drug_ids,
         )
 
-    def _feature_sources(
-        self, dataset: Dataset, sample_ids: np.ndarray, drug_ids: np.ndarray
-    ) -> tuple[FeatureSource, FeatureSource | None]:
-        sample_source = FeatureSource(dataset, "sample", sample_ids)
-        drug_source = FeatureSource(dataset, "drug", drug_ids) if self._drug_featurizer is not None else None
+    def _feature_sources(self, dataset: Dataset) -> tuple[FeatureSource, FeatureSource | None]:
+        sample_source = FeatureSource(dataset, "sample")
+        drug_source = FeatureSource(dataset, "drug") if self._drug_featurizer is not None else None
         return sample_source, drug_source
 
     def _batch(
@@ -311,7 +305,7 @@ class DRPModel:
             training_context=training_context,
         )
 
-    def predict(self, dataset: Dataset, scope: SplitMask) -> np.ndarray:
+    def predict(self, dataset: Dataset, scope: PairMask) -> np.ndarray:
         """Predict original-unit responses in scope order, preserving missing positions.
 
         Pairs with missing features get NaN predictions.
@@ -329,9 +323,7 @@ class DRPModel:
         predictor = self._require_predictor()
         validate_fit_scopes(dataset, scope, None)
         response = ResponseBatch.from_dataset(dataset, scope)
-        sample_input, drug_input = self._feature_sources(
-            dataset, unique_entity_ids(response.sample_ids), unique_entity_ids(response.drug_ids)
-        )
+        sample_input, drug_input = self._feature_sources(dataset)
         if len(response) == 0:
             return np.empty(0, dtype=float)
         predictions = np.asarray(predictor.predict(self._batch(response, sample_input, drug_input)))

@@ -59,7 +59,7 @@ def test_hyperparameters_must_be_qualified_keys_of_the_config() -> None:
 
 
 def test_dump_and_load_round_trip() -> None:
-    spec = ModelSpec.from_name("MultiViewRandomForest").with_hyperparameters({"n_estimators": 8})
+    spec = ModelSpec.from_name("MultiViewRandomForest").with_hyperparameters({"n_estimators": 8}, check_values=False)
 
     dumped = spec.dump()
 
@@ -67,19 +67,43 @@ def test_dump_and_load_round_trip() -> None:
     assert ModelSpec.load(dumped) == spec
 
 
+def test_check_values_false_takes_values_outside_the_space_but_not_unknown_keys() -> None:
+    spec = ModelSpec.from_name("RandomForest")
+
+    with pytest.raises(ValueError, match="is outside its search space"):
+        spec.with_hyperparameters({"n_estimators": 5})
+    with pytest.raises(ValueError, match="Unknown hyperparameter 'nope'"):
+        spec.with_hyperparameters({"nope": 1}, check_values=False)
+    small = spec.with_hyperparameters({"n_estimators": 5}, check_values=False)
+
+    assert small.hyperparameters["predictor.randomForest.n_estimators"] == 5
+    assert ModelSpec(small.name, small.config, small.hyperparameters) == small
+    assert ModelSpec.load(small.dump()) == small
+
+
 def test_model_id_is_the_recipe_of_the_components() -> None:
     assert ModelSpec.from_name("pca[gene_expression]:fingerprints:elasticNet").model_id == (
-        "pca:fingerprints:elasticNet"
+        "pca[gene_expression]:fingerprints:elasticNet"
     )
     assert ModelSpec.from_name("NaivePredictor").model_id == "naiveMean"
 
 
-def test_spec_snapshots_its_model_config() -> None:
+def test_spec_shares_its_deep_frozen_model_config() -> None:
     config = get_zoo_config("ElasticNet")
     spec = ModelSpec("custom", config)
 
-    assert spec.config is not config
-    assert spec.config.model_dump(mode="python") == config.model_dump(mode="python")
+    assert spec.config is config
+    with pytest.raises(TypeError):
+        spec.config.sample_featurizer.options["gene_list"] = "other"  # type: ignore[index, union-attr]
+
+
+def test_with_hyperparameters_keeps_the_config_and_the_computed_space() -> None:
+    spec = ModelSpec.from_name("ElasticNet")
+
+    derived = spec.with_hyperparameters({"alpha": 0.2})
+
+    assert derived.config is spec.config
+    assert derived.hyperparameter_space is spec.hyperparameter_space
 
 
 def test_invalid_constructor_arguments_are_rejected() -> None:

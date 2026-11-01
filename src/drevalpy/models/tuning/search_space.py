@@ -11,8 +11,6 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any
 
-from drevalpy.components.featurizers._featurizer_label import qualified_featurizer_selector
-from drevalpy.components.featurizers._featurizer_tree import iter_featurizer_leaves
 from drevalpy.models.hyperparameters import FEATURIZER_SLOTS, PREDICTOR_SLOT, key
 from drevalpy.registry.featurizer import get_featurizer
 from drevalpy.registry.predictor import get as get_predictor
@@ -37,10 +35,9 @@ def space(config: ModelConfig) -> dict[str, Any]:
     for side, root in (("sample", config.sample_featurizer), ("drug", config.drug_featurizer)):
         if root is None:
             continue
-        for leaf in iter_featurizer_leaves(root):
-            selector = qualified_featurizer_selector(leaf.name, leaf.view)
+        for leaf in root.leaves():
             leaf_space = _effective_space(leaf.hyperparameter_space, get_featurizer(leaf.name))
-            merged.update({key(FEATURIZER_SLOTS[side], selector, name): spec for name, spec in leaf_space.items()})
+            merged.update({key(FEATURIZER_SLOTS[side], leaf.selector, name): spec for name, spec in leaf_space.items()})
     predictor = config.predictor
     predictor_space = _effective_space(predictor.hyperparameter_space, get_predictor(predictor.name))
     merged.update({key(PREDICTOR_SLOT, predictor.name, name): spec for name, spec in predictor_space.items()})

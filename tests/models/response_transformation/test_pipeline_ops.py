@@ -15,10 +15,10 @@ from drevalpy.models.response_transformation._pipeline_ops import (
     fit_response_transformation,
     group_labels,
 )
-from drevalpy.types import SplitMask
+from drevalpy.types import PairMask
 from drevalpy.types.data.batch.response_batch import ResponseBatch
 from tests.models.synthetic_fixtures import (
-    lso_split_masks,
+    lso_fold,
     small_data_spec,
     synthetic_model_dataset_gene_expression_fingerprints,
     synthetic_model_dataset_identity,
@@ -91,9 +91,9 @@ def test_custom_transform_is_independent_and_round_trips_with_retraining(tmp_pat
     dataset = synthetic_model_dataset_identity()
     first = DRPModel(ModelSpec.from_name("NaivePredictor"), response_transformation=prototype)
     second = DRPModel(first.spec, response_transformation=prototype)
-    scope = lso_split_masks().train
+    scope = lso_fold().train
     first.train(dataset, scope)
-    second.train(dataset, lso_split_masks().test)
+    second.train(dataset, lso_fold().test)
     assert not hasattr(prototype, "mean_")
     assert first._fitted_response_transformation is not second._fitted_response_transformation
     np.testing.assert_allclose(first.predict(dataset, scope), 1.5)
@@ -102,7 +102,7 @@ def test_custom_transform_is_independent_and_round_trips_with_retraining(tmp_pat
     restored = DRPModel.load(tmp_path / "transformed")
     np.testing.assert_array_equal(restored.predict(dataset, scope), first.predict(dataset, scope))
     old_transform = restored._fitted_response_transformation
-    restored.train(dataset, lso_split_masks().test)
+    restored.train(dataset, lso_fold().test)
     assert restored._fitted_response_transformation is not old_transform
     np.testing.assert_allclose(restored.predict(dataset, scope), 3.5)
 
@@ -111,7 +111,7 @@ def test_transform_fits_original_training_population_before_feature_filtering() 
     dataset = synthetic_model_dataset_gene_expression_fingerprints()
     dataset.mdata.mod["gene_expression"].X[1, :] = np.nan
     model = DRPModel(small_data_spec("ElasticNet"), response_transformation=StandardScaler())
-    model.train(dataset, SplitMask(np.ones((2, 2), dtype=bool)))
+    model.train(dataset, PairMask(np.ones((2, 2), dtype=bool)))
     assert model._fitted_response_transformation.mean_[0] == pytest.approx(2.5)
 
 
@@ -127,8 +127,8 @@ def _recorded_fit(monkeypatch) -> list:
 def test_stopping_targets_are_transformed_using_training_statistics(monkeypatch) -> None:
     observed = _recorded_fit(monkeypatch)
     model = DRPModel(ModelSpec.from_name("NaivePredictor"), response_transformation=StandardScaler())
-    training = SplitMask.from_pairs(np.array([[0, 0], [1, 0]]), (2, 2))
-    stopping = SplitMask.from_pairs(np.array([[1, 1]]), (2, 2))
+    training = PairMask.from_pairs(np.array([[0, 0], [1, 0]]), (2, 2))
+    stopping = PairMask.from_pairs(np.array([[1, 1]]), (2, 2))
     model.train(synthetic_model_dataset_identity(), training, early_stopping_scope=stopping)
     np.testing.assert_allclose(observed[0].response, [-1.0, 1.0])
     np.testing.assert_allclose(observed[0].early_stopping_response.response, [2.0])
@@ -215,13 +215,13 @@ class TestGroupsReachTheTransformer:
 class TestGroupMeansInThePipeline:
     """On the 2x2 dataset ``[[1, 2], [3, 4]]`` (samples cl1 = Lung, cl2 = Blood; drugs d1, d2)."""
 
-    def _predictions(self, name: str, train: SplitMask, predict_dataset=None) -> np.ndarray:
+    def _predictions(self, name: str, train: PairMask, predict_dataset=None) -> np.ndarray:
         dataset = _identity_dataset_with_tissues(["Lung", "Blood"])
         model = DRPModel(
             ModelSpec.from_name("NaivePredictor"), response_transformation=get_response_transformation(name)
         )
         model.train(dataset, train)
-        return model.predict(predict_dataset or dataset, SplitMask(np.ones((2, 2), dtype=bool)))
+        return model.predict(predict_dataset or dataset, PairMask(np.ones((2, 2), dtype=bool)))
 
     @pytest.mark.parametrize(
         ("name", "expected"),
@@ -233,20 +233,20 @@ class TestGroupMeansInThePipeline:
         ids=["global-mean", "drug-mean", "unseen-tissue-falls-back-to-drug-mean"],
     )
     def test_trained_on_one_sample(self, name, expected) -> None:
-        np.testing.assert_allclose(self._predictions(name, lso_split_masks().train), expected)
+        np.testing.assert_allclose(self._predictions(name, lso_fold().train), expected)
 
     def test_every_seen_combination_is_reproduced_exactly(self) -> None:
-        everything = SplitMask(np.ones((2, 2), dtype=bool))
+        everything = PairMask(np.ones((2, 2), dtype=bool))
 
         np.testing.assert_allclose(self._predictions("drug_tissue_mean", everything), [1.0, 2.0, 3.0, 4.0])
 
     def test_an_unseen_drug_falls_back_to_the_global_mean(self) -> None:
-        only_d1 = SplitMask.from_pairs(np.array([[0, 0], [1, 0]]), (2, 2))
+        only_d1 = PairMask.from_pairs(np.array([[0, 0], [1, 0]]), (2, 2))
 
         np.testing.assert_allclose(self._predictions("drug_mean", only_d1), 2.0)
 
     def test_the_tissue_is_looked_up_in_the_dataset_that_is_predicted(self) -> None:
-        everything = SplitMask(np.ones((2, 2), dtype=bool))
+        everything = PairMask(np.ones((2, 2), dtype=bool))
         swapped = _identity_dataset_with_tissues(["Blood", "Lung"])
 
         predictions = self._predictions("drug_tissue_mean", everything, predict_dataset=swapped)
@@ -259,11 +259,11 @@ class TestGroupMeansInThePipeline:
         )
 
         with pytest.raises(InvalidInputError, match="no 'tissue' sample column"):
-            model.train(_identity_dataset_with_tissues(None), lso_split_masks().train)
+            model.train(_identity_dataset_with_tissues(None), lso_fold().train)
 
     def test_the_fitted_transformer_travels_in_the_checkpoint(self, tmp_path) -> None:
         dataset = _identity_dataset_with_tissues(["Lung", "Blood"])
-        scope = SplitMask(np.ones((2, 2), dtype=bool))
+        scope = PairMask(np.ones((2, 2), dtype=bool))
         model = DRPModel(
             ModelSpec.from_name("NaivePredictor"), response_transformation=GroupMeanCenterer(("drug", "tissue"))
         )
@@ -278,8 +278,8 @@ class TestGroupMeansInThePipeline:
 
     def test_the_early_stopping_targets_use_the_training_group_means(self, monkeypatch) -> None:
         seen = _recorded_fit(monkeypatch)
-        training = SplitMask.from_pairs(np.array([[0, 0], [1, 0], [0, 1]]), (2, 2))
-        stopping = SplitMask.from_pairs(np.array([[1, 1]]), (2, 2))
+        training = PairMask.from_pairs(np.array([[0, 0], [1, 0], [0, 1]]), (2, 2))
+        stopping = PairMask.from_pairs(np.array([[1, 1]]), (2, 2))
         model = DRPModel(ModelSpec.from_name("NaivePredictor"), response_transformation=GroupMeanCenterer())
 
         model.train(synthetic_model_dataset_identity(), training, early_stopping_scope=stopping)

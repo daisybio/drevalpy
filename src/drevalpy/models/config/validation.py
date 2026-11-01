@@ -11,9 +11,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from drevalpy.components.contracts.feature_format import FeatureFormat
-from drevalpy.components.featurizers._featurizer_tree import iter_featurizer_leaves
 from drevalpy.components.predictors.inputs import Inputs, predictor_inputs
-from drevalpy.models.config._block_specs import resolve_output_block_specs
 from drevalpy.registry.featurizer import get_featurizer
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.data.batch.feature_block import BlockSpec
@@ -54,7 +52,7 @@ def _validate_inputs(predictor: str, side: Side, inputs: Inputs, featurizer: Fea
     :param featurizer: The side's featurizer config.
     :raises ValueError: If a required block is missing, or a matrix input gets a non-numeric block.
     """
-    emitted = resolve_output_block_specs(featurizer)
+    emitted = featurizer.output_blocks()
     if inputs.kind == "matrix":
         if any(spec.format != FeatureFormat.NUMERIC_MATRIX for spec in emitted):
             raise ValueError(
@@ -99,7 +97,7 @@ def validate(config: ModelConfig) -> ModelConfig:
     )
     for side, featurizer in sides:
         if featurizer is not None:
-            for leaf in iter_featurizer_leaves(featurizer):
+            for leaf in featurizer.leaves():
                 get_featurizer(leaf.name, side)
         inputs = predictor_inputs(pred_cls, side)
         if inputs.kind == "none":

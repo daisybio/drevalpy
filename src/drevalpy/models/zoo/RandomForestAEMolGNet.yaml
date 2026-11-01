@@ -1,5 +1,6 @@
 sample_featurizer:
-  aeGeneExpression:
+  name: aeGeneExpression
+  options:
     gene_list: tcga_autoencoder_genes_available
 drug_featurizer: molgnetPooled
 predictor:

@@ -18,7 +18,6 @@ from drevalpy.models.zoo import (
     register_external_zoo_entry,
     zoo_registry,
 )
-from drevalpy.models.zoo._external_load import _collect_zoo_entries_from_yaml, _load_zoo_yaml_mapping
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.enums.model_scope import ModelScope
 from drevalpy.types.enums.prediction_mode import PredictionMode
@@ -178,9 +177,12 @@ def test_an_external_entry_is_listed_replaced_and_cleared() -> None:
     assert list_zoo_names() == list_zoo_names(include_external=False)
 
 
-def test_get_zoo_config_returns_a_copy() -> None:
-    assert get_zoo_config("Ridge") is not zoo_registry().get("Ridge")
-    assert get_zoo_config("Ridge") == zoo_registry().get("Ridge")
+def test_get_zoo_config_returns_the_frozen_entry() -> None:
+    config = get_zoo_config("Ridge")
+
+    assert config is zoo_registry().get("Ridge")
+    with pytest.raises(ValidationError, match="frozen"):
+        config.predictor = config.predictor  # type: ignore[misc]
 
 
 def test_single_drug_knn_zoo_entry_standardizes_per_drug() -> None:
@@ -281,26 +283,37 @@ def test_paccmann_zoo_entry_matches_the_1_6_1_defaults() -> None:
     assert (defaults["epochs"], defaults["patience"]) == (10, 10)
 
 
-def test_load_zoo_yaml_mapping_requires_file(tmp_path) -> None:
-    missing = tmp_path / "missing.yaml"
-    with pytest.raises(FileNotFoundError, match="not found"):
-        _load_zoo_yaml_mapping(missing)
+def test_an_external_zoo_file_must_exist_and_hold_a_mapping(tmp_path) -> None:
+    with pytest.raises(FileNotFoundError, match="External zoo YAML not found"):
+        load_external_zoo_file(tmp_path / "missing.yaml")
+    listed = tmp_path / "list.yaml"
+    listed.write_text("- ElasticNet\n", encoding="utf-8")
+    with pytest.raises(TypeError, match="must contain a mapping"):
+        load_external_zoo_file(listed)
 
 
-def test_collect_zoo_entries_rejects_non_mapping_entry(tmp_path) -> None:
-    data = {"bad": "not-a-dict"}
+def test_an_external_zoo_entry_must_be_a_mapping(tmp_path) -> None:
+    path = tmp_path / "z.yaml"
+    path.write_text("bad: not-a-dict\n", encoding="utf-8")
     with pytest.raises(ValueError, match="must be a mapping"):
-        _collect_zoo_entries_from_yaml(data, source=tmp_path / "z.yaml", builtin_names=frozenset())
+        load_external_zoo_file(path)
 
 
-def test_collect_zoo_entries_single_document_format(tmp_path) -> None:
-    payload = {
-        "predictor": "elasticNet",
-        "sample_featurizer": "scaledGeneExpression",
-        "drug_featurizer": "fingerprints",
-        "name": "customEntry",
-    }
-    parsed = _collect_zoo_entries_from_yaml(payload, source=tmp_path / "z.yaml", builtin_names=frozenset())
-    assert len(parsed) == 1
-    assert parsed[0][0] == "customEntry"
-    assert parsed[0][1].predictor.name == "elasticNet"
+def test_a_single_config_zoo_file_is_named_by_its_name_key(tmp_path) -> None:
+    path = tmp_path / "z.yaml"
+    path.write_text(
+        "name: customEntry\npredictor: elasticNet\nsample_featurizer: scaledGeneExpression\n"
+        "drug_featurizer: fingerprints\n",
+        encoding="utf-8",
+    )
+
+    assert load_external_zoo_file(path) == ["customEntry"]
+    assert get_zoo_config("customEntry").predictor.name == "elasticNet"
+
+
+def test_an_invalid_external_entry_names_the_entry_and_the_file(tmp_path) -> None:
+    path = tmp_path / "z.yaml"
+    path.write_text("broken:\n  predictor: noSuchPredictor\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="Invalid zoo entry 'broken' in ") as caught:
+        load_external_zoo_file(path)
+    assert str(path) in str(caught.value)

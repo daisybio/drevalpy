@@ -26,7 +26,7 @@ from drevalpy.models._archive import (
 )
 from drevalpy.models.config import from_recipe
 from tests.models.synthetic_fixtures import (
-    lso_split_masks,
+    lso_fold,
     small_data_spec,
     synthetic_model_dataset_gene_expression_fingerprints,
 )
@@ -34,7 +34,7 @@ from tests.models.synthetic_fixtures import (
 
 def fitted_elastic_net():
     model = DRPModel(small_data_spec("ElasticNet"), {"alpha": 0.1, "l1_ratio": 0.5})
-    model.train(synthetic_model_dataset_gene_expression_fingerprints(), lso_split_masks().train)
+    model.train(synthetic_model_dataset_gene_expression_fingerprints(), lso_fold().train)
     return model
 
 
@@ -247,9 +247,11 @@ class TestLoadModel:
 
     def test_supports_custom_model_names(self, tmp_path) -> None:
         model = DRPModel(
-            ModelSpec("MyRF", from_recipe("scaledGeneExpression:fingerprints:randomForest")), {"n_estimators": 5}
+            ModelSpec("MyRF", from_recipe("scaledGeneExpression:fingerprints:randomForest")),
+            {"n_estimators": 5},
+            check_values=False,
         )
-        model.train(synthetic_model_dataset_gene_expression_fingerprints(), lso_split_masks().train)
+        model.train(synthetic_model_dataset_gene_expression_fingerprints(), lso_fold().train)
         checkpoint = str(UPath(tmp_path) / "my_rf")
         save_model(model, checkpoint)
 

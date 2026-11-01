@@ -4,11 +4,10 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
-from drevalpy.models.config._recipe import format_model_recipe
+from drevalpy.models.config._parse import format_featurizer_recipe, format_model_recipe
 from drevalpy.models.config.featurizer import FeaturizerConfig
 from drevalpy.models.config.predictor import PredictorConfig
 from drevalpy.models.config.validation import validate
-from drevalpy.models.config.view_resolution import views_from_featurizer_config
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.enums.model_scope import ModelScope
 from drevalpy.types.enums.prediction_mode import PredictionMode
@@ -44,32 +43,33 @@ class ModelConfig(BaseModel):
 
     @property
     def model_id(self) -> str | None:
-        """Stable identifier for a fully specified combination.
+        """The model recipe of this config, which ``from_recipe`` reads back into the same components.
 
-        The identifier is a model recipe, so it is written by the same code that reads one.
-        A drug featurizer without a sample featurizer cannot be expressed as a recipe.
+        Each featurizer slot is written with its views and concat children
+        (``raw[gene_expression]+raw[mutations]:fingerprints:elasticNet``); fixed options and
+        search spaces are not part of a recipe. A drug featurizer without a sample featurizer
+        cannot be expressed as one.
 
-        :returns: Colon-separated featurizer and predictor names, or ``None`` for a drug-only stack.
+        :returns: The recipe, or ``None`` for a drug-only stack.
         """
-        if self.sample_featurizer is None:
-            return self.predictor.name if self.drug_featurizer is None else None
-        drug = None if self.drug_featurizer is None else self.drug_featurizer.name
-        return format_model_recipe(self.sample_featurizer.name, drug, self.predictor.name)
+        sample, drug = (
+            None if slot is None else format_featurizer_recipe(slot)
+            for slot in (self.sample_featurizer, self.drug_featurizer)
+        )
+        if sample is None and drug is not None:
+            return None
+        return format_model_recipe(sample, drug, self.predictor.name)
 
     def sample_views(self) -> list[str]:
         """Return the raw view names required by the sample featurizer tree.
 
         :returns: View names required by the sample featurizer tree.
         """
-        if self.sample_featurizer is None:
-            return []
-        return views_from_featurizer_config(self.sample_featurizer)
+        return [] if self.sample_featurizer is None else self.sample_featurizer.views()
 
     def drug_views(self) -> list[str]:
         """Return the raw view names required by the drug featurizer tree.
 
         :returns: View names required by the drug featurizer tree.
         """
-        if self.drug_featurizer is None:
-            return []
-        return views_from_featurizer_config(self.drug_featurizer)
+        return [] if self.drug_featurizer is None else self.drug_featurizer.views()

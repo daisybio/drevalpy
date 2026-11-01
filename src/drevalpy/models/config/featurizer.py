@@ -2,20 +2,20 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
 from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
 from drevalpy.components.contracts.hyperparameter_space import validate_hyperparameter_space
-from drevalpy.components.featurizers._featurizer_label import requires_explicit_view
-from drevalpy.components.featurizers._featurizer_tree import ensure_unique_qualified_featurizers
-from drevalpy.models.config._featurizer_parse import normalize_featurizer
+from drevalpy.components.featurizers._featurizer_label import CONCAT, requires_explicit_view
+from drevalpy.models.config._parse import normalize_featurizer
 from drevalpy.models.config.immutable import FrozenMapping, thaw_value
 from drevalpy.registry.featurizer import get_featurizer
 
 if TYPE_CHECKING:
     from drevalpy.components.featurizers.featurizer import Featurizer
+    from drevalpy.types.data.batch.feature_block import BlockSpec
 
 
 class FeaturizerConfig(BaseModel):
@@ -30,10 +30,10 @@ class FeaturizerConfig(BaseModel):
     ``raw[gene_expression]+raw[mutations]`` shorthand expands to. The side a featurizer
     runs on is not part of the node: it is the model config slot that holds it.
 
-    Accepts the same notations users write in the docs' recipe strings and YAML (a bare
-    name, a ``name[view]`` label, a list, or a one-key mapping) and normalizes them into
-    these fields. Validation is front-loaded here so a bad recipe fails at load time
-    instead of mid-run.
+    Accepts a recipe string (``name``, ``name[view]``, ``a+b``) or these fields as a mapping,
+    plus ``defaults``, which moves the ``default`` of search-space entries and is folded into
+    ``hyperparameter_space`` (:func:`~drevalpy.models.config._parse.normalize_featurizer`).
+    Validation is front-loaded here so a bad recipe fails at load time instead of mid-run.
 
     ``tuple`` fields plus ``frozen=True`` make an accidental in-place edit of a shared or
     cached config fail loudly. Note this buys *safety*, not hashability: ``options`` and
@@ -54,8 +54,8 @@ class FeaturizerConfig(BaseModel):
     def _normalize_recipe_input(cls, data: object) -> object:
         """Rewrite any accepted spelling of a featurizer into this model's own fields.
 
-        :param data: A recipe string, a list of them, or a mapping of fields.
-        :returns: Canonical field mapping, or *data* unchanged if it is none of these forms.
+        :param data: A recipe string or a mapping of fields.
+        :returns: Canonical field mapping, or *data* unchanged if it is neither.
         """
         if not isinstance(data, (str, list, dict)):
             return data
@@ -117,7 +117,7 @@ class FeaturizerConfig(BaseModel):
         :returns: This config, unchanged.
         :raises ValueError: If concat has no children, or a non-concat featurizer has any.
         """
-        if self.name == "concatFeaturizers":
+        if self.name == CONCAT:
             if not self.featurizers:
                 msg = "concatFeaturizers requires a non-empty featurizers list"
                 raise ValueError(msg)
@@ -127,18 +127,75 @@ class FeaturizerConfig(BaseModel):
         return self
 
     @model_validator(mode="after")
-    def _require_unique_qualified_children(self) -> FeaturizerConfig:
-        """Reject a concat tree that repeats the same qualified leaf, e.g. ``raw[gene_expression]``.
+    def _require_unique_selectors(self) -> FeaturizerConfig:
+        """Reject a concat tree that repeats the same leaf selector, e.g. ``raw[gene_expression]``.
 
         Duplicates would silently emit the same feature block twice. The same base name on
         different views is fine.
 
         :returns: This config, unchanged.
+        :raises ValueError: If the same selector appears twice.
         """
-        if self.name != "concatFeaturizers":
-            return self
-        ensure_unique_qualified_featurizers(self)
+        seen: set[str] = set()
+        for leaf in self.leaves():
+            if leaf.selector in seen:
+                msg = (
+                    f"Duplicate featurizer selector {leaf.selector!r} in one featurizer slot. "
+                    "Each qualified featurizer may appear at most once per slot."
+                )
+                raise ValueError(msg)
+            seen.add(leaf.selector)
         return self
+
+    @property
+    def selector(self) -> str:
+        """This node in hyperparameter keys and concat blocks: ``name[view]``, or ``name`` without a view."""
+        return self.name if self.view is None else f"{self.name}[{self.view}]"
+
+    def leaves(self) -> Iterator[FeaturizerConfig]:
+        """Yield the leaf featurizers of this tree, expanding concat nodes in order.
+
+        :yields: This node when it is a leaf, else the leaves of its children.
+        """
+        if self.name != CONCAT:
+            yield self
+            return
+        for child in self.featurizers or ():
+            yield from child.leaves()
+
+    def leaf_kwargs(self) -> dict[str, Any]:
+        """Return this leaf's construction kwargs at default hyperparameters.
+
+        The fixed ``options``, then the ``default`` of every space entry (the config's own space,
+        else the featurizer class's), then the ``view``. These are the kwargs that
+        ``Featurizer.output_blocks`` and ``Featurizer.views`` read.
+
+        :returns: Keyword arguments for featurizer construction.
+        """
+        kwargs: dict[str, Any] = dict(self.options or {})
+        space = self.hyperparameter_space or get_featurizer(self.name).get_hyperparameter_space()
+        for key, spec in space.items():
+            if isinstance(spec, Mapping) and "default" in spec:
+                kwargs.setdefault(key, spec["default"])
+        if self.view is not None:
+            kwargs.setdefault("view", self.view)
+        return kwargs
+
+    def views(self) -> list[str]:
+        """Return the raw views the leaves of this tree read, at default hyperparameters.
+
+        :returns: View names, leaf by leaf.
+        """
+        return [view for leaf in self.leaves() for view in get_featurizer(leaf.name).views(leaf.leaf_kwargs())]
+
+    def output_blocks(self) -> tuple[BlockSpec, ...]:
+        """Return the blocks this tree emits, at default hyperparameters: the leaves' blocks in order.
+
+        :returns: Block specs emitted by the featurizer tree.
+        """
+        return tuple(
+            spec for leaf in self.leaves() for spec in get_featurizer(leaf.name).output_blocks(leaf.leaf_kwargs())
+        )
 
     def create_instance(self, hyperparameters: Mapping[str, Any] | None = None) -> Featurizer:
         """Instantiate the configured featurizer from the registry.

@@ -1,5 +1,6 @@
 sample_featurizer:
-  scaledGeneExpression:
+  name: scaledGeneExpression
+  options:
     gene_list: landmark_genes
 drug_featurizer: fingerprints
 predictor: neuralNetwork

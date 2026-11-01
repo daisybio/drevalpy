@@ -78,7 +78,7 @@ def randomization(
         except KeyError as error:
             logger.warning("Skipping the %s randomization test of '%s': %s", mode, view, error.args[0])
             continue
-        ds.mdata.uns["randomization_provenance"] = {
+        ds.randomization_provenance = {
             "root_seed": random_state,
             "effective_seed": seed,
             "type": RandomizationType(randomization_type).value,

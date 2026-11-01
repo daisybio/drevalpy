@@ -1,5 +1,6 @@
 sample_featurizer:
-  molirOmics:
+  name: molirOmics
+  options:
     gene_lists:
       gene_expression: gene_expression_intersection
       mutations: mutations_intersection

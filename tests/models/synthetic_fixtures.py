@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from drevalpy.types import SplitMask, SplitMasks
+from drevalpy.types import Fold, PairMask
 from drevalpy.types.data.batch.response_batch import ResponseBatch
 from tests.conftest import MockFeatureSource
 
@@ -165,18 +165,18 @@ def synthetic_model_dataset_identity():
     return Dataset(mdata, name="test")
 
 
-def _mask_2x2(*positions: tuple[int, int]) -> SplitMask:
-    """Build a 2x2 SplitMask with True at the given (row, col) positions."""
+def _mask_2x2(*positions: tuple[int, int]) -> PairMask:
+    """Build a 2x2 PairMask with True at the given (row, col) positions."""
     mask = np.zeros((2, 2), dtype=bool)
     for r, c in positions:
         mask[r, c] = True
-    return SplitMask(mask)
+    return PairMask(mask)
 
 
-def lso_split_masks() -> SplitMasks:
-    """LSO-style masks: cl0 pairs in train, cl1 pairs in test, no val."""
-    return SplitMasks(
+def lso_fold() -> Fold:
+    """LSO-style fold: cl0 pairs in train, cl1 pairs in test, no val."""
+    return Fold(
         train=_mask_2x2((0, 0), (0, 1)),
         test=_mask_2x2((1, 0), (1, 1)),
-        val=SplitMask(np.zeros((2, 2), dtype=bool)),
+        val=PairMask(np.zeros((2, 2), dtype=bool)),
     )

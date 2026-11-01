@@ -1,4 +1,5 @@
 sample_featurizer:
-  scaledGeneExpression:
+  name: scaledGeneExpression
+  options:
     gene_list: landmark_genes
 predictor: singleDrugElasticNet

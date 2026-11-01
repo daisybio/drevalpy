@@ -8,26 +8,21 @@ import yaml
 from pydantic import ValidationError
 from upath import UPath as Path
 
-from drevalpy.models.config._recipe import parse_model_recipe
+from drevalpy.models.config._parse import parse_model_recipe
 from drevalpy.models.config.model import ModelConfig
 from drevalpy.registry.predictor import predictor_registry
 
 __all__ = ["from_dict", "from_recipe", "from_yaml"]
 
 
-def _format_error_entry(error: Any) -> str:
-    location = " -> ".join(str(part) for part in error["loc"])
-    if not location:
-        return str(error["msg"])
-    return f"{location}: {error['msg']}"
-
-
-def _format_validation_error(exc: ValidationError, *, source: Path | str | None = None) -> str:
-    prefix = "Invalid model config"
-    if source is not None:
-        prefix = f"{prefix} in {source}"
-    details = "; ".join(_format_error_entry(error) for error in exc.errors())
-    return f"{prefix}: {details}"
+def _details(exc: ValidationError) -> str:
+    """Join the errors of *exc* as ``location: message``, without pydantic's ``Value error, `` prefix."""
+    entries = []
+    for error in exc.errors():
+        message = str(error["ctx"]["error"]) if error["type"] == "value_error" else str(error["msg"])
+        location = " -> ".join(str(part) for part in error["loc"])
+        entries.append(f"{location}: {message}" if location else message)
+    return "; ".join(entries)
 
 
 def from_dict(data: dict[str, Any], *, source: Path | str | None = None) -> ModelConfig:
@@ -35,7 +30,6 @@ def from_dict(data: dict[str, Any], *, source: Path | str | None = None) -> Mode
 
     This is where the registry is consulted: field validation resolves featurizer and
     predictor names, and the model-level validator checks that the combination is legal.
-    Every other entry point in this module reduces its source to a mapping and ends up here.
 
     :param data: Mapping with featurizer and predictor sections.
     :param source: Optional path or label included in validation error messages.
@@ -45,7 +39,8 @@ def from_dict(data: dict[str, Any], *, source: Path | str | None = None) -> Mode
     try:
         return ModelConfig.model_validate(data)
     except ValidationError as exc:
-        raise ValueError(_format_validation_error(exc, source=source)) from exc
+        where = "" if source is None else f" in {source}"
+        raise ValueError(f"Invalid model config{where}: {_details(exc)}") from exc
 
 
 def _reject_unknown_token(token: str) -> None:
@@ -68,40 +63,51 @@ def _reject_unknown_token(token: str) -> None:
 def from_recipe(recipe: str) -> ModelConfig:
     """Build a ``ModelConfig`` from a recipe string.
 
-    A recipe takes the same two steps as any other config source: ``parse_model_recipe`` reads
-    the syntax into a plain field mapping, then ``from_dict`` resolves the names against the
-    registry and checks that the combination is legal. Zoo names are resolved by
-    :meth:`drevalpy.models.spec.ModelSpec.from_name`, not here.
+    ``parse_model_recipe`` reads the syntax into the plain field mapping a YAML file would hold,
+    then validation resolves the names against the registry and checks that the combination is
+    legal. The error says why the recipe is invalid, without repeating the recipe. Zoo names are
+    resolved by :meth:`drevalpy.models.spec.ModelSpec.from_name`, not here.
 
     :param recipe: A recipe of one to three colon-separated parts, such as
         ``"pca[gene_expression]:fingerprints:elasticNet"``.
     :returns: Validated ``ModelConfig``.
     :raises ValueError: If *recipe* is empty, malformed, names an unknown predictor, or fails validation.
     """
-    trimmed = recipe.strip()
-    if not trimmed:
-        raise ValueError("model spec must be a non-empty string")
-    payload = parse_model_recipe(trimmed)
+    payload = parse_model_recipe(recipe)
     if payload["sample_featurizer"] is None:
         _reject_unknown_token(payload["predictor"])
-    return from_dict(payload, source=f"recipe {trimmed!r}")
+    try:
+        return ModelConfig.model_validate(payload)
+    except ValidationError as exc:
+        raise ValueError(_details(exc)) from exc
 
 
-def from_yaml(path: Path | str) -> ModelConfig:
-    """Load a ``ModelConfig`` from a YAML file.
+def read_yaml_mapping(path: Path | str, what: str) -> dict[str, Any]:
+    """Read a YAML file whose top-level node is a mapping.
 
-    :param path: Path to a YAML mapping describing the model config.
-    :returns: Validated ``ModelConfig`` instance.
+    :param path: YAML file.
+    :param what: What the file holds, for the messages (``"Model config YAML"``).
+    :returns: The parsed mapping.
     :raises FileNotFoundError: If ``path`` does not exist.
     :raises TypeError: If the YAML top-level node is not a mapping.
     """
     yaml_path = Path(path)
     if not yaml_path.is_file():
-        msg = f"Model config YAML not found: {yaml_path}"
-        raise FileNotFoundError(msg)
+        raise FileNotFoundError(f"{what} not found: {yaml_path}")
     with yaml_path.open(encoding="utf-8") as handle:
         data = yaml.safe_load(handle)
     if not isinstance(data, dict):
-        msg = f"Model config YAML must contain a mapping: {yaml_path}"
-        raise TypeError(msg)
-    return from_dict(data, source=yaml_path)
+        raise TypeError(f"{what} must contain a mapping: {yaml_path}")
+    return data
+
+
+def from_yaml(path: Path | str) -> ModelConfig:
+    """Load a ``ModelConfig`` from a YAML file.
+
+    ``read_yaml_mapping`` raises ``FileNotFoundError`` for a missing file and ``TypeError`` when
+    the top-level node is not a mapping.
+
+    :param path: Path to a YAML mapping describing the model config.
+    :returns: Validated ``ModelConfig`` instance.
+    """
+    return from_dict(read_yaml_mapping(path, "Model config YAML"), source=Path(path))

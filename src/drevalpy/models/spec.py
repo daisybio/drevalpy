@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from functools import cached_property
@@ -33,11 +34,6 @@ class UnknownModelError(UnknownNameError):
         self.detail = detail
 
 
-def _recipe_error_detail(name: str, exc: ValueError) -> str:
-    """Strip the wrapper text a recipe error repeats around its actual reason."""
-    return str(exc).removeprefix(f"Invalid model config in recipe {name.strip()!r}: ").replace("Value error, ", "")
-
-
 @dataclass(frozen=True)
 class ModelSpec:
     """A public model name, its component configuration and one value per hyperparameter.
@@ -55,7 +51,9 @@ class ModelSpec:
     hyperparameters: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        """Validate the name and the qualified keys, take a config snapshot and fill in defaults.
+        """Validate the name and the qualified keys and fill in defaults.
+
+        The config is used as given: a ``ModelConfig`` is validated when built and deep-frozen.
 
         :raises ValueError: If the name is empty or a hyperparameter key is not a qualified key of the config.
         :raises TypeError: If ``config`` is not a ``ModelConfig``.
@@ -64,8 +62,7 @@ class ModelSpec:
             raise ValueError("ModelSpec.name must be a non-empty model name")
         if not isinstance(self.config, ModelConfig):
             raise TypeError("ModelSpec.config must be a ModelConfig")
-        object.__setattr__(self, "config", ModelConfig.model_validate(self.config.model_dump(mode="python")))
-        hp.validate(self.config, self.hyperparameters)
+        hp.validate(self.hyperparameter_space, self.hyperparameters)
         defaults = default_values(self.hyperparameter_space, context=f"hyperparameter space of {self.name!r}")
         object.__setattr__(self, "hyperparameters", freeze_value({**defaults, **self.hyperparameters}))
 
@@ -91,21 +88,29 @@ class ModelSpec:
         try:
             config = from_recipe(name)
         except ValueError as exc:
-            raise UnknownModelError(name, _recipe_error_detail(name, exc)) from exc
+            raise UnknownModelError(name, str(exc)) from exc
         return cls(name, config)
 
-    def with_hyperparameters(self, values: Mapping[str, Any]) -> ModelSpec:
+    def with_hyperparameters(self, values: Mapping[str, Any], *, check_values: bool = True) -> ModelSpec:
         """Return this spec with some hyperparameters replaced.
 
         :param values: New values under short keys (``alpha``, when one component owns it) or
             qualified keys (``predictor.elasticNet.alpha``).
-        :returns: A spec with the same name and config, and *values* over this spec's values.
+        :param check_values: Whether each value must lie in its search-space entry. ``False`` allows
+            values tuning could not draw, such as ``max_epochs=1`` for a quick run; keys are still checked.
+        :returns: A spec with the same name and config, and *values* over this spec's values. A key that
+            is unknown or ambiguous, or a value outside its entry when *check_values* is set, raises
+            ``ValueError``.
         """
-        return ModelSpec(self.name, self.config, {**self.hyperparameters, **hp.qualify(self.config, values)})
+        qualified = hp.qualify(self.hyperparameter_space, values, check_values=check_values)
+        # A shallow copy keeps the cached search space; qualified keys need no second validation.
+        derived = copy.copy(self)
+        object.__setattr__(derived, "hyperparameters", freeze_value({**self.hyperparameters, **qualified}))
+        return derived
 
     @cached_property
     def hyperparameter_space(self) -> dict[str, Any]:
-        """The qualified search space of all components."""
+        """The qualified search space of all components, computed once per spec; treat it as read-only."""
         return space(self.config)
 
     @property
@@ -136,16 +141,13 @@ class ModelSpec:
     @property
     def requires_early_stopping(self) -> bool:
         """Whether any configured component requires a stopping holdout."""
-        from drevalpy.components.featurizers._featurizer_tree import iter_featurizer_leaves
         from drevalpy.registry.featurizer import get_featurizer
         from drevalpy.registry.predictor import get as get_predictor
 
         if get_predictor(self.config.predictor.name).requires_early_stopping:
             return True
         for root in (self.config.sample_featurizer, self.config.drug_featurizer):
-            if root is not None and any(
-                get_featurizer(leaf.name).requires_early_stopping for leaf in iter_featurizer_leaves(root)
-            ):
+            if root is not None and any(get_featurizer(leaf.name).requires_early_stopping for leaf in root.leaves()):
                 return True
         return False
 

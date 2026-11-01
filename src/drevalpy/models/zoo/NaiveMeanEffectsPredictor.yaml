@@ -1,6 +1,9 @@
 sample_featurizer:
-  - identity
-  - tissue:
-      allow_missing: true
+  name: concatFeaturizers
+  featurizers:
+    - identity
+    - name: tissue
+      options:
+        allow_missing: true
 drug_featurizer: identity
 predictor: naiveMeanEffects

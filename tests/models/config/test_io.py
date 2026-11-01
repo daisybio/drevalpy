@@ -37,7 +37,7 @@ def test_recipe_with_plus_concat_and_bracket_views() -> None:
     assert sample_children is not None and drug_children is not None
     assert [(child.name, child.view) for child in sample_children] == [("raw", "expression"), ("raw", "mutations")]
     assert [child.name for child in drug_children] == ["fingerprints", "identity"]
-    assert config.model_id == "concatFeaturizers:concatFeaturizers:randomForest"
+    assert config.model_id == "raw[expression]+raw[mutations]:fingerprints+identity:randomForest"
 
 
 @pytest.mark.parametrize(
@@ -47,12 +47,14 @@ def test_recipe_with_plus_concat_and_bracket_views() -> None:
         ("randomForest", "Predictor 'randomForest' requires a sample_featurizer"),
         ("scaledGeneExpression:fingerprints:elasticNet:extra", "Malformed model recipe"),
         ("scaledGeneExpression:fingerprints:bogusPredictor", "Unknown predictor 'bogusPredictor'"),
-        ("bogusFeaturizer:fingerprints:elasticNet", r"in recipe 'bogusFeaturizer:fingerprints:elasticNet'"),
+        ("bogusFeaturizer:fingerprints:elasticNet", r"^Unknown featurizer 'bogusFeaturizer'"),
     ],
 )
 def test_recipe_errors(spec: str, match: str) -> None:
-    with pytest.raises(ValueError, match=match):
+    with pytest.raises(ValueError, match=match) as caught:
         from_recipe(spec)
+    assert "Invalid model config" not in str(caught.value)
+    assert "Value error, " not in str(caught.value)
 
 
 def test_zoo_names_are_not_recipes() -> None:
@@ -139,13 +141,13 @@ def test_from_dict_sections_and_recipe_strings() -> None:
         {
             "sample_featurizer": "raw[expression]+raw[mutations]",
             "drug_featurizer": "fingerprints",
-            "predictor": {"randomForest": {"n_estimators": 10}},
+            "predictor": {"name": "randomForest", "defaults": {"n_estimators": 60}},
         }
     )
     assert config.sample_featurizer is not None
     assert config.sample_featurizer.name == "concatFeaturizers"
     assert config.predictor.hyperparameter_space is not None
-    assert config.predictor.hyperparameter_space["n_estimators"]["default"] == 10
+    assert config.predictor.hyperparameter_space["n_estimators"]["default"] == 60
     assert from_dict({"predictor": "naiveMean"}).predictor.name == "naiveMean"
 
 
@@ -168,7 +170,7 @@ def test_from_yaml(tmp_path: Path) -> None:
         ({"predictor": "naiveMean", "unknown_key": True}, {"source": "my-label"}, r"Invalid model config in my-label:"),
         ({"predictor": "naiveMean", "unknown_key": True}, {}, r"Invalid model config: "),
         ({"predictor": 123}, {}, r"predictor: "),
-        ({"predictor": "elasticNet"}, {}, r"Invalid model config: Value error, Predictor 'elasticNet' requires"),
+        ({"predictor": "elasticNet"}, {}, r"Invalid model config: Predictor 'elasticNet' requires"),
     ],
     ids=["no-predictor", "unknown-key", "bad-mode", "source-label", "no-source", "field-level", "model-level"],
 )

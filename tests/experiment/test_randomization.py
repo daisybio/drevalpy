@@ -33,7 +33,7 @@ class _StubDataset:
     def __init__(self, missing: tuple[str, ...] = ()) -> None:
         self.missing = missing
         self.calls: list[tuple[list[str], dict[str, Any]]] = []
-        self.mdata = SimpleNamespace(uns={})
+        self.randomization_provenance: dict[str, Any] | None = None
         self.tag = "dataset"
         self.randomization: tuple[str, str] | None = None
 
@@ -98,9 +98,11 @@ def test_type_and_seed_defaults_and_overrides() -> None:
     _, kwargs = dataset.calls[0]
     assert kwargs["randomization_type"] == "permutation"
     assert isinstance(kwargs["random_state"], int)
-    assert result[0].mdata.uns["randomization_provenance"]["root_seed"] == 42
+    provenance = result[0].randomization_provenance
+    assert provenance is not None
+    assert provenance["root_seed"] == 42
     # A plain str, not the enum: anndata cannot write an enum into uns.
-    assert type(result[0].mdata.uns["randomization_provenance"]["type"]) is str
+    assert type(provenance["type"]) is str
 
     dataset = _StubDataset()
     randomization(_stub_model(samples=["expr"]), dataset, ["SVRC"], randomization_type="invariant", random_state=7)
@@ -141,7 +143,8 @@ def test_real_model_config_views_and_real_dataset(synthetic_dataset, caplog: pyt
     assert [ds.randomization for ds in results] == [("SVRC", "gene_expression")]
     assert results[0] is not synthetic_dataset
     assert synthetic_dataset.randomization is None
-    provenance = results[0].mdata.uns["randomization_provenance"]
+    provenance = results[0].randomization_provenance
+    assert provenance is not None
     assert (provenance["root_seed"], provenance["views"]) == (0, ["gene_expression"])
 
     with caplog.at_level("WARNING", logger="drevalpy.experiment._randomization"):

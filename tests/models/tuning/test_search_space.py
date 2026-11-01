@@ -36,14 +36,14 @@ def test_space_orders_sample_then_drug_then_predictor() -> None:
 def test_a_declared_space_replaces_the_class_space() -> None:
     config = ModelConfig.model_validate(
         {
-            "sample_featurizer": {"pca[expression]": {"n_components": 7}},
+            "sample_featurizer": {"name": "pca", "view": "expression", "defaults": {"n_components": 16}},
             "drug_featurizer": "fingerprints",
             "predictor": "elasticNet",
         }
     )
 
-    assert space(config)["sample_featurizer.pca[expression].n_components"]["default"] == 7
-    assert ModelSpec("custom", config).hyperparameters["sample_featurizer.pca[expression].n_components"] == 7
+    assert space(config)["sample_featurizer.pca[expression].n_components"]["default"] == 16
+    assert ModelSpec("custom", config).hyperparameters["sample_featurizer.pca[expression].n_components"] == 16
 
 
 def test_feature_free_models_have_an_empty_space() -> None:

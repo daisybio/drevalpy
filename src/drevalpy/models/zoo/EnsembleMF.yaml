@@ -1,8 +1,14 @@
 sample_featurizer:
-  scaledGeneExpression:
+  name: scaledGeneExpression
+  options:
     gene_list: landmark_genes
     transform: rank
 drug_featurizer:
-  fingerprints:
-    n_bits: 256
+  name: fingerprints
+  # The fingerprint space with n_bits widened down to 2**8: EnsembleMF uses 256 bits (as in 1.6.1).
+  hyperparameter_space:
+    radius: { type: int, low: 1, high: 3, default: 2 }
+    n_bits: { type: pow2, low: 8, high: 11, default: 256 }
+    use_chirality: { type: categorical, choices: [true, false], default: false }
+    use_counts: { type: categorical, choices: [true, false], default: false }
 predictor: ensembleMF

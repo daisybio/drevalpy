@@ -10,15 +10,15 @@ import pytest
 from drevalpy.experiment import robustness
 from drevalpy.experiment._execution import build_execution
 from drevalpy.models import ModelSpec
-from drevalpy.types import SplitMask, SplitMasks
+from drevalpy.types import Fold, PairMask
 from tests.models.synthetic_fixtures import synthetic_model_dataset
 
 
-def _build(spec, dataset, masks):
+def _build(spec, dataset, fold):
     return build_execution(
         spec,
         dataset,
-        masks,
+        fold,
         hyperparameter_tuning=False,
         hpo_metric="RMSE",
         hpo_num_trials=2,
@@ -29,15 +29,15 @@ def _build(spec, dataset, masks):
 
 def _execution(monkeypatch, *, stopping=True, seed=17, split_mode="LPO"):
     dataset = synthetic_model_dataset()
-    masks = SplitMasks(
-        SplitMask(np.array([[True, False], [False, False]]), seed),
-        SplitMask(np.array([[False, False], [False, True]]), seed),
-        SplitMask(np.array([[False, True], [True, False]]), seed),
+    fold = Fold(
+        PairMask(np.array([[True, False], [False, False]]), seed),
+        PairMask(np.array([[False, False], [False, True]]), seed),
+        PairMask(np.array([[False, True], [True, False]]), seed),
         {"split_mode": split_mode, "fold_index": 1, "nested": {"values": [1, 2]}},
     )
     spec = ModelSpec.from_name("NaivePredictor")
     monkeypatch.setattr(ModelSpec, "supports_early_stopping", property(lambda self: stopping))
-    return _build(spec, dataset, masks), masks, dataset
+    return _build(spec, dataset, fold), fold, dataset
 
 
 def test_stopping_partition_is_reused_for_final_fit(monkeypatch):
@@ -45,7 +45,7 @@ def test_stopping_partition_is_reused_for_final_fit(monkeypatch):
     scopes = execution.scopes
     assert len(scopes.stopping) == 1
     assert len(scopes.validation) == 1
-    assert not (scopes.final_training & scopes.stopping).mask.any()
+    assert not (scopes.final_training.mask & scopes.stopping.mask).any()
     assert scopes.final_training == original.train | scopes.validation
     assert scopes.training.pair_seed == scopes.final_training.pair_seed == 17
     assert execution.metadata["execution"]["hpo"]["random_state"] == 9
@@ -91,15 +91,26 @@ def test_original_overlap_is_rejected_before_execution(monkeypatch):
         _build(execution.model, dataset, replace(original, test=original.train))
 
 
+@pytest.mark.parametrize(
+    ("overrides", "message"),
+    [({"hpo_metric": "NoSuchMetric"}, "NoSuchMetric"), ({"hpo_num_trials": -1}, "n_trials must be >= 0 \\(got -1\\)")],
+)
+def test_tuning_settings_are_validated(monkeypatch, overrides, message):
+    execution, original, dataset = _execution(monkeypatch)
+    settings = {"hyperparameter_tuning": True, "hpo_metric": "RMSE", "hpo_num_trials": 2, "hpo_random_state": 9}
+    with pytest.raises(ValueError, match=message):
+        build_execution(execution.model, dataset, original, **{**settings, **overrides}, seed=5)
+
+
 def test_a_stored_lco_mode_is_recorded_as_lso():
     dataset = synthetic_model_dataset()
-    masks = SplitMasks(
-        SplitMask(np.array([[True, True], [False, False]]), 17),
-        SplitMask(np.array([[False, False], [False, False]]), 17),
-        SplitMask(np.array([[False, False], [True, True]]), 17),
+    fold = Fold(
+        PairMask(np.array([[True, True], [False, False]]), 17),
+        PairMask(np.array([[False, False], [False, False]]), 17),
+        PairMask(np.array([[False, False], [True, True]]), 17),
         {"split_mode": "LCO", "fold_index": 0},
     )
-    execution = _build(ModelSpec.from_name("NaivePredictor"), dataset, masks)
+    execution = _build(ModelSpec.from_name("NaivePredictor"), dataset, fold)
     assert execution.identity.split_mode == "LSO"
     assert execution.result_metadata()["split_mode"] == "LSO"
 
@@ -115,31 +126,31 @@ def test_lsto_folds_are_validated_as_lsto_not_as_lpo(monkeypatch):
 
 
 @pytest.fixture
-def split_masks() -> SplitMasks:
+def fold() -> Fold:
     rng = np.random.default_rng(0)
     train = rng.random((6, 5)) < 0.6
     test = (~train) & (rng.random((6, 5)) < 0.5)
-    return SplitMasks(
-        train=SplitMask(train),
-        test=SplitMask(test),
-        val=SplitMask(~train & ~test),
+    return Fold(
+        train=PairMask(train),
+        test=PairMask(test),
+        val=PairMask(~train & ~test),
         metadata={"fold_index": 3, "split_mode": "LPO"},
     )
 
 
-def test_variant_count_and_metadata(split_masks: SplitMasks) -> None:
-    assert robustness(split_masks, 0) == []
-    variants = robustness(split_masks, 3)
+def test_variant_count_and_metadata(fold: Fold) -> None:
+    assert robustness(fold, 0) == []
+    variants = robustness(fold, 3)
     assert [v.metadata["robustness_repeat"] for v in variants] == [0, 1, 2]
     assert variants[0].metadata["fold_index"] == 3
     assert variants[0].metadata["split_mode"] == "LPO"
-    assert "robustness_repeat" not in split_masks.metadata
+    assert "robustness_repeat" not in fold.metadata
 
 
-def test_only_pair_order_changes_and_trial_index_seeds_the_shuffle(split_masks: SplitMasks) -> None:
-    first, _, third = robustness(split_masks, 3)
+def test_only_pair_order_changes_and_trial_index_seeds_the_shuffle(fold: Fold) -> None:
+    first, _, third = robustness(fold, 3)
     for name in ("train", "test", "val"):
-        np.testing.assert_array_equal(getattr(third, name).mask, getattr(split_masks, name).mask)
-        np.testing.assert_array_equal(getattr(third, name).pairs, getattr(split_masks, name).shuffled(seed=2).pairs)
-    assert not np.array_equal(third.train.pairs, split_masks.train.pairs)
+        np.testing.assert_array_equal(getattr(third, name).mask, getattr(fold, name).mask)
+        np.testing.assert_array_equal(getattr(third, name).pairs, getattr(fold, name).shuffled(seed=2).pairs)
+    assert not np.array_equal(third.train.pairs, fold.train.pairs)
     assert not np.array_equal(first.train.pairs, third.train.pairs)

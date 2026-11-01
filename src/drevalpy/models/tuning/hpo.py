@@ -1,32 +1,37 @@
-"""Optuna hyperparameter optimization for DRPModel experiments."""
+"""Optuna hyperparameter tuning of one model on one fold.
+
+:func:`hpam_tune` reads every tuning decision (trial count, metric, sampler seed and the scopes)
+from the fold's ``ExecutionSpec``, so it is called the same way whether or not the run tunes: an
+untuned run, zero trials or an empty search space return the spec's defaults without Optuna.
+Each trial trains a fresh ``DRPModel`` on the training scope and is scored on the validation
+scope with every metric; the study minimizes or maximizes the execution's metric.
+"""
 
 from __future__ import annotations
 
 import warnings
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
-from upath import UPath as Path
 
 from drevalpy.errors import DrEvalError
+from drevalpy.evaluation import Metric
+from drevalpy.evaluation._scoring import evaluate
 from drevalpy.experiment._tracking import log_summary, require_tracking, tracking_run
 from drevalpy.log import get_logger
 from drevalpy.models.config.immutable import thaw_value
 from drevalpy.models.spec import ModelSpec
-from drevalpy.models.tuning.config import HPOConfig
-from drevalpy.models.tuning.hpo_runtime import (
-    _construct_trial_model,
-    _mu_evaluate_trial_all_metrics,
-    run_optuna_study,
-)
 from drevalpy.models.tuning.search_space import draw
-from drevalpy.types import SplitMask
+from drevalpy.types.data.batch.response_batch import ResponseBatch
 from drevalpy.types.data.dataset import Dataset
+from drevalpy.types.results.trial import TrialResult
 
 if TYPE_CHECKING:
     import optuna
 
+    from drevalpy.experiment._execution import ExecutionSpec
     from drevalpy.models.response_transformation import ResponseTransformer
 
 logger = get_logger(__name__)
@@ -58,83 +63,58 @@ class _TrialFailures:
             self.first = exc
 
 
-def _prefixed(prefix: str, metrics: dict[str, float]) -> dict[str, float]:
-    return {f"{prefix}{key}": value for key, value in metrics.items()}
-
-
-def _is_valid_score(value: float) -> bool:
-    return bool(np.isfinite(value))
-
-
 def hpam_tune(
-    *,
-    model_spec: ModelSpec,
+    execution: ExecutionSpec,
     dataset: Dataset,
-    train_scope: SplitMask,
-    val_scope: SplitMask,
-    early_stopping_scope: SplitMask | None,
+    *,
     response_transformation: ResponseTransformer | None = None,
-    model_checkpoint_dir: str | Path | None = None,
-    hpo_config: HPOConfig | None = None,
-    split_index: int | None = None,
     wandb_project: str | None = None,
-    wandb_base_config: dict[str, Any] | None = None,
+    wandb_base_config: Mapping[str, Any] | None = None,
     n_jobs: int = 1,
-) -> tuple[dict[str, Any], list[tuple[dict[str, Any], dict[str, float], np.ndarray]]]:
-    """Tune hyperparameters using Dataset + SplitMask with Optuna.
+) -> tuple[dict[str, Any], list[TrialResult]]:
+    """Tune the hyperparameters of the execution's model with Optuna.
 
-    Returns the best hyperparameter mapping and per-trial results with all metrics.
     Raises ``ImportError`` if *wandb_project* is set and ``wandb`` is not installed, and
     ``HPOTrialsFailedError`` if every trial raised, so no tuning information was produced.
 
-    :param model_spec: Named model recipe to tune.
+    :param execution: Fold decisions: the model, its scopes, and the tuning metric, trial count and sampler seed.
     :param dataset: Full dataset with all features.
-    :param train_scope: Training SplitMask.
-    :param val_scope: Validation SplitMask for scoring.
-    :param early_stopping_scope: Optional early-stopping scope.
-    :param response_transformation: Optional unfitted response transformation.
-    :param model_checkpoint_dir: Directory for model checkpoints.
-    :param hpo_config: Number of trials, metric to optimize and sampler seed; ``HPOConfig()`` when omitted.
-    :param split_index: Fold index, used in the W&B run names.
+    :param response_transformation: Optional unfitted response transformation, cloned for every trial.
     :param wandb_project: W&B project to log one run per trial to; ``None`` disables tracking.
     :param wandb_base_config: Base W&B config; each trial's drawn hyperparameters are added to it.
     :param n_jobs: Worker processes a single-drug predictor fits its per-drug models in, for every trial.
-    :returns: Tuple of (best_params, trial_results): the complete best values under qualified keys,
-        and one (drawn values, metrics_dict, predictions) tuple per completed trial.
+    :returns: The complete best values under qualified keys (the spec's defaults when nothing is tuned),
+        and one ``TrialResult`` per completed trial.
     """
-    cfg = hpo_config or HPOConfig()
-    metric = cfg.metric
-    structured_space = model_spec.hyperparameter_space
-    if not structured_space or cfg.n_trials == 0:
-        return _defaults(model_spec), []
+    spec = execution.model
+    structured_space = spec.hyperparameter_space
+    if not (execution.hyperparameter_tuning and execution.hpo_num_trials and structured_space):
+        return _defaults(spec), []
 
     require_tracking(wandb_project)
-    model_name = model_spec.name
-    all_trial_data: list[tuple[dict[str, Any], dict[str, float], np.ndarray]] = []
+    metric, scopes, fold_index = execution.hpo_metric, execution.scopes, execution.identity.fold_index
+    ground_truth = ResponseBatch.from_dataset(dataset, scopes.validation).response
+    trials: list[TrialResult] = []
     failures = _TrialFailures()
 
-    def objective_with_metrics(trial: Any) -> float:
-        drawn = draw(trial, structured_space)
-        trial_model = _construct_trial_model(model_spec, drawn, response_transformation)
+    def objective(trial: optuna.Trial) -> float:
+        from drevalpy.models.drp_model import DRPModel
 
+        drawn = draw(trial, structured_space)
+        model = DRPModel(spec.with_hyperparameters(drawn), response_transformation=response_transformation)
         try:
             with tracking_run(
                 wandb_project,
-                name=f"{model_name}_split{split_index}_trial{trial.number}",
+                name=f"{spec.name}_split{fold_index}_trial{trial.number}",
                 config={**(wandb_base_config or {}), **drawn},
-                tags=[model_name, "trial"],
+                tags=[spec.name, "trial"],
             ):
-                metrics, predictions = _mu_evaluate_trial_all_metrics(
-                    trial_model,
-                    dataset=dataset,
-                    train_scope=train_scope,
-                    val_scope=val_scope,
-                    early_stopping_scope=early_stopping_scope,
-                    model_checkpoint_dir=model_checkpoint_dir,
-                    trial_number=trial.number,
-                    n_jobs=n_jobs,
+                model.train(dataset, scopes.training, early_stopping_scope=scopes.stopping, n_jobs=n_jobs)
+                predictions = model.predict(dataset, scopes.validation)
+                metrics = evaluate(predictions, ground_truth)
+                log_summary(
+                    {"hpo_metric": metrics.get(metric, float("nan")), **{f"val_{k}": v for k, v in metrics.items()}}
                 )
-                log_summary({"hpo_metric": metrics.get(metric, float("nan")), **_prefixed("val_", metrics)})
         except Exception as exc:
             # Returning NaN rather than re-raising keeps the study running, so a
             # search space with a few invalid corners still tunes. Whether the
@@ -144,15 +124,29 @@ def hpam_tune(
             return float("nan")
 
         if metrics:
-            all_trial_data.append((drawn, metrics, predictions))
-
+            trials.append(TrialResult(drawn, metrics, metric, predictions))
         target = metrics.get(metric, float("nan"))
-        return target if _is_valid_score(target) else float("nan")
+        return target if np.isfinite(target) else float("nan")
 
-    study = run_optuna_study(objective=objective_with_metrics, cfg=cfg)
+    study = _run_study(objective, execution)
     _report_trial_failures(study, failures)
-    best_params = _resolve_best_params(study, model_spec)
-    return best_params, all_trial_data
+    return _best_params(study, spec), trials
+
+
+def _run_study(objective: Callable[[optuna.Trial], float], execution: ExecutionSpec) -> optuna.Study:
+    """Run a seeded TPE study of ``execution.hpo_num_trials`` trials in the direction of the metric.
+
+    :param objective: Function Optuna calls once per trial; it returns the score.
+    :param execution: Fold decisions giving the metric, trial count and sampler seed.
+    :returns: Completed Optuna study.
+    """
+    import optuna
+
+    direction = "minimize" if Metric(execution.hpo_metric).direction == "min" else "maximize"
+    sampler = optuna.samplers.TPESampler(seed=execution.hpo_random_state)
+    study = optuna.create_study(direction=direction, sampler=sampler)
+    study.optimize(objective, n_trials=execution.hpo_num_trials)
+    return study
 
 
 def _report_trial_failures(study: optuna.Study, failures: _TrialFailures) -> None:
@@ -180,8 +174,8 @@ def _report_trial_failures(study: optuna.Study, failures: _TrialFailures) -> Non
     raise HPOTrialsFailedError(msg) from failures.first
 
 
-def _resolve_best_params(study: optuna.Study, model_spec: ModelSpec) -> dict[str, Any]:
-    """Extract best hyperparameters from a completed Optuna study."""
+def _best_params(study: optuna.Study, spec: ModelSpec) -> dict[str, Any]:
+    """Return the complete values of the best trial, or the defaults when no trial scored."""
     from optuna.trial import FixedTrial
 
     try:
@@ -189,19 +183,16 @@ def _resolve_best_params(study: optuna.Study, model_spec: ModelSpec) -> dict[str
     except ValueError:
         best_trial = None
 
-    if best_trial is None or not _is_valid_score(best_trial.value):
-        warnings.warn(
-            "Optuna tuning did not find a valid configuration; using defaults.",
-            stacklevel=2,
-        )
-        return _defaults(model_spec)
+    if best_trial is None or best_trial.value is None or not np.isfinite(best_trial.value):
+        warnings.warn("Optuna tuning did not find a valid configuration; using defaults.", stacklevel=2)
+        return _defaults(spec)
 
     # ``best_trial.params`` holds what Optuna sampled (a ``pow2`` exponent), not what
     # the trials trained with; replaying it through the draw code decodes it identically.
-    best = draw(FixedTrial(best_trial.params), model_spec.hyperparameter_space)
-    return _defaults(model_spec.with_hyperparameters(best))
+    best = draw(FixedTrial(best_trial.params), spec.hyperparameter_space)
+    return _defaults(spec.with_hyperparameters(best))
 
 
-def _defaults(model_spec: ModelSpec) -> dict[str, Any]:
+def _defaults(spec: ModelSpec) -> dict[str, Any]:
     """Return an independent copy of the spec's values under qualified keys."""
-    return thaw_value(dict(model_spec.hyperparameters))
+    return thaw_value(dict(spec.hyperparameters))

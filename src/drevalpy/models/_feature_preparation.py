@@ -1,28 +1,29 @@
 """Prepare entity features once and select usable response pairs for a fit.
 
-:func:`prepare_features` owns everything around a featurizer's ``fit`` and ``transform``:
-which entities are usable (``valid_mask``), the NaN-threshold warning, the stored-output
-lookup, fitting, transforming, padding unusable entities back with missing values, and the
-entity-order check. Featurizers therefore only ever see usable entity IDs.
+:func:`usable_pairs` asks each featurizer once per fit which entities are usable
+(``valid_mask`` on the unique entities of the training and early-stopping pairs) and keeps the
+pairs whose sample and drug both are. :func:`prepare_features` owns everything around a
+featurizer's ``fit`` and ``transform``: fitting on usable entities, transforming every entity
+once, padding unusable entities back with missing values at prediction, the NaN-threshold
+warning and the entity-order check. Featurizers therefore only ever see usable entity IDs.
 """
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from dataclasses import dataclass, replace
+from typing import TYPE_CHECKING
 
 import numpy as np
 
-from drevalpy.components.featurizers.featurizer import (
-    Featurizer,
-    fit_unless_stored,
-    transform_or_stored,
-    usable,
-)
 from drevalpy.log import get_logger
 from drevalpy.types.data.batch.feature_block import FeatureBlock, FeaturizerResult
-from drevalpy.types.data.batch.response_batch import ResponseBatch
-from drevalpy.types.data.feature_source import FeatureSource
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
+    from drevalpy.components.featurizers.featurizer import Featurizer
+    from drevalpy.types.data.batch.response_batch import ResponseBatch
+    from drevalpy.types.data.feature_source import FeatureSource
 
 _logger = get_logger(__name__)
 
@@ -81,25 +82,38 @@ def _check_side(featurizer: Featurizer, source: FeatureSource) -> None:
         raise ValueError(msg)
 
 
-def _fit(featurizer: Featurizer, source: FeatureSource, fit: FitIds) -> None:
-    """Fit *featurizer* on the usable entities of the training pairs, unless its output is stored.
+def usable_pairs(
+    response: ResponseBatch,
+    stopping: ResponseBatch | None,
+    sides: tuple[tuple[str, Featurizer | None, FeatureSource | None], ...],
+) -> tuple[ResponseBatch, ResponseBatch | None]:
+    """Keep the observed pairs whose entities are usable under each featurizer's missing-input policy.
 
-    :param featurizer: Featurizer to fit.
-    :param source: Feature source of the featurizer's side.
-    :param fit: Training and early-stopping pairs.
-    :raises ValueError: If the featurizer requires early stopping and no usable early-stopping pair remains.
+    Each featurizer's ``valid_mask`` runs once, on the unique entities of the training and
+    early-stopping pairs together.
+
+    :param response: Training pairs.
+    :param stopping: Early-stopping pairs, or ``None``.
+    :param sides: ``(pair attribute, featurizer, source)`` per side: ``"sample_ids"`` or ``"drug_ids"``,
+        and ``None`` for a side without a featurizer.
+    :returns: The usable training and early-stopping pairs, in their original order.
     """
-    train_ids = unique_entity_ids(fit.train_pair_ids)
-    valid = usable(featurizer, source, train_ids)
-    _warn_if_above_threshold(featurizer, valid, "fit")
-    train_ids = train_ids if valid.all() else train_ids[valid]
-    train_pair_ids = fit.train_pair_ids[np.isin(fit.train_pair_ids, train_ids)]
-    es_pair_ids = fit.es_pair_ids
-    if es_pair_ids is not None:
-        es_pair_ids = es_pair_ids[usable(featurizer, source, es_pair_ids)]
-    if featurizer.requires_early_stopping and (es_pair_ids is None or len(es_pair_ids) == 0):
-        raise ValueError(f"{type(featurizer).__name__} requires a usable early-stopping holdout")
-    fit_unless_stored(featurizer, source, train_ids, train_pair_ids=train_pair_ids, es_pair_ids=es_pair_ids)
+    keep = ~np.isnan(response.response)
+    keep_stopping = None if stopping is None else ~np.isnan(stopping.response)
+    for attr, featurizer, source in sides:
+        if featurizer is None or source is None:
+            continue
+        pair_ids = getattr(response, attr)
+        stopping_ids = None if stopping is None else getattr(stopping, attr)
+        ids = unique_entity_ids(pair_ids if stopping_ids is None else np.concatenate([pair_ids, stopping_ids]))
+        valid = featurizer.valid_mask(source, ids)
+        _warn_if_above_threshold(featurizer, valid, "fit")
+        if valid.all():
+            continue
+        keep &= np.isin(pair_ids, ids[valid])
+        if keep_stopping is not None:
+            keep_stopping &= np.isin(stopping_ids, ids[valid])
+    return response.subset(keep), None if stopping is None else stopping.subset(keep_stopping)
 
 
 def _padded_block(block: FeatureBlock, valid: np.ndarray) -> FeatureBlock:
@@ -138,53 +152,36 @@ def prepare_features(
 ) -> FeaturizerResult:
     """Fit *featurizer* when *fit* is given, then compute the features of every entity in *ids* once.
 
-    Unusable entities (``valid_mask``) are left out of ``fit`` and ``transform`` and get NaN
-    rows (``None`` for object blocks). When the source stores the featurizer's output for its
-    ``stored_params()``, the featurizer is neither fitted nor transformed.
+    With *fit*, every ID must be usable: the pairs come from :func:`usable_pairs`. Without it
+    (prediction), unusable entities (``valid_mask``) are left out of ``transform`` and get NaN
+    rows (``None`` for object blocks).
 
     :param featurizer: Featurizer to run.
     :param source: Feature source of the featurizer's side.
     :param ids: Entities to compute, possibly repeated (one per pair).
-    :param fit: Training pairs to fit on first; ``None`` only transforms.
+    :param fit: Usable training and early-stopping pairs to fit on first; ``None`` only transforms.
     :returns: Features in stable unique entity order.
-    :raises ValueError: If the featurizer does not support the source's side, or its transform
-        does not keep the requested entity order.
+    :raises ValueError: If the featurizer does not support the source's side, requires early stopping
+        and no early-stopping pair is given, or its transform does not keep the requested entity order.
     """
     _check_side(featurizer, source)
-    if fit is not None:
-        _fit(featurizer, source, fit)
     ids = unique_entity_ids(ids)
-    valid = usable(featurizer, source, ids)
-    _warn_if_above_threshold(featurizer, valid, "transform")
-    features = transform_or_stored(featurizer, source, ids[valid])
+    if fit is None:
+        valid = featurizer.valid_mask(source, ids)
+        _warn_if_above_threshold(featurizer, valid, "transform")
+    else:
+        if featurizer.requires_early_stopping and (fit.es_pair_ids is None or len(fit.es_pair_ids) == 0):
+            raise ValueError(f"{type(featurizer).__name__} requires a usable early-stopping holdout")
+        featurizer.fit(
+            source,
+            unique_entity_ids(fit.train_pair_ids),
+            train_pair_ids=fit.train_pair_ids,
+            es_pair_ids=fit.es_pair_ids,
+        )
+        valid = np.ones(len(ids), dtype=bool)
+    features = featurizer.transform(source, ids[valid])
     if not np.array_equal(features.entity_ids, ids[valid]):
         raise ValueError(f"{type(featurizer).__name__} must preserve requested entity order")
     if valid.all():
         return features
     return FeaturizerResult(ids, _padded(features.blocks, valid), features.projection)
-
-
-def usable_responses(
-    response: ResponseBatch,
-    sample_input: FeatureSource,
-    drug_input: FeatureSource | None,
-    sample_featurizer: Featurizer | None,
-    drug_featurizer: Featurizer | None,
-) -> ResponseBatch:
-    """Select observed pairs eligible under each component's missing-input policy.
-
-    :param response: Requested targets and pair identifiers.
-    :param sample_input: Raw sample features.
-    :param drug_input: Optional raw drug features.
-    :param sample_featurizer: Sample eligibility policy.
-    :param drug_featurizer: Optional drug eligibility policy.
-    :returns: Aligned observed, usable pairs in their original order.
-    """
-    keep = ~np.isnan(response.response)
-    for ids, featurizer, source in (
-        (response.sample_ids, sample_featurizer, sample_input),
-        (response.drug_ids, drug_featurizer, drug_input),
-    ):
-        if featurizer is not None and source is not None:
-            keep &= usable(featurizer, source, ids)
-    return response.subset(keep)

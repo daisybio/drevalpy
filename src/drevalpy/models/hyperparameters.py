@@ -21,8 +21,9 @@ from collections import defaultdict
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any
 
+from drevalpy.components.contracts.hyperparameter_space import admits
+
 if TYPE_CHECKING:
-    from drevalpy.models.config import ModelConfig
     from drevalpy.types.data.feature_source import Side
 
 PREDICTOR_SLOT = "predictor"
@@ -59,56 +60,98 @@ def _param(qualified: str) -> str:
     return qualified.rsplit(".", 1)[1]
 
 
-def qualify(config: ModelConfig, values: Mapping[str, Any]) -> dict[str, Any]:
+def qualify(known: Mapping[str, Any], values: Mapping[str, Any], *, check_values: bool = True) -> dict[str, Any]:
     """Return *values* under qualified keys.
 
     Short, qualified and mixed keys are accepted.
 
-    :param config: Model configuration whose components own the hyperparameters.
+    :param known: The model's search space, whose keys are the qualified keys it owns.
     :param values: Hyperparameter values keyed by short or qualified names.
+    :param check_values: Whether each value must lie in its search-space entry (see :func:`check_value`).
     :returns: The same values keyed by qualified names, in input order.
-    :raises ValueError: If a key is unknown or ambiguous, or two keys name the same hyperparameter.
+    :raises ValueError: If a key is unknown or ambiguous, two keys name the same hyperparameter, or
+        *check_values* is set and a value lies outside its search-space entry.
     """
-    from drevalpy.models.tuning.search_space import space
-
-    known = space(config)
     owners: dict[str, list[str]] = defaultdict(list)
     for qualified in known:
         owners[_param(qualified)].append(qualified)
     result: dict[str, Any] = {}
     given: dict[str, str] = {}
     for name, value in values.items():
-        if name in known:
-            qualified = name
-        elif "." not in name and len(owners.get(name, ())) == 1:
-            qualified = owners[name][0]
-        elif "." not in name and name in owners:
-            alternatives = ", ".join(repr(owner) for owner in owners[name])
-            raise ValueError(f"Ambiguous hyperparameter {name!r}. Use one of: {alternatives}.")
-        else:
-            raise ValueError(_unknown(name, known))
+        qualified = _resolve(name, known, owners)
         if qualified in given:
             raise ValueError(
                 f"Duplicate hyperparameter assignment for {qualified!r} from {given[qualified]!r} and {name!r}."
             )
         given[qualified] = name
+        if check_values:
+            check_value(qualified, value, known)
         result[qualified] = value
     return result
 
 
-def validate(config: ModelConfig, values: Mapping[str, Any]) -> None:
-    """Check that every key of *values* is a qualified key that *config*'s components own.
+def _resolve(name: str, known: Mapping[str, Any], owners: Mapping[str, list[str]]) -> str:
+    """Return the qualified key that the short or qualified *name* refers to.
 
-    :param config: Model configuration whose components own the hyperparameters.
-    :param values: Hyperparameter values keyed by qualified names.
-    :raises ValueError: If a key is not a qualified key of *config*.
+    :param name: A key as the user wrote it.
+    :param known: The model's search space.
+    :param owners: Short parameter name mapped to the qualified keys that have it.
+    :returns: The qualified key.
+    :raises ValueError: If *name* is unknown or ambiguous.
     """
-    from drevalpy.models.tuning.search_space import space
+    if name in known:
+        return name
+    if "." not in name and len(owners.get(name, ())) == 1:
+        return owners[name][0]
+    if "." not in name and name in owners:
+        alternatives = ", ".join(repr(owner) for owner in owners[name])
+        raise ValueError(f"Ambiguous hyperparameter {name!r}. Use one of: {alternatives}.")
+    raise ValueError(_unknown(name, known))
 
-    known = space(config)
+
+def validate(known: Mapping[str, Any], values: Mapping[str, Any]) -> None:
+    """Check that every key of *values* is a qualified key of the model.
+
+    Values are not checked against the space: this validates stored values, which
+    ``with_hyperparameters(..., check_values=False)`` may have placed outside it.
+
+    :param known: The model's search space, whose keys are the qualified keys it owns.
+    :param values: Hyperparameter values keyed by qualified names.
+    :raises ValueError: If a key is not a qualified key of the model.
+    """
     for name in values:
         if name not in known:
             raise ValueError(_unknown(name, known))
+
+
+def check_value(qualified: str, value: Any, known: Mapping[str, Any]) -> None:
+    """Require *value* to be one tuning could draw for *qualified*; ``fixed`` entries take any value.
+
+    :param qualified: A qualified key of *known*.
+    :param value: The value given for it.
+    :param known: The model's search space.
+    :raises ValueError: If *value* lies outside the entry's range or choices.
+    """
+    spec = known[qualified]
+    if not admits(spec, value):
+        raise ValueError(
+            f"Hyperparameter {qualified!r} = {value!r} is outside its search space ({_describe(spec)}). Widen "
+            "the space with hyperparameter_space in the model config, or pass check_values=False to "
+            "with_hyperparameters or DRPModel to use it anyway."
+        )
+
+
+def _describe(spec: Mapping[str, Any]) -> str:
+    """Phrase the values a search-space entry admits."""
+    kind = spec.get("type", "categorical")
+    if kind == "categorical":
+        return f"one of {list(spec['choices'])}"
+    low, high = spec.get("low"), spec.get("high")
+    if kind == "pow2":
+        kind = "a power of two"
+        low, high = (None if bound is None else 2 ** int(bound) for bound in (low, high))
+    bounds = [f"{word} {bound}" for word, bound in (("from", low), ("to", high)) if bound is not None]
+    return " ".join([kind, *bounds])
 
 
 def _unknown(name: str, known: Mapping[str, Any]) -> str:

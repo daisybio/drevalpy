@@ -12,8 +12,9 @@ from drevalpy._utils.seed import seed_everything
 from drevalpy.models import DRPModel, ModelSpec
 from drevalpy.models.config import FeaturizerConfig, ModelConfig, from_recipe
 from drevalpy.models.zoo import get_zoo_config
-from drevalpy.types import SplitMask, SplitMasks
+from drevalpy.types import Fold, PairMask
 from drevalpy.types.data.dataset import Dataset
+from drevalpy.types.data.feature_source import FeatureSource
 from tests.synthetic.variants import (
     SUPPORTED_GLOBAL_MODELS,
     SUPPORTED_SINGLE_DRUG_MODELS,
@@ -115,7 +116,7 @@ def _stub_molgnet_embeddings(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("drevalpy.components.featurizers.drug.molgnet._compute_molgnet_embedding", embed)
 
 
-def _first_lto_fold(dataset: Dataset) -> SplitMasks:
+def _first_lto_fold(dataset: Dataset) -> Fold:
     """Return the first Leave-Tissue-Out fold of *dataset*."""
     from drevalpy.data import CurveQuality
     from drevalpy.registry.splitter import get as get_splitter
@@ -123,13 +124,13 @@ def _first_lto_fold(dataset: Dataset) -> SplitMasks:
     return get_splitter("LTO")(dataset, n_splits=2, validation_ratio=0.4, quality=CurveQuality.off())[0]
 
 
-def _train(model: DRPModel, dataset: Dataset, split: SplitMasks) -> None:
-    """Train *model* on the fold's training scope, early-stopping on its validation split when supported."""
+def _train(model: DRPModel, dataset: Dataset, fold: Fold) -> None:
+    """Train *model* on the fold's training scope, early-stopping on its validation pairs when supported."""
     with tempfile.TemporaryDirectory() as checkpoint_dir:
         model.train(
             dataset,
-            split.train,
-            early_stopping_scope=split.early_stopping_mask()[0] if model.spec.supports_early_stopping else None,
+            fold.train,
+            early_stopping_scope=fold.early_stopping_mask()[0] if model.spec.supports_early_stopping else None,
             model_checkpoint_dir=checkpoint_dir,
         )
 
@@ -137,7 +138,7 @@ def _train(model: DRPModel, dataset: Dataset, split: SplitMasks) -> None:
 def _assert_round_trips(
     model: DRPModel,
     dataset: Dataset,
-    split: SplitMask,
+    scope: PairMask,
     preds: np.ndarray,
 ) -> None:
     """Assert a save/load cycle reproduces the prediction shape."""
@@ -146,7 +147,7 @@ def _assert_round_trips(
         model.save(checkpoint)
         loaded_model = DRPModel.load(checkpoint)
         assert isinstance(loaded_model, DRPModel)
-        np.testing.assert_allclose(preds, loaded_model.predict(dataset, split), rtol=1e-5, atol=1e-6)
+        np.testing.assert_allclose(preds, loaded_model.predict(dataset, scope), rtol=1e-5, atol=1e-6)
 
 
 def _resolve_single_drug_model_name(whole_name: str) -> str:
@@ -178,48 +179,50 @@ def test_global_models(synthetic_dataset: Dataset, model_name: str, monkeypatch:
     """Each global model trains, predicts and reloads on a Leave-Tissue-Out fold."""
     if model_name == "RandomForestAEMolGNet":
         _stub_molgnet_embeddings(monkeypatch)
-    split = _first_lto_fold(synthetic_dataset)
+    fold = _first_lto_fold(synthetic_dataset)
 
     whole_name, model_name = _resolve_global_model_name(model_name)
     spec = _construct_global_model_spec(whole_name, model_name)
     hpam_combi: dict[str, Any] = {}
     _apply_global_model_hpam_tweaks(model_name, hpam_combi)
-    model = DRPModel(spec, hpam_combi)
+    model = DRPModel(spec, hpam_combi, check_values=False)
 
-    _train(model, synthetic_dataset, split)
+    _train(model, synthetic_dataset, fold)
 
-    preds = model.predict(synthetic_dataset, split.test)
+    preds = model.predict(synthetic_dataset, fold.test)
     assert isinstance(preds, np.ndarray)
     assert preds.shape[0] > 0
 
-    _assert_round_trips(model, synthetic_dataset, split.test, preds)
+    _assert_round_trips(model, synthetic_dataset, fold.test, preds)
 
 
 def test_multi_view_neural_network_custom_views(synthetic_dataset: Dataset) -> None:
-    split = _first_lto_fold(synthetic_dataset)
+    fold = _first_lto_fold(synthetic_dataset)
     spec = ModelSpec(
         "MultiViewNeuralNetwork",
         _zoo_config_variant(
             "MultiViewNeuralNetwork", sample_featurizer=FeaturizerConfig(name="raw", view="methylation")
         ),
     )
-    model = DRPModel(spec, {"units_per_layer": [2, 2], "dropout_prob": 0.3, "max_epochs": 1})
+    model = DRPModel(spec, {"units_per_layer": [2, 2], "dropout_prob": 0.3, "max_epochs": 1}, check_values=False)
 
-    _train(model, synthetic_dataset, split)
+    _train(model, synthetic_dataset, fold)
 
-    preds = model.predict(synthetic_dataset, split.test)
+    preds = model.predict(synthetic_dataset, fold.test)
     assert preds.shape[0] > 0
-    _assert_round_trips(model, synthetic_dataset, split.test, preds)
+    _assert_round_trips(model, synthetic_dataset, fold.test, preds)
 
 
 def test_partial_omics_coverage_trains() -> None:
     dataset = build_partial_coverage_dataset()
-    assert np.isnan(dataset.get_sample_features("gene_expression", dataset.sample_ids)).all(axis=1).any()
-    split = _first_lto_fold(dataset)
-    model = DRPModel(ModelSpec.from_name("SimpleNeuralNetwork"), {"units_per_layer": [2, 2], "max_epochs": 1})
+    assert np.isnan(FeatureSource(dataset, "sample").view("gene_expression", dataset.sample_ids)).all(axis=1).any()
+    fold = _first_lto_fold(dataset)
+    model = DRPModel(
+        ModelSpec.from_name("SimpleNeuralNetwork"), {"units_per_layer": [2, 2], "max_epochs": 1}, check_values=False
+    )
 
     with tempfile.TemporaryDirectory() as tmpdirname:
-        model.train(dataset, split.train, model_checkpoint_dir=tmpdirname)
+        model.train(dataset, fold.train, model_checkpoint_dir=tmpdirname)
 
 
 @pytest.mark.parametrize("model_name", [model_param(name) for name in SUPPORTED_SINGLE_DRUG_MODELS])
@@ -230,16 +233,16 @@ def test_single_drug_models(synthetic_dataset: Dataset, model_name: str) -> None
     whole_name = model_name
     model_name = _resolve_single_drug_model_name(whole_name)
 
-    split = _first_lto_fold(synthetic_dataset)
+    fold = _first_lto_fold(synthetic_dataset)
 
     spec = _construct_single_drug_spec(whole_name, model_name)
     hpam_combi: dict[str, Any] = {}
     _configure_single_drug_hpam(model_name, hpam_combi)
-    model = DRPModel(spec, hpam_combi)
+    model = DRPModel(spec, hpam_combi, check_values=False)
 
-    _train(model, synthetic_dataset, split)
+    _train(model, synthetic_dataset, fold)
 
-    preds = model.predict(synthetic_dataset, split.test)
+    preds = model.predict(synthetic_dataset, fold.test)
     assert isinstance(preds, np.ndarray)
     assert preds.shape[0] > 0
 
@@ -248,7 +251,7 @@ def test_single_drug_models(synthetic_dataset: Dataset, model_name: str) -> None
         model.save(checkpoint)
         loaded_model = DRPModel.load(checkpoint)
         assert isinstance(loaded_model, DRPModel)
-        np.testing.assert_allclose(preds, loaded_model.predict(synthetic_dataset, split.test), rtol=1e-5, atol=1e-5)
+        np.testing.assert_allclose(preds, loaded_model.predict(synthetic_dataset, fold.test), rtol=1e-5, atol=1e-5)
 
 
 @pytest.mark.parametrize(
@@ -258,7 +261,7 @@ def test_single_drug_models(synthetic_dataset: Dataset, model_name: str) -> None
 def test_n_jobs_changes_the_speed_not_the_model(synthetic_dataset: Dataset, model_name: str, tmp_path) -> None:
     """Fitting the drugs in two worker processes gives the model of fitting them one after the other."""
     name = _resolve_single_drug_model_name(model_name)
-    split = _first_lto_fold(synthetic_dataset)
+    fold = _first_lto_fold(synthetic_dataset)
     spec = _construct_single_drug_spec(model_name, name)
     hpam_combi: dict[str, Any] = {}
     _configure_single_drug_hpam(name, hpam_combi)
@@ -268,17 +271,17 @@ def test_n_jobs_changes_the_speed_not_the_model(synthetic_dataset: Dataset, mode
     predictions, restored = {}, {}
     for n_jobs in (1, 2):
         seed_everything(42)
-        model = DRPModel(spec, hpam_combi)
+        model = DRPModel(spec, hpam_combi, check_values=False)
         model.train(
             synthetic_dataset,
-            split.train,
-            early_stopping_scope=split.early_stopping_mask()[0] if spec.supports_early_stopping else None,
+            fold.train,
+            early_stopping_scope=fold.early_stopping_mask()[0] if spec.supports_early_stopping else None,
             model_checkpoint_dir=tmp_path / f"checkpoints_{n_jobs}",
             n_jobs=n_jobs,
         )
-        predictions[n_jobs] = model.predict(synthetic_dataset, split.test)
+        predictions[n_jobs] = model.predict(synthetic_dataset, fold.test)
         model.save(tmp_path / f"model_{n_jobs}")
-        restored[n_jobs] = DRPModel.load(tmp_path / f"model_{n_jobs}").predict(synthetic_dataset, split.test)
+        restored[n_jobs] = DRPModel.load(tmp_path / f"model_{n_jobs}").predict(synthetic_dataset, fold.test)
 
     assert np.isfinite(predictions[1]).all()
     np.testing.assert_array_equal(predictions[1], predictions[2])
@@ -311,19 +314,19 @@ class TestDIPKArtifactIntegration:
 
         with _isolated_reference_rng(seed):
             dataset = build_synthetic_dataset(seed=seed)
-            split = _first_lto_fold(dataset)
+            fold = _first_lto_fold(dataset)
             model = DRPModel(
                 ModelSpec.from_name("DIPK"), {"epochs": 2, "epochs_autoencoder": 2, "batch_size": 8, "heads": 1}
             )
             model.train(
                 dataset,
-                split.train,
-                early_stopping_scope=split.early_stopping_mask()[0],
+                fold.train,
+                early_stopping_scope=fold.early_stopping_mask()[0],
                 model_checkpoint_dir=str(tmp_path),
             )
-            predictions = model.predict(dataset, split.test)
+            predictions = model.predict(dataset, fold.test)
             assert np.isfinite(predictions).all()
             checkpoint = str(tmp_path / "model")
             model.save(checkpoint)
             restored = DRPModel.load(checkpoint)
-            np.testing.assert_allclose(predictions, restored.predict(dataset, split.test), rtol=1e-5, atol=1e-6)
+            np.testing.assert_allclose(predictions, restored.predict(dataset, fold.test), rtol=1e-5, atol=1e-6)

@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
 from drevalpy.components.contracts.hyperparameter_space import validate_hyperparameter_space
-from drevalpy.models.config._predictor_parse import normalize_predictor_config
+from drevalpy.models.config._parse import normalize_predictor
 from drevalpy.models.config.immutable import FrozenMapping, thaw_value
 from drevalpy.registry.predictor import get as get_predictor
 
@@ -35,17 +35,15 @@ class PredictorConfig(BaseModel):
         """Rewrite the various ways of writing a predictor into this model's own fields.
 
         The featurizer counterpart of this hook, for the predictor slot: accepts a bare
-        recipe string such as ``"elasticNet"`` or a one-key mapping like
-        ``{"randomForest": {"n_estimators": 10}}``, and reduces each to ``name`` plus
-        ``hyperparameter_space``.
+        recipe string such as ``"elasticNet"`` or a mapping like
+        ``{"name": "randomForest", "defaults": {"n_estimators": 10}}``, and reduces each to
+        ``name`` plus ``hyperparameter_space``.
 
         :param data: A recipe string or a mapping of fields.
         :returns: Canonical field mapping, or *data* unchanged if it is already canonical.
         """
-        if isinstance(data, str):
-            return normalize_predictor_config(data)
-        if isinstance(data, dict) and "name" not in data:
-            return normalize_predictor_config(data)
+        if isinstance(data, (str, dict)):
+            return normalize_predictor(data)
         return data
 
     @model_validator(mode="after")

@@ -10,19 +10,16 @@ name, never a built-in one.
 
 from __future__ import annotations
 
+from typing import Any
+
 from upath import UPath as Path
 
 from drevalpy.log import get_logger
 from drevalpy.models.config import ModelConfig
-from drevalpy.models.config.io import from_yaml
+from drevalpy.models.config.io import from_dict, from_yaml, read_yaml_mapping
 from drevalpy.registry._registry import Registry, Snapshot
 from drevalpy.types.enums.model_scope import ModelScope
 from drevalpy.types.enums.prediction_mode import PredictionMode
-
-from ._external_load import (
-    _collect_zoo_entries_from_yaml,
-    _load_zoo_yaml_mapping,
-)
 
 _BUILTIN_ZOO_DIR = Path(__file__).resolve().parent
 logger = get_logger(__name__)
@@ -90,21 +87,25 @@ def list_zoo_names(
 
 
 def get_zoo_config(name: str, *, prediction_mode: PredictionMode | None = None) -> ModelConfig:
-    """Return a copy of a zoo entry by name.
+    """Return a zoo entry by name.
 
-    An unknown *name* raises :class:`~drevalpy.errors.UnknownNameError`.
+    An unknown *name* raises :class:`~drevalpy.errors.UnknownNameError`. Configs are deep-frozen,
+    so the entry itself is returned and shared safely.
 
     :param name: Built-in or externally registered zoo preset name.
-    :param prediction_mode: Optional prediction mode overriding the preset's own value.
-    :returns: Deep copy of the zoo ``ModelConfig``.
+    :param prediction_mode: Optional prediction mode overriding the preset's own; the config is
+        validated again with it, since the predictor must support the mode.
+    :returns: The zoo ``ModelConfig``.
     """
-    return _clone_model_config(zoo_registry().get(name), prediction_mode=prediction_mode)
+    config = zoo_registry().get(name)
+    if prediction_mode is None:
+        return config
+    return ModelConfig.model_validate({**config.model_dump(mode="python"), "prediction_mode": prediction_mode})
 
 
 def _assert_not_builtin(name: str) -> None:
     if name in _builtin_names():
-        msg = f"External zoo entry {name!r} collides with a built-in preset"
-        raise ValueError(msg)
+        raise ValueError(f"External zoo entry {name!r} collides with a built-in preset")
 
 
 def register_external_zoo_entry(name: str, config: ModelConfig, *, replace: bool = True) -> None:
@@ -118,7 +119,7 @@ def register_external_zoo_entry(name: str, config: ModelConfig, *, replace: bool
     :param replace: Allow replacing an existing external entry with the same name.
     """
     _assert_not_builtin(name)
-    zoo_registry().register(name, _clone_model_config(config), replace=replace)
+    zoo_registry().register(name, config, replace=replace)
 
 
 def clear_external_zoo() -> None:
@@ -129,24 +130,46 @@ def clear_external_zoo() -> None:
     registry.restore(Snapshot(registry.kind, kept))
 
 
+def _parse_zoo_file(data: dict[str, Any], source: Path) -> list[tuple[str, ModelConfig]]:
+    """Validate every entry of an external zoo file.
+
+    A file holding one config (it has a ``predictor`` key) names its entry by its ``name``
+    key, else by the file stem; any other file maps entry names to configs.
+
+    :param data: Parsed YAML mapping.
+    :param source: The file, for the messages and the default entry name.
+    :returns: ``(name, config)`` per entry, in file order.
+    :raises ValueError: If an entry is not a mapping, collides with a built-in preset or fails validation.
+    """
+    if "predictor" in data:
+        payload = dict(data)
+        entries = {str(payload.pop("name", source.stem)): payload}
+    else:
+        entries = {str(name): entry for name, entry in data.items()}
+    parsed = []
+    for name, entry in entries.items():
+        if not isinstance(entry, dict):
+            raise ValueError(f"Zoo entry {name!r} must be a mapping in {source}")
+        _assert_not_builtin(name)
+        payload = {key: value for key, value in entry.items() if key != "name"}
+        try:
+            parsed.append((name, from_dict(payload, source=source)))
+        except ValueError as exc:
+            raise ValueError(f"Invalid zoo entry {name!r} in {source}: {exc}") from exc
+    return parsed
+
+
 def load_external_zoo_file(path: Path | str) -> list[str]:
     """Load one or more zoo entries from a YAML file, replacing external entries of the same name.
 
-    Validates the complete file before mutating the zoo.
+    Validates the complete file before mutating the zoo. ``read_yaml_mapping`` raises
+    ``FileNotFoundError`` for a missing file and ``TypeError`` for one that holds no mapping.
 
-    :param path: YAML file mapping preset names to model configs.
+    :param path: YAML file mapping preset names to model configs, or holding one model config.
     :returns: Names of entries loaded from the file.
     """
     yaml_path = Path(path)
-    data = _load_zoo_yaml_mapping(yaml_path)
-    parsed = _collect_zoo_entries_from_yaml(data, source=yaml_path, builtin_names=_builtin_names())
-    for entry_name, config in parsed:
-        zoo_registry().register(entry_name, _clone_model_config(config), replace=True)
-    return [entry_name for entry_name, _ in parsed]
-
-
-def _clone_model_config(config: ModelConfig, *, prediction_mode: PredictionMode | None = None) -> ModelConfig:
-    payload = config.model_dump(mode="python")
-    if prediction_mode is not None:
-        payload["prediction_mode"] = prediction_mode
-    return ModelConfig.model_validate(payload)
+    parsed = _parse_zoo_file(read_yaml_mapping(yaml_path, "External zoo YAML"), yaml_path)
+    for name, config in parsed:
+        zoo_registry().register(name, config, replace=True)
+    return [name for name, _ in parsed]

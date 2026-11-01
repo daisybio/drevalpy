@@ -1,20 +1,24 @@
-"""Parsing of model configs: the recipe grammar, featurizer/predictor normalization and space defaults."""
+"""Parsing of model configs: the recipe grammar and the accepted and rejected featurizer/predictor spellings."""
 
 from __future__ import annotations
 
+import ast
+import re
 from typing import Any
 
 import pytest
 
 from drevalpy.models.config import FeaturizerConfig
-from drevalpy.models.config._featurizer_parse import normalize_featurizer, split_loose_values
-from drevalpy.models.config._predictor_parse import normalize_predictor_config
-from drevalpy.models.config._recipe import (
+from drevalpy.models.config._parse import (
     expand_featurizer_recipe,
     format_model_recipe,
+    normalize_featurizer,
+    normalize_predictor,
     parse_featurizer_atoms,
     parse_model_recipe,
 )
+from drevalpy.registry.featurizer import get_featurizer
+from drevalpy.registry.predictor import get as get_predictor
 
 
 @pytest.mark.parametrize(
@@ -167,27 +171,17 @@ def test_formatting_rejects_missing_slots() -> None:
         format_model_recipe(None, "fingerprints", "elasticNet")
 
 
-def _normalize_recipe(recipe: str) -> dict:
-    return normalize_featurizer(recipe)
-
-
-def test_normalize_named_mapping() -> None:
-    payload = normalize_featurizer({"name": "fingerprints"})
-    assert payload == {"name": "fingerprints"}
-
-
-def test_normalize_rejects_invalid_shape() -> None:
-    with pytest.raises(TypeError, match="string, list or mapping"):
-        normalize_featurizer(123)
+def _space(cls: type, **defaults: Any) -> dict[str, Any]:
+    """The class's own space with some defaults moved, as ``defaults:`` records it."""
+    space = cls.get_hyperparameter_space()
+    return {key: {**spec, "default": defaults[key]} if key in defaults else spec for key, spec in space.items()}
 
 
 _CANONICAL_CONCAT = {
     "name": "concatFeaturizers",
-    "featurizers": [
-        {"name": "raw", "view": "gene_expression"},
-        {"name": "raw", "view": "mutations"},
-    ],
+    "featurizers": [{"name": "raw", "view": "gene_expression"}, {"name": "raw", "view": "mutations"}],
 }
+_PCA_SPACE = {"n_components": {"type": "int", "low": 2, "high": 99, "default": 5}}
 
 
 @pytest.mark.parametrize(
@@ -196,55 +190,130 @@ _CANONICAL_CONCAT = {
         ("scaledGeneExpression", {"name": "scaledGeneExpression"}),
         ("raw[gene_expression]", {"name": "raw", "view": "gene_expression"}),
         ("raw[gene_expression]+raw[mutations]", _CANONICAL_CONCAT),
-        (["raw[gene_expression]", "raw[mutations]"], _CANONICAL_CONCAT),
-        ({"pca[methylation]": {"n_components": 8}}, {"name": "pca", "view": "methylation"}),
         ({"name": "raw", "view": "gene_expression"}, {"name": "raw", "view": "gene_expression"}),
+        (_CANONICAL_CONCAT, _CANONICAL_CONCAT),
+        (
+            {
+                "name": "concatFeaturizers",
+                "featurizers": ["raw[gene_expression]", {"name": "raw", "view": "mutations"}],
+            },
+            _CANONICAL_CONCAT,
+        ),
+        (
+            {"name": "scaledGeneExpression", "options": {"gene_list": "landmark_genes"}},
+            {"name": "scaledGeneExpression", "options": {"gene_list": "landmark_genes"}},
+        ),
+        (
+            {"name": "fingerprints", "defaults": {"n_bits": 512}},
+            {"name": "fingerprints", "hyperparameter_space": _space(get_featurizer("fingerprints"), n_bits=512)},
+        ),
+        (
+            {"name": "pca", "view": "methylation", "hyperparameter_space": _PCA_SPACE, "defaults": {"n_components": 8}},
+            {
+                "name": "pca",
+                "view": "methylation",
+                "hyperparameter_space": {"n_components": {**_PCA_SPACE["n_components"], "default": 8}},
+            },
+        ),
+        (
+            {"name": "landmarkGenes", "options": {"arcsinh": False}, "defaults": {"standardize": False}},
+            {
+                "name": "landmarkGenes",
+                "options": {"arcsinh": False},
+                "hyperparameter_space": _space(get_featurizer("landmarkGenes"), standardize=False),
+            },
+        ),
     ],
-    ids=["name", "name-view", "plus-recipe", "list", "one-key-mapping", "canonical"],
+    ids=[
+        "name",
+        "name-view",
+        "plus-recipe",
+        "canonical",
+        "canonical-concat",
+        "concat-children-as-recipes",
+        "options",
+        "defaults",
+        "defaults-in-declared-space",
+        "options-and-defaults",
+    ],
 )
-def test_every_spelling_normalizes_to_the_canonical_config(raw: object, expected: dict) -> None:
-    payload = normalize_featurizer(raw)
-    space = payload.pop("hyperparameter_space", None)
-
-    assert payload == expected
-    assert space is None or space["n_components"]["default"] == 8
-    assert FeaturizerConfig.model_validate(raw) == FeaturizerConfig.model_validate(normalize_featurizer(raw))
+def test_accepted_featurizer_spellings_normalize_to_canonical_fields(raw: object, expected: dict) -> None:
+    assert normalize_featurizer(raw) == expected
+    assert FeaturizerConfig.model_validate(raw) == FeaturizerConfig.model_validate(expected)
 
 
-def test_normalize_list_shorthand() -> None:
-    payload = normalize_featurizer(
-        ["scaledGeneExpression", "raw[mutations]", {"pca[methylation]": {"n_components": 64}}],
-    )
-    assert payload["name"] == "concatFeaturizers"
-    children = payload["featurizers"]
-    assert children[0]["name"] == "scaledGeneExpression"
-    assert (children[1]["name"], children[1]["view"]) == ("raw", "mutations")
-    assert (children[2]["name"], children[2]["view"]) == ("pca", "methylation")
-    assert children[2]["hyperparameter_space"]["n_components"]["default"] == 64
-    assert all("registry" not in child for child in children)
-
-
-def test_normalize_rejects_empty_list() -> None:
-    with pytest.raises(ValueError, match="non-empty"):
-        normalize_featurizer([])
-
-
-def test_a_recipe_and_the_equivalent_yaml_normalize_alike() -> None:
-    from_recipe = _normalize_recipe("raw[expression]+pca[methylation]")
-    from_yaml = normalize_featurizer(
-        {
-            "name": "concatFeaturizers",
-            "featurizers": [{"name": "raw", "view": "expression"}, {"name": "pca", "view": "methylation"}],
-        },
-    )
-    assert from_recipe == from_yaml
-    assert [child["view"] for child in from_recipe["featurizers"]] == ["expression", "methylation"]
-
-
-def test_normalize_records_no_registry_on_children() -> None:
-    children = _normalize_recipe("fingerprints+identity")["featurizers"]
-    assert [child["name"] for child in children] == ["fingerprints", "identity"]
-    assert all("registry" not in child for child in children)
+@pytest.mark.parametrize(
+    ("raw", "error", "match"),
+    [
+        (
+            ["raw[gene_expression]", "raw[mutations]"],
+            ValueError,
+            "featurizer list is not accepted; write 'raw[gene_expression]+raw[mutations]'",
+        ),
+        (
+            ["identity", {"name": "tissue"}],
+            ValueError,
+            "write {'name': 'concatFeaturizers', 'featurizers': ['identity', {'name': 'tissue'}]}",
+        ),
+        (
+            {"fingerprints": {"n_bits": 512}},
+            ValueError,
+            "one-key featurizer mapping {'fingerprints': ...} is not accepted; "
+            "write {'name': 'fingerprints', 'options': {'n_bits': 512}}, "
+            "with tunable hyperparameters under 'defaults' instead of 'options'",
+        ),
+        (
+            {"pca[methylation]": None},
+            ValueError,
+            "write {'name': 'pca', 'view': 'methylation'}",
+        ),
+        (
+            {"concatFeaturizers": {"featurizers": ["scaledGeneExpression", "raw[mutations]"]}},
+            ValueError,
+            "write {'name': 'concatFeaturizers', 'featurizers': ['scaledGeneExpression', 'raw[mutations]']}",
+        ),
+        ({"view": "methylation", "options": {}}, ValueError, "needs a 'name' key, got keys ['options', 'view']"),
+        (
+            {"name": "fingerprints", "defaults": {"not_a_knob": 1}},
+            ValueError,
+            "defaults of featurizer 'fingerprints': 'not_a_knob' is not a tunable hyperparameter "
+            "(tunable: n_bits, radius, use_chirality, use_counts); put fixed constructor values under 'options'",
+        ),
+        (
+            {"name": "fingerprints", "defaults": 5},
+            ValueError,
+            "defaults of featurizer 'fingerprints' must be a mapping",
+        ),
+        (
+            {"name": "pca", "view": "methylation", "options": {"n_components": 4}},
+            ValueError,
+            "options of featurizer 'pca' name tunable hyperparameters (n_components); "
+            "set their value under 'defaults' instead",
+        ),
+        (
+            {"name": "concatFeaturizers", "featurizers": "scaledGeneExpression"},
+            ValueError,
+            "featurizers must be a list when set",
+        ),
+        (123, TypeError, "recipe string or a mapping with 'name'"),
+    ],
+    ids=[
+        "list-of-recipes",
+        "list-of-mappings",
+        "one-key",
+        "one-key-without-body",
+        "one-key-concat",
+        "no-name",
+        "defaults-not-tunable",
+        "defaults-not-a-mapping",
+        "tunable-option",
+        "children-not-a-list",
+        "not-a-config",
+    ],
+)
+def test_rejected_featurizer_spellings_name_the_canonical_form(raw: object, error: type[Exception], match: str) -> None:
+    with pytest.raises(error, match=re.escape(match)):
+        normalize_featurizer(raw)
 
 
 @pytest.mark.parametrize(
@@ -255,7 +324,7 @@ def test_normalize_records_no_registry_on_children() -> None:
 def test_views_are_passed_through_unchanged(name, view) -> None:
     payload = normalize_featurizer({"name": name, "view": view})
     assert payload == {"name": name, "view": view}
-    assert _normalize_recipe(f"{name}[{view}]") == payload
+    assert normalize_featurizer(f"{name}[{view}]") == payload
 
 
 @pytest.mark.parametrize(
@@ -273,64 +342,6 @@ def test_view_parametric_featurizer_without_a_usable_view_is_rejected(raw, match
         FeaturizerConfig.model_validate(raw)
 
 
-_EXPLICIT_SPACE = {"n_components": {"type": "int", "low": 2, "high": 99, "default": 5}}
-
-
-@pytest.mark.parametrize(
-    ("body", "expected_space_default", "expected_options"),
-    [
-        ({"n_components": 8}, 8, None),
-        ({"hyperparameter_space": _EXPLICIT_SPACE, "n_components": 8}, 5, None),
-        ({"options": {"foo": 1}, "bar": 2}, None, {"foo": 1, "bar": 2}),
-    ],
-    ids=["simple-value", "explicit-space-wins", "options-and-simple"],
-)
-def test_one_key_body_folds_loose_values(body: dict, expected_space_default, expected_options) -> None:
-    payload = normalize_featurizer({"pca[methylation]": body})
-    assert (payload["name"], payload["view"]) == ("pca", "methylation")
-    if expected_space_default is not None:
-        assert payload["hyperparameter_space"]["n_components"]["default"] == expected_space_default
-    if expected_options is not None:
-        assert payload["options"] == expected_options
-
-
-@pytest.mark.parametrize("key", ["a+b", "raw["])
-def test_unparsable_one_key_falls_back_to_the_registry_error(key) -> None:
-    with pytest.raises(ValueError, match="Unknown featurizer"):
-        normalize_featurizer({key: {"foo": 1}})
-
-
-def test_one_key_loose_values_resolve_against_the_featurizer_space() -> None:
-    payload = normalize_featurizer({"fingerprints": {"n_bits": 512}})
-    assert payload["hyperparameter_space"]["n_bits"]["default"] == 512
-
-
-def test_one_key_with_a_bracket_records_the_view_without_judging_it() -> None:
-    payload = normalize_featurizer({"scaledGeneExpression[gene_expression]": {"foo": 1}})
-    assert (payload["name"], payload["view"], payload["options"]) == (
-        "scaledGeneExpression",
-        "gene_expression",
-        {"foo": 1},
-    )
-
-
-def test_one_key_body_shapes() -> None:
-    assert normalize_featurizer({"scaledGeneExpression": None}) == {
-        "name": "scaledGeneExpression",
-    }
-    payload = normalize_featurizer({"concatFeaturizers": {"featurizers": ["scaledGeneExpression", "raw[mutations]"]}})
-    assert [child["name"] for child in payload["featurizers"]] == ["scaledGeneExpression", "raw"]
-    with pytest.raises(ValueError, match="must be a mapping when provided"):
-        normalize_featurizer({"scaledGeneExpression": 5})
-
-
-def test_malformed_mappings_are_rejected() -> None:
-    with pytest.raises(ValueError, match="featurizers must be a list when set"):
-        normalize_featurizer({"name": "concatFeaturizers", "featurizers": "scaledGeneExpression"})
-    with pytest.raises(ValueError, match="list, one-key mapping, or dict with 'name'"):
-        normalize_featurizer({"view": "methylation", "options": {}})
-
-
 PREDICTOR_SPACE = {"n_estimators": {"type": "int", "low": 2, "high": 20, "default": 4}}
 
 
@@ -338,66 +349,71 @@ PREDICTOR_SPACE = {"n_estimators": {"type": "int", "low": 2, "high": 20, "defaul
     ("raw", "expected"),
     [
         ("randomForest", {"name": "randomForest"}),
-        ({"randomForest": None}, {"name": "randomForest"}),
+        ({"name": "randomForest"}, {"name": "randomForest"}),
         (
             {"name": "randomForest", "hyperparameter_space": PREDICTOR_SPACE},
             {"name": "randomForest", "hyperparameter_space": PREDICTOR_SPACE},
         ),
+        (
+            {"name": "randomForest", "defaults": {"n_estimators": 10}},
+            {"name": "randomForest", "hyperparameter_space": _space(get_predictor("randomForest"), n_estimators=10)},
+        ),
+        (
+            {"name": "randomForest", "hyperparameter_space": PREDICTOR_SPACE, "defaults": {"n_estimators": 10}},
+            {
+                "name": "randomForest",
+                "hyperparameter_space": {"n_estimators": {**PREDICTOR_SPACE["n_estimators"], "default": 10}},
+            },
+        ),
     ],
+    ids=["name", "canonical", "space", "defaults", "defaults-in-declared-space"],
 )
-def test_normalize_shapes(raw: object, expected: dict) -> None:
-    assert normalize_predictor_config(raw) == expected
-
-
-@pytest.mark.parametrize(
-    ("raw", "default"),
-    [
-        ({"randomForest": {"n_estimators": 10}}, 10),
-        ({"randomForest": {"hyperparameter_space": PREDICTOR_SPACE, "n_estimators": 10}}, 4),
-    ],
-)
-def test_loose_value_becomes_default_unless_space_given(raw: dict, default: int) -> None:
-    payload = normalize_predictor_config(raw)
-    assert payload["hyperparameter_space"]["n_estimators"]["default"] == default
+def test_accepted_predictor_spellings_normalize_to_canonical_fields(raw: object, expected: dict) -> None:
+    assert normalize_predictor(raw) == expected
 
 
 @pytest.mark.parametrize(
     ("raw", "error", "match"),
     [
-        ({"randomForest": {"not_a_knob": 1}}, ValueError, "do not accept non-tunable options \\('not_a_knob'\\)"),
-        ({"randomForest": 5}, ValueError, "must be a mapping when provided"),
-        (123, TypeError, "string or mapping"),
-        ({"hyperparameter_space": {}, "extra": 1}, ValueError, "string, one-key mapping, or dict with 'name'"),
+        (
+            {"neuralNetwork": {"units_per_layer": [16, 8, 4]}},
+            ValueError,
+            "the one-key form is not accepted, "
+            "write {'name': 'neuralNetwork', 'defaults': {'units_per_layer': [16, 8, 4]}}",
+        ),
+        ({"randomForest": None}, ValueError, "write {'name': 'randomForest'}"),
+        ({"hyperparameter_space": {}, "extra": 1}, ValueError, "A predictor mapping needs a 'name' key"),
+        (
+            {"name": "randomForest", "defaults": {"not_a_knob": 1}},
+            ValueError,
+            "defaults of predictor 'randomForest': 'not_a_knob' is not a tunable hyperparameter",
+        ),
+        (123, TypeError, "name or a mapping with 'name'"),
     ],
+    ids=["one-key", "one-key-without-body", "no-name", "defaults-not-tunable", "not-a-config"],
 )
-def test_invalid_shapes_rejected(raw: object, error: type[Exception], match: str) -> None:
-    with pytest.raises(error, match=match):
-        normalize_predictor_config(raw)
+def test_rejected_predictor_spellings_name_the_canonical_form(raw: object, error: type[Exception], match: str) -> None:
+    with pytest.raises(error, match=re.escape(match)):
+        normalize_predictor(raw)
 
 
-class _Component:
-    @staticmethod
-    def get_hyperparameter_space() -> dict[str, Any]:
-        return {"alpha": {"type": "float", "low": 0.0, "high": 1.0, "default": 0.5}, "not_a_spec": "opaque"}
+def test_defaults_do_not_mutate_the_class_space() -> None:
+    original = get_featurizer("fingerprints").get_hyperparameter_space()
+    normalize_featurizer({"name": "fingerprints", "defaults": {"n_bits": 512}})
+    assert get_featurizer("fingerprints").get_hyperparameter_space() == original
 
 
-@pytest.mark.parametrize(
-    ("values", "alpha_default", "options"),
-    [
-        ({"alpha": 0.9}, 0.9, {}),
-        ({"device": "cpu"}, 0.5, {"device": "cpu"}),
-        ({"not_a_spec": 3}, 0.5, {"not_a_spec": 3}),
-        ({}, 0.5, {}),
-    ],
-)
-def test_values_move_defaults_or_become_options(values: dict, alpha_default: float, options: dict) -> None:
-    space, got_options = split_loose_values(_Component, values)
-    assert set(space) == {"alpha", "not_a_spec"}
-    assert space["alpha"]["default"] == alpha_default
-    assert got_options == options
-
-
-def test_the_declared_space_is_not_mutated() -> None:
-    original = _Component.get_hyperparameter_space()
-    split_loose_values(_Component, {"alpha": 0.9})
-    assert _Component.get_hyperparameter_space() == original
+def test_the_suggested_form_of_a_nested_removed_spelling_is_canonical_all_the_way_down() -> None:
+    with pytest.raises(ValueError, match="A featurizer list is not accepted") as info:
+        normalize_featurizer(["identity", {"tissue": {"allow_missing": True}}])
+    hint = str(info.value).split("; write ", 1)[1]
+    assert hint == repr(
+        {
+            "name": "concatFeaturizers",
+            "featurizers": ["identity", {"name": "tissue", "options": {"allow_missing": True}}],
+        }
+    )
+    assert normalize_featurizer(ast.literal_eval(hint))["featurizers"][1] == {
+        "name": "tissue",
+        "options": {"allow_missing": True},
+    }

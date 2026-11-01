@@ -1,7 +1,12 @@
 sample_featurizer:
-  - scaledGeneExpression:
-      gene_list: landmark_genes
-  - raw[mutations]:
-      gene_list: drug_target_genes_all_drugs
+  name: concatFeaturizers
+  featurizers:
+    - name: scaledGeneExpression
+      options:
+        gene_list: landmark_genes
+    - name: raw
+      view: mutations
+      options:
+        gene_list: drug_target_genes_all_drugs
 drug_featurizer: fingerprints
 predictor: randomForest

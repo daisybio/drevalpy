@@ -6,9 +6,9 @@ import pytest
 from pydantic import ValidationError
 
 from drevalpy.components.contracts.feature_format import FeatureFormat
+from drevalpy.components.featurizers._featurizer_label import CONCAT
 from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.models.config import FeaturizerConfig, ModelConfig, PredictorConfig, validate
-from drevalpy.models.config._block_specs import resolve_output_block_specs
 from drevalpy.registry.featurizer import featurizers
 from drevalpy.types.data.batch.feature_block import BlockSpec
 from tests.models.config._stubs import (
@@ -215,7 +215,7 @@ def test_view_fallback_emits_named_block() -> None:
 
     config = FeaturizerConfig(name="viewCell", view="gene_expression")
 
-    assert resolve_output_block_specs(config) == (BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),)
+    assert config.output_blocks() == (BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),)
 
 
 def test_declared_output_block_specs_win() -> None:
@@ -227,14 +227,14 @@ def test_declared_output_block_specs_win() -> None:
 
     config = FeaturizerConfig(name="declaredDrug", view="ignored")
 
-    assert resolve_output_block_specs(config) == (BlockSpec("fingerprints", FeatureFormat.NUMERIC_MATRIX),)
+    assert config.output_blocks() == (BlockSpec("fingerprints", FeatureFormat.NUMERIC_MATRIX),)
 
 
 def test_nested_concat_flattens_child_blocks() -> None:
     from drevalpy.components.featurizers.shared.concat import ConcatFeaturizer
 
     register_featurizer_stub("denseSample", side="sample")
-    featurizers.register("concatFeaturizers", ConcatFeaturizer)
+    featurizers.register(CONCAT, ConcatFeaturizer)
 
     config = FeaturizerConfig.model_validate(
         {
@@ -250,7 +250,7 @@ def test_nested_concat_flattens_child_blocks() -> None:
             ],
         }
     )
-    assert resolve_output_block_specs(config) == (
+    assert config.output_blocks() == (
         BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),
         BlockSpec("mutations", FeatureFormat.NUMERIC_MATRIX),
     )
@@ -265,4 +265,4 @@ def test_sparsego_expression_and_mutations_block_names() -> None:
                 "input_type": {"type": "categorical", "choices": ["expression", "mutations"], "default": default}
             },
         )
-        assert resolve_output_block_specs(config) == (BlockSpec(block, FeatureFormat.NUMERIC_MATRIX),)
+        assert config.output_blocks() == (BlockSpec(block, FeatureFormat.NUMERIC_MATRIX),)

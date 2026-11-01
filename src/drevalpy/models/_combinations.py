@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from itertools import product
 
 from drevalpy.errors import InvalidInputError
-from drevalpy.models.config._recipe import format_model_recipe
+from drevalpy.models.config._parse import format_model_recipe
 from drevalpy.models.spec import ModelSpec, UnknownModelError
 
 

@@ -1,123 +1,135 @@
-"""HPO: search configuration, the trial loop and its runtime, and W&B tracking of trials."""
+"""HPO: the trial loop reading its settings from the execution, and W&B tracking of trials."""
 
 from __future__ import annotations
 
-import dataclasses
 import inspect
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import numpy as np
 import pytest
 
 from drevalpy.errors import DrEvalError
 from drevalpy.evaluation import Metric
-from drevalpy.models import ModelSpec
+from drevalpy.experiment._execution import ExecutionSpec, FitScopes
+from drevalpy.models import DRPModel, ModelSpec
 from drevalpy.models.config import from_recipe
 from drevalpy.models.tuning import hpo
-from drevalpy.models.tuning.config import HPOConfig
 from drevalpy.models.tuning.hpo import HPOTrialsFailedError, hpam_tune
-from drevalpy.models.tuning.hpo_runtime import _construct_trial_model, _mu_evaluate_trial_all_metrics
-from drevalpy.types import SplitMask
+from drevalpy.types import PairMask
+from drevalpy.types.results._identity import RunIdentity
 from tests._fake_wandb import FakeWandb, install_fake_wandb
 from tests._import_shims import block_imports
-from tests.models.synthetic_fixtures import (
-    lso_split_masks,
-    synthetic_model_dataset_gene_expression_fingerprints,
-    synthetic_model_dataset_identity,
-)
+from tests.models.synthetic_fixtures import synthetic_model_dataset_gene_expression_fingerprints
 
 SRC = Path(__file__).resolve().parents[3] / "src" / "drevalpy"
 
 
-class TestHPOConfig:
-    def test_defaults_and_overrides(self) -> None:
-        config = HPOConfig()
-        assert (config.n_trials, config.metric, config.direction, config.random_state) == (16, "RMSE", "minimize", 42)
-        assert dataclasses.is_dataclass(HPOConfig)
-
-        config = HPOConfig(n_trials=3, metric="Pearson", random_state=7)
-        assert (config.n_trials, config.metric, config.direction, config.random_state) == (3, "Pearson", "maximize", 7)
-
-    @pytest.mark.parametrize("metric", list(Metric), ids=lambda metric: metric.replace("^", ""))
-    def test_direction_follows_the_metric(self, metric: Metric) -> None:
-        expected = "minimize" if metric.direction == "min" else "maximize"
-        assert HPOConfig(metric=metric).direction == expected
-
-    @pytest.mark.parametrize("metric", ["NotAMetric", "rmse"], ids=["unknown", "case-sensitive"])
-    def test_rejects_an_unknown_metric_and_lists_the_choices(self, metric: str) -> None:
-        with pytest.raises(ValueError, match=f"Unknown metric '{metric}'.*RMSE"):
-            HPOConfig(metric=metric)
-
-    def test_is_frozen_and_validates_the_metric_before_n_trials(self) -> None:
-        with pytest.raises(dataclasses.FrozenInstanceError):
-            HPOConfig().n_trials = 3  # type: ignore[misc]
-        with pytest.raises(ValueError, match=r"n_trials must be >= 0 \(got -1\)"):
-            HPOConfig(n_trials=-1)
-        with pytest.raises(ValueError, match="Unknown metric"):
-            HPOConfig(metric="NotAMetric", n_trials=-1)
-
-
-def _tune(spec: ModelSpec, n_trials: int, **kwargs):
-    dataset = synthetic_model_dataset_gene_expression_fingerprints()
-    scope = SplitMask.from_pairs(np.array([[0, 0], [0, 1], [1, 0], [1, 1]]), shape=dataset.response_matrix.shape)
-    return hpam_tune(
-        model_spec=spec,
-        dataset=dataset,
-        train_scope=scope,
-        val_scope=scope,
-        early_stopping_scope=None,
-        hpo_config=HPOConfig(n_trials=n_trials),
-        **kwargs,
+def _execution(
+    spec: ModelSpec, n_trials: int, *, tuning: bool = True, metric: str = "RMSE", fold_index: int = 0
+) -> ExecutionSpec:
+    scope = PairMask.from_pairs(np.array([[0, 0], [0, 1], [1, 0], [1, 1]]), shape=(2, 2))
+    return ExecutionSpec(
+        model=spec,
+        scopes=FitScopes(scope, None, scope, scope, scope),
+        identity=RunIdentity(spec.name, "synthetic", "LPO", fold_index),
+        hyperparameter_tuning=tuning,
+        hpo_metric=metric,
+        hpo_num_trials=n_trials,
+        hpo_random_state=42,
+        seed=42,
+        metadata={},
     )
 
 
-@pytest.mark.parametrize("name", ["ElasticNet", "NaivePredictor"])
-def test_zero_trials_or_an_empty_space_returns_the_spec_values(name: str) -> None:
+def _tune(spec: ModelSpec, n_trials: int, *, tuning: bool = True, metric: str = "RMSE", fold_index: int = 0, **kwargs):
+    execution = _execution(spec, n_trials, tuning=tuning, metric=metric, fold_index=fold_index)
+    return hpam_tune(execution, synthetic_model_dataset_gene_expression_fingerprints(), **kwargs)
+
+
+@pytest.mark.parametrize(
+    ("name", "n_trials", "tuning"),
+    [("ElasticNet", 0, True), ("ElasticNet", 2, False), ("NaivePredictor", 2, True)],
+    ids=["zero-trials", "untuned", "empty-space"],
+)
+def test_nothing_to_tune_returns_the_spec_values(name: str, n_trials: int, tuning: bool) -> None:
     spec = ModelSpec.from_name(name).with_hyperparameters({"alpha": 0.3} if name == "ElasticNet" else {})
 
-    best, trials = _tune(spec, 0 if name == "ElasticNet" else 2)
+    with patch.object(DRPModel, "train", side_effect=AssertionError("no trial may train")):
+        best, trials = _tune(spec, n_trials, tuning=tuning)
 
     assert best == dict(spec.hyperparameters)
     assert trials == []
 
 
-@patch("drevalpy.models.tuning.hpo._mu_evaluate_trial_all_metrics", return_value=({"RMSE": 0.1}, np.zeros(4)))
-def test_tuning_passes_model_spec_and_n_jobs_to_each_trial(mock_evaluate) -> None:
-    best, _ = _tune(ModelSpec.from_name("ElasticNet"), 2, n_jobs=4)
+def _scores(*rmse: float):
+    """Patch ``evaluate`` so the trials score *rmse* in order, without fitting a model."""
+    return patch.object(hpo, "evaluate", side_effect=[{"RMSE": value} for value in rmse])
+
+
+@patch.object(DRPModel, "predict", return_value=np.zeros(4))
+@patch.object(DRPModel, "train")
+def test_each_trial_trains_on_the_training_scope_with_n_jobs(train, predict) -> None:
+    with _scores(0.2, 0.1):
+        best, trials = _tune(ModelSpec.from_name("ElasticNet"), 2, n_jobs=4)
 
     assert set(best) == set(ModelSpec.from_name("ElasticNet").hyperparameters)
-    assert mock_evaluate.call_count == 2
-    assert [call.kwargs["n_jobs"] for call in mock_evaluate.call_args_list] == [4, 4]
+    assert train.call_count == predict.call_count == 2
+    assert [call.kwargs["n_jobs"] for call in train.call_args_list] == [4, 4]
+    assert all(call.kwargs["early_stopping_scope"] is None for call in train.call_args_list)
+    assert "model_checkpoint_dir" not in train.call_args.kwargs
+    assert [trial.metrics for trial in trials] == [{"RMSE": 0.2}, {"RMSE": 0.1}]
+    assert {trial.optimization_metric for trial in trials} == {"RMSE"}
 
 
-@patch("drevalpy.models.tuning.hpo._mu_evaluate_trial_all_metrics", side_effect=RuntimeError("boom"))
-def test_all_failed_trials_raise_without_default_fallback(mock_evaluate) -> None:
+@pytest.mark.parametrize("metric", list(Metric), ids=lambda metric: metric.replace("^", ""))
+def test_the_study_direction_follows_the_execution_metric(metric: Metric, monkeypatch: pytest.MonkeyPatch) -> None:
+    import optuna
+
+    created = []
+    real = optuna.create_study
+    monkeypatch.setattr(optuna, "create_study", lambda **kwargs: created.append(kwargs) or real(**kwargs))
+
+    with patch.object(hpo, "evaluate", return_value={metric.value: 0.5}):
+        with patch.object(DRPModel, "train"), patch.object(DRPModel, "predict", return_value=np.zeros(4)):
+            _tune(ModelSpec.from_name("ElasticNet"), 1, metric=metric.value)
+
+    assert created[0]["direction"] == ("minimize" if metric.direction == "min" else "maximize")
+
+
+@patch.object(DRPModel, "train", side_effect=RuntimeError("boom"))
+def test_all_failed_trials_raise_without_default_fallback(train) -> None:
     with pytest.raises(HPOTrialsFailedError, match="All 2 hyperparameter trials failed"):
         _tune(ModelSpec.from_name("ElasticNet"), 2)
     assert issubclass(HPOTrialsFailedError, DrEvalError)
     assert issubclass(HPOTrialsFailedError, RuntimeError)
 
 
-@patch(
-    "drevalpy.models.tuning.hpo._mu_evaluate_trial_all_metrics",
-    side_effect=[({"RMSE": 1.0 - 0.1 * i}, np.zeros(4)) for i in range(4)],
-)
-def test_best_hyperparameters_carry_the_decoded_pow2_value_the_trials_trained_with(mock_evaluate) -> None:
+@patch.object(DRPModel, "predict", return_value=np.zeros(4))
+@patch.object(DRPModel, "train")
+def test_best_hyperparameters_carry_the_decoded_pow2_value_the_trials_trained_with(train, predict) -> None:
     spec = ModelSpec("FingerprintElasticNet", from_recipe("pca[gene_expression]:fingerprints:elasticNet"))
 
-    best, trials = _tune(spec, 4)
+    with _scores(1.0, 0.9, 0.8, 0.7):
+        best, trials = _tune(spec, 4)
 
-    best_trial_params, _, _ = trials[-1]
+    best_trial_params = trials[-1].hyperparameters
     assert best == {**spec.hyperparameters, **best_trial_params}
     assert best["drug_featurizer.fingerprints.n_bits"] in {512, 1024, 2048}
     assert all(key in spec.hyperparameter_space for key in best_trial_params)
 
 
+def test_a_trial_keeps_nan_predictions_aligned_with_the_validation_scope() -> None:
+    with patch.object(DRPModel, "train"), patch.object(DRPModel, "predict", return_value=np.array([np.nan, 5, 5, 5])):
+        _, trials = _tune(ModelSpec.from_name("ElasticNet"), 1)
+
+    np.testing.assert_array_equal(trials[0].predictions, [np.nan, 5, 5, 5])
+    assert set(trials[0].metrics) >= {"RMSE", "MSE"}
+
+
 def test_removed_legacy_hpo_artifacts_stay_removed() -> None:
     from drevalpy.models import drp_model
-    from drevalpy.models.tuning.hpo import hpam_tune
 
     assert "ParameterGrid" not in inspect.getsource(hpam_tune)
     assert "yaml" not in inspect.getsource(drp_model.DRPModel.__init__).lower()
@@ -127,72 +139,9 @@ def test_removed_legacy_hpo_artifacts_stay_removed() -> None:
     assert not list(SRC.rglob("hyperparameters.yaml"))
 
 
-def _evaluate(predictions, **kwargs):
-    model = MagicMock()
-    model.predict.return_value = predictions
-    scopes = lso_split_masks()
-    call = {
-        "dataset": synthetic_model_dataset_identity(),
-        "train_scope": scopes.train,
-        "val_scope": scopes.test,
-        "early_stopping_scope": None,
-        "model_checkpoint_dir": None,
-    }
-    call.update(kwargs)
-    return model, _mu_evaluate_trial_all_metrics(model, **call)
-
-
-def test_construct_trial_model_keeps_spec_identity() -> None:
-    spec = ModelSpec.from_name("ElasticNet")
-    trial_model = _construct_trial_model(spec, {"predictor.elasticNet.alpha": 0.5})
-
-    assert trial_model.spec.name == spec.name
-    assert trial_model.hyperparameters["predictor.elasticNet.alpha"] == 0.5
-    assert spec.hyperparameters["predictor.elasticNet.alpha"] == 1.0
-
-
-@pytest.mark.parametrize("supplied", [False, True])
-def test_trial_uses_one_training_call_and_keeps_nan_scope_alignment(tmp_path, supplied) -> None:
-    dataset = synthetic_model_dataset_identity()
-    model, (metrics, predictions) = _evaluate(
-        np.array([np.nan, 5.0]),
-        dataset=dataset,
-        model_checkpoint_dir=tmp_path if supplied else None,
-        trial_number=3,
-    )
-
-    model.train.assert_called_once()
-    assert model.train.call_args.args == (dataset, lso_split_masks().train)
-    assert model.train.call_args.kwargs["early_stopping_scope"] is None
-    if supplied:
-        assert model.train.call_args.kwargs["model_checkpoint_dir"] == tmp_path / "trial_3"
-    assert metrics["MSE"] == 1.0
-    assert np.isnan(metrics["R^2"])
-    np.testing.assert_array_equal(predictions, [np.nan, 5.0])
-
-
-def test_trial_rejects_prediction_truncation() -> None:
-    with pytest.raises(ValueError, match="equally long"):
-        _evaluate(np.array([1.0]))
-
-
-def test_trial_with_no_joint_valid_pairs_keeps_empty_metric_dictionary() -> None:
-    _, (metrics, predictions) = _evaluate(np.full(2, np.nan))
-
-    assert metrics == {}
-    assert predictions.shape == (2,)
-
-
-def test_trial_hands_n_jobs_to_the_training_call() -> None:
-    model, _ = _evaluate(np.array([1.0, 2.0]), n_jobs=3)
-    assert model.train.call_args.kwargs["n_jobs"] == 3
-    model, _ = _evaluate(np.array([1.0, 2.0]))
-    assert model.train.call_args.kwargs["n_jobs"] == 1
-
-
-def _tune_wandb(**kwargs):
+def _tune_wandb(split_index: int, **kwargs):
     spec = ModelSpec("ElasticNet", from_recipe("scaledGeneExpression:fingerprints:elasticNet"))
-    return _tune(spec, 2, **kwargs)
+    return _tune(spec, 2, fold_index=split_index, **kwargs)
 
 
 @pytest.fixture
@@ -227,7 +176,7 @@ def test_a_failing_trial_leaves_a_failed_run(fake_wandb: FakeWandb, monkeypatch:
     def explode(*args, **kwargs):
         raise RuntimeError("boom")
 
-    monkeypatch.setattr(hpo, "_mu_evaluate_trial_all_metrics", explode)
+    monkeypatch.setattr(DRPModel, "train", explode)
 
     with pytest.raises(HPOTrialsFailedError):
         _tune_wandb(split_index=0, wandb_project="proj")

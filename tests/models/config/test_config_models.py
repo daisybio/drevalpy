@@ -7,7 +7,7 @@ from types import MappingProxyType
 import pytest
 from pydantic import ValidationError
 
-from drevalpy.models.config import FeaturizerConfig, ModelConfig, PredictorConfig
+from drevalpy.models.config import FeaturizerConfig, ModelConfig, PredictorConfig, from_recipe
 from drevalpy.models.zoo import get_zoo_config
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.enums.model_scope import ModelScope
@@ -24,8 +24,8 @@ def test_view_validation() -> None:
         FeaturizerConfig(name="landmarkGenes", views=["gene_expression"])  # type: ignore[call-arg]
 
 
-def test_one_key_shorthand_is_accepted() -> None:
-    config = FeaturizerConfig.model_validate({"pca[methylation]": {"n_components": 42}})
+def test_defaults_move_the_space_default() -> None:
+    config = FeaturizerConfig.model_validate({"name": "pca", "view": "methylation", "defaults": {"n_components": 42}})
     assert (config.name, config.view) == ("pca", "methylation")
     assert config.hyperparameter_space is not None
     assert config.hyperparameter_space["n_components"]["default"] == 42
@@ -63,6 +63,44 @@ def test_model_id_for_predictor_only_baseline() -> None:
 
 
 @pytest.mark.parametrize(
+    "recipe",
+    [
+        "raw[gene_expression]+raw[mutations]:fingerprints:randomForest",
+        "pca[gene_expression]:fingerprints:elasticNet",
+        "identity+tissue:identity:naiveMeanEffects",
+    ],
+)
+def test_model_id_reads_back_into_the_same_components(recipe: str) -> None:
+    config = from_recipe(recipe)
+
+    assert config.model_id == recipe
+    assert from_recipe(config.model_id) == config
+
+
+def test_model_id_of_every_zoo_preset_reads_back_into_its_featurizer_trees() -> None:
+    from drevalpy.models.zoo import list_zoo_names
+
+    for name in list_zoo_names():
+        config = get_zoo_config(name)
+        recipe = from_recipe(config.model_id)
+        for slot in ("sample_featurizer", "drug_featurizer"):
+            original, read = getattr(config, slot), getattr(recipe, slot)
+            assert (original and [leaf.selector for leaf in original.leaves()]) == (
+                read and [leaf.selector for leaf in read.leaves()]
+            ), name
+
+
+def test_model_id_of_a_drug_only_stack_is_none() -> None:
+    config = ModelConfig.model_construct(
+        sample_featurizer=None,
+        drug_featurizer=FeaturizerConfig(name="fingerprints"),
+        predictor=PredictorConfig(name="elasticNet"),
+    )
+
+    assert config.model_id is None
+
+
+@pytest.mark.parametrize(
     ("drug", "predictor", "match"),
     [
         (None, "randomForest", "Predictor 'randomForest' requires a drug_featurizer"),
@@ -89,13 +127,16 @@ def test_scope_is_derived_from_the_predictor_and_never_stated() -> None:
 def test_model_config_parses_compact_sections() -> None:
     config = ModelConfig.model_validate(
         {
-            "sample_featurizer": [
-                "scaledGeneExpression",
-                {"pca[methylation]": {"n_components": 100}},
-                "raw[mutations]",
-            ],
+            "sample_featurizer": {
+                "name": "concatFeaturizers",
+                "featurizers": [
+                    "scaledGeneExpression",
+                    {"name": "pca", "view": "methylation", "defaults": {"n_components": 100}},
+                    "raw[mutations]",
+                ],
+            },
             "drug_featurizer": "fingerprints",
-            "predictor": {"randomForest": {"n_estimators": 10}},
+            "predictor": {"name": "randomForest", "defaults": {"n_estimators": 60}},
         }
     )
 
@@ -105,7 +146,7 @@ def test_model_config_parses_compact_sections() -> None:
     assert config.drug_featurizer.name == "fingerprints"
     assert config.predictor.name == "randomForest"
     assert config.predictor.hyperparameter_space is not None
-    assert config.predictor.hyperparameter_space["n_estimators"]["default"] == 10
+    assert config.predictor.hyperparameter_space["n_estimators"]["default"] == 60
 
 
 def test_model_config_rejects_a_featurizer_in_a_slot_of_a_side_it_does_not_support() -> None:
@@ -150,7 +191,7 @@ def test_model_config_is_frozen_and_scope_is_read_only() -> None:
 
 
 def test_concat_children_are_tuple_not_list() -> None:
-    config = FeaturizerConfig.model_validate(["scaledGeneExpression", {"pca[methylation]": {"n_components": 32}}])
+    config = FeaturizerConfig.model_validate("scaledGeneExpression+pca[methylation]")
 
     assert config.name == "concatFeaturizers"
     assert isinstance(config.featurizers, tuple)
@@ -160,26 +201,24 @@ def test_concat_children_are_tuple_not_list() -> None:
         config.featurizers[0] = FeaturizerConfig(name="raw", view="expression")  # type: ignore[index]
 
 
-def test_predictor_shorthand_writes_hyperparameter_space_defaults() -> None:
+def test_predictor_defaults_write_hyperparameter_space_defaults() -> None:
     config = ModelConfig.model_validate(
         {
             "sample_featurizer": "scaledGeneExpression",
             "drug_featurizer": "fingerprints",
-            "predictor": {"randomForest": {"n_estimators": 10}},
+            "predictor": {"name": "randomForest", "defaults": {"n_estimators": 60}},
         }
     )
     space = config.predictor.hyperparameter_space
     assert space is not None
-    assert space["n_estimators"]["default"] == 10
+    assert space["n_estimators"]["default"] == 60
     with pytest.raises(AttributeError):
         _ = config.predictor.hyperparameters  # type: ignore[attr-defined]
 
 
-def test_zoo_config_copy_isolation() -> None:
+def test_a_shared_zoo_config_is_deeply_frozen() -> None:
     first = get_zoo_config("MultiViewLightGBM")
-    second = get_zoo_config("MultiViewLightGBM")
-    assert first == second
-    assert first is not second
+    assert first is get_zoo_config("MultiViewLightGBM")
     assert first.sample_featurizer is not None
     assert first.sample_featurizer.featurizers is not None
     child = first.sample_featurizer.featurizers[1]
@@ -246,9 +285,9 @@ class TestRecipeNormalization:
         assert canonical.hyperparameter_space is not None
         assert canonical.hyperparameter_space["n_estimators"]["default"] == 4
 
-    def test_rejects_a_non_tunable_value(self) -> None:
-        with pytest.raises(ValidationError, match="non-tunable options"):
-            PredictorConfig.model_validate({"randomForest": {"not_a_knob": 1}})
+    def test_rejects_a_non_tunable_default(self) -> None:
+        with pytest.raises(ValidationError, match="'not_a_knob' is not a tunable hyperparameter"):
+            PredictorConfig.model_validate({"name": "randomForest", "defaults": {"not_a_knob": 1}})
 
 
 class TestHyperparameterSpaceValidation:
@@ -353,8 +392,14 @@ def test_id_only_featurizers_resolve_to_empty_views(name: str) -> None:
             FeaturizerConfig.model_validate("superfeltrOmics"),
             ["gene_expression", "mutations", "copy_number_variation_gistic"],
         ),
-        (FeaturizerConfig(name="sparsegoOntology", options={"input_type": "expression"}), ["gene_expression"]),
-        (FeaturizerConfig(name="sparsegoOntology", options={"input_type": "mutations"}), ["mutations"]),
+        (
+            FeaturizerConfig.model_validate({"name": "sparsegoOntology", "defaults": {"input_type": "expression"}}),
+            ["gene_expression"],
+        ),
+        (
+            FeaturizerConfig.model_validate({"name": "sparsegoOntology", "defaults": {"input_type": "mutations"}}),
+            ["mutations"],
+        ),
         (FeaturizerConfig.model_validate("tissue"), []),
         (FeaturizerConfig(name="scaledGeneExpression", options={"view": "proteomics"}), ["proteomics"]),
     ],

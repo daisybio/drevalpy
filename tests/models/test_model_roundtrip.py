@@ -11,10 +11,10 @@ import pytest
 from drevalpy.models import DRPModel, ModelSpec
 from drevalpy.models.config import from_dict, from_recipe, validate
 from drevalpy.models.zoo import list_zoo_names
-from drevalpy.types.data.split_mask import SplitMask
+from drevalpy.types.data.pair_mask import PairMask
 from tests._trusted_subprocess import run_trusted_python
 from tests.models.synthetic_fixtures import (
-    lso_split_masks,
+    lso_fold,
     small_data_spec,
     synthetic_model_dataset,
     synthetic_model_dataset_gene_expression_fingerprints,
@@ -57,14 +57,14 @@ _SKLEARN_PRESETS = (
 )
 def test_direct_component_round_trip(preset: str, naive: bool, tmp_path) -> None:
     dataset = synthetic_model_dataset_identity() if naive else synthetic_model_dataset_gene_expression_fingerprints()
-    split = lso_split_masks()
+    fold = lso_fold()
     model = DRPModel(ModelSpec.from_name(preset) if naive else small_data_spec(preset))
-    model.train(dataset, split.train)
-    preds = model.predict(dataset, split.test)
+    model.train(dataset, fold.train)
+    preds = model.predict(dataset, fold.test)
     assert preds.shape[0] > 0
     assert np.isfinite(preds).all()
     model.save(tmp_path / "model")
-    assert np.allclose(preds, DRPModel.load(tmp_path / "model").predict(dataset, split.test))
+    assert np.allclose(preds, DRPModel.load(tmp_path / "model").predict(dataset, fold.test))
 
 
 def test_featurizer_requirements_by_predictor_scope() -> None:
@@ -116,7 +116,7 @@ def test_subprocess_blocks_optional_deps_for_simple_models() -> None:
         import pandas as pd
 
         from drevalpy.types.data.dataset import Dataset
-        from drevalpy.types import SplitMask, SplitMasks
+        from drevalpy.types import PairMask, Fold
         from drevalpy.models import DRPModel, ModelSpec
         from drevalpy.models.config import from_recipe
 
@@ -146,16 +146,16 @@ def test_subprocess_blocks_optional_deps_for_simple_models() -> None:
         mdata2 = md.MuData({"response": response_ad2})
         dataset_id = Dataset(mdata2, name="test")
 
-        split = SplitMasks(
-            train=SplitMask(np.array([[True, True], [False, False]])),
-            test=SplitMask(np.array([[False, False], [True, True]])),
-            val=SplitMask(np.zeros((2, 2), dtype=bool)),
+        fold = Fold(
+            train=PairMask(np.array([[True, True], [False, False]])),
+            test=PairMask(np.array([[False, False], [True, True]])),
+            val=PairMask(np.zeros((2, 2), dtype=bool)),
         )
 
         naive = DRPModel(ModelSpec.from_name("NaivePredictor"), {})
-        naive.train(dataset_id, split.train)
+        naive.train(dataset_id, fold.train)
         elastic = DRPModel(ModelSpec("ElasticNet", from_recipe("scaledGeneExpression:fingerprints:elasticNet")))
-        elastic.train(dataset_ge, split.train)
+        elastic.train(dataset_ge, fold.train)
         """)
     completed = run_trusted_python(script)
     assert completed.returncode == 0, completed.stdout + completed.stderr
@@ -176,22 +176,23 @@ def test_equivalent_specs_have_matching_predictions(model_name: str, hp: dict) -
     naive = model_name.startswith("Naive")
     spec = ModelSpec.from_name(model_name) if naive else small_data_spec(model_name)
     dataset = synthetic_model_dataset_identity() if naive else synthetic_model_dataset_gene_expression_fingerprints()
-    split = lso_split_masks()
-    first, second = DRPModel(spec, hp), DRPModel(ModelSpec(model_name, spec.config), hp)
-    first.train(dataset, split.train)
-    second.train(dataset, split.train)
-    np.testing.assert_allclose(first.predict(dataset, split.test), second.predict(dataset, split.test), equal_nan=True)
+    fold = lso_fold()
+    first = DRPModel(spec, hp, check_values=False)
+    second = DRPModel(ModelSpec(model_name, spec.config), hp, check_values=False)
+    first.train(dataset, fold.train)
+    second.train(dataset, fold.train)
+    np.testing.assert_allclose(first.predict(dataset, fold.test), second.predict(dataset, fold.test), equal_nan=True)
 
 
 def test_custom_recipe_spec_has_matching_checkpoint_round_trip(tmp_path) -> None:
     spec = ModelSpec("PcaIdentityRF", from_recipe("pca[gene_expression]:identity:randomForest"))
     dataset = synthetic_model_dataset_gene_expression_fingerprints()
-    split = lso_split_masks()
-    model = DRPModel(spec, RF_HP)
-    model.train(dataset, split.train)
+    fold = lso_fold()
+    model = DRPModel(spec, RF_HP, check_values=False)
+    model.train(dataset, fold.train)
     model.save(tmp_path / "model")
     loaded = DRPModel.load(tmp_path / "model")
-    np.testing.assert_allclose(model.predict(dataset, split.test), loaded.predict(dataset, split.test), equal_nan=True)
+    np.testing.assert_allclose(model.predict(dataset, fold.test), loaded.predict(dataset, fold.test), equal_nan=True)
     assert loaded.name == "PcaIdentityRF"
 
 
@@ -222,14 +223,14 @@ _SMALL_HYPERPARAMETERS = {
 )
 def test_literature_models_build_with_defaults(model_name: str) -> None:
     spec = ModelSpec.from_name(model_name)
-    DRPModel(spec, _SMALL_HYPERPARAMETERS.get(model_name, {}))
+    DRPModel(spec, _SMALL_HYPERPARAMETERS.get(model_name, {}), check_values=False)
 
 
 @pytest.mark.parametrize(
     ("model_name", "hyperparameters", "extra_views"),
     [
         ("SimpleNeuralNetwork", {"units_per_layer": [2, 2], "max_epochs": 1}, ()),
-        ("SRMF", {"K": 2, "max_iter": 2, "n_features": 4}, ()),
+        ("SRMF", {"K": 2, "max_iter": 2}, ()),
         ("MultiViewNeuralNetwork", {"units_per_layer": [2, 2], "max_epochs": 1}, ("mutations",)),
     ],
 )
@@ -240,15 +241,15 @@ def test_literature_model_lifecycle(
     tmp_path,
 ) -> None:
     dataset = synthetic_model_dataset(n_features_per_view=4, fingerprint_width=4, extra_views=extra_views)
-    split = lso_split_masks()
-    model = DRPModel(small_data_spec(model_name), hyperparameters)
-    model.train(dataset, split.train)
-    preds = model.predict(dataset, split.test)
+    fold = lso_fold()
+    model = DRPModel(small_data_spec(model_name), hyperparameters, check_values=False)
+    model.train(dataset, fold.train)
+    preds = model.predict(dataset, fold.test)
     assert preds.shape[0] > 0
     assert np.isfinite(preds).all()
 
     model.save(tmp_path / "model")
-    loaded_preds = DRPModel.load(tmp_path / "model").predict(dataset, split.test)
+    loaded_preds = DRPModel.load(tmp_path / "model").predict(dataset, fold.test)
     assert np.allclose(preds, loaded_preds, rtol=1e-5, atol=1e-5)
 
 
@@ -320,8 +321,8 @@ def test_fit_with_early_stopping_scope_reloads_the_best_epoch(
 
     reloaded = _spy_on_best_epoch_reload(monkeypatch, model_name)
     dataset = _three_omics_dataset()
-    model = DRPModel(small_data_spec(model_name), hyperparameters)
-    model.train(dataset, SplitMask(train), early_stopping_scope=SplitMask(stop), model_checkpoint_dir=tmp_path)
+    model = DRPModel(small_data_spec(model_name), hyperparameters, check_values=False)
+    model.train(dataset, PairMask(train), early_stopping_scope=PairMask(stop), model_checkpoint_dir=tmp_path)
 
     assert reloaded, "the fit never reached the best-epoch reload"
-    assert np.isfinite(model.predict(dataset, SplitMask(stop))).all()
+    assert np.isfinite(model.predict(dataset, PairMask(stop))).all()
