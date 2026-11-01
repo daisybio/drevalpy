@@ -53,18 +53,20 @@ def _require(condition: object, message: str) -> None:
 
 
 def _side(cls: type[Any]) -> Side:
-    """Return the side the checks run *cls* on: ``"sample"`` when it supports it, else ``"drug"``.
+    """Return the side the checks run *cls* on: the side it is registered on.
 
-    :param cls: Featurizer class.
-    :returns: A side among the class's ``sides``.
+    :param cls: Registered featurizer class.
+    :returns: Its ``side``; a :class:`ConformanceError` is raised if *cls* is not registered.
     """
-    return "sample" if "sample" in cls.sides else "drug"
+    side = getattr(cls, "side", None)
+    _require(side is not None, f"{cls.__name__} has no side; register it with register_featurizer(..., side=...)")
+    return Side(side)
 
 
 def feature_source_for(cls: type[Featurizer], dataset: Dataset) -> FeatureSource:
     """Return a feature source over every entity of a side the featurizer supports.
 
-    :param cls: Featurizer class; the sample side is used when it is among its ``sides``.
+    :param cls: Registered featurizer class; its own side is used.
     :param dataset: Dataset to wrap.
     :returns: A source for that side.
     """
@@ -122,7 +124,7 @@ def check_featurizer_fit_transform(
     Raises ``ConformanceError`` if fitting or transforming fails, no block is
     produced, an entity-aligned block is not aligned with the entity IDs, or the
     produced entity-aligned block names differ from the declared ones (global
-    metadata blocks such as ``identity_categories`` are not declared).
+    metadata blocks such as ``oneHot_categories`` are not declared).
 
     :param cls: Featurizer class to exercise.
     :param dataset: Dataset to featurize. Defaults to

@@ -58,8 +58,8 @@ def test_drug_free_batch(dataset):
 
 
 def test_requested_blocks_hold_the_feature_matrix(dataset):
-    with_blocks = build_synthetic_batch(dataset, sample_block_names=["identity"], drug_block_names=["fingerprints"])
-    np.testing.assert_array_equal(with_blocks.sample.blocks["identity"].values, with_blocks.sample.matrix)
+    with_blocks = build_synthetic_batch(dataset, sample_block_names=["oneHot"], drug_block_names=["fingerprints"])
+    np.testing.assert_array_equal(with_blocks.sample.blocks["oneHot"].values, with_blocks.sample.matrix)
     np.testing.assert_array_equal(with_blocks.drug.blocks["fingerprints"].values, with_blocks.drug.matrix)
 
 

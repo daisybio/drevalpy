@@ -17,14 +17,16 @@ from typing import Any
 from drevalpy.registry import get_failed_plugins
 from drevalpy.registry._plugins import ENTRY_POINT_GROUP
 from drevalpy.registry._registry import Registry
-from drevalpy.registry.featurizer import featurizers
+from drevalpy.registry.featurizer import featurizer_registries
 from drevalpy.registry.predictor import predictor_registry
 from drevalpy.registry.splitter import splitter_registry
 from drevalpy.registry.visualization import visualization_registry
+from drevalpy.types.data.feature_source import Side
 
 #: The registries a plugin can contribute to, keyed by the name used in reports.
 _REGISTRIES: Mapping[str, Registry[Any]] = {
-    "featurizer": featurizers,
+    "sample_featurizer": featurizer_registries[Side.SAMPLE],
+    "drug_featurizer": featurizer_registries[Side.DRUG],
     "predictor": predictor_registry,
     "splitter": splitter_registry,
     "visualization": visualization_registry,

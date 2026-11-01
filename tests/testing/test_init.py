@@ -62,4 +62,4 @@ def test_the_advertised_workflow_runs_end_to_end():
     for check in testing.PREDICTOR_CHECKS:
         check(predictor.get("ridge"), batch)
     for check in testing.FEATURIZER_CHECKS:
-        check(get_featurizer("identity", "sample"))
+        check(get_featurizer("oneHot", "sample"))

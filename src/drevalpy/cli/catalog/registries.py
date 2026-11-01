@@ -81,14 +81,9 @@ def _featurizers_for_side(side: str) -> Registry[type[Any]]:
     :param side: ``"sample"`` or ``"drug"``.
     :returns: Registry holding only those featurizers, with their metadata.
     """
-    from drevalpy.registry._registry import Registry
-    from drevalpy.registry.featurizer import featurizers
+    from drevalpy.registry.featurizer import featurizer_registry
 
-    subset: Registry[type[Any]] = Registry(f"{side} featurizer")
-    for entry, cls in featurizers.items():
-        if side in cls.sides:
-            subset.register(entry, cls, metadata=featurizers.metadata(entry))
-    return subset
+    return featurizer_registry(side)
 
 
 def list_sample_featurizers(name: EntryName = None) -> None:

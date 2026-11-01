@@ -234,8 +234,8 @@ class TestGrid:
 
     @pytest.fixture()
     def grid(self, monkeypatch: pytest.MonkeyPatch) -> Recorder:
-        specs = [SimpleNamespace(name="raw[gene_expression]:fingerprints:ridge"), SimpleNamespace(name="ElasticNet")]
-        skipped = [SkippedCombination("raw[gene_expression]:fingerprints:naive", "naive takes no features")]
+        specs = [SimpleNamespace(name="view[gene_expression]:fingerprints:ridge"), SimpleNamespace(name="ElasticNet")]
+        skipped = [SkippedCombination("view[gene_expression]:fingerprints:naive", "naive takes no features")]
         recorder = Recorder(return_value=Combinations(specs=specs, skipped=skipped))
         monkeypatch.setattr("drevalpy.models.combinations", recorder)
         return recorder
@@ -247,24 +247,24 @@ class TestGrid:
         self, worker: Recorder, grid: Recorder, tmp_path: UPath
     ) -> None:
         result = self._invoke_grid(
-            tmp_path, "-S", "raw[gene_expression]", "-S", "pca[gene_expression]", "-D", "fingerprints", "-P", "ridge"
+            tmp_path, "-S", "view[gene_expression]", "-S", "pca[gene_expression]", "-D", "fingerprints", "-P", "ridge"
         )
 
         assert result.exit_code == 0, result.output
         assert grid.kwargs == {
-            "sample": ["raw[gene_expression]", "pca[gene_expression]"],
+            "sample": ["view[gene_expression]", "pca[gene_expression]"],
             "drug": ["fingerprints"],
             "predictors": ["ridge"],
         }
-        assert "raw[gene_expression]:fingerprints:naive: naive takes no features" in plain(result.output)
+        assert "view[gene_expression]:fingerprints:naive: naive takes no features" in plain(result.output)
         assert [spec.name for spec in worker.kwargs["models"]] == [
-            "raw[gene_expression]:fingerprints:ridge",
+            "view[gene_expression]:fingerprints:ridge",
             "ElasticNet",
         ]
 
     def test_the_long_option_names_work(self, worker: Recorder, grid: Recorder, tmp_path: UPath) -> None:
         self._invoke_grid(
-            tmp_path, "--sample-featurizer", "raw[gene_expression]", "--drug-featurizer", "fingerprints",
+            tmp_path, "--sample-featurizer", "view[gene_expression]", "--drug-featurizer", "fingerprints",
             "--predictor", "ridge",
         )  # fmt: skip
 
@@ -280,7 +280,7 @@ class TestGrid:
         assert [spec.name for spec in worker.kwargs["models"]] == [
             "ElasticNet",
             "RandomForest",
-            "raw[gene_expression]:fingerprints:ridge",
+            "view[gene_expression]:fingerprints:ridge",
         ]
 
     def test_an_invalid_grid_is_reported_as_an_error(

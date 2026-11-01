@@ -151,11 +151,10 @@ class TestFacadeIsSelfContained:
 
             from drevalpy.plugin import Featurizer, dense_result, register_featurizer
 
-            @register_featurizer("facadeProbe", description="probe")
+            @register_featurizer("facadeProbe", side="sample", description="probe")
             class Probe(Featurizer):
                 '''Probe.'''
 
-                sides = frozenset({"sample"})
                 input_views = ("probe",)
 
                 def fit(self, source, train_ids, *, train_pair_ids=None, es_pair_ids=None):

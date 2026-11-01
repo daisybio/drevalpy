@@ -17,7 +17,7 @@ from drevalpy.components.featurizers.featurizer import Featurizer
 from drevalpy.components.predictors.abstract.matrix import MatrixPredictor
 from drevalpy.data._synthetic import synthetic as build_synthetic_dataset
 from drevalpy.registry import predictor
-from drevalpy.registry.featurizer import featurizers, get_featurizer, register
+from drevalpy.registry.featurizer import featurizer_registry, get_featurizer, register
 from drevalpy.testing import plugins as plugins_module
 from drevalpy.testing.batch import build_synthetic_batch
 from drevalpy.testing.conformance import (
@@ -39,7 +39,7 @@ from drevalpy.testing.plugins import (
     check_plugin,
 )
 from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult, numeric_feature_block
-from drevalpy.types.data.feature_source import FeatureSource
+from drevalpy.types.data.feature_source import FeatureSource, Side
 
 BLOCK = "probe"
 
@@ -47,7 +47,7 @@ BLOCK = "probe"
 class GoodFeaturizer(Featurizer):
     """Conforming featurizer."""
 
-    sides: ClassVar[frozenset[str]] = frozenset({"sample"})
+    side: ClassVar[Side] = Side.SAMPLE
 
     def __init__(self, *, n_features: int = 4) -> None:
         """Initialise the stub."""
@@ -71,7 +71,7 @@ class GoodFeaturizer(Featurizer):
 class GoodDrugFeaturizer(GoodFeaturizer):
     """Same logic on the drug side, so the side choice can be exercised."""
 
-    sides: ClassVar[frozenset[str]] = frozenset({"drug"})
+    side: ClassVar[Side] = Side.DRUG
 
 
 class RequiresAnArgumentFeaturizer(GoodFeaturizer):
@@ -266,7 +266,7 @@ def test_check_tuples_name_every_check_with_two_positional_arguments():
 
 
 @pytest.mark.parametrize("check", FEATURIZER_CHECKS)
-@pytest.mark.parametrize("name", ["identity", "tissue"])
+@pytest.mark.parametrize("name", ["oneHot", "tissue"])
 def test_builtin_sample_featurizers_conform(check, name, dataset):
     check(get_featurizer(name, "sample"), dataset)
 
@@ -291,12 +291,10 @@ def fake_plugin_package(monkeypatch):
     components = types.ModuleType(f"{PLUGIN_NAME}.components")
     monkeypatch.setitem(sys.modules, PLUGIN_NAME, package)
     monkeypatch.setitem(sys.modules, f"{PLUGIN_NAME}.components", components)
-    snapshot = featurizers.snapshot()
+    snapshot = featurizer_registry("sample").snapshot()
 
-    @register(registry_name, description="Registered by the fake plugin package.", tags=("fake",))
+    @register(registry_name, side="sample", description="Registered by the fake plugin package.", tags=("fake",))
     class FakeFeaturizer(Featurizer):
-        sides: ClassVar[frozenset[str]] = frozenset({"sample"})
-
         @classmethod
         def output_blocks(cls, config) -> tuple[BlockSpec, ...]:
             return (BlockSpec("fake", FeatureFormat.NUMERIC_MATRIX),)
@@ -313,7 +311,7 @@ def fake_plugin_package(monkeypatch):
     try:
         yield registry_name
     finally:
-        featurizers.restore(snapshot)
+        featurizer_registry("sample").restore(snapshot)
 
 
 def _stub_entry_points(monkeypatch, *entry_points: importlib.metadata.EntryPoint) -> None:
@@ -365,7 +363,7 @@ def test_successful_check_report(monkeypatch, fake_plugin_package):
 
     assert isinstance(report, PluginReport)
     assert (report.name, report.value, report.module) == (PLUGIN_NAME, *[f"{PLUGIN_NAME}.components"] * 2)
-    assert report.components["featurizer"] == (fake_plugin_package,)
+    assert report.components["sample_featurizer"] == (fake_plugin_package,)
     assert "predictor" not in report.components
     assert "splitter" not in report.components
     assert report.component_names == (fake_plugin_package,)
@@ -380,8 +378,8 @@ def test_plugin_check_error_is_an_assertion_error():
 @pytest.mark.parametrize(
     ("registry_name", "component_name"),
     [
-        ("featurizer", "identity"),
-        ("featurizer", "fingerprints"),
+        ("sample_featurizer", "oneHot"),
+        ("drug_featurizer", "fingerprints"),
         ("predictor", "ridge"),
         ("splitter", "LPO"),
         ("visualization", "critical_difference"),
@@ -392,9 +390,10 @@ def test_builtins_are_attributed_to_the_drevalpy_package(registry_name, componen
     assert resolved.__module__.split(".")[0] == "drevalpy"
 
 
-def test_all_four_registries_are_inspected():
+def test_every_component_registry_is_inspected():
     assert set(plugins_module._REGISTRIES) == {
-        "featurizer",
+        "sample_featurizer",
+        "drug_featurizer",
         "predictor",
         "splitter",
         "visualization",
