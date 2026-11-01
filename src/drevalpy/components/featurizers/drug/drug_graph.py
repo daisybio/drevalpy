@@ -8,7 +8,6 @@ from typing import Any, ClassVar, Self
 import numpy as np
 
 from drevalpy.components.contracts.feature_format import FeatureFormat
-from drevalpy.components.featurizers.drug._smiles_utils import as_pyg_graph, get_smiles_for_entities
 from drevalpy.components.featurizers.featurizer import Featurizer
 from drevalpy.log import get_logger
 from drevalpy.registry.featurizer import register
@@ -85,16 +84,16 @@ class DrugGraphFeaturizer(Featurizer):
         :returns: Result with the ``drug_graph`` block.
         :raises KeyError: If a drug has no stored graph and none can be computed from its SMILES.
         """
-        stored = source.has_view(self._view)
+        stored = source.graphs(ids) if source.has_view(self._view) else [None] * len(ids)
         smiles = None
         graphs = np.empty(len(ids), dtype=object)
-        for row, drug_id in enumerate(ids):
+        for row, (drug_id, stored_graph) in enumerate(zip(ids, stored, strict=True)):
             key = str(drug_id)
-            graph = as_pyg_graph(source.get_entity_view(key, self._view)) if stored else None
+            graph = as_pyg_graph(stored_graph)
             if graph is None:
                 if smiles is None:
-                    _logger.info("Computing %s on the fly. Consider precompute().", _BLOCK)
-                    smiles = get_smiles_for_entities(source, np.unique(ids))
+                    _logger.info("Computing %s on the fly from SMILES.", _BLOCK)
+                    smiles = source.smiles(np.unique(ids))
                 graph = self._graph_from_smiles(None if smiles is None else smiles.get(key))
             if graph is None:
                 msg = f"View {self._view!r} missing for drug {key!r} and SMILES-based graph computation failed"
@@ -208,3 +207,22 @@ def _one_hot_encode(value: object, choices: list) -> list[int]:
     index = choices.index(value) if value in choices else -1
     encoding[index] = 1
     return encoding
+
+
+def as_pyg_graph(graph: Any) -> Any:
+    """Convert a portable h5mu graph mapping to a PyG payload on demand.
+
+    :param graph: A graph mapping, existing PyG payload, or None.
+    :returns: The corresponding graph without modifying stored arrays.
+    """
+    if not isinstance(graph, dict):
+        return graph
+    import torch
+    from torch_geometric.data import Data
+
+    return Data(
+        **{
+            key: torch.as_tensor(value, dtype=torch.long if key == "edge_index" else torch.float32)
+            for key, value in graph.items()
+        }
+    )

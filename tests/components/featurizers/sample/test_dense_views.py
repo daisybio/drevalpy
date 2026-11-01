@@ -13,8 +13,6 @@ from drevalpy.components.featurizers.featurizer import all_nan_rows_mask
 from drevalpy.components.featurizers.sample._proteomics_transformer import (
     ProteomicsMedianCenterAndImputeTransformer,
 )
-from drevalpy.components.featurizers.sample.ae_gene_expression import AEGeneExpressionFeaturizer
-from drevalpy.components.featurizers.sample.dipk_gene_expression import DIPKGeneExpressionFeaturizer
 from drevalpy.components.featurizers.sample.molir_omics import MOLIROmicsFeaturizer
 from drevalpy.components.featurizers.sample.normalized_proteomics import (
     NormalizedProteomicsSampleFeaturizer,
@@ -31,9 +29,7 @@ from drevalpy.types.data.batch.feature_block import BlockSpec
 from tests.components.featurizers._helpers import mock_source, random_views
 from tests.components.featurizers.sample._helpers import (
     assert_reads_by_name,
-    assert_uses_precomputed_variant,
     pickled,
-    precomputed_source,
     use_gene_lists,
 )
 from tests.conftest import MockFeatureSource
@@ -89,8 +85,6 @@ def test_raw_gene_list_keeps_the_listed_genes_in_list_order(tmp_path: Path, monk
 
     assert blocks["mutations"].feature_names == ("b",)
     np.testing.assert_allclose(blocks["mutations"].values, [[1.0], [0.0]])
-    assert RawSampleFeaturizer(view="mutations").stored_params() == {}
-    assert featurizer.stored_params() == {"gene_list": "mine"}
 
 
 def test_raw_gene_list_raises_when_genes_are_missing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -146,14 +140,6 @@ def test_pca_no_longer_zero_fills_missing_features() -> None:
 
     with pytest.raises(FeatureMismatchError, match=r"view 'methylation' is missing 1 of the 3 features.*'a'"):
         featurizer.transform(cross_study, cross_study.identifiers)
-
-
-def test_pca_ignores_a_stored_variant_with_other_hyperparameters() -> None:
-    source = precomputed_source(PCASampleFeaturizer, hyperparameters={"n_components": 2})
-    featurizer = PCASampleFeaturizer(view="gene_expression", n_components=1)
-
-    assert featurizer.storage_key is not None
-    assert source.stored(featurizer.storage_key, featurizer.stored_params(), source.identifiers) is None
 
 
 def _proteomics_features() -> MockFeatureSource:
@@ -327,9 +313,11 @@ def test_tissue_strict_mode_raises_on_missing_annotations() -> None:
     [
         ({"cl1": {"tissue": "lung"}, "cl2": {"gene_expression": 1.0}}, 1),
         ({"cl1": {"tissue": "lung"}, "cl2": {"tissue": np.nan}}, 1),
+        ({"cl1": {"tissue": "lung"}, "cl2": {"tissue": None}}, 1),
+        ({"cl1": {"tissue": None}, "cl2": {"tissue": None}}, 0),
         ({"cl1": {"gene_expression": 1.0}, "cl2": {"gene_expression": 2.0}}, 0),
     ],
-    ids=["partial", "nan-label", "fully-absent"],
+    ids=["partial", "nan-label", "none-label", "all-none", "fully-absent"],
 )
 def test_tissue_allow_missing_gives_zero_rows(per_sample, width) -> None:
     features = _tissue(**per_sample)
@@ -341,30 +329,6 @@ def test_tissue_allow_missing_gives_zero_rows(per_sample, width) -> None:
     assert matrix.shape == (2, width)
     if width:
         np.testing.assert_array_equal(matrix[:, 0], [1.0, 0.0])
-
-
-_PRECOMPUTED_CASES = [
-    pytest.param(lambda: RawSampleFeaturizer(view="gene_expression"), {}, id="raw"),
-    pytest.param(
-        lambda: PCASampleFeaturizer(view="gene_expression", n_components=2),
-        {"hyperparameters": {"n_components": 2}},
-        id="pca",
-    ),
-    pytest.param(NormalizedProteomicsSampleFeaturizer, {}, id="normalized_proteomics"),
-    pytest.param(ScaledGeneExpressionFeaturizer, {"expected_blocks": ("gene_expression",)}, id="scaled_expression"),
-    pytest.param(PharmaFormerGeneExpressionFeaturizer, {}, id="pharmaformer"),
-    pytest.param(MOLIROmicsFeaturizer, {}, id="molir"),
-    pytest.param(SuperFELTROmicsFeaturizer, {"expected_blocks": ("gene_expression",)}, id="superfeltr"),
-    pytest.param(DIPKGeneExpressionFeaturizer, {"expected_blocks": ("gene_expression",)}, id="dipk"),
-    pytest.param(
-        lambda: AEGeneExpressionFeaturizer(gene_list=None), {"expected_blocks": ("gene_expression",)}, id="ae"
-    ),
-]
-
-
-@pytest.mark.parametrize(("make", "kwargs"), _PRECOMPUTED_CASES)
-def test_dense_featurizers_prefer_a_stored_variant_over_recomputing(make, kwargs) -> None:
-    assert_uses_precomputed_variant(make(), **kwargs)
 
 
 _GENES = list("abcdef")

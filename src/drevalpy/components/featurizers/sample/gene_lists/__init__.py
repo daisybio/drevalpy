@@ -130,7 +130,7 @@ def select_genes(source: FeatureSource, view: str, name: str) -> tuple[str, ...]
     :returns: The list's genes in list order; the column order a featurizer reads the view in.
     :raises InvalidInputError: If the view has no feature names, or lacks genes of the list.
     """
-    names = source.get_feature_names(view)
+    names = source.feature_names(view)
     if names is None:
         msg = f"FeatureSource has no feature names for view {view!r}"
         raise InvalidInputError(msg)
@@ -155,7 +155,7 @@ def view_genes(source: FeatureSource, view: str, name: str | None) -> tuple[str,
     :param name: Gene-list name, or ``None`` for every feature of the view.
     :returns: Ordered feature names, or ``None`` when *name* is ``None`` and the view has no names.
     """
-    return source.get_feature_names(view) if name is None else select_genes(source, view, name)
+    return source.feature_names(view) if name is None else select_genes(source, view, name)
 
 
 def view_gene_union(view: str) -> tuple[str, ...]:

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -41,10 +40,8 @@ class _UnitSource(MockFeatureSource):
         super().__init__(**kwargs)
         self._unit = unit
 
-    @property
-    def mdata(self) -> SimpleNamespace:
-        uns = {} if self._unit is None else {"expression_unit": self._unit}
-        return SimpleNamespace(uns={}, mod={"gene_expression": SimpleNamespace(uns=uns)})
+    def expression_unit(self, name: str) -> str | None:
+        return self._unit if name == "gene_expression" else None
 
 
 def _source(n: int = 6, unit: str | None = None) -> MockFeatureSource:
@@ -125,12 +122,8 @@ def test_fits_on_unique_training_samples_and_forwards_the_settings(recording_tra
 
     seen = recording_trainer
     assert (seen["epochs"], seen["lr"], seen["patience"], seen["batch_size"]) == (7, 5e-3, 11, 2)
-    np.testing.assert_allclose(
-        seen["train"], preprocess(source.get_view_matrix("gene_expression", np.array(["cl0", "cl1"])))
-    )
-    np.testing.assert_allclose(
-        seen["validation"], preprocess(source.get_view_matrix("gene_expression", np.array(["cl2", "cl3"])))
-    )
+    np.testing.assert_allclose(seen["train"], preprocess(source.view("gene_expression", np.array(["cl0", "cl1"]))))
+    np.testing.assert_allclose(seen["validation"], preprocess(source.view("gene_expression", np.array(["cl2", "cl3"]))))
 
 
 def test_dipk_zscores_every_sample_row_and_ae_leaves_the_rows_raw(recording_trainer) -> None:
@@ -158,7 +151,7 @@ def test_log2_applies_only_to_linear_units(recording_trainer, make, preprocess, 
 
     _fit(make(), source)
 
-    raw = source.get_view_matrix("gene_expression", np.array(["cl0", "cl1"]))
+    raw = source.view("gene_expression", np.array(["cl0", "cl1"]))
     np.testing.assert_allclose(recording_trainer["train"], preprocess(np.log2(raw + 1) if log_applied else raw))
 
 
@@ -166,18 +159,18 @@ def test_dipk_reads_the_expression_unit_from_a_real_dataset(recording_trainer) -
     dataset = synthetic_model_dataset(n_features_per_view=4)
     dataset.mdata.mod["gene_expression"].uns["expression_unit"] = "tpm"
     ids = np.array(["cl1", "cl2"])
-    source = FeatureSource(dataset, "sample", ids)
+    source = FeatureSource(dataset, "sample")
 
     DIPKGeneExpressionFeaturizer().fit(source, ids, es_pair_ids=ids)
 
-    raw = source.get_view_matrix("gene_expression", ids)
+    raw = source.view("gene_expression", ids)
     np.testing.assert_allclose(recording_trainer["train"], _zscore(np.log2(raw + 1)), rtol=1e-5)
 
 
 @pytest.mark.parametrize(("unit", "log_applied"), [("tpm", True), (None, False)])
 def test_dipk_preprocess_logs_linear_units_and_zscores_each_row(unit, log_applied) -> None:
     source = _source(unit=unit)
-    raw = source.get_view_matrix("gene_expression", np.array(["cl0", "cl1", "cl2"]))
+    raw = source.view("gene_expression", np.array(["cl0", "cl1", "cl2"]))
 
     actual = dipk_preprocess(source, raw)
 
@@ -192,7 +185,7 @@ def test_ae_transform_encodes_with_the_fitted_encoder_and_survives_pickling(reco
 
     result = featurizer.transform(source, ids)
 
-    expected = encode_gene_expression(np.log2(source.get_view_matrix("gene_expression", ids) + 1), featurizer._encoder)
+    expected = encode_gene_expression(np.log2(source.view("gene_expression", ids) + 1), featurizer._encoder)
     assert result.matrix.shape == (2, 512)
     assert set(result.blocks) == {"gene_expression"}
     np.testing.assert_allclose(result.matrix, expected, rtol=1e-5, atol=1e-6)
@@ -209,9 +202,7 @@ def test_dipk_transform_encodes_the_preprocessed_matrix_and_survives_pickling(re
 
     matrix = featurizer.transform(source, ids).matrix
 
-    expected = encode_gene_expression(
-        _zscore(np.log2(source.get_view_matrix("gene_expression", ids) + 1)), featurizer._encoder
-    )
+    expected = encode_gene_expression(_zscore(np.log2(source.view("gene_expression", ids) + 1)), featurizer._encoder)
     np.testing.assert_allclose(matrix, expected, rtol=1e-5, atol=1e-6)
     assert featurizer.transform(source, np.array([], dtype=str)).matrix.shape == (0, 512)
     restored = pickled(featurizer)
@@ -239,11 +230,9 @@ def test_ae_gene_list_selects_genes_in_list_order_and_raises_when_genes_are_miss
 
     featurizer = _fit(AEGeneExpressionFeaturizer(gene_list="mine"), source)
 
-    expected = source.get_view_matrix("gene_expression", np.array(["cl0", "cl1"]))[:, [2, 0]]
+    expected = source.view("gene_expression", np.array(["cl0", "cl1"]))[:, [2, 0]]
     np.testing.assert_allclose(recording_trainer["train"], expected)
     assert featurizer._names == ("c", "a")
-    assert featurizer.stored_params() == {"gene_list": "mine"}
-    assert _ae().stored_params() == {}
     with pytest.raises(InvalidInputError, match="lacks 1 of 2 genes in 'bad'"):
         _fit(AEGeneExpressionFeaturizer(gene_list="bad"), source)
 
@@ -261,8 +250,6 @@ def test_dipk_gene_list_selects_the_autoencoder_input_and_survives_pickling(
     assert restored._gene_list == "mine"
     ids = np.array(["cl0", "cl1"])
     np.testing.assert_allclose(restored.transform(source, ids).matrix, featurizer.transform(source, ids).matrix)
-    assert DIPKGeneExpressionFeaturizer().stored_params() == {}
-    assert featurizer.stored_params() == {"gene_list": "mine"}
 
 
 def test_train_or_load_autoencoder_trains_and_caches_by_gene_names(recording_trainer, tmp_path: Path) -> None:

@@ -23,7 +23,6 @@ treats each by its own unit, as 1.6.1 did per dataset name.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, ClassVar, Self
 
 import numpy as np
@@ -35,7 +34,6 @@ from drevalpy.errors import InvalidInputError
 from drevalpy.registry.featurizer import register
 from drevalpy.types.data.batch.feature_block import FeaturizerResult
 from drevalpy.types.data.feature_source import FeatureSource, Side
-from drevalpy.types.data.views import find_view
 
 if TYPE_CHECKING:
     from drevalpy.components.predictors.literature.dipk.gene_expression_encoder import GeneExpressionEncoder
@@ -49,17 +47,11 @@ _LINEAR_UNITS = frozenset({"tpm", "rpkm", "fpkm", "cpm"})
 def _is_linear_expression(source: FeatureSource, view: str) -> bool:
     """Tell whether *view* of *source* records a linear (not log-scale) expression unit.
 
-    :param source: Feature source, possibly without a backing MuData.
+    :param source: Feature source.
     :param view: Name of the gene-expression view.
     :returns: ``True`` only when ``expression_unit`` names a linear unit; a missing unit counts as log scale.
     """
-    mdata = source.mdata
-    if mdata is None:
-        return False
-    key = find_view(view, mdata.mod)
-    if key is None:
-        return False
-    return str(mdata.mod[key].uns.get("expression_unit", "")).lower() in _LINEAR_UNITS
+    return str(source.expression_unit(view) or "").lower() in _LINEAR_UNITS
 
 
 def _zscore_rows(matrix: np.ndarray) -> np.ndarray:
@@ -151,24 +143,6 @@ class DIPKGeneExpressionFeaturizer(Featurizer):
                 "default": 1024,
             },
         }
-
-    def stored_params(self) -> Mapping[str, Any] | None:
-        """Match a stored variant only when it was built for the same gene list.
-
-        :returns: The gene-list setting, empty for the whole view.
-        """
-        return {} if self._gene_list is None else {"gene_list": self._gene_list}
-
-    def from_stored(self, source: FeatureSource, ids: np.ndarray, matrix: np.ndarray) -> FeaturizerResult:
-        """Wrap stored latent vectors as the ``gene_expression`` block.
-
-        :param source: Unused.
-        :param ids: Sample IDs, one per row of *matrix*.
-        :param matrix: Stored latent vectors.
-        :returns: One unnamed ``gene_expression`` block.
-        """
-        _ = source
-        return dense_result(ids, _VIEW, matrix, None)
 
     def fit(
         self,

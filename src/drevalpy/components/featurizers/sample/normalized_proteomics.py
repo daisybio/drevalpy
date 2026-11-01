@@ -8,7 +8,6 @@ registration time would import ``sklearn``. See ``tests/test_import_cost_policy.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, ClassVar, Self
 
 import numpy as np
@@ -98,24 +97,6 @@ class NormalizedProteomicsSampleFeaturizer(Featurizer):
         """
         return all_nan_rows_mask(source, self._view, ids)
 
-    def stored_params(self) -> Mapping[str, Any] | None:
-        """Match the parameter-free stored variant.
-
-        :returns: An empty mapping.
-        """
-        return {}
-
-    def from_stored(self, source: FeatureSource, ids: np.ndarray, matrix: np.ndarray) -> FeaturizerResult:
-        """Wrap a stored normalized matrix as the view's block.
-
-        :param source: Unused.
-        :param ids: Sample IDs, one per row of *matrix*.
-        :param matrix: Stored normalized proteomics.
-        :returns: One unnamed block, named after the view.
-        """
-        _ = source
-        return dense_result(ids, self._view, matrix, None)
-
     def fit(
         self,
         source: FeatureSource,
@@ -137,7 +118,7 @@ class NormalizedProteomicsSampleFeaturizer(Featurizer):
         )
 
         _ = train_pair_ids, es_pair_ids
-        self._names = source.get_feature_names(self._view)
+        self._names = source.feature_names(self._view)
         matrix = log10_and_set_na(view_matrix(source, self._view, np.unique(train_ids), self._names))
         self._transformer = ProteomicsMedianCenterAndImputeTransformer(**self._settings).fit(matrix)
         return self

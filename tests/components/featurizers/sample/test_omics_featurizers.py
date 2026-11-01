@@ -290,8 +290,6 @@ def test_pharmaformer_gene_expression_gene_list_selects_and_round_trips(
     assert blocks["gene_expression"].values.shape == (2, 1)
     restored = pickled(featurizer)
     assert restored._gene_list == "mine"
-    assert PharmaFormerGeneExpressionFeaturizer().stored_params() == {}
-    assert featurizer.stored_params() == {"gene_list": "mine"}
     np.testing.assert_allclose(
         restored.transform(features, np.array(["cl0", "cl2"])).matrix, blocks["gene_expression"].values
     )

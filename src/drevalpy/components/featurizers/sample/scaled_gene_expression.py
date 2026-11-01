@@ -85,28 +85,6 @@ class ScaledGeneExpressionFeaturizer(Featurizer):
         """
         return all_nan_rows_mask(source, self._view, ids)
 
-    def stored_params(self) -> Mapping[str, Any] | None:
-        """Match a stored variant only when it was built with the same gene list and transform.
-
-        :returns: The gene-list and non-default transform settings, empty when both are default.
-        """
-        settings: dict[str, Any] = {}
-        if self._gene_list is not None:
-            settings["gene_list"] = self._gene_list
-        if self._transform != "arcsinh":
-            settings["transform"] = self._transform
-        return settings
-
-    def from_stored(self, source: FeatureSource, ids: np.ndarray, matrix: np.ndarray) -> FeaturizerResult:
-        """Wrap a stored scaled matrix as the ``gene_expression`` block.
-
-        :param source: Feature source of the sample side.
-        :param ids: Sample IDs, one per row of *matrix*.
-        :param matrix: Stored scaled expression.
-        :returns: One ``gene_expression`` block.
-        """
-        return dense_result(ids, _BLOCK, matrix, view_genes(source, self._view, self._gene_list))
-
     def fit(
         self,
         source: FeatureSource,

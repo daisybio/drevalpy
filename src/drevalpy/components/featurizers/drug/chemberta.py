@@ -2,21 +2,14 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from functools import lru_cache
-from typing import Any, ClassVar, Self
+from typing import Any, ClassVar
 
 import numpy as np
 
-from drevalpy.components.contracts.feature_format import FeatureFormat
-from drevalpy.components.featurizers._dense import dense_result, view_matrix
-from drevalpy.components.featurizers.drug._smiles_utils import get_smiles_for_entities
-from drevalpy.components.featurizers.featurizer import Featurizer
+from drevalpy.components.featurizers._dense import PrecomputableFeaturizer
 from drevalpy.registry.featurizer import register
-from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult
 from drevalpy.types.data.feature_source import FeatureSource, Side
-
-_BLOCK = "chemberta"
 
 _CHEMBERTA_MODEL = "seyonec/ChemBERTa-zinc-base-v1"
 _CHEMBERTA_REVISION = "761d6a1"
@@ -77,11 +70,11 @@ def load_chemberta() -> tuple[Any, Any]:
     "chemberta",
     description="ChemBERTa embeddings loaded from pre-computed view or computed on the fly via transformers.",
 )
-class ChemBertaFeaturizer(Featurizer):
+class ChemBertaFeaturizer(PrecomputableFeaturizer):
     """ChemBERTa drug featurizer with on-the-fly fallback."""
 
     sides: ClassVar[frozenset[Side]] = frozenset({"drug"})
-    storage_key: ClassVar[str | None] = "chemberta"
+    block: ClassVar[str | None] = "chemberta"
     input_views: ClassVar[tuple[str, ...]] = ("chemberta",)
     source_views: ClassVar[tuple[str, ...]] = ("canonical_smiles",)
 
@@ -92,10 +85,9 @@ class ChemBertaFeaturizer(Featurizer):
         :param pooling: Token aggregation strategy ("mean", "cls", "max").
         :param max_length: Tokenizer truncation length.
         """
-        self._view = view
         self._pooling = pooling
         self._max_length = int(max_length)
-        self._view_names: tuple[str, ...] | None = None
+        super().__init__(view, {"pooling": self._pooling, "max_length": self._max_length})
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
@@ -108,76 +100,17 @@ class ChemBertaFeaturizer(Featurizer):
             "max_length": {"type": "categorical", "choices": [64, 128, 256], "default": 256},
         }
 
-    @classmethod
-    def output_blocks(cls, config: Mapping[str, Any]) -> tuple[BlockSpec, ...]:
-        """Return the single ``chemberta`` block, whatever view it is read from.
-
-        :param config: Featurizer config; unused.
-        :returns: One numeric block spec.
-        """
-        return (BlockSpec(_BLOCK, FeatureFormat.NUMERIC_MATRIX),)
-
-    def stored_params(self) -> Mapping[str, Any] | None:
-        """Match a stored variant only when it was computed with the same non-default settings.
-
-        :returns: The hyperparameters that differ from their defaults; empty for the default config.
-        """
-        settings = {"pooling": self._pooling, "max_length": self._max_length}
-        defaults = self.default_hyperparameters()
-        return {name: value for name, value in settings.items() if value != defaults[name]}
-
-    def from_stored(self, source: FeatureSource, ids: np.ndarray, matrix: np.ndarray) -> FeaturizerResult:
-        """Wrap a stored matrix as the block, named by the view's features.
-
-        :param source: Drug feature source.
-        :param ids: Drug IDs, one per row of *matrix*.
-        :param matrix: Stored matrix.
-        :returns: Result with the single block.
-        """
-        return dense_result(ids, _BLOCK, matrix, source.get_feature_names(self._view))
-
-    def fit(
-        self,
-        source: FeatureSource,
-        train_ids: np.ndarray,
-        *,
-        train_pair_ids: np.ndarray | None = None,
-        es_pair_ids: np.ndarray | None = None,
-    ) -> Self:
-        """Record the view's feature names; nothing is computed.
-
-        :param source: Drug feature source.
-        :param train_ids: Usable training drug IDs; unused.
-        :param train_pair_ids: Unused.
-        :param es_pair_ids: Unused.
-        :returns: This featurizer.
-        """
-        self._view_names = source.get_feature_names(self._view)
-        return self
-
-    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerResult:
-        """Read the stored embeddings when the source holds the view, else compute them from the SMILES.
-
-        :param source: Drug feature source.
-        :param ids: Drug IDs, in output order.
-        :returns: Result with the ``chemberta`` block.
-        """
-        if source.has_view(self._view):
-            matrix = view_matrix(source, self._view, ids, self._view_names)
-            return dense_result(ids, _BLOCK, matrix, self._view_names)
-        return dense_result(ids, _BLOCK, self._from_smiles(source, ids), None)
-
-    def _from_smiles(self, source: FeatureSource, entity_ids: np.ndarray) -> np.ndarray:
+    def compute(self, source: FeatureSource, ids: np.ndarray) -> np.ndarray:
         """Compute ChemBERTa embeddings from SMILES via pooled hidden states.
 
         :param source: Drug feature source.
-        :param entity_ids: Drug identifiers.
+        :param ids: Drug identifiers.
         :returns: Embedding matrix of shape (n_drugs, hidden_dim).
         :raises ValueError: If no SMILES are available.
         """
-        smiles = get_smiles_for_entities(source, entity_ids)
+        smiles = source.smiles(ids)
         if smiles is None:
-            msg = f"Cannot obtain {self.storage_key}: no SMILES available."
+            msg = f"Cannot compute {self._view}: no SMILES available."
             raise ValueError(msg)
 
         import torch
@@ -185,7 +118,7 @@ class ChemBertaFeaturizer(Featurizer):
         tokenizer, model = load_chemberta()
 
         embeddings = []
-        for drug_id in entity_ids:
+        for drug_id in ids:
             smi = smiles.get(drug_id)
             if smi and isinstance(smi, str):
                 inputs = tokenizer(smi, return_tensors="pt", truncation=True, max_length=self._max_length)

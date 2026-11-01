@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any, ClassVar, Self
+from typing import TYPE_CHECKING, ClassVar, Self
 
 import numpy as np
 
@@ -36,23 +35,6 @@ class PharmaFormerGeneExpressionFeaturizer(Featurizer):
         self._gene_list = gene_list
         self._names: tuple[str, ...] | None = None
         self._scalers: tuple[StandardScaler, MinMaxScaler] | None = None
-
-    def stored_params(self) -> Mapping[str, Any] | None:
-        """Match a stored variant only when it was built for the same gene list.
-
-        :returns: The gene-list setting, empty for the whole view.
-        """
-        return {} if self._gene_list is None else {"gene_list": self._gene_list}
-
-    def from_stored(self, source: FeatureSource, ids: np.ndarray, matrix: np.ndarray) -> FeaturizerResult:
-        """Wrap a stored scaled matrix as the ``gene_expression`` block.
-
-        :param source: Feature source of the sample side.
-        :param ids: Sample IDs, one per row of *matrix*.
-        :param matrix: Stored scaled expression.
-        :returns: One ``gene_expression`` block.
-        """
-        return dense_result(ids, _VIEW, matrix, view_genes(source, _VIEW, self._gene_list))
 
     def fit(
         self,

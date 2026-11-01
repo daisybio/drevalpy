@@ -122,7 +122,8 @@ def test_molgnet_computes_drugs_without_a_stored_view_from_their_smiles(
 
     values = featurizer.transform(smiles_only, drug_ids).blocks["molgnet_features"].values
 
-    smiles = smiles_only.mdata.mod["response"].var["canonical_smiles"]
+    smiles = smiles_only.smiles(drug_ids)
+    assert smiles is not None
     assert calls == [smiles[drug] for drug in drug_ids]
     np.testing.assert_allclose(np.asarray(values[0], dtype=np.float32), _D1)
 

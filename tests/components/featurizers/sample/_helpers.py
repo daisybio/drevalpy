@@ -15,11 +15,8 @@ from upath import UPath
 from drevalpy.components.featurizers import FeatureMismatchError
 from drevalpy.components.featurizers.featurizer import Featurizer
 from drevalpy.components.featurizers.sample import gene_lists
-from drevalpy.types.data.feature_source import FeatureSource, store_variant
+from drevalpy.types.data.feature_source import FeatureSource
 from tests.components.featurizers._helpers import Views, mock_source
-from tests.models.synthetic_fixtures import synthetic_model_dataset
-
-PRECOMPUTED = np.array([[9.0, 8.0], [7.0, 6.0]], dtype=np.float32)
 
 F = TypeVar("F", bound=Featurizer)
 
@@ -27,48 +24,6 @@ F = TypeVar("F", bound=Featurizer)
 def pickled(featurizer: F) -> F:
     """Return a copy of *featurizer* that went through a pickle round trip, as a saved model does."""
     return pickle.loads(pickle.dumps(featurizer))  # noqa: S301 -- pickled on this line
-
-
-def precomputed_source(
-    featurizer_cls: type[Featurizer],
-    *,
-    matrix: np.ndarray | None = None,
-    hyperparameters: dict[str, object] | None = None,
-) -> FeatureSource:
-    """Dataset-backed source storing a variant of *featurizer_cls* for its first two samples."""
-    values = PRECOMPUTED if matrix is None else matrix
-    dataset = synthetic_model_dataset(extra_views=("mutations", "copy_number_variation_gistic"))
-    n_samples = dataset.mdata.mod["response"].n_obs
-    padded = np.zeros((n_samples, values.shape[1]), dtype=values.dtype)
-    padded[: len(values)] = values
-    assert featurizer_cls.storage_key is not None
-    store_variant(dataset, "sample", featurizer_cls.storage_key, padded, hyperparameters)
-    ids = np.asarray(dataset.mdata.mod["response"].obs_names[: len(values)], dtype=str)
-    return FeatureSource(dataset, "sample", ids)
-
-
-def assert_uses_precomputed_variant(
-    featurizer: Featurizer,
-    *,
-    hyperparameters: dict[str, object] | None = None,
-    expected_blocks: tuple[str, ...] | None = None,
-) -> None:
-    """Assert *featurizer* looks up the stored variant and serves it through ``from_stored``."""
-    source = precomputed_source(type(featurizer), hyperparameters=hyperparameters)
-    ids = source.identifiers
-    params = featurizer.stored_params()
-    assert params is not None
-    assert featurizer.storage_key is not None
-    stored = source.stored(featurizer.storage_key, params, ids)
-    assert stored is not None
-
-    result = featurizer.from_stored(source, ids, stored)
-
-    np.testing.assert_allclose(result.matrix, PRECOMPUTED)
-    if expected_blocks is not None:
-        assert set(result.blocks) == set(expected_blocks)
-        for name in expected_blocks:
-            np.testing.assert_allclose(result.blocks[name].values, PRECOMPUTED)
 
 
 def _reversed_with_extra(views: Views) -> Views:

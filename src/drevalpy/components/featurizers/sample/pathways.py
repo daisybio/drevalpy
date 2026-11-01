@@ -14,6 +14,7 @@ from drevalpy.data._msigdb import get_precily_gmt
 from drevalpy.registry.featurizer import register
 from drevalpy.types.data.batch.feature_block import FeaturizerResult
 from drevalpy.types.data.feature_source import FeatureSource, Side
+from drevalpy.types.data.views import PATHWAYS_GMT_KEY
 
 
 @register("pathways", description="GSVA pathway features computed per-split (set-dependent).")
@@ -104,17 +105,14 @@ class PathwaysSampleFeaturizer(Featurizer):
         """
         import gseapy as gp
 
-        mdata = getattr(source, "mdata", None)
         if self._gmt_text is None:
-            if mdata is not None and "pathways_gmt" in mdata.uns:
-                self._gmt_text = str(mdata.uns["pathways_gmt"])
-            else:
-                self._gmt_text = get_precily_gmt().read_text(encoding="utf-8")
+            stored = source.uns(PATHWAYS_GMT_KEY)
+            self._gmt_text = get_precily_gmt().read_text(encoding="utf-8") if stored is None else str(stored)
 
         import pandas as pd
 
-        expr_matrix = source.get_view_matrix("gene_expression", entity_ids)
-        gene_names = source.get_feature_names("gene_expression")
+        expr_matrix = source.view("gene_expression", entity_ids)
+        gene_names = source.feature_names("gene_expression")
         if gene_names is None:
             msg = "gene_expression view must provide feature names"
             raise ValueError(msg)

@@ -8,7 +8,7 @@ from typing import Any, ClassVar, Self
 import numpy as np
 
 from drevalpy.components.contracts.feature_format import FeatureFormat
-from drevalpy.components.featurizers._dense import dense_result, view_matrix
+from drevalpy.components.featurizers._dense import view_matrix
 from drevalpy.components.featurizers.featurizer import Featurizer
 from drevalpy.components.featurizers.sample.gene_lists import checked_view_gene_lists, view_genes
 from drevalpy.registry.featurizer import register
@@ -56,24 +56,6 @@ class SuperFELTROmicsFeaturizer(Featurizer):
         :returns: Hyperparameter search space mapping.
         """
         return {"n_features_per_view": {"type": "int", "low": 1, "high": 1000, "default": 1000}}
-
-    def stored_params(self) -> Mapping[str, Any] | None:
-        """Match the parameter-free stored variant.
-
-        :returns: An empty mapping.
-        """
-        return {}
-
-    def from_stored(self, source: FeatureSource, ids: np.ndarray, matrix: np.ndarray) -> FeaturizerResult:
-        """Wrap stored features as the ``gene_expression`` block alone.
-
-        :param source: Feature source of the sample side.
-        :param ids: Sample IDs, one per row of *matrix*.
-        :param matrix: Stored features.
-        :returns: One ``gene_expression`` block.
-        """
-        names = source.get_feature_names("gene_expression")
-        return dense_result(ids, "gene_expression", matrix, tuple(names) if names else ())
 
     def fit(
         self,

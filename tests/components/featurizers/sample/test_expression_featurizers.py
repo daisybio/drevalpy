@@ -96,14 +96,6 @@ def test_scaled_gene_expression_gene_list_raises_when_genes_are_missing(
         ScaledGeneExpressionFeaturizer(gene_list="mine").fit(_four_genes(), np.array(["cl1"]))
 
 
-def test_scaled_gene_expression_matches_a_stored_variant_only_for_its_own_options() -> None:
-    assert ScaledGeneExpressionFeaturizer().stored_params() == {}
-    assert ScaledGeneExpressionFeaturizer(gene_list="mine").stored_params() == {"gene_list": "mine"}
-    assert ScaledGeneExpressionFeaturizer(transform="rank").stored_params() == {"transform": "rank"}
-    both = ScaledGeneExpressionFeaturizer(gene_list="mine", transform="rank").stored_params()
-    assert both == {"gene_list": "mine", "transform": "rank"}
-
-
 def test_scaled_gene_expression_publishes_gene_expression_whatever_the_view() -> None:
     (spec,) = ScaledGeneExpressionFeaturizer.output_blocks({"view": "proteomics"})
     assert spec.name == "gene_expression"

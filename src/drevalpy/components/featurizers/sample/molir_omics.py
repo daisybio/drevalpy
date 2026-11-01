@@ -64,24 +64,6 @@ class MOLIROmicsFeaturizer(Featurizer):
         """
         return {"n_gene_expression_features": {"type": "int", "low": 1, "high": 1000, "default": 1000}}
 
-    def stored_params(self) -> Mapping[str, Any] | None:
-        """Match the parameter-free stored variant.
-
-        :returns: An empty mapping.
-        """
-        return {}
-
-    def from_stored(self, source: FeatureSource, ids: np.ndarray, matrix: np.ndarray) -> FeaturizerResult:
-        """Wrap stored gene-expression features and pass the other two views through whole.
-
-        :param source: Feature source of the sample side.
-        :param ids: Sample IDs, one per row of *matrix*.
-        :param matrix: Stored gene-expression features.
-        :returns: Per-omics numeric blocks.
-        """
-        names = {view: source.get_feature_names(view) for view in _VIEWS[1:]}
-        return self._result(source, ids, matrix, None, names)
-
     def fit(
         self,
         source: FeatureSource,

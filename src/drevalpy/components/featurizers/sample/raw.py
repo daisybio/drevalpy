@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from typing import Any, ClassVar, Self
+from typing import ClassVar, Self
 
 import numpy as np
 
@@ -44,23 +43,6 @@ class RawSampleFeaturizer(Featurizer):
         :returns: Boolean array with one entry per ID.
         """
         return all_nan_rows_mask(source, self._view, ids)
-
-    def stored_params(self) -> Mapping[str, Any] | None:
-        """Match a stored variant only when it was built for the same gene list.
-
-        :returns: The gene-list setting, empty for the whole view.
-        """
-        return {} if self._gene_list is None else {"gene_list": self._gene_list}
-
-    def from_stored(self, source: FeatureSource, ids: np.ndarray, matrix: np.ndarray) -> FeaturizerResult:
-        """Wrap a stored matrix as the view's block, named by the gene list or the whole view.
-
-        :param source: Feature source of the sample side.
-        :param ids: Sample IDs, one per row of *matrix*.
-        :param matrix: Stored matrix.
-        :returns: One block named after the view.
-        """
-        return dense_result(ids, self._view, matrix, view_genes(source, self._view, self._gene_list))
 
     def fit(
         self,

@@ -183,24 +183,6 @@ class AEGeneExpressionFeaturizer(Featurizer):
         """
         return all_nan_rows_mask(source, self._view, ids)
 
-    def stored_params(self) -> Mapping[str, Any] | None:
-        """Match a stored variant only when it was built for the same gene list.
-
-        :returns: The gene-list setting, empty for the whole view.
-        """
-        return {} if self._gene_list is None else {"gene_list": self._gene_list}
-
-    def from_stored(self, source: FeatureSource, ids: np.ndarray, matrix: np.ndarray) -> FeaturizerResult:
-        """Wrap stored latent vectors as the ``gene_expression`` block.
-
-        :param source: Unused.
-        :param ids: Sample IDs, one per row of *matrix*.
-        :param matrix: Stored latent vectors.
-        :returns: One unnamed ``gene_expression`` block.
-        """
-        _ = source
-        return dense_result(ids, _BLOCK, matrix, None)
-
     def _preprocess(self, source: FeatureSource, matrix: np.ndarray) -> np.ndarray:
         """Apply ``log2(x + 1)`` to linear expression units; log-scale views pass unchanged.
 

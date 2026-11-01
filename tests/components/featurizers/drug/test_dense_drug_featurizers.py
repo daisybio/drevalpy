@@ -15,7 +15,6 @@ import pytest
 import torch
 
 from drevalpy.components.featurizers.drug import chemberta, smilesvec
-from drevalpy.components.featurizers.drug._smiles_utils import get_smiles_for_entities
 from drevalpy.components.featurizers.drug.chemberta import ChemBertaFeaturizer, load_chemberta
 from drevalpy.components.featurizers.drug.fingerprints import FingerprintsFeaturizer
 from drevalpy.components.featurizers.drug.smilesvec import SmilesVecDrugFeaturizer
@@ -156,18 +155,18 @@ def test_fingerprints_are_computed_from_the_smiles_in_one_rdkit_pass_per_fit_and
 
 
 def test_fingerprints_read_the_stored_view_without_rdkit(
-    monkeypatch: pytest.MonkeyPatch, drug_source: FeatureSource, synthetic_dataset
+    monkeypatch: pytest.MonkeyPatch, drug_source: FeatureSource, drug_ids: np.ndarray, synthetic_dataset
 ) -> None:
     block_imports(monkeypatch, "rdkit")
-    ids = drug_source.identifiers[:2]
+    ids = drug_ids[:2]
 
     matrix = _fit_transform(FingerprintsFeaturizer(), drug_source, ids).matrix
 
-    np.testing.assert_array_equal(matrix, synthetic_dataset.get_drug_features("morgan_fingerprint", ids))
+    np.testing.assert_array_equal(matrix, FeatureSource(synthetic_dataset, "drug").view("morgan_fingerprint", ids))
 
 
-def test_fitted_fingerprints_pickle_and_transform_identically(drug_source: FeatureSource) -> None:
-    ids = drug_source.identifiers
+def test_fitted_fingerprints_pickle_and_transform_identically(drug_source: FeatureSource, drug_ids: np.ndarray) -> None:
+    ids = drug_ids
     fitted = FingerprintsFeaturizer().fit(drug_source, ids)
 
     restored = pickle.loads(pickle.dumps(fitted))  # noqa: S301 -- pickled on this line
@@ -214,7 +213,7 @@ def tiny_chemberta(monkeypatch: pytest.MonkeyPatch) -> tuple[_TinyTokenizer, _Ti
 
 
 def _smiles_lengths(source: FeatureSource, ids: np.ndarray) -> list[int]:
-    smiles = get_smiles_for_entities(source, ids)
+    smiles = source.smiles(ids)
     assert smiles is not None
     return [len(smiles[drug_id]) for drug_id in ids]
 
@@ -413,26 +412,41 @@ def test_smilesvec_embeds_dataset_smiles(smiles_only: DrugSource) -> None:
 
 
 @pytest.mark.parametrize(("featurizer_cls", "view", "block", "names"), _EMBEDDERS)
-def test_the_parameter_free_stored_variant_is_wrapped_as_the_block(featurizer_cls, view, block, names) -> None:
-    featurizer = featurizer_cls()
-    source = DrugSource({view: {"d1": [0.1, 0.2]}}, names={view: names})
+def test_an_unrecorded_view_is_read_as_the_block(featurizer_cls, view, block, names) -> None:
+    source = DrugSource({view: {"d1": [1.0, 2.0]}}, names={view: names})
     ids = np.array(["d1"], dtype=str)
 
-    result = featurizer.from_stored(source, ids, np.array([[1.0, 2.0]]))
+    result = _fit_transform(featurizer_cls(), source, ids)
 
-    assert featurizer.stored_params() == {}
     assert result.blocks[block].feature_names == names
     np.testing.assert_array_equal(result.matrix, np.array([[1.0, 2.0]], dtype=np.float32))
 
 
 @pytest.mark.parametrize(
-    ("featurizer", "expected"),
+    ("featurizer", "view", "recorded", "reads"),
     [
-        (FingerprintsFeaturizer(radius=3), {"radius": 3}),
-        (FingerprintsFeaturizer(n_bits=512, use_counts=True), {"n_bits": 512, "use_counts": True}),
-        (ChemBertaFeaturizer(max_length=128), {"max_length": 128}),
-        (SmilesVecDrugFeaturizer(k=4), {"k": 4}),
+        (FingerprintsFeaturizer(), "morgan_fingerprint", None, True),
+        (
+            FingerprintsFeaturizer(),
+            "morgan_fingerprint",
+            {"radius": 2, "n_bits": 2048, "use_chirality": False, "use_counts": False},
+            True,
+        ),
+        (
+            FingerprintsFeaturizer(n_bits=512),
+            "morgan_fingerprint",
+            {"radius": 2, "n_bits": 2048, "use_chirality": False, "use_counts": False},
+            False,
+        ),
+        (ChemBertaFeaturizer(max_length=128), "chemberta", {"max_length": 512}, False),
+        (SmilesVecDrugFeaturizer(), "smilesvec", None, True),
     ],
+    ids=["unrecorded", "same-settings", "other-n_bits", "other-max_length", "smilesvec-unrecorded"],
 )
-def test_a_non_default_config_looks_up_only_the_stored_variant_with_its_settings(featurizer, expected) -> None:
-    assert featurizer.stored_params() == expected
+def test_the_view_is_read_only_when_its_recorded_settings_match(featurizer, view, recorded, reads) -> None:
+    source = DrugSource(
+        {view: {"d1": [0.1, 0.2]}}, names={view: ("a", "b")}, settings=None if recorded is None else {view: recorded}
+    )
+
+    assert featurizer.reads_view(source) is reads
+    assert featurizer.reads_view(DrugSource({"other": {"d1": [1.0]}})) is False

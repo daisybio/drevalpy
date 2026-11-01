@@ -8,7 +8,6 @@ from typing import Any, ClassVar, Self
 import numpy as np
 
 from drevalpy.components.contracts.feature_format import FeatureFormat
-from drevalpy.components.featurizers.drug._smiles_utils import get_smiles_for_entities
 from drevalpy.components.featurizers.featurizer import Featurizer
 from drevalpy.data.artifacts import get_artifact
 from drevalpy.log import get_logger
@@ -86,18 +85,17 @@ def molgnet_node_matrices(source: FeatureSource, view: str, ids: np.ndarray) -> 
     :returns: One ``(n_atoms, n_dim)`` matrix per ID.
     :raises KeyError: If a drug has no stored matrix and none can be computed from its SMILES.
     """
-    stored = source.has_view(view)
+    stored = source.view(view, ids) if source.has_view(view) else [None] * len(ids)
     smiles = None
     rows: list[np.ndarray] = []
-    for drug_id in ids:
+    for drug_id, entity_view in zip(ids, stored, strict=True):
         key = str(drug_id)
-        entity_view = source.get_entity_view(key, view) if stored else None
         if entity_view is not None:
             rows.append(np.asarray(entity_view))
             continue
         if smiles is None:
-            _logger.info("Computing %s on the fly. Consider precompute().", _BLOCK)
-            smiles = get_smiles_for_entities(source, np.unique(ids))
+            _logger.info("Computing %s on the fly from SMILES.", _BLOCK)
+            smiles = source.smiles(np.unique(ids))
         smi = None if smiles is None else smiles.get(key)
         computed = _compute_molgnet_embedding(smi) if smi and isinstance(smi, str) else None
         if computed is None:

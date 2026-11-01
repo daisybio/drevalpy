@@ -85,23 +85,6 @@ class LandmarkGenesFeaturizer(Featurizer):
         """
         return all_nan_rows_mask(source, self._view, ids)
 
-    def stored_params(self) -> Mapping[str, Any] | None:
-        """Match the parameter-free stored variant.
-
-        :returns: An empty mapping.
-        """
-        return {}
-
-    def from_stored(self, source: FeatureSource, ids: np.ndarray, matrix: np.ndarray) -> FeaturizerResult:
-        """Wrap a stored landmark matrix as the ``gene_expression`` block.
-
-        :param source: Feature source of the sample side.
-        :param ids: Sample IDs, one per row of *matrix*.
-        :param matrix: Stored landmark-gene matrix.
-        :returns: One ``gene_expression`` block named by the genes of the list.
-        """
-        return dense_result(ids, _BLOCK, matrix, select_genes(source, self._view, self._gene_list_stem))
-
     def fit(
         self,
         source: FeatureSource,

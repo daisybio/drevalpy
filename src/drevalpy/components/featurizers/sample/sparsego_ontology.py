@@ -92,23 +92,6 @@ class SparseGOOntologyFeaturizer(Featurizer):
         """
         return all_nan_rows_mask(source, self._view, ids)
 
-    def stored_params(self) -> Mapping[str, Any] | None:
-        """Match the parameter-free stored variant.
-
-        :returns: An empty mapping.
-        """
-        return {}
-
-    def from_stored(self, source: FeatureSource, ids: np.ndarray, matrix: np.ndarray) -> FeaturizerResult:
-        """Wrap a stored ontology-aligned matrix, attaching the ontology metadata of *source*.
-
-        :param source: Feature source with ``sparsego_ontology`` metadata.
-        :param ids: Sample IDs, one per row of *matrix*.
-        :param matrix: Stored ontology-aligned matrix.
-        :returns: Result with one metadata-rich numeric block.
-        """
-        return self._result(ids, matrix, _required_metadata(source))
-
     def fit(
         self,
         source: FeatureSource,
@@ -141,7 +124,7 @@ class SparseGOOntologyFeaturizer(Featurizer):
         metadata = self._metadata
         if metadata is None:
             raise RuntimeError("SparseGOOntologyFeaturizer must be fit before transform")
-        names = source.get_feature_names(self._view)
+        names = source.feature_names(self._view)
         if names is None:
             raise ValueError("SparseGO requires named input features to align ontology genes")
         columns = {name: index for index, name in enumerate(names)}
@@ -149,7 +132,7 @@ class SparseGOOntologyFeaturizer(Featurizer):
         if missing:
             raise ValueError(f"SparseGO input is missing ontology genes: {sorted(missing)}")
         indices = [columns[name] for name in metadata["ontology_gene_order"]]
-        return self._result(ids, source.get_view_matrix(self._view, ids)[:, indices], metadata)
+        return self._result(ids, source.view(self._view, ids)[:, indices], metadata)
 
     def _result(self, ids: np.ndarray, matrix: np.ndarray, metadata: SparseGOOntologyMetadata) -> FeaturizerResult:
         """Wrap *matrix* as the active view's block, annotated with *metadata*.

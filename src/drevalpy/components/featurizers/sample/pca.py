@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, ClassVar, Self
 
 import numpy as np
@@ -55,24 +54,6 @@ class PCASampleFeaturizer(Featurizer):
         """
         return all_nan_rows_mask(source, self._view, ids)
 
-    def stored_params(self) -> Mapping[str, Any] | None:
-        """Match only a variant stored with this component count.
-
-        :returns: HP mapping identifying the stored variant.
-        """
-        return {"n_components": self._n_components}
-
-    def from_stored(self, source: FeatureSource, ids: np.ndarray, matrix: np.ndarray) -> FeaturizerResult:
-        """Wrap stored components as the view's block.
-
-        :param source: Unused.
-        :param ids: Sample IDs, one per row of *matrix*.
-        :param matrix: Stored components.
-        :returns: One unnamed block of components, named after the view.
-        """
-        _ = source
-        return dense_result(ids, self._view, matrix, None)
-
     def fit(
         self,
         source: FeatureSource,
@@ -92,7 +73,7 @@ class PCASampleFeaturizer(Featurizer):
         from sklearn.decomposition import PCA
 
         _ = train_pair_ids, es_pair_ids
-        self._names = source.get_feature_names(self._view)
+        self._names = source.feature_names(self._view)
         matrix = view_matrix(source, self._view, train_ids, self._names)
         self._pca = PCA(n_components=min(self._n_components, matrix.shape[0], matrix.shape[1])).fit(matrix)
         return self

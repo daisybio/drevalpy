@@ -10,7 +10,6 @@ import numpy as np
 from drevalpy.components.contracts.feature_format import FeatureFormat
 from drevalpy.components.featurizers._one_hot import OneHotCategoryEncoder
 from drevalpy.components.featurizers.featurizer import Featurizer
-from drevalpy.data.utils import TISSUE_IDENTIFIER
 from drevalpy.registry.featurizer import register
 from drevalpy.types.data.batch.feature_block import (
     BlockSpec,
@@ -23,14 +22,12 @@ from drevalpy.types.data.feature_source import FeatureSource, Side
 _MISSING_MESSAGE = "TissueFeaturizer requires tissue annotations in sample_input"
 
 
-def _tissue_label(source: FeatureSource, entity_id: str) -> str | None:
-    raw = source.get_entity_view(str(entity_id), TISSUE_IDENTIFIER)
+def _tissue_labels(source: FeatureSource, ids: np.ndarray) -> list[str | None]:
+    """Return the tissue label of every sample, ``None`` where it has none."""
+    raw = source.tissue(ids)
     if raw is None:
-        return None
-    label = np.asarray(raw).reshape(-1)[0]
-    if isinstance(label, float) and np.isnan(label):
-        return None
-    return str(label)
+        return [None] * len(ids)
+    return [None if label is None or (isinstance(label, float) and np.isnan(label)) else str(label) for label in raw]
 
 
 @register("tissue", description="One-hot encoding of tissue or lineage labels for sample entities.")
@@ -78,8 +75,7 @@ class TissueFeaturizer(Featurizer):
         """
         _ = train_pair_ids, es_pair_ids
         available: list[str] = []
-        for entity_id in train_ids:
-            label = _tissue_label(source, str(entity_id))
+        for label in _tissue_labels(source, train_ids):
             if label is None:
                 if not self._allow_missing:
                     raise ValueError(_MISSING_MESSAGE)
@@ -102,8 +98,7 @@ class TissueFeaturizer(Featurizer):
             matrix = np.empty((len(ids), 0), dtype=np.float32)
         else:
             categories: list[str] = []
-            for entity_id in ids:
-                label = _tissue_label(source, str(entity_id))
+            for label in _tissue_labels(source, ids):
                 if label is None:
                     if not self._allow_missing:
                         raise ValueError(_MISSING_MESSAGE)

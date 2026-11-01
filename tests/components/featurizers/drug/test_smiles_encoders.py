@@ -8,8 +8,8 @@ from typing import Any
 import numpy as np
 import pytest
 
-from drevalpy.components.featurizers.drug._smiles_utils import as_pyg_graph, get_smiles_for_entities
 from drevalpy.components.featurizers.drug.bpe_pharmaformer import BpePharmaformerDrugFeaturizer
+from drevalpy.components.featurizers.drug.drug_graph import as_pyg_graph
 from drevalpy.components.featurizers.drug.smiles_tokenizer import (
     BASE_VOCABULARY,
     PAD_IDX,
@@ -33,21 +33,21 @@ from tests.models.synthetic_fixtures import synthetic_model_dataset_gene_express
 
 
 def test_returns_none_without_a_mudata_backing_or_smiles_column() -> None:
-    assert get_smiles_for_entities(DrugSource({"v": {"d1": [1.0]}}), np.array(["d1"])) is None
+    assert DrugSource({"v": {"d1": [1.0]}}).smiles(np.array(["d1"])) is None
     dataset = synthetic_model_dataset_gene_expression_fingerprints()
-    source = FeatureSource(dataset, "drug", dataset.drug_ids)
-    assert get_smiles_for_entities(source, dataset.drug_ids) is None
+    source = FeatureSource(dataset, "drug")
+    assert source.smiles(dataset.drug_ids) is None
 
 
-def test_returns_smiles_indexed_by_the_requested_drug_ids(drug_source: FeatureSource) -> None:
-    drug_ids = drug_source.identifiers[:3]
+def test_returns_smiles_indexed_by_the_requested_drug_ids(drug_source: FeatureSource, drug_ids: np.ndarray) -> None:
+    drug_ids = drug_ids[:3]
 
-    smiles = get_smiles_for_entities(drug_source, drug_ids)
+    smiles = drug_source.smiles(drug_ids)
 
     assert smiles is not None
     assert list(smiles.index) == list(drug_ids)
     assert all(isinstance(value, str) and value for value in smiles)
-    unknown = get_smiles_for_entities(drug_source, np.array(["not-a-drug"]))
+    unknown = drug_source.smiles(np.array(["not-a-drug"]))
     assert unknown is not None and unknown.isna().all()
 
 
@@ -228,8 +228,10 @@ def test_drugs_without_a_smiles_are_invalid() -> None:
 _IDS_SLICE = slice(0, 2)
 
 
-def _fitted(drug_source: FeatureSource, **kwargs) -> tuple[BpePharmaformerDrugFeaturizer, np.ndarray]:
-    drug_ids = drug_source.identifiers[_IDS_SLICE]
+def _fitted(
+    drug_source: FeatureSource, drug_ids: np.ndarray, **kwargs
+) -> tuple[BpePharmaformerDrugFeaturizer, np.ndarray]:
+    drug_ids = drug_ids[_IDS_SLICE]
     featurizer = BpePharmaformerDrugFeaturizer(num_symbols=50, **kwargs)
     return featurizer.fit(drug_source, drug_ids), drug_ids
 
@@ -252,14 +254,16 @@ def test_transform_before_fit_and_fit_without_smiles_raise(featurizer_cls, fit_e
         featurizer_cls().fit(source, np.array(["d1"]))
 
 
-def test_transform_without_smiles_raises(drug_source: FeatureSource) -> None:
-    featurizer, _ = _fitted(drug_source, max_length=16)
+def test_transform_without_smiles_raises(drug_source: FeatureSource, drug_ids: np.ndarray) -> None:
+    featurizer, _ = _fitted(drug_source, drug_ids, max_length=16)
     with pytest.raises(ValueError, match="Cannot encode BPE"):
         featurizer.transform(DrugSource({"v": {"d1": [1.0]}}), np.array(["d1"]))
 
 
-def test_fit_then_transform_emits_a_padded_token_matrix_with_one_block(drug_source: FeatureSource) -> None:
-    featurizer, drug_ids = _fitted(drug_source, max_length=32)
+def test_fit_then_transform_emits_a_padded_token_matrix_with_one_block(
+    drug_source: FeatureSource, drug_ids: np.ndarray
+) -> None:
+    featurizer, drug_ids = _fitted(drug_source, drug_ids, max_length=32)
 
     result = featurizer.transform(drug_source, drug_ids)
 
@@ -270,23 +274,25 @@ def test_fit_then_transform_emits_a_padded_token_matrix_with_one_block(drug_sour
     assert featurizer.transform(drug_source, np.array([], dtype=str)).matrix.shape == (0, 32)
 
 
-def test_transform_truncates_long_sequences_and_pads_short_ones(drug_source: FeatureSource) -> None:
-    short, drug_ids = _fitted(drug_source, max_length=4)
+def test_transform_truncates_long_sequences_and_pads_short_ones(
+    drug_source: FeatureSource, drug_ids: np.ndarray
+) -> None:
+    short, drug_ids = _fitted(drug_source, drug_ids, max_length=4)
     assert np.all(short.transform(drug_source, drug_ids).matrix > 0)
-    padded, _ = _fitted(drug_source, max_length=512)
+    padded, _ = _fitted(drug_source, drug_ids, max_length=512)
     assert np.any(padded.transform(drug_source, drug_ids).matrix[0] == 0.0)
 
 
-def test_transform_leaves_unknown_drugs_as_zero_rows(drug_source: FeatureSource) -> None:
-    featurizer, _ = _fitted(drug_source, max_length=16)
+def test_transform_leaves_unknown_drugs_as_zero_rows(drug_source: FeatureSource, drug_ids: np.ndarray) -> None:
+    featurizer, _ = _fitted(drug_source, drug_ids, max_length=16)
 
     matrix = featurizer.transform(drug_source, np.array(["not-a-drug"])).matrix
 
     np.testing.assert_allclose(matrix, np.zeros((1, 16), dtype=np.float32))
 
 
-def test_a_fitted_bpe_featurizer_pickles(drug_source: FeatureSource) -> None:
-    featurizer, drug_ids = _fitted(drug_source, max_length=32)
+def test_a_fitted_bpe_featurizer_pickles(drug_source: FeatureSource, drug_ids: np.ndarray) -> None:
+    featurizer, drug_ids = _fitted(drug_source, drug_ids, max_length=32)
 
     restored = pickle.loads(pickle.dumps(featurizer))  # noqa: S301 -- pickled on this line
 
@@ -295,21 +301,23 @@ def test_a_fitted_bpe_featurizer_pickles(drug_source: FeatureSource) -> None:
     )
 
 
-def test_learn_bpe_reports_missing_subword_nmt(monkeypatch: pytest.MonkeyPatch, drug_source: FeatureSource) -> None:
+def test_learn_bpe_reports_missing_subword_nmt(
+    monkeypatch: pytest.MonkeyPatch, drug_source: FeatureSource, drug_ids: np.ndarray
+) -> None:
     block_imports(monkeypatch, "subword_nmt")
 
     with pytest.raises(ImportError, match="subword-nmt is required"):
-        BpePharmaformerDrugFeaturizer().fit(drug_source, drug_source.identifiers[_IDS_SLICE])
+        BpePharmaformerDrugFeaturizer().fit(drug_source, drug_ids[_IDS_SLICE])
 
 
 def test_learning_bpe_silences_progress_and_restores_the_module_binding(
-    drug_source: FeatureSource, capsys: pytest.CaptureFixture[str]
+    drug_source: FeatureSource, drug_ids: np.ndarray, capsys: pytest.CaptureFixture[str]
 ) -> None:
     from subword_nmt import learn_bpe as learn_bpe_module
 
     original = learn_bpe_module.tqdm
 
-    _fitted(drug_source, max_length=16)
+    _fitted(drug_source, drug_ids, max_length=16)
 
     assert learn_bpe_module.tqdm is original
     assert "it/s" not in capsys.readouterr().err

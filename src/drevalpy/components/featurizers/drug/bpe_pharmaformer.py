@@ -11,9 +11,8 @@ import numpy as np
 
 from drevalpy.components.contracts.feature_format import FeatureFormat
 from drevalpy.components.featurizers._dense import dense_result
-from drevalpy.components.featurizers.drug._smiles_utils import get_smiles_for_entities
 from drevalpy.components.featurizers.featurizer import Featurizer
-from drevalpy.registry.components._metadata import LiteratureReference
+from drevalpy.registry._component import LiteratureReference
 from drevalpy.registry.featurizer import register
 from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult
 from drevalpy.types.data.feature_source import FeatureSource, Side
@@ -118,7 +117,7 @@ class BpePharmaformerDrugFeaturizer(Featurizer):
         :returns: This featurizer, fitted.
         :raises ValueError: If the source has no SMILES for the training drugs.
         """
-        smiles = get_smiles_for_entities(source, train_ids)
+        smiles = source.smiles(train_ids)
         if smiles is None:
             msg = "Cannot learn BPE codes: no SMILES available."
             raise ValueError(msg)
@@ -141,7 +140,7 @@ class BpePharmaformerDrugFeaturizer(Featurizer):
             raise RuntimeError(msg)
         if len(ids) == 0:
             return dense_result(ids, _BLOCK, np.empty((0, self._max_length), dtype=np.float32), None)
-        smiles = get_smiles_for_entities(source, ids)
+        smiles = source.smiles(ids)
         if smiles is None:
             msg = "Cannot encode BPE: no SMILES available."
             raise ValueError(msg)

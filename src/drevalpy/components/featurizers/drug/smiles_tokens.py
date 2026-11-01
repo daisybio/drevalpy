@@ -13,7 +13,6 @@ from typing import Any, ClassVar, Self
 import numpy as np
 
 from drevalpy.components.contracts.feature_format import FeatureFormat
-from drevalpy.components.featurizers.drug._smiles_utils import get_smiles_for_entities
 from drevalpy.components.featurizers.drug.smiles_tokenizer import (
     BASE_VOCABULARY,
     build_vocabulary,
@@ -94,7 +93,7 @@ class SmilesTokensFeaturizer(Featurizer):
         :param ids: Drug identifiers to check.
         :returns: Boolean mask; all ``True`` when the source carries no SMILES at all.
         """
-        smiles = get_smiles_for_entities(source, ids)
+        smiles = source.smiles(ids)
         if smiles is None:
             return np.ones(len(ids), dtype=bool)
         return np.array([isinstance(value, str) and bool(value) for value in smiles.to_numpy()], dtype=bool)
@@ -107,7 +106,7 @@ class SmilesTokensFeaturizer(Featurizer):
         :returns: One SMILES string per identifier.
         :raises ValueError: If the source has no SMILES.
         """
-        smiles = get_smiles_for_entities(source, entity_ids)
+        smiles = source.smiles(entity_ids)
         if smiles is None:
             raise ValueError("Cannot tokenize SMILES: no SMILES available.")
         return [str(value) for value in smiles.to_numpy()]

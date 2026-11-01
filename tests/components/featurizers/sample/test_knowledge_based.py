@@ -68,7 +68,7 @@ def test_aggregate_budget_ties_and_empty_eligibility() -> None:
 
 
 def _sample_source(dataset: Dataset) -> FeatureSource:
-    return FeatureSource(dataset, "sample", dataset.sample_ids)
+    return FeatureSource(dataset, "sample")
 
 
 def test_bionic_reads_the_bionic_features_view_when_present(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -89,7 +89,6 @@ def test_bionic_reads_the_bionic_features_view_when_present(monkeypatch: pytest.
 
     np.testing.assert_allclose(result.matrix, [[0.1, 0.2], [0.3, 0.4]], rtol=1e-6)
     assert result.blocks["bionic_features"].feature_names == ("e0", "e1")
-    assert featurizer.stored_params() == {}
 
 
 def test_bionic_computes_from_gene_expression_when_the_view_is_absent(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -109,7 +108,7 @@ def test_bionic_computes_from_gene_expression_when_the_view_is_absent(monkeypatc
     assert result.blocks["bionic_features"].feature_names is None
 
 
-def test_bionic_compute_from_source_aggregates_per_sample_and_needs_feature_names(
+def test_bionic_compute_aggregates_per_sample_and_needs_feature_names(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     import drevalpy.components.featurizers.sample.bionic as bionic_module
@@ -121,13 +120,13 @@ def test_bionic_compute_from_source_aggregates_per_sample_and_needs_feature_name
         meta_info={"gene_expression": ["g_high", "g_mid"]},
     )
 
-    matrix = BionicSampleFeaturizer()._compute_from_source(named, np.array(["cl1", "cl2"], dtype=str))
+    matrix = BionicSampleFeaturizer().compute(named, np.array(["cl1", "cl2"], dtype=str))
 
     assert matrix.shape == (2, 2)
     np.testing.assert_allclose(matrix[0], [2.0, 3.0])
     nameless = MockFeatureSource(features={"cl1": {"gene_expression": np.array([1.0, 2.0])}})
     with pytest.raises(ValueError, match="must provide feature names"):
-        BionicSampleFeaturizer()._compute_from_source(nameless, np.array(["cl1"], dtype=str))
+        BionicSampleFeaturizer().compute(nameless, np.array(["cl1"], dtype=str))
 
 
 @pytest.mark.network
@@ -162,7 +161,7 @@ def test_run_gsva_downloads_the_gene_sets_when_the_dataset_has_none(
 
     monkeypatch.setattr(gseapy, "gsva", failing_gsva)
     source = MockFeatureSource(features={"cl1": {"gene_expression": np.array([1.0, 2.0])}})
-    source.get_feature_names = lambda view: ["G1", "G2"]  # type: ignore[method-assign]
+    source.feature_names = lambda view: ["G1", "G2"]  # type: ignore[method-assign]
     featurizer = PathwaysSampleFeaturizer()
 
     with pytest.raises(RuntimeError, match="stop after reading"):
@@ -196,11 +195,11 @@ def test_run_gsva_prefers_the_gene_sets_stored_in_the_dataset(
 
 def test_run_gsva_requires_gene_expression_feature_names(synthetic_dataset: Dataset) -> None:
     class _NamelessSource(FeatureSource):
-        def get_feature_names(self, view: str) -> None:
+        def feature_names(self, name: str) -> None:
             return None
 
     featurizer = PathwaysSampleFeaturizer()
-    source = _NamelessSource(synthetic_dataset, "sample", synthetic_dataset.sample_ids)
+    source = _NamelessSource(synthetic_dataset, "sample")
 
     with pytest.raises(ValueError, match="must provide feature names"):
         featurizer._run_gsva(source, synthetic_dataset.sample_ids[:2])
@@ -387,30 +386,6 @@ def test_sparsego_checks_usability_on_the_active_view() -> None:
     np.testing.assert_array_equal(
         SparseGOOntologyFeaturizer(input_type="mutations").valid_mask(features, ids), [False, True]
     )
-
-
-def test_sparsego_serves_a_stored_variant_with_the_ontology_attached() -> None:
-    from tests.components.featurizers.sample._helpers import PRECOMPUTED, precomputed_source
-
-    source = precomputed_source(SparseGOOntologyFeaturizer)
-    source.mdata.uns["sparsego_ontology"] = {
-        "layer_connections": [np.array([["term", "gene0"]])],
-        "gene2id_mapping_ont": {"gene0": 0, "gene1": 1},
-        "ontology_gene_order": ("gene0", "gene1"),
-        "gene_dim_input": 2,
-    }
-    featurizer = SparseGOOntologyFeaturizer()
-    assert featurizer.storage_key is not None
-    stored = source.stored(featurizer.storage_key, featurizer.stored_params(), source.identifiers)
-    assert stored is not None
-
-    block = featurizer.from_stored(source, source.identifiers, stored).blocks["gene_expression"]
-
-    np.testing.assert_allclose(block.values, PRECOMPUTED)
-    assert block.feature_names == ("gene0", "gene1")
-    assert block.annotations is not None and block.annotations["gene_dim_input"] == 2
-    with pytest.raises(ValueError, match="ontology metadata is missing"):
-        featurizer.from_stored(MockFeatureSource({}), np.array(["cl1", "cl2"]), PRECOMPUTED)
 
 
 def test_ontology_order_controls_values_and_names_and_missing_genes_fail() -> None:

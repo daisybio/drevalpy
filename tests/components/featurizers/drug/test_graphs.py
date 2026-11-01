@@ -54,8 +54,8 @@ def test_drug_graph_passes_stored_payloads_through_as_one_graph_block() -> None:
     assert set(DrugGraphFeaturizer.get_hyperparameter_space()) == {"add_hydrogens"}
 
 
-def test_drug_graph_converts_stored_graph_mappings(drug_source: FeatureSource) -> None:
-    graphs = _graphs(DrugGraphFeaturizer(), drug_source, drug_source.identifiers[:2])
+def test_drug_graph_converts_stored_graph_mappings(drug_source: FeatureSource, drug_ids: np.ndarray) -> None:
+    graphs = _graphs(DrugGraphFeaturizer(), drug_source, drug_ids[:2])
 
     assert all(isinstance(graph, Data) for graph in graphs)
     assert graphs[0].edge_index.dtype == torch.long

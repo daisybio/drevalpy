@@ -44,7 +44,7 @@ class ViewDrugFeaturizer(Featurizer):
         :param es_pair_ids: Unused.
         :returns: This featurizer.
         """
-        self._view_names = source.get_feature_names(self._view)
+        self._view_names = source.feature_names(self._view)
         return self
 
     def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerResult:

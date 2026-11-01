@@ -7,6 +7,7 @@ from typing import Any, TypedDict
 import numpy as np
 
 from drevalpy.types.data.feature_source import FeatureSource
+from drevalpy.types.data.views import SPARSEGO_KEY
 
 
 class SparseGOOntologyMetadata(TypedDict):
@@ -24,14 +25,9 @@ def read_sparsego_ontology_metadata(source: FeatureSource) -> SparseGOOntologyMe
     :param source: Feature source with metadata access.
     :returns: Typed metadata, or ``None`` when the source has no usable SparseGO ontology entry.
     """
-    metadata: Any = None
-    for key in ("sparsego_ontology", "sparsego"):
-        try:
-            metadata = source.get_metadata(key)
-        except (KeyError, AttributeError):
-            continue
-        if metadata is not None:
-            break
+    metadata: Any = source.uns("sparsego_ontology")
+    if metadata is None:
+        metadata = source.uns(SPARSEGO_KEY)
     if isinstance(metadata, dict) and (
         "layer_connections" in metadata or "ontology_file" in metadata or "ontology" in metadata
     ):
