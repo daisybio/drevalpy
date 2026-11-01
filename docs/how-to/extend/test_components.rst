@@ -54,9 +54,8 @@ raises ``ConformanceError``, which subclasses ``AssertionError``.
    from drevalpy.testing import FEATURIZER_CHECKS
 
 
-   @register_featurizer("logExpression", description="log1p of the gene_expression view.")
+   @register_featurizer("logExpression", side=Side.SAMPLE, description="log1p of the gene_expression view.")
    class LogExpressionFeaturizer(Featurizer):
-       sides: ClassVar[frozenset[Side]] = frozenset({"sample"})
        input_views: ClassVar[tuple[str, ...]] = ("gene_expression",)
 
        def fit(self, source, train_ids, *, train_pair_ids=None, es_pair_ids=None):

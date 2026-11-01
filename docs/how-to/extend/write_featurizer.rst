@@ -29,9 +29,12 @@ without a deprecation cycle.
 Implement ``fit`` and ``transform``
 -----------------------------------
 
-Subclass ``Featurizer`` and register the class with ``register_featurizer(name, *,
-description, tags=None, reference=None)``. A featurizer is registered once, whichever sides it
-supports. It implements two methods:
+Subclass ``Featurizer`` and register the class with ``register_featurizer(name, *, side,
+description, tags=None, reference=None)``. ``side`` is ``Side.SAMPLE`` or ``Side.DRUG``: a
+featurizer works on exactly one side, and each side has a registry of its own, so the name
+only has to be unique within that side. The decorator sets ``name`` and ``side`` on the class.
+A model that uses the featurizer on the other side is rejected, because that side's registry
+does not know the name. The featurizer implements two methods:
 
 .. list-table::
    :header-rows: 1
@@ -49,8 +52,7 @@ supports. It implements two methods:
        block name to ``FeatureBlock``, and the names of the blocks that make up the flat matrix.
        Keep the order of ``ids``, which may be empty.
 
-``source`` is a ``FeatureSource`` for the featurizer's side. ``source.side`` is ``"sample"`` or
-``"drug"``, ``source.view(view, ids)`` reads rows of a view, ``source.feature_names(view)`` its
+``source`` is a ``FeatureSource`` for the featurizer's side. ``source.view(view, ids)`` reads rows of a view, ``source.feature_names(view)`` its
 column names, and ``source.has_view(view)`` tells whether the dataset holds it. ``smiles(ids)``,
 ``graphs(ids)``, ``tissue(ids)`` and ``uns(key)`` read the SMILES strings, drug graphs, tissue
 labels and dataset-level payloads.
@@ -66,10 +68,6 @@ Declare what it reads and emits
 These class attributes and class methods are read without fitting anything, so a model that
 cannot work is rejected when its configuration is built:
 
-``sides``
-   The sides the featurizer can be used on: ``frozenset({"sample"})``,
-   ``frozenset({"drug"})`` or, the default, both. A model that uses it on another side is
-   rejected.
 ``input_views``
    The views the featurizer reads, such as ``("gene_expression",)``. Leave it empty for a
    featurizer that needs only entity IDs. ``valid_mask`` checks the first of them for all-NaN
@@ -89,7 +87,7 @@ NaN rows. Its hyperparameters are declared like a predictor's, with
 keyword arguments.
 
 Registration rejects a class that is not a ``Featurizer``, still has unimplemented abstract
-methods, declares malformed ``sides`` or views, or has a hyperparameter entry without a
+methods, declares malformed views, or has a hyperparameter entry without a
 ``default``.
 
 A featurizer that reads a view
@@ -117,9 +115,9 @@ named after a view. It works against any dataset, including a response-only one.
 Use one featurizer on both sides
 --------------------------------
 
-A featurizer whose logic does not depend on the side keeps the default ``sides`` and reads
-``source.side`` if it needs to. The built-in ``identity``, ``constant`` and
-``concatFeaturizers`` featurizers work this way.
+A featurizer whose logic does not depend on the side is written once and registered once per
+side, as a subclass each. The two registrations may share the name. The built-in ``oneHot``,
+``constant``, ``concatFeaturizers`` and ``view`` featurizers work this way.
 
 .. code-block:: python
 
@@ -133,11 +131,11 @@ A featurizer whose logic does not depend on the side keeps the default ``sides``
        FeatureFormat,
        Featurizer,
        dense_result,
+       Side,
        register_featurizer,
    )
 
 
-   @register_featurizer("myOnes", description="A constant column per sample or drug.")
    class OnesFeaturizer(Featurizer):
        """Emit one column of ones per entity."""
 
@@ -150,6 +148,16 @@ A featurizer whose logic does not depend on the side keeps the default ``sides``
 
        def transform(self, source, ids):
            return dense_result(ids, "ones", np.ones((len(ids), 1)), None)
+
+
+   @register_featurizer("myOnes", side=Side.SAMPLE, description="A constant column per sample.")
+   class SampleOnesFeaturizer(OnesFeaturizer):
+       """Ones per sample."""
+
+
+   @register_featurizer("myOnes", side=Side.DRUG, description="A constant column per drug.")
+   class DrugOnesFeaturizer(OnesFeaturizer):
+       """Ones per drug."""
 
 .. code-block:: python
 

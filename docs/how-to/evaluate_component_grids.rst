@@ -17,7 +17,7 @@ Build a grid
 Give the sample featurizers, the drug featurizers and the predictors. DrEvalPy forms every
 combination ``<sample>:<drug>:<predictor>``, drops the ones whose components do not fit together,
 and runs the rest. A featurizer that needs a view takes it in brackets, as in
-``raw[gene_expression]``; see :doc:`/reference/recipes` for the full syntax and
+``view[gene_expression]``; see :doc:`/reference/recipes` for the full syntax and
 :doc:`/how-to/list_available` for the names.
 
 .. tab-set::
@@ -33,21 +33,21 @@ and runs the rest. A featurizer that needs a view takes it in brackets, as in
 
          drevalpy data synthetic --output toy.h5mu
          drevalpy run --dataset toy.h5mu --split-mode LSO --no-hpo --output-dir results_grid \
-             -S "raw[gene_expression]" -S tissue -D fingerprints -P ridge -P naiveTissueMean
+             -S "view[gene_expression]" -S tissue -D fingerprints -P ridge -P naiveTissueMean
 
       The command names each skipped combination and the reason, then runs the others and prints
       the summary. The skipped line comes first, before the folds run:
 
       .. code-block:: text
 
-         Skipped raw[gene_expression]:fingerprints:naiveTissueMean: Predictor 'naiveTissueMean' needs sample block(s) ['tissue'] but the sample featurizer 'raw' emits [gene_expression]
+         Skipped view[gene_expression]:fingerprints:naiveTissueMean: Predictor 'naiveTissueMean' needs sample block(s) ['tissue'] but the sample featurizer 'view' emits [gene_expression]
          Wrote experiment results to results_grid
          ExperimentResult
              Dataset: SYNTHETIC
              Split mode: LSO
              Normalized by: None
              Models: 3
-                 raw[gene_expression]:fingerprints:ridge (5 folds): MSE=0.5534, RMSE=0.7437, MAE=0.5830, R^2=0.7925, Pearson=0.8936, Spearman=0.9025, Kendall=0.7252
+                 view[gene_expression]:fingerprints:ridge (5 folds): MSE=0.5534, RMSE=0.7437, MAE=0.5830, R^2=0.7925, Pearson=0.8936, Spearman=0.9025, Kendall=0.7252
                  tissue:fingerprints:ridge (5 folds): MSE=0.7718, RMSE=0.8748, MAE=0.7049, R^2=0.7111, Pearson=0.8499, Spearman=0.8483, Kendall=0.6686
                  tissue:fingerprints:naiveTissueMean (5 folds): MSE=2.6879, RMSE=1.6393, MAE=1.3716, R^2=-0.0076, Pearson=0.1044, Spearman=0.1215, Kendall=0.0932
 
@@ -63,7 +63,7 @@ and runs the rest. A featurizer that needs a view takes it in brackets, as in
          from drevalpy.models import combinations
 
          grid = combinations(
-             sample=["raw[gene_expression]", "tissue"],
+             sample=["view[gene_expression]", "tissue"],
              drug=["fingerprints"],
              predictors=["ridge", "naiveTissueMean"],
          )
@@ -73,8 +73,8 @@ and runs the rest. A featurizer that needs a view takes it in brackets, as in
 
       .. code-block:: text
 
-         ['raw[gene_expression]:fingerprints:ridge', 'tissue:fingerprints:ridge', 'tissue:fingerprints:naiveTissueMean']
-         raw[gene_expression]:fingerprints:naiveTissueMean | Predictor 'naiveTissueMean' needs sample block(s) ['tissue'] but the sample featurizer 'raw' emits [gene_expression]
+         ['view[gene_expression]:fingerprints:ridge', 'tissue:fingerprints:ridge', 'tissue:fingerprints:naiveTissueMean']
+         view[gene_expression]:fingerprints:naiveTissueMean | Predictor 'naiveTissueMean' needs sample block(s) ['tissue'] but the sample featurizer 'view' emits [gene_expression]
 
       Pass ``grid.specs`` to ``run`` like any list of models:
 
@@ -91,11 +91,11 @@ and runs the rest. A featurizer that needs a view takes it in brackets, as in
              Split mode: LSO
              Normalized by: None
              Models: 3
-                 raw[gene_expression]:fingerprints:ridge (5 folds): MSE=0.5534, RMSE=0.7437, MAE=0.5830, R^2=0.7925, Pearson=0.8936, Spearman=0.9025, Kendall=0.7252
+                 view[gene_expression]:fingerprints:ridge (5 folds): MSE=0.5534, RMSE=0.7437, MAE=0.5830, R^2=0.7925, Pearson=0.8936, Spearman=0.9025, Kendall=0.7252
                  tissue:fingerprints:ridge (5 folds): MSE=0.7718, RMSE=0.8748, MAE=0.7049, R^2=0.7111, Pearson=0.8499, Spearman=0.8483, Kendall=0.6686
                  tissue:fingerprints:naiveTissueMean (5 folds): MSE=2.6879, RMSE=1.6393, MAE=1.3716, R^2=-0.0076, Pearson=0.1044, Spearman=0.1215, Kendall=0.0932
 
-``naiveTissueMean`` predicts from the tissue block, so it fits ``tissue`` and not ``raw``. The
+``naiveTissueMean`` predicts from the tissue block, so it fits ``tissue`` and not ``view``. The
 grid keeps three of the four combinations and reports the fourth instead of failing.
 ``combinations`` raises ``ValueError`` when nothing is valid, when you give drug featurizers
 without sample featurizers, and when the predictor list is empty. The command line turns the same
@@ -109,7 +109,7 @@ only the first is kept.
 
    Some predictors need a drug featurizer even when they do not use drug features.
    ``-S tissue -P naiveTissueMean`` without ``-D`` is skipped with "requires a drug_featurizer"
-   (and is a usage error if nothing else in the grid is valid). Add ``-D identity``, which
+   (and is a usage error if nothing else in the grid is valid). Add ``-D oneHot``, which
    one-hot encodes the drug IDs, to run it. The same holds on a registered dataset such as GDSC2.
 
 Name one combination as a recipe
@@ -128,7 +128,7 @@ for several; both can be mixed on one command line, and a model that appears twi
 
       .. code-block:: bash
 
-         drevalpy run "raw[gene_expression]:fingerprints:ridge" NaiveDrugMeanPredictor \
+         drevalpy run "view[gene_expression]:fingerprints:ridge" NaiveDrugMeanPredictor \
              --dataset toy.h5mu --split-mode LSO --no-hpo --output-dir results_recipe
 
    .. tab-item:: Python
@@ -138,12 +138,12 @@ for several; both can be mixed on one command line, and a model that appears twi
 
          from drevalpy import ModelSpec
 
-         spec = ModelSpec.from_name("raw[gene_expression]:fingerprints:ridge")
+         spec = ModelSpec.from_name("view[gene_expression]:fingerprints:ridge")
          print(spec.name)
 
       .. code-block:: text
 
-         raw[gene_expression]:fingerprints:ridge
+         view[gene_expression]:fingerprints:ridge
 
 A name that is neither a zoo name nor a valid recipe raises ``ValueError`` (``UnknownModelError``)
 whose message says that the string is neither and gives the reason the recipe was rejected, for
@@ -171,7 +171,7 @@ The model below asks for a methylation view that the simulated dataset does not 
 
       .. code-block:: bash
 
-         drevalpy run "raw[methylation]:fingerprints:ridge" NaivePredictor \
+         drevalpy run "view[methylation]:fingerprints:ridge" NaivePredictor \
              --dataset toy.h5mu --split-mode LSO --no-hpo --output-dir results_failed
 
       ``NaivePredictor`` is scored and saved. The failures are listed on standard error after the
@@ -180,11 +180,11 @@ The model below asks for a methylation view that the simulated dataset does not 
       .. code-block:: text
 
          Error: 5 run(s) failed:
-           raw[methylation]:fingerprints:ridge fold 0: KeyError: "Modality 'methylation' not found. Available: ['gene_expression', 'response']"
-           raw[methylation]:fingerprints:ridge fold 1: KeyError: "Modality 'methylation' not found. Available: ['gene_expression', 'response']"
-           raw[methylation]:fingerprints:ridge fold 2: KeyError: "Modality 'methylation' not found. Available: ['gene_expression', 'response']"
-           raw[methylation]:fingerprints:ridge fold 3: KeyError: "Modality 'methylation' not found. Available: ['gene_expression', 'response']"
-           raw[methylation]:fingerprints:ridge fold 4: KeyError: "Modality 'methylation' not found. Available: ['gene_expression', 'response']"
+           view[methylation]:fingerprints:ridge fold 0: KeyError: "Modality 'methylation' not found. Available: ['gene_expression', 'response']"
+           view[methylation]:fingerprints:ridge fold 1: KeyError: "Modality 'methylation' not found. Available: ['gene_expression', 'response']"
+           view[methylation]:fingerprints:ridge fold 2: KeyError: "Modality 'methylation' not found. Available: ['gene_expression', 'response']"
+           view[methylation]:fingerprints:ridge fold 3: KeyError: "Modality 'methylation' not found. Available: ['gene_expression', 'response']"
+           view[methylation]:fingerprints:ridge fold 4: KeyError: "Modality 'methylation' not found. Available: ['gene_expression', 'response']"
 
       The output directory also holds ``failures.json``; see `The failures file`_. If every run
       fails, nothing is saved but the failures are printed and the exit code is 1. There is no
@@ -198,7 +198,7 @@ The model below asks for a methylation view that the simulated dataset does not 
 
       .. code-block:: python
 
-         models = [ModelSpec.from_name(name) for name in ["raw[methylation]:fingerprints:ridge", "NaivePredictor"]]
+         models = [ModelSpec.from_name(name) for name in ["view[methylation]:fingerprints:ridge", "NaivePredictor"]]
          results = drevalpy.run(models, dataset, "LSO", hyperparameter_tuning=False)
          print(results.model_names)
          print(len(results.failures))
@@ -208,9 +208,9 @@ The model below asks for a methylation view that the simulated dataset does not 
 
          ['NaivePredictor']
          5
-         raw[methylation]:fingerprints:ridge fold 0: KeyError: "Modality 'methylation' not found. Available: ['gene_expression', 'response']"
+         view[methylation]:fingerprints:ridge fold 0: KeyError: "Modality 'methylation' not found. Available: ['gene_expression', 'response']"
 
-      A record is a ``RunFailure`` with the ``identity`` of the run that failed (model, dataset,
+      A record is a ``RunFailure`` with the ``oneHot`` of the run that failed (model, dataset,
       split mode, fold, and the randomization and robustness repeat, ``None`` for an ordinary run),
       the exception type and its message. If every run fails there is no result to return, and ``run`` raises
       ``ExperimentFailedError``, which carries the same records in its ``failures``.
@@ -247,7 +247,7 @@ read it without DrEvalPy:
    [
      {
        "identity": {
-         "model_name": "raw[methylation]:fingerprints:ridge",
+         "model_name": "view[methylation]:fingerprints:ridge",
          "dataset_name": "SYNTHETIC",
          "split_mode": "LSO",
          "fold_index": 0,

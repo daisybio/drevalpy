@@ -38,15 +38,15 @@ only, so a predictor needs a preset before ``drevalpy run`` can use it.
          from drevalpy.plugin import (
              Featurizer,
              FeatureFreePredictor,
+             Side,
              dense_result,
              register_featurizer,
              register_predictor,
          )
 
 
-         @register_featurizer("logExpression", description="log1p of the gene_expression view.")
+         @register_featurizer("logExpression", side=Side.SAMPLE, description="log1p of the gene_expression view.")
          class LogExpressionFeaturizer(Featurizer):
-             sides = frozenset({"sample"})
              input_views = ("gene_expression",)
 
              def fit(self, source, train_ids, *, train_pair_ids=None, es_pair_ids=None):
@@ -92,15 +92,15 @@ only, so a predictor needs a preset before ``drevalpy run`` can use it.
          from drevalpy.plugin import (
              Featurizer,
              FeatureFreePredictor,
+             Side,
              dense_result,
              register_featurizer,
              register_predictor,
          )
 
 
-         @register_featurizer("logExpression", description="log1p of the gene_expression view.")
+         @register_featurizer("logExpression", side=Side.SAMPLE, description="log1p of the gene_expression view.")
          class LogExpressionFeaturizer(Featurizer):
-             sides = frozenset({"sample"})
              input_views = ("gene_expression",)
 
              def fit(self, source, train_ids, *, train_pair_ids=None, es_pair_ids=None):

@@ -77,7 +77,7 @@ Where each part goes
      - In v2
    * - ``cell_line_views = [...]``
      - The sample featurizer reads the views. Name the view in the recipe:
-       ``raw[gene_expression]+raw[methylation]``. A featurizer declares the
+       ``view[gene_expression]+view[methylation]``. A featurizer declares the
        views it needs in ``input_views``.
    * - ``drug_views = ["fingerprints"]``
      - The drug featurizer, for example ``fingerprints``.
@@ -89,7 +89,7 @@ Where each part goes
    * - Scaling, feature selection or PCA done in ``train`` with
        ``scale_gene_expression`` and similar helpers
      - A featurizer, fitted on the training samples only so that nothing leaks.
-       Shipped ones include ``scaledGeneExpression``, ``pca`` and ``raw``.
+       Shipped ones include ``scaledGeneExpression``, ``pca`` and ``view``.
        Write your own as :doc:`/how-to/extend/write_featurizer` describes.
    * - ``build_model``, ``train``, ``predict``
      - A predictor: ``_fit_matrix`` and ``_predict_matrix`` for a
@@ -167,11 +167,11 @@ Name the model and run it
 A model is a ``ModelSpec``: a name and a recipe. The recipe
 ``sample featurizer:drug featurizer:predictor`` replaces the two view lists of
 the 1.x class. For the gene expression, methylation and fingerprints of the 1.x
-model it reads ``raw[gene_expression]+raw[methylation]:fingerprints:migratedRidge``.
+model it reads ``view[gene_expression]+view[methylation]:fingerprints:migratedRidge``.
 That needs a dataset with those tables.
 
 The synthetic dataset has no omics, so this run uses the featurizers that need
-none: ``tissue`` one-hot encodes the tissue of each sample and ``identity``
+none: ``tissue`` one-hot encodes the tissue of each sample and ``oneHot``
 one-hot encodes each drug.
 
 .. code-block:: python
@@ -181,7 +181,7 @@ one-hot encodes each drug.
    from drevalpy.models.config import from_recipe
 
    dataset = drevalpy.synthetic(n_samples=60, n_drugs=8, seed=3)
-   spec = ModelSpec("MigratedRidge", from_recipe("tissue:identity:migratedRidge"))
+   spec = ModelSpec("MigratedRidge", from_recipe("tissue:oneHot:migratedRidge"))
    baseline = ModelSpec.from_name("NaiveMeanEffectsPredictor")
 
    result = drevalpy.run([spec, baseline], dataset, "LSO", hyperparameter_tuning=False)

@@ -97,9 +97,9 @@ syntax.
       :sync: python
 
       The registries are in ``drevalpy.registry``. Each has ``names()`` for the names,
-      ``to_dataframe()`` for a pandas data frame, and ``metadata(name)`` for one entry. One
-      featurizer registry serves both sides; ``names_for_side(side)`` lists the featurizers one
-      side can use. The zoo is in ``drevalpy.models.zoo``.
+      ``to_dataframe()`` for a pandas data frame, and ``metadata(name)`` for one entry. Each
+      side has a featurizer registry of its own, ``featurizer_registry(side)``;
+      ``names_for_side(side)`` lists its names. The zoo is in ``drevalpy.models.zoo``.
 
       .. code-block:: python
 
@@ -117,8 +117,8 @@ syntax.
 
          33 ['AdaBoostDecisionTree', 'DIPK', 'DrugGNN', 'ElasticNet']
          ('naiveMeanEffects', 'naiveDrugMean', 'naiveSampleMean', 'naiveMean')
-         ('constant', 'identity', 'concatFeaturizers', 'dipkGeneExpression')
-         ('constant', 'identity', 'concatFeaturizers', 'bpePharmaformer')
+         ('constant', 'oneHot', 'concatFeaturizers', 'dipkGeneExpression')
+         ('constant', 'oneHot', 'concatFeaturizers', 'bpePharmaformer')
 
 Naive baselines appear twice: as zoo names such as ``NaiveDrugMeanPredictor``, which you pass to
 ``run``, and as the ``naive*`` predictors, such as ``naiveDrugMean``, which are the components

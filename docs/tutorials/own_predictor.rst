@@ -40,8 +40,8 @@ the standard deviation of each feature, both learned on the training samples onl
 
 These parts matter:
 
-``sides``
-   The sides the featurizer can be used on, here only the samples.
+``side=Side.SAMPLE``
+   The side the featurizer is registered on, here the samples.
 
 ``input_views``
    Names the view the featurizer reads.
