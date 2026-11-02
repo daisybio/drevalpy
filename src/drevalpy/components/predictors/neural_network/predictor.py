@@ -12,6 +12,7 @@ from drevalpy.components.predictors.abstract.base import Predictor, response_row
 from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.registry.predictor import register
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
+from drevalpy.types.enums.accelerator import Accelerator
 
 # torch, pytorch_lightning and .network (which imports lightning) are imported
 # inside the methods that need them. This module is imported eagerly by
@@ -38,6 +39,7 @@ UNITS_PER_LAYER_CHOICES: list[list[int]] = [
 @register(
     "neuralNetwork",
     description="Dense feed-forward network on concatenated sample and drug features.",
+    accelerator=Accelerator.OPTIONAL,
 )
 class NeuralNetworkPredictor(Predictor):
     """Neural network predictor component."""
@@ -183,7 +185,6 @@ class NeuralNetworkPredictor(Predictor):
                 max_epochs=int(self._hyperparameters["max_epochs"]),
                 patience=int(self._hyperparameters["patience"]),
                 checkpoint_dir=batch.training_context.checkpoint_dir,
-                accelerator="cpu",
                 devices=1,
                 logger=False,
             ),

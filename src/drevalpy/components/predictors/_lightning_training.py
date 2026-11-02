@@ -17,11 +17,12 @@ from __future__ import annotations
 
 import secrets
 from abc import abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from upath import UPath
 
+from drevalpy._utils.accelerator import lightning_accelerator
 from drevalpy._utils.torch_io import load_state_dict
 from drevalpy.experiment._tracking import active_run
 
@@ -76,7 +77,9 @@ class LightningRun:
     :param devices: Device count or spec, pinned by MOLIR and SuperFELTR and left to Lightning's auto-detection
         when ``None``.
     :param enable_model_summary: Print Lightning's model summary.
-    :param accelerator: Lightning accelerator (``"cpu"`` pins the neural network to the CPU).
+    :param accelerator: Lightning accelerator; by default ``"auto"`` when torch finds an accelerator and
+        ``DREVALPY_FORCE_CPU`` is unset, else ``"cpu"``
+        (see :func:`~drevalpy._utils.accelerator.lightning_accelerator`).
     :param precision: Numerical precision passed to the trainer.
     :param log_every_n_steps: Logging interval in training steps.
     :param logger: Attach the logger from :func:`_loggers`; ``False`` disables logging.
@@ -93,7 +96,7 @@ class LightningRun:
     save_weights_only: bool = False
     devices: int | str | None = None
     enable_model_summary: bool = True
-    accelerator: str = "auto"
+    accelerator: str = field(default_factory=lightning_accelerator)
     precision: int | str = 32
     log_every_n_steps: int = 50
     logger: bool = True

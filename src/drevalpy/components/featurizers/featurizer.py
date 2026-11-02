@@ -25,6 +25,7 @@ from drevalpy.components.contracts.feature_format import FeatureFormat
 from drevalpy.components.contracts.hyperparameter_space import TunableComponent
 from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult
 from drevalpy.types.data.feature_source import FeatureSource, Side
+from drevalpy.types.enums.accelerator import Accelerator
 
 
 class Featurizer(TunableComponent, ABC):
@@ -42,6 +43,12 @@ class Featurizer(TunableComponent, ABC):
     nan_threshold: ClassVar[float] = 0.2
     #: Whether ``fit`` needs at least one usable early-stopping pair; ``prepare_features`` raises otherwise.
     requires_early_stopping: ClassVar[bool] = False
+    #: Whether it uses a torch accelerator, set by ``register(accelerator=...)``.
+    accelerator: ClassVar[Accelerator] = Accelerator.NONE
+    #: SPDX license of the ported code, set by ``register(license=...)``; ``None`` means the package's.
+    license: ClassVar[str | None] = None
+    #: SPDX license of the downloaded third-party files, set by ``register(artifact_license=...)``.
+    artifact_license: ClassVar[str | None] = None
 
     @classmethod
     def output_blocks(cls, config: Mapping[str, Any]) -> tuple[BlockSpec, ...]:

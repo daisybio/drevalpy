@@ -6,8 +6,9 @@ import numpy as np
 import pytest
 from sklearn.base import clone
 
+from drevalpy._utils.accelerator import select_device
 from drevalpy.components.predictors._mrmr import MRMRSelector, NeighborCappedKNN
-from drevalpy.components.predictors.literature._torch_utils import DevicePicklingMixin, select_device
+from drevalpy.components.predictors.literature._torch_utils import DevicePicklingMixin
 from tests.components.predictors._helpers import pickle_round_trip
 
 
@@ -24,15 +25,6 @@ class _Holder(DevicePicklingMixin):
 
 def test_the_device_is_selected_on_construction() -> None:
     assert _Holder()._device == select_device()
-
-
-def test_select_device_follows_cuda_availability(monkeypatch) -> None:
-    torch = pytest.importorskip("torch")
-
-    monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
-    assert select_device() == torch.device("cpu")
-    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
-    assert select_device() == torch.device("cuda")
 
 
 def test_the_device_is_dropped_from_the_pickle_and_reselected_on_load(monkeypatch) -> None:

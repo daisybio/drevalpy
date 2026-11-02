@@ -11,6 +11,7 @@ import numpy as np
 from drevalpy.components.contracts.hyperparameter_space import TunableComponent
 from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.log import get_logger
+from drevalpy.types.enums.accelerator import Accelerator
 from drevalpy.types.enums.model_scope import ModelScope
 from drevalpy.types.enums.prediction_mode import PredictionMode
 
@@ -63,6 +64,12 @@ class Predictor(TunableComponent, ABC):
     supported_modes: ClassVar[frozenset[PredictionMode]] = frozenset({PredictionMode.REGRESSION})
     scope: ClassVar[ModelScope] = ModelScope.MULTI_DRUG
     nan_threshold: ClassVar[float] = 0.2
+    #: Whether it uses a torch accelerator, set by ``register(accelerator=...)``.
+    accelerator: ClassVar[Accelerator] = Accelerator.NONE
+    #: SPDX license of the ported code, set by ``register(license=...)``; ``None`` means the package's.
+    license: ClassVar[str | None] = None
+    #: SPDX license of the downloaded third-party files, set by ``register(artifact_license=...)``.
+    artifact_license: ClassVar[str | None] = None
     _fitted: bool = False
 
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
