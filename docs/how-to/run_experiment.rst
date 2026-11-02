@@ -19,7 +19,8 @@ Give ``run`` the models, a dataset and a split mode. The models are zoo names or
 ``.h5mu`` file (see :doc:`/how-to/load_and_split`); several datasets are combined for a
 cross-study evaluation (see :doc:`/how-to/run_cross_study`). The split mode is ``LPO``, ``LSO``,
 ``LDO``, ``LTO`` or ``LStO``; the default on the command line is ``LPO``. ``run`` splits into 5
-folds, except ``LStO`` which makes one fold per study, and trains every model on every fold.
+folds by default, except ``LStO`` which makes one fold per study, and trains every model on every
+fold. ``--n-splits`` (``-n``, ``n_splits=`` in Python) sets the number of folds.
 
 .. tab-set::
    :sync-group: interface

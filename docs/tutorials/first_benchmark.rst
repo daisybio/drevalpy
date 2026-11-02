@@ -89,7 +89,8 @@ Run the experiment
 ------------------
 
 An experiment evaluates the models over all folds of one split mode. You use leave-pair-out
-(LPO), which holds out random pairs, and 5 folds, which ``run`` always uses.
+(LPO), which holds out random pairs, and the default of 5 folds; ``--n-splits`` (``n_splits=``
+in Python) changes the number.
 
 ``ElasticNet`` has hyperparameters, so DrEvalPy tunes them on a validation part of each
 training set before the final fit. ``--hpo-trials 8`` tries 8 configurations per fold; the
