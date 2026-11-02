@@ -2,21 +2,16 @@
 
 from __future__ import annotations
 
-from dataclasses import replace
 from typing import Any
 
 import numpy as np
 import pytest
-from upath import UPath
 
-from drevalpy.components.contracts.training_context import TrainingContext
 from drevalpy.components.predictors.literature._omic_helpers import (
     OMIC_BLOCK_NAMES,
     OmicFeatureNames,
     OmicMatrices,
     aligned_pair_matrices,
-    checkpoint_dir_for_drug,
-    iter_drug_subsets,
     omic_feature_names,
     omic_matrices,
     validation_split,
@@ -106,27 +101,6 @@ def test_feature_names_are_recorded_and_frozen() -> None:
         _trained_names().gene_expression = ("other",)  # type: ignore[misc]
 
 
-def test_checkpoint_dir_is_derived_per_drug() -> None:
-    directory = checkpoint_dir_for_drug(UPath("/base"), "drug-1")
-
-    assert directory.parent == UPath("/base")
-    assert directory.name.startswith("drug_")
-    assert directory == checkpoint_dir_for_drug(UPath("/base"), "drug-1")
-    assert directory != checkpoint_dir_for_drug(UPath("/base"), "drug-2")
-    assert checkpoint_dir_for_drug(UPath("/base"), "a/b c:*?").parent == UPath("/base")
-
-
-def test_iter_drug_subsets_yields_one_subset_and_checkpoint_dir_per_drug() -> None:
-    subsets = dict(iter_drug_subsets(_batch()))
-
-    assert sorted(subsets) == ["d1", "d2"]
-    assert subsets["d1"].n_pairs == 2
-    np.testing.assert_array_equal(subsets["d1"].drug_ids, ["d1", "d1"])
-    directories = {UPath(sub.training_context.checkpoint_dir) for sub in subsets.values()}
-    assert len(directories) == 2
-    assert all(d.parent == UPath("/base") and d.name.startswith("drug_") for d in directories)
-
-
 def test_early_stopping_needs_at_least_two_validation_pairs() -> None:
     assert validation_split(_matrices(), _batch()) is None
     assert validation_split(_matrices(), _batch(early_stopping_response=_validation(["cl1"], [1.0]))) is None
@@ -181,35 +155,49 @@ def test_the_shell_is_shared_and_routes_by_drug_id(predictor_cls: type[SingleDru
 
 
 class _RecordingPredictor(SingleDrugOmicsPredictor):
-    def _fit_single_drug(self, drug_id: str, batch: Any) -> str | None:
-        return None if drug_id == "d2" else f"model-{drug_id}"
-
-    def _predict_single_drug(self, drug_id: str, model: Any, batch: Any) -> Any:
-        raise NotImplementedError
+    def _fit_drug(self, drug_id: str, batch: Any) -> Any:
+        return None if drug_id == "d2" else batch
 
 
-def test_models_are_collected_per_drug_and_every_drug_records_feature_names() -> None:
+def test_feature_names_are_recorded_once_and_drugs_without_a_model_are_skipped() -> None:
     predictor = _RecordingPredictor()
 
-    predictor._fit(_batch())
+    predictor.fit(_batch())
 
-    assert predictor._models == {"d1": "model-d1"}
-    assert set(predictor._feature_names) == {"d1", "d2"}
+    assert list(predictor._models) == ["d1"]
+    assert predictor._feature_names.as_tuple() == (EXPRESSION_FEATURES, MUTATION_FEATURES, CNV_FEATURES)
 
 
-@pytest.mark.parametrize("n_jobs", [1, 2])
-def test_the_drugs_are_fitted_through_the_shared_fan_out(monkeypatch: pytest.MonkeyPatch, n_jobs: int) -> None:
-    from drevalpy.components.predictors.literature import _single_drug_omics
+def test_a_drug_batch_keeps_its_early_stopping_pairs_and_their_samples() -> None:
+    stopping = ResponseBatch(np.array([7.0, 8.0, 9.0]), np.array(["cl2", "cl1", "cl2"]), np.array(["d1", "d1", "d2"]))
+    predictor = _RecordingPredictor()
 
-    seen: list[int] = []
-    real = _single_drug_omics.run_per_drug
-    monkeypatch.setattr(
-        _single_drug_omics, "run_per_drug", lambda fit, tasks, jobs: seen.append(jobs) or real(fit, tasks, jobs)
-    )
+    predictor.fit(_batch(early_stopping_response=stopping))
 
-    _RecordingPredictor()._fit(replace(_batch(), training_context=TrainingContext(n_jobs=n_jobs)))
+    drug_batch = predictor._models["d1"]
+    split = validation_split(omic_matrices(drug_batch), drug_batch)
+    assert split is not None
+    np.testing.assert_allclose(split.response, [7.0, 8.0])
+    np.testing.assert_allclose(split.gene_expression[split.pair_idx], EXPRESSION[[1, 0]])
 
-    assert seen == [n_jobs]
+
+class _ExpressionSum:
+    def predict(self, expression: np.ndarray, mutations: np.ndarray, copy_number: np.ndarray) -> np.ndarray:
+        return expression.sum(axis=1)
+
+
+class _ExpressionSumPredictor(SingleDrugOmicsPredictor):
+    def _fit_drug(self, drug_id: str, batch: Any) -> _ExpressionSum:
+        return _ExpressionSum()
+
+
+def test_drugs_are_scored_on_columns_realigned_to_the_training_order() -> None:
+    predictor = _ExpressionSumPredictor()
+    predictor.fit(_batch())
+
+    narrow = _batch(expression=EXPRESSION[:, [2, 0]], expression_features=("geneC", "geneA"))
+
+    np.testing.assert_allclose(predictor.predict(narrow), EXPRESSION[[0, 0, 1, 1]][:, [0, 2]].sum(axis=1))
 
 
 LOADER_ENTITIES = 4

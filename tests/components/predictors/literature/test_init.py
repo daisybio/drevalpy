@@ -106,8 +106,8 @@ def _defined_lifecycle_methods(path: Path) -> set[str]:
     return defined_methods
 
 
-#: MOLIR and SuperFELTR inherit the lifecycle from the shared per-drug omics shell.
-SHARED_LIFECYCLE_OWNER = LITERATURE_ROOT / "_single_drug_omics.py"
+#: MOLIR and SuperFELTR inherit the lifecycle from the shared per-drug omics shell and its single-drug base.
+SHARED_LIFECYCLE_OWNERS = (LITERATURE_ROOT / "_single_drug_omics.py", PREDICTORS_ROOT / "abstract" / "single_drug.py")
 SHELL_PACKAGES = frozenset({"molir", "superfeltr"})
 
 
@@ -117,7 +117,8 @@ def test_literature_predictor_modules_own_lifecycle(package: str) -> None:
     assert predictor_path.is_file()
     defined_methods = _defined_lifecycle_methods(predictor_path)
     if package in SHELL_PACKAGES:
-        defined_methods |= _defined_lifecycle_methods(SHARED_LIFECYCLE_OWNER)
+        for owner in SHARED_LIFECYCLE_OWNERS:
+            defined_methods |= _defined_lifecycle_methods(owner)
     missing = [name for name in LIFECYCLE_METHODS if name not in defined_methods]
     assert not missing, f"{predictor_path} missing lifecycle methods: {missing}"
     assert not defined_methods & set(REMOVED_STATE_METHODS)

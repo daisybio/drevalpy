@@ -9,7 +9,6 @@ import numpy as np
 from drevalpy.components.contracts.hyperparameter_space import fixed_entries
 from drevalpy.components.predictors.literature._metadata import SUPERFELTR_REFERENCE
 from drevalpy.components.predictors.literature._omic_helpers import (
-    aligned_pair_matrices,
     omic_matrices,
     validation_split,
 )
@@ -45,16 +44,13 @@ class SuperFELTRPredictor(SingleDrugOmicsPredictor):
 
     _models: dict[str, SuperFELTRegressor]
 
-    def _fit_single_drug(self, drug_id: str, batch: ModelInputBatch) -> SuperFELTRegressor | None:
+    def _fit_drug(self, drug_id: str, batch: ModelInputBatch) -> SuperFELTRegressor:
         """Fit a single-drug SuperFELTR model including encoders and regressor.
 
         :param drug_id: Identifier of the drug to train on.
         :param batch: Subset batch for this drug.
-        :returns: The fitted regressor, which holds the fitted encoders, or ``None`` when the drug has no pairs.
+        :returns: The fitted regressor, which holds the fitted encoders.
         """
-        if batch.n_pairs == 0:
-            return None
-
         matrices = omic_matrices(batch)
         response = np.asarray(batch.response, dtype=np.float32)
         std = float(np.std(response))
@@ -157,20 +153,6 @@ class SuperFELTRPredictor(SingleDrugOmicsPredictor):
             hpams=dict(self._hyperparameters),
             encoders=encoders,
         )
-
-    def _predict_single_drug(self, drug_id: str, model: SuperFELTRegressor, batch: ModelInputBatch) -> np.ndarray:
-        """Predict for a single drug model.
-
-        :param drug_id: Drug identifier for feature alignment.
-        :param model: The drug's regressor.
-        :param batch: Subset batch for this drug.
-        :returns: Predicted responses.
-        """
-        feature_names = self._feature_names.get(drug_id)
-        if feature_names is None:
-            return np.full(batch.n_pairs, np.nan)
-
-        return np.atleast_1d(model.predict(*aligned_pair_matrices(batch, feature_names)))
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
