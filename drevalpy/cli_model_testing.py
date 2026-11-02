@@ -15,6 +15,13 @@ from drevalpy.datasets.dataset import DrugResponseDataset
 from drevalpy.models.drp_model import DRPModel
 
 
+def _best_hpam_combi_for_drug(best_hpam_dict: dict, drug: str) -> dict:
+    """Best combination of one drug; without hyperparameter tuning, one shared ``best_hpam_combi`` for all drugs."""
+    if "best_hpam_combi_per_drug" in best_hpam_dict:
+        return best_hpam_dict["best_hpam_combi_per_drug"][drug]
+    return best_hpam_dict["best_hpam_combi"]
+
+
 def _test_split(
     drug_id: str | None,
     split: dict,
@@ -223,7 +230,7 @@ def run_train_and_predict_final(
                 drug: (
                     splits_per_drug[drug],
                     list(cross_study_per_drug[drug].values()),
-                    best_hpam_dict["best_hpam_combi_per_drug"][drug],
+                    _best_hpam_combi_for_drug(best_hpam_dict, drug),
                 )
                 for drug in splits_per_drug
             },
@@ -531,7 +538,7 @@ def run_train_final_model(
                     train_dataset[drug],
                     validation_dataset[drug],
                     es_dataset[drug],
-                    best_hpam_dict["best_hpam_combi_per_drug"][drug],
+                    _best_hpam_combi_for_drug(best_hpam_dict, drug),
                 )
                 for drug in train_dataset
             },

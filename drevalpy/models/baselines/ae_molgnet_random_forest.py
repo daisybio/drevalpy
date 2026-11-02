@@ -17,7 +17,9 @@ the predictor is the same as in the ``RandomForest`` baseline, only the features
 
 The autoencoder hyperparameters that DIPK also has keep its names (``epochs_autoencoder``,
 ``lr_autoencoder``, ``patience_autoencoder``, ``batch_size_autoencoder``); the others are prefixed
-``autoencoder_`` (``autoencoder_cache_dir``).
+``autoencoder_`` (``autoencoder_cache_dir``). The defaults are not DIPK's: the autoencoder here trains on one row per
+cell line (about 700), so DIPK's batch size of 1024 would be a single gradient step per epoch (see
+``batch_size_autoencoder`` in ``hyperparameters.yaml``).
 """
 
 import hashlib
@@ -141,7 +143,7 @@ class AutoencodedGeneExpressionMixin(SklearnModel):
         """Build the underlying model and read the autoencoder configuration.
 
         Recognised autoencoder hyperparameters, all optional:
-        ``epochs_autoencoder`` (2000), ``batch_size_autoencoder`` (1024),
+        ``epochs_autoencoder`` (2000), ``batch_size_autoencoder`` (32),
         ``patience_autoencoder`` (50), ``lr_autoencoder`` (1e-4),
         ``autoencoder_cache_dir`` (unset).
 
@@ -150,7 +152,7 @@ class AutoencodedGeneExpressionMixin(SklearnModel):
         super().build_model(hyperparameters)
         hpams = self.hyperparameters
         self._ae_epochs = int(hpams.get("epochs_autoencoder", 2000))
-        self._ae_batch_size = int(hpams.get("batch_size_autoencoder", 1024))
+        self._ae_batch_size = int(hpams.get("batch_size_autoencoder", 32))
         self._ae_patience = int(hpams.get("patience_autoencoder", 50))
         self._ae_lr = float(hpams.get("lr_autoencoder", 1e-4))
         self._ae_cache_dir = hpams.get("autoencoder_cache_dir") or os.environ.get("DREVAL_AE_CACHE") or None
