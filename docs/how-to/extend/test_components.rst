@@ -26,9 +26,9 @@ What ``drevalpy.synthetic`` and ``drevalpy.testing`` provide
    * - ``observed_pairs(dataset)``
      - Every measured sample-drug pair, as a ``ResponseBatch``.
    * - ``FEATURIZER_CHECKS`` / ``PREDICTOR_CHECKS``
-     - A tuple of three conformance checks each, ready to parametrize over. The third check of
-       each is a pickle round trip (``check_featurizer_pickle_round_trip``,
-       ``check_predictor_pickle_round_trip``).
+     - Tuples of conformance checks, ready to parametrize over: three for featurizers and four
+       for predictors. The third check of each is a pickle round trip
+       (``check_featurizer_pickle_round_trip``, ``check_predictor_pickle_round_trip``).
    * - ``check_plugin(name)``
      - Assert that an installed plugin's entry point is declared and loads, and that its
        components resolve through the registries.
@@ -79,8 +79,14 @@ Check a predictor
 -----------------
 
 For predictors the fixture is a batch. Ask ``build_synthetic_batch`` for the sample and drug
-blocks the predictor requires by name; a matrix predictor only needs some features. The third
-check trains the predictor, pickles it and requires the loaded copy to predict the same values.
+blocks the predictor requires by name; a matrix predictor only needs some features. The first
+three checks verify that the predictor instantiates, that it returns one finite prediction per
+pair after training, and that a trained predictor dumped and loaded with joblib predicts the same
+values. The fourth, ``check_predictor_single_drug_routing``, runs only for a single-drug predictor
+(see :ref:`how-to/extend/write_predictor:Fit one model per drug`): it trains on every drug but
+the first, and requires NaN for the pairs of that drug and finite predictions for the others.
+The batch needs pairs of at least two drugs. Without a batch, a check builds one from
+``drevalpy.synthetic()``, with no drug features for a predictor that reads none.
 
 .. code-block:: python
 
