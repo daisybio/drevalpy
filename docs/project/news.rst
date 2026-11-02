@@ -341,6 +341,10 @@ Components and imports
   and predicts NaN for a drug without a model. The built-in single-drug predictors use it, and
   ``drevalpy.components.predictors.single_drug_routing`` is removed. See
   :ref:`how-to/extend/write_predictor:Fit one model per drug`.
+- ``PREDICTOR_CHECKS`` in ``drevalpy.testing`` holds a fourth check,
+  ``check_predictor_single_drug_routing``: a single-drug predictor must predict NaN for a drug it was
+  not trained on. The default batch of a predictor check has no drug features when the predictor
+  reads none. See :doc:`/how-to/extend/test_components`.
 - A global feature block is made with ``global_feature_block``, and its side information is
   ``annotations``.
 - ``precompute(dataset, featurizer_name, side)`` and ``precompute_all(dataset)`` in
