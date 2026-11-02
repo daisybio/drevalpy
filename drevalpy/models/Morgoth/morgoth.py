@@ -88,7 +88,7 @@ class MorgothRegressor(RegressorMixin, BaseEstimator):
         :param threshold_quantile: quantile of the training responses that separates the two classes, only used
             without class labels
         :param random_state: seed of the forest
-        :param n_jobs: number of processes, -1 = all cores
+        :param n_jobs: number of processes, -1 = all cores; with ``fast_split`` the trees are grown in this process
         :param fast_split: replace the package's split search by the equivalent vectorized one, False = original
         """
         self.n_estimators = n_estimators
@@ -128,7 +128,9 @@ class MorgothRegressor(RegressorMixin, BaseEstimator):
             # same rule as the package's sample weights: values below the threshold are class 0
             y_class = (y >= self.threshold_).astype(int)
         # the package writes these files during the fit, they are not needed
-        with tempfile.TemporaryDirectory() as tmp, _pool(self.n_jobs), fast_split(self.fast_split):
+        # the patched split search only exists in this process: spawned pool workers import the package unpatched
+        fit_jobs = 1 if self.fast_split else self.n_jobs
+        with tempfile.TemporaryDirectory() as tmp, _pool(fit_jobs), fast_split(self.fast_split):
             self.forest_ = MORGOTH(
                 X_train=pd.DataFrame(X),
                 y_train=np.column_stack([y, y_class]),
