@@ -10,7 +10,7 @@ hyperparameters and provenance. For the featurizers that feed it, see :doc:`writ
 Declare what the predictor reads
 --------------------------------
 
-A predictor subclasses one of three bases from ``drevalpy.plugin`` and registers with
+A predictor subclasses one of four bases from ``drevalpy.plugin`` and registers with
 ``register_predictor(name, *, description, tags=None, reference=None, accelerator=Accelerator.NONE,
 license=None, artifact_license=None)``. What it reads from each
 side is its ``sample_inputs`` and ``drug_inputs`` declaration, an ``Inputs``:
@@ -37,13 +37,16 @@ side is its ``sample_inputs`` and ``drug_inputs`` declaration, an ``Inputs``:
    * - ``MatrixPredictor``
      - ``Inputs.matrix()`` on both sides
      - ``_fit_matrix(x, y)``, ``_predict_matrix(x)``
+   * - ``SingleDrugPredictor``
+     - ``Inputs.none()`` on the drug side: set ``sample_inputs`` yourself
+     - ``_fit_drug(drug_id, batch)``, ``_predict_drug(drug_id, model, batch)``
    * - ``Predictor``
      - Nothing: set ``sample_inputs`` and ``drug_inputs`` yourself
      - ``_fit(batch)``, ``_predict(batch)``
 
-Override either declaration on a subclass, for example ``drug_inputs = Inputs.none()`` for a
-matrix predictor that fits one model per drug. Registration rejects a predictor that declares
-neither. When a configuration is built, each side's declaration is checked against what its
+Set or override a declaration on a subclass, for example ``sample_inputs = Inputs.matrix()`` on
+a ``SingleDrugPredictor`` (see :ref:`how-to/extend/write_predictor:Fit one model per drug`).
+Registration rejects a predictor that declares neither. When a configuration is built, each side's declaration is checked against what its
 featurizer emits, so a recipe that cannot work fails before training. A grid skips such a
 combination and reports the reason; see :doc:`/how-to/evaluate_component_grids`.
 
@@ -210,29 +213,40 @@ ids are accepted.
 Fit one model per drug
 ----------------------
 
-A single-drug predictor fits one model per drug. It declares ``drug_inputs = Inputs.none()``
-and its ``scope`` as ``ModelScope.SINGLE_DRUG``, and routes pairs by ``batch.drug_ids``. With
-``--n-jobs`` (``n_jobs`` in Python) above 1 it fits the drugs in parallel worker processes, one
-drug per worker, and ``batch.training_context.n_jobs`` tells a predictor how many it may use.
-The helper ``run_per_drug`` in ``drevalpy.components.predictors.single_drug_routing`` does the
-fan-out for the built-in single-drug predictors: it seeds each drug from the run seed and the
-drug ID, so the fitted models do not depend on ``n_jobs``. If you write a predictor that fits
-per drug, call it with the per-drug fit function, the tasks (one per drug) and ``n_jobs``, and
-make sure that the fit works inside a worker:
+A single-drug predictor fits one model per drug and reads no drug features. Subclass
+``SingleDrugPredictor``, declare ``sample_inputs`` and implement two hooks, each of which sees a
+batch with the pairs of one drug:
+
+``_fit_drug(drug_id, batch)``
+   Returns the fitted model of the drug, or ``None`` to leave the drug without one.
+``_predict_drug(drug_id, model, batch)``
+   Scores the drug's pairs with what ``_fit_drug`` returned.
+
+The base class routes the pairs by ``batch.drug_ids`` and predicts NaN for the pairs of a drug
+it has no model for, such as a drug that was not in the training data. With ``--n-jobs``
+(``n_jobs`` in Python) above 1 it fits the drugs in parallel worker processes, and it seeds
+each drug from the run seed and the drug ID, so the fitted models do not depend on ``n_jobs``.
+This example fits one ridge regression per drug:
+
+.. literalinclude:: /examples/toy_single_drug_predictor.py
+   :language: python
+   :caption: docs/examples/toy_single_drug_predictor.py
+
+``_fit_drug`` may run in a worker process, so make sure that it works there:
 
 - **Do not start processes yourself.** Nested workers multiply the number of processes beyond
   ``n_jobs``. Use ``num_workers=0`` for a PyTorch ``DataLoader``, and leave the thread count of
   scikit-learn and PyTorch alone: the worker already limits it to one.
 - **Do not write to a fixed path that the drugs share.** Write checkpoints below
-  ``batch.training_context.checkpoint_dir``, the directory that ``DRPModel.train`` passes in, and
-  in a subdirectory of your own for each drug. Turn off the default logger of PyTorch Lightning, which
+  ``batch.training_context.checkpoint_dir``: in the batch of ``_fit_drug`` it is already a
+  directory of the drug's own. Turn off the default logger of PyTorch Lightning, which
   writes to ``lightning_logs/`` in the working directory and makes concurrent fits race for the
   same version directory. The built-in neural predictors do it with
   ``default_logger=False`` in their ``LightningRun``; Weights & Biases logging stays on when a
   tracking run is active.
 - **Return the fitted model instead of storing it on ``self``.** A worker fits a copy of the
-  predictor, so an attribute that the fit function sets is lost. Collect the returned models in
-  the parent and store them on the parent predictor.
+  predictor, so an attribute that ``_fit_drug`` sets is lost. The base class collects the
+  returned models in the parent predictor and saves them with it.
 
 Check that it works
 -------------------
