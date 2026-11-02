@@ -1,8 +1,8 @@
 """Per-drug three-omic helpers shared by MOLIR and SuperFELTR.
 
-Both are single-drug models over the same three sample views, and both need: the
-per-drug checkpoint directory, the record of which feature names a model was trained
-on, the column realignment applied at predict time and the early-stopping index lookup.
+Both are single-drug models over the same three sample views, and both need: the record
+of which feature names a model was trained on, the column realignment applied at predict
+time and the early-stopping index lookup.
 The predictor shell that uses them is
 :class:`~drevalpy.components.predictors.literature._single_drug_omics.SingleDrugOmicsPredictor`.
 
@@ -12,17 +12,15 @@ Only ``numpy`` is imported at module scope - both predictors are registered on
 
 from __future__ import annotations
 
-import hashlib
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import numpy as np
-from upath import UPath
 
 from drevalpy.components.predictors.literature._omics_loaders import OmicsSplit
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator, Sequence
+    from collections.abc import Sequence
 
     from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 
@@ -98,35 +96,6 @@ def omic_feature_names(batch: ModelInputBatch) -> OmicFeatureNames:
     :returns: The recorded feature names.
     """
     return OmicFeatureNames(*(batch.sample.blocks[name].feature_names for name in OMIC_BLOCK_NAMES))
-
-
-def checkpoint_dir_for_drug(base_dir: UPath | str, drug_id: str) -> UPath:
-    """Return a unique checkpoint directory for a given drug.
-
-    Hashing keeps the segment filesystem-safe: drug ids come from the dataset and
-    routinely contain ``/`` and other separators.
-
-    :param base_dir: Base directory for checkpoints.
-    :param drug_id: Drug identifier to hash.
-    :returns: Path to the drug-specific checkpoint directory.
-    """
-    digest = hashlib.sha256(drug_id.encode()).hexdigest()[:16]
-    return UPath(base_dir) / f"drug_{digest}"
-
-
-def iter_drug_subsets(batch: ModelInputBatch) -> Iterator[tuple[str, ModelInputBatch]]:
-    """Split *batch* per drug, giving each sub-batch its own checkpoint directory.
-
-    :param batch: Full training batch.
-    :yields: ``(drug_id, sub_batch)`` for every drug present.
-    """
-    from drevalpy.components.contracts.training_context import TrainingContext
-    from drevalpy.components.predictors.single_drug_routing import iter_drug_masks
-
-    base_dir = batch.training_context.checkpoint_dir
-    for drug_id, mask in iter_drug_masks(batch):
-        context = TrainingContext(checkpoint_dir=checkpoint_dir_for_drug(base_dir, drug_id))
-        yield drug_id, replace(batch.subset_pairs(mask), training_context=context)
 
 
 def validation_split(matrices: OmicMatrices, batch: ModelInputBatch) -> OmicsSplit | None:

@@ -9,7 +9,6 @@ import numpy as np
 from drevalpy.components.contracts.hyperparameter_space import fixed_entries
 from drevalpy.components.predictors.literature._metadata import MOLIR_REFERENCE
 from drevalpy.components.predictors.literature._omic_helpers import (
-    aligned_pair_matrices,
     omic_matrices,
     validation_split,
 )
@@ -38,16 +37,13 @@ class MOLIRPredictor(SingleDrugOmicsPredictor):
 
     _models: dict[str, MOLIModel]
 
-    def _fit_single_drug(self, drug_id: str, batch: ModelInputBatch) -> MOLIModel | None:
+    def _fit_drug(self, drug_id: str, batch: ModelInputBatch) -> MOLIModel:
         """Fit a single-drug MOLIR model.
 
         :param drug_id: Identifier of the drug to train on.
         :param batch: Subset batch for this drug.
-        :returns: The model, or ``None`` when the drug has no pairs.
+        :returns: The model; left untrained when the drug has fewer pairs than one mini-batch.
         """
-        if batch.n_pairs == 0:
-            return None
-
         matrices = omic_matrices(batch)
         model = self._build_model(matrices.widths())
 
@@ -74,20 +70,6 @@ class MOLIRPredictor(SingleDrugOmicsPredictor):
             input_dim_mut=widths[1],
             input_dim_cnv=widths[2],
         )
-
-    def _predict_single_drug(self, drug_id: str, model: MOLIModel, batch: ModelInputBatch) -> np.ndarray:
-        """Predict for a single drug model.
-
-        :param drug_id: Drug identifier for feature alignment.
-        :param model: Trained MOLI model instance.
-        :param batch: Subset batch for this drug.
-        :returns: Predicted responses.
-        """
-        feature_names = self._feature_names.get(drug_id)
-        if feature_names is None:
-            return np.full(batch.n_pairs, np.nan)
-
-        return np.atleast_1d(model.predict(*aligned_pair_matrices(batch, feature_names)))
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
