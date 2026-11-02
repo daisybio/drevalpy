@@ -12,7 +12,12 @@ from drevalpy.registry.featurizer import register
 from drevalpy.types.data.feature_source import FeatureSource, Side
 
 
-@register("bionic", side=Side.SAMPLE, description="BIONIC PPI-based sample features for DIPK.")
+@register(
+    "bionic",
+    side=Side.SAMPLE,
+    description="BIONIC PPI-based sample features for DIPK.",
+    artifact_license="NOASSERTION",
+)
 class BionicSampleFeaturizer(PrecomputableFeaturizer):
     """Bionic sample featurizer component.
 

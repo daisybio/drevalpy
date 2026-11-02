@@ -70,6 +70,7 @@ def load_chemberta() -> tuple[Any, Any]:
     "chemberta",
     side=Side.DRUG,
     description="ChemBERTa embeddings loaded from pre-computed view or computed on the fly via transformers.",
+    artifact_license="MIT",
 )
 class ChemBertaFeaturizer(PrecomputableFeaturizer):
     """ChemBERTa drug featurizer with on-the-fly fallback."""

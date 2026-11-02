@@ -17,7 +17,13 @@ from drevalpy.types.data.feature_source import FeatureSource, Side
 from drevalpy.types.data.views import PATHWAYS_GMT_KEY
 
 
-@register("pathways", side=Side.SAMPLE, description="GSVA pathway features computed per-split (set-dependent).")
+@register(
+    "pathways",
+    side=Side.SAMPLE,
+    description="GSVA pathway features computed per-split (set-dependent).",
+    # MSigDB is CC-BY-4.0; its KEGG and BioCarta gene sets come with their own terms.
+    artifact_license="CC-BY-4.0 AND LicenseRef-KEGG AND LicenseRef-BioCarta",
+)
 class PathwaysSampleFeaturizer(Featurizer):
     """Pathways sample featurizer component.
 

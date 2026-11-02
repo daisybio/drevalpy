@@ -18,6 +18,7 @@ _SMILESVEC_MODEL_FILE = "drug.pubchem.canon.l8.ws20.txt"
     "smilesvec",
     side=Side.DRUG,
     description="SMILESVec drug embeddings computed on the fly via a pre-trained Word2Vec model.",
+    artifact_license="MIT",
 )
 class SmilesVecDrugFeaturizer(PrecomputableFeaturizer):
     """SMILESVec featurizer using Word2Vec k-mer embeddings from PubChem corpus."""

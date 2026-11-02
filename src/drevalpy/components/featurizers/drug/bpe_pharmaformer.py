@@ -57,6 +57,7 @@ _BPE_PHARMAFORMER_REFERENCE = LiteratureReference(
     side=Side.DRUG,
     description="BPE PharmaFormer token rows computed via fit/transform (set-dependent).",
     reference=_BPE_PHARMAFORMER_REFERENCE,
+    license="Apache-2.0",
 )
 class BpePharmaformerDrugFeaturizer(Featurizer):
     """BPE PharmaFormer drug featurizer with proper fit/transform.

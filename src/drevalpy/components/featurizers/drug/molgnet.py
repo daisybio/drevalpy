@@ -24,6 +24,7 @@ _BLOCK = "molgnet_features"
     "molgnet",
     side=Side.DRUG,
     description="MolGNet drug embeddings loaded from pre-computed view or computed on the fly.",
+    artifact_license="NOASSERTION",
 )
 class MolGNetDrugFeaturizer(Featurizer):
     """Expose variable-size MolGNet tensors with on-the-fly fallback."""

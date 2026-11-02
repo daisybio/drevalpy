@@ -33,6 +33,7 @@ from drevalpy.log import get_logger
 from drevalpy.registry.featurizer import register
 from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult
 from drevalpy.types.data.feature_source import FeatureSource, Side
+from drevalpy.types.enums.accelerator import Accelerator
 
 if TYPE_CHECKING:
     from drevalpy.components.predictors.literature.dipk.gene_expression_encoder import GeneExpressionEncoder
@@ -107,6 +108,7 @@ def train_or_load_autoencoder(
     "aeGeneExpression",
     side=Side.SAMPLE,
     description="Gene-expression autoencoder embeddings fitted on the unique training samples.",
+    accelerator=Accelerator.OPTIONAL,
 )
 class AEGeneExpressionFeaturizer(Featurizer):
     """Encode the genes of a gene list into the 512-dimensional DIPK latent space."""

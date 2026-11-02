@@ -71,6 +71,7 @@ def molgnet_feature_names(width: int, pooling: str) -> tuple[str, ...]:
     "molgnetPooled",
     side=Side.DRUG,
     description="MolGNet node embeddings pooled over the atoms (mean, max or both) into one vector per drug.",
+    artifact_license="NOASSERTION",
 )
 class MolGNetPooledFeaturizer(Featurizer):
     """Pool the per-atom MolGNet embeddings of each drug into a dense vector."""

@@ -34,6 +34,7 @@ from drevalpy.errors import InvalidInputError
 from drevalpy.registry.featurizer import register
 from drevalpy.types.data.batch.feature_block import FeaturizerResult
 from drevalpy.types.data.feature_source import FeatureSource, Side
+from drevalpy.types.enums.accelerator import Accelerator
 
 if TYPE_CHECKING:
     from drevalpy.components.predictors.literature.dipk.gene_expression_encoder import GeneExpressionEncoder
@@ -86,7 +87,12 @@ def dipk_preprocess(source: FeatureSource, matrix: np.ndarray, view: str = "gene
     return _zscore_rows(matrix)
 
 
-@register("dipkGeneExpression", side=Side.SAMPLE, description="DIPK gene-expression autoencoder embeddings.")
+@register(
+    "dipkGeneExpression",
+    side=Side.SAMPLE,
+    description="DIPK gene-expression autoencoder embeddings.",
+    accelerator=Accelerator.OPTIONAL,
+)
 class DIPKGeneExpressionFeaturizer(Featurizer):
     """Encode intersection genes into the 512-dimensional DIPK representation.
 
