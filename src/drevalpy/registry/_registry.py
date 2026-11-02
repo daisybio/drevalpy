@@ -4,7 +4,8 @@ One :class:`Registry` instance holds one kind of entry - predictor classes,
 featurizer classes, splitters, visualizations or zoo presets - under unique names,
 in registration order, each with a read-only metadata mapping. A duplicate name
 raises unless the caller asks to replace it, every lookup of an unknown name raises
-:class:`~drevalpy.errors.UnknownNameError`, and :meth:`Registry.snapshot` /
+:class:`~drevalpy.errors.UnknownNameError` naming the close matches and every registered
+name, and :meth:`Registry.snapshot` /
 :meth:`Registry.restore` let tests undo whatever they registered.
 
 The registry neither inspects nor stamps the objects it stores: checks that depend
@@ -16,9 +17,10 @@ included, the same console and notebook table.
 
 from __future__ import annotations
 
+import difflib
 import threading
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Collection, Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Generic, TypeVar
@@ -82,6 +84,24 @@ def _frozen_metadata(kind: str, name: str, metadata: Mapping[str, Any] | None) -
         msg = f"{kind} {name!r} metadata keys must be strings, got {bad!r}"
         raise TypeError(msg)
     return MappingProxyType(dict(metadata))
+
+
+def _suggestion(name: str, names: Collection[str]) -> str:
+    """Return a "Did you mean" sentence naming the registered names closest to *name*.
+
+    Case is ignored, so ``scaledgeneexpression`` finds ``scaledGeneExpression``.
+
+    :param name: The unknown name.
+    :param names: The registered names.
+    :returns: ``"Did you mean 'a' or 'b'? "``, or ``""`` when no name is close.
+    """
+    by_lower = {candidate.lower(): candidate for candidate in names}
+    matches = difflib.get_close_matches(name.lower(), by_lower, n=3, cutoff=0.6)
+    if not matches:
+        return ""
+    quoted = [repr(by_lower[match]) for match in matches]
+    options = quoted[0] if len(quoted) == 1 else f"{', '.join(quoted[:-1])} or {quoted[-1]}"
+    return f"Did you mean {options}? "
 
 
 def _cell(value: Any) -> Any:
@@ -171,7 +191,7 @@ class Registry(TableReprMixin, Generic[T]):
             entry = self._entries.get(name)
             if entry is None:
                 available = ", ".join(self._entries) or "<none>"
-                msg = f"Unknown {self.kind} {name!r}. Available: {available}"
+                msg = f"Unknown {self.kind} {name!r}. {_suggestion(name, self._entries)}Available: {available}"
                 raise UnknownNameError(msg)
             return entry
 

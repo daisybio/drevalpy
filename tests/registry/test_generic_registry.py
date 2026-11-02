@@ -41,6 +41,24 @@ def test_unknown_name_raises_and_lists_the_available_names(registry: Registry[in
         Registry[int]("empty").get("x")
 
 
+def test_unknown_name_suggests_close_matches_before_the_available_names() -> None:
+    reg: Registry[int] = Registry("featurizer")
+    for name in ("scaledGeneExpression", "aeGeneExpression", "fingerprints"):
+        reg.register(name, 1)
+    with pytest.raises(UnknownNameError) as caught:
+        reg.get("scaledgeneexpresion")
+    assert str(caught.value) == (
+        "Unknown featurizer 'scaledgeneexpresion'. Did you mean 'scaledGeneExpression' or 'aeGeneExpression'? "
+        "Available: scaledGeneExpression, aeGeneExpression, fingerprints"
+    )
+
+
+def test_unknown_name_without_a_close_match_has_no_suggestion(registry: Registry[int]) -> None:
+    with pytest.raises(UnknownNameError) as caught:
+        registry.get("zzz")
+    assert "Did you mean" not in str(caught.value)
+
+
 def test_duplicate_raises_unless_replace(registry: Registry[int]) -> None:
     with pytest.raises(ValueError, match="'one' already registered"):
         registry.register("one", 10)
