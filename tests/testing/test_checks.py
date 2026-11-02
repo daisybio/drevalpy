@@ -15,7 +15,9 @@ import pytest
 from drevalpy.components.contracts.feature_format import FeatureFormat
 from drevalpy.components.featurizers.featurizer import Featurizer
 from drevalpy.components.predictors.abstract.matrix import MatrixPredictor
+from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.data._synthetic import synthetic as build_synthetic_dataset
+from drevalpy.plugin import Predictor
 from drevalpy.registry import predictor
 from drevalpy.registry.featurizer import featurizer_registry, get_featurizer, register
 from drevalpy.testing import plugins as plugins_module
@@ -30,6 +32,7 @@ from drevalpy.testing.conformance import (
     check_predictor_fit_predict,
     check_predictor_instantiates,
     check_predictor_pickle_round_trip,
+    check_predictor_single_drug_routing,
     feature_source_for,
 )
 from drevalpy.testing.plugins import (
@@ -40,6 +43,7 @@ from drevalpy.testing.plugins import (
 )
 from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult, numeric_feature_block
 from drevalpy.types.data.feature_source import FeatureSource, Side
+from drevalpy.types.enums.model_scope import ModelScope
 
 BLOCK = "probe"
 
@@ -179,6 +183,36 @@ class RequiresAnArgumentPredictor(GoodPredictor):
         super().__init__({"alpha": alpha})
 
 
+class PerDrugMeanPredictor(Predictor):
+    """Conforming single-drug predictor: the mean response of each trained drug, NaN for any other."""
+
+    sample_inputs: ClassVar[Inputs] = Inputs.matrix()
+    drug_inputs: ClassVar[Inputs] = Inputs.none()
+    scope: ClassVar[ModelScope] = ModelScope.SINGLE_DRUG
+
+    def __init__(self, hyperparameters: dict[str, object] | None = None) -> None:
+        """Initialise the stub."""
+        super().__init__(hyperparameters)
+        self._means: dict[str, float] = {}
+
+    def _fit(self, batch) -> None:
+        response = np.asarray(batch.response)
+        self._means = {drug: float(response[batch.drug_ids == drug].mean()) for drug in np.unique(batch.drug_ids)}
+
+    def _predict(self, batch) -> np.ndarray:
+        return np.array([self._means.get(drug, self._unseen_drug()) for drug in batch.drug_ids], dtype=np.float64)
+
+    def _unseen_drug(self) -> float:
+        return np.nan
+
+
+class GlobalMeanForUnseenDrugsPredictor(PerDrugMeanPredictor):
+    """Defect: invents a prediction, the mean over the trained drugs, for a drug it never saw."""
+
+    def _unseen_drug(self) -> float:
+        return float(np.mean(list(self._means.values())))
+
+
 @pytest.fixture(scope="module")
 def dataset():
     return build_synthetic_dataset()
@@ -206,6 +240,22 @@ def test_a_conforming_featurizer_passes_every_check(check, cls, dataset):
 @pytest.mark.parametrize("check", PREDICTOR_CHECKS)
 def test_a_conforming_predictor_passes_every_check(check, batch):
     check(GoodPredictor, batch)
+
+
+@pytest.mark.parametrize("check", PREDICTOR_CHECKS)
+def test_a_conforming_single_drug_predictor_passes_every_check_on_the_default_batch(check):
+    check(PerDrugMeanPredictor)
+
+
+def test_single_drug_routing_skips_multi_drug_predictors(batch):
+    one_drug = batch.subset_pairs(batch.drug_ids == np.unique(batch.drug_ids)[0])
+    check_predictor_single_drug_routing(GoodPredictor, one_drug)
+
+
+def test_single_drug_routing_needs_two_drugs(batch):
+    one_drug = batch.subset_pairs(batch.drug_ids == np.unique(batch.drug_ids)[0])
+    with pytest.raises(ConformanceError, match="at least two drugs"):
+        check_predictor_single_drug_routing(PerDrugMeanPredictor, one_drug)
 
 
 def test_checks_default_to_synthetic_data_forward_kwargs_and_return_instances(dataset):
@@ -242,6 +292,7 @@ def test_featurizer_defects_are_rejected(check, cls, error, match, dataset):
         (check_predictor_pickle_round_trip, ForgetfulPicklePredictor, "predicted differently"),
         (check_predictor_pickle_round_trip, UnpicklablePredictor, "could not be pickled"),
         (check_predictor_pickle_round_trip, NeverFitsPredictor, "before the round trip"),
+        (check_predictor_single_drug_routing, GlobalMeanForUnseenDrugsPredictor, "not trained on"),
     ],
 )
 def test_predictor_defects_are_rejected(check, cls, match, batch):
@@ -259,6 +310,7 @@ def test_check_tuples_name_every_check_with_two_positional_arguments():
         check_predictor_instantiates,
         check_predictor_fit_predict,
         check_predictor_pickle_round_trip,
+        check_predictor_single_drug_routing,
     }
     for check in FEATURIZER_CHECKS + PREDICTOR_CHECKS:
         kinds = [p.kind for p in inspect.signature(check).parameters.values()]

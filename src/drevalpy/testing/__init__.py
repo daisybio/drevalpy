@@ -7,8 +7,9 @@ downloaded dataset, beside the in-memory dataset of :func:`drevalpy.synthetic`:
 * :func:`check_plugin` - assert the plugin's entry point loaded and its
   components resolve through the registries.
 * The ``check_*`` functions in :mod:`drevalpy.testing.conformance` - assert a
-  featurizer or predictor instantiates, fits and transforms, and that a fitted one
-  round-trips through a pickle.
+  featurizer or predictor instantiates, fits and transforms, that a fitted one
+  round-trips through a pickle, and that a single-drug predictor predicts NaN for
+  a drug it was not trained on.
 
 This is shipped in the wheel rather than kept in drevalpy's own ``tests/`` tree
 precisely so third-party plugins can import it.
@@ -25,6 +26,7 @@ from .conformance import (
     check_predictor_fit_predict,
     check_predictor_instantiates,
     check_predictor_pickle_round_trip,
+    check_predictor_single_drug_routing,
     feature_source_for,
 )
 from .plugins import ENTRY_POINT_GROUP, PluginCheckError, PluginReport, check_plugin
@@ -44,6 +46,7 @@ __all__ = [
     "check_predictor_fit_predict",
     "check_predictor_instantiates",
     "check_predictor_pickle_round_trip",
+    "check_predictor_single_drug_routing",
     "feature_source_for",
     "observed_pairs",
 ]

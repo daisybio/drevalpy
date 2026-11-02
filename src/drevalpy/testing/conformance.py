@@ -29,11 +29,13 @@ import numpy as np
 
 from drevalpy.components.featurizers.featurizer import Featurizer
 from drevalpy.components.predictors.abstract.base import Predictor
+from drevalpy.components.predictors.inputs import predictor_inputs
 from drevalpy.data import synthetic
 from drevalpy.types.data.batch.feature_block import FeaturizerResult
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.types.data.dataset import Dataset
 from drevalpy.types.data.feature_source import FeatureSource, Side
+from drevalpy.types.enums.model_scope import ModelScope
 
 from .batch import build_synthetic_batch
 
@@ -213,6 +215,20 @@ def check_featurizer_pickle_round_trip(
         )
 
 
+def _default_batch(cls: type[Predictor]) -> ModelInputBatch:
+    """Return the synthetic batch a predictor check runs on when the caller passes none.
+
+    A predictor that declares ``drug_inputs = Inputs.none()`` gets no drug features, as
+    in a real run, where it is configured without a drug featurizer.
+
+    :param cls: Predictor class under check.
+    :returns: A featurized batch over the synthetic dataset.
+    """
+    if predictor_inputs(cls, Side.DRUG).kind == "none":
+        return build_synthetic_batch(synthetic(), n_drug_features=None)
+    return build_synthetic_batch(synthetic())
+
+
 def check_predictor_instantiates(
     cls: type[Predictor],
     batch: ModelInputBatch | None = None,
@@ -255,10 +271,10 @@ def check_predictor_fit_predict(
     :param cls: Predictor class to exercise.
     :param batch: Featurized batch. Defaults to
         :func:`~drevalpy.testing.build_synthetic_batch` over the synthetic
-        dataset.
+        dataset, without drug features for a predictor that reads none.
     :param \*\*kwargs: Constructor keyword arguments.
     """
-    batch = batch if batch is not None else build_synthetic_batch(synthetic())
+    batch = batch if batch is not None else _default_batch(cls)
     instance = check_predictor_instantiates(cls, **kwargs)
 
     instance.fit(batch)
@@ -293,7 +309,7 @@ def check_predictor_pickle_round_trip(
     """
     import joblib
 
-    batch = batch if batch is not None else build_synthetic_batch(synthetic())
+    batch = batch if batch is not None else _default_batch(cls)
 
     trained = check_predictor_instantiates(cls, **kwargs)
     trained.fit(batch)
@@ -319,6 +335,59 @@ def check_predictor_pickle_round_trip(
     )
 
 
+def check_predictor_single_drug_routing(
+    cls: type[Predictor],
+    batch: ModelInputBatch | None = None,
+    **kwargs: Any,
+) -> None:
+    r"""Check that a single-drug predictor predicts NaN for a drug it was not trained on.
+
+    DrEvalPy scores the pairs of an unseen drug as missing, so a single-drug predictor
+    must return NaN for them rather than invent a prediction, such as the mean over the
+    drugs it did see. The check holds out the first drug ID in sorted order, fits on the
+    pairs of the other drugs and predicts the whole batch. It returns without checking
+    unless ``cls.scope`` is :attr:`~drevalpy.plugin.ModelScope.SINGLE_DRUG`.
+
+    Raises ``ConformanceError`` if the batch has pairs of fewer than two drugs, the
+    held-out drug gets a non-NaN prediction, or a trained drug gets a non-finite one.
+
+    :param cls: Predictor class to exercise.
+    :param batch: Featurized batch with pairs of at least two drugs; defaults to the
+        synthetic one.
+    :param \*\*kwargs: Constructor keyword arguments.
+    """
+    if cls.scope is not ModelScope.SINGLE_DRUG:
+        return
+    batch = batch if batch is not None else _default_batch(cls)
+    drugs = np.unique(batch.drug_ids)
+    _require(
+        len(drugs) >= 2,
+        f"the batch for {cls.__name__} has pairs of {len(drugs)} drug(s); the single-drug routing check "
+        "holds one drug out and trains on the rest, so it needs pairs of at least two drugs",
+    )
+    held_out = drugs[0]
+    unseen = batch.drug_ids == held_out
+
+    instance = check_predictor_instantiates(cls, **kwargs)
+    instance.fit(batch.subset_pairs(~unseen))
+    predictions = np.asarray(instance.predict(batch))
+
+    _require(
+        predictions.shape == (batch.n_pairs,),
+        f"{cls.__name__}.predict returned shape {predictions.shape}, expected ({batch.n_pairs},)",
+    )
+    _require(
+        np.isnan(predictions[unseen]).all(),
+        f"{cls.__name__} predicted values for drug {held_out!r}, which it was not trained on; "
+        "DrEvalPy scores unseen drugs as missing, so a single-drug predictor must return NaN for them",
+    )
+    _require(
+        np.isfinite(predictions[~unseen]).all(),
+        f"{cls.__name__} returned non-finite predictions for drugs it was trained on; "
+        "check that _fit keeps one model per drug and _predict routes each pair to its drug's model",
+    )
+
+
 #: Every featurizer check, so a plugin's suite can parametrize over the set
 #: rather than list them and drift when a check is added.
 FEATURIZER_CHECKS: tuple[Callable[..., Any], ...] = (
@@ -332,4 +401,5 @@ PREDICTOR_CHECKS: tuple[Callable[..., Any], ...] = (
     check_predictor_instantiates,
     check_predictor_fit_predict,
     check_predictor_pickle_round_trip,
+    check_predictor_single_drug_routing,
 )

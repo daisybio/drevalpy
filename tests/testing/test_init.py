@@ -24,6 +24,7 @@ EXPECTED_ORIGINS: dict[str, str] = {
     "check_predictor_fit_predict": "drevalpy.testing.conformance",
     "check_predictor_instantiates": "drevalpy.testing.conformance",
     "check_predictor_pickle_round_trip": "drevalpy.testing.conformance",
+    "check_predictor_single_drug_routing": "drevalpy.testing.conformance",
     "feature_source_for": "drevalpy.testing.conformance",
     "observed_pairs": "drevalpy.testing.batch",
 }
