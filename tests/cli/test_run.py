@@ -65,6 +65,7 @@ def test_a_minimal_invocation_forwards_the_documented_defaults(worker: Recorder,
     assert {key: value for key, value in worker.kwargs.items() if key != "models"} == {
         "dataset": ["TOYv1"],
         "split_mode": "LPO",
+        "n_splits": 5,
         "hyperparameter_tuning": True,
         "hpo_metric": "RMSE",
         "hpo_num_trials": 16,
@@ -86,6 +87,8 @@ def test_a_minimal_invocation_forwards_the_documented_defaults(worker: Recorder,
     [
         pytest.param(["--no-hpo"], {"hyperparameter_tuning": False}, id="no-hpo"),
         pytest.param(["-s", "LSO"], {"split_mode": "LSO"}, id="split-mode"),
+        pytest.param(["--n-splits", "2"], {"n_splits": 2}, id="n-splits"),
+        pytest.param(["-n", "3"], {"n_splits": 3}, id="short-n-splits"),
         pytest.param(
             ["--randomization-mode", "SVRC", "--randomization-mode", "svcd"],
             {"randomization_modes": ["SVRC", "SVCD"]},

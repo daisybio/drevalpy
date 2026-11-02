@@ -22,6 +22,7 @@ from ._options import (
     ModelsArgument,
     NJobs,
     NoQualityFilter,
+    NSplits,
     PredictorOption,
     RandomizationMode,
     ResponseTransformation,
@@ -44,6 +45,7 @@ def run_cmd(
     split_mode: Annotated[
         str, typer.Option("--split-mode", "-s", help="Split mode: LPO, LSO, LDO, LTO, LStO.")
     ] = "LPO",
+    n_splits: NSplits = 5,
     output_dir: Annotated[str, typer.Option("--output-dir", "-o", help="Output directory for results.")] = "results",
     hpo: Hpo = True,
     hpo_metric: HpoMetric = Metric.RMSE,
@@ -93,6 +95,7 @@ def run_cmd(
         models=model_specs,
         dataset=dataset if group_dataset is None else group_dataset,
         split_mode=split_mode,
+        n_splits=n_splits,
         randomization_modes=[mode.value for mode in randomization_mode] if randomization_mode else None,
         randomization_type=randomization_type,
         seed=seed,

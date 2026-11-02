@@ -7,14 +7,14 @@ from typing import Annotated
 import typer
 from upath import UPath
 
-from drevalpy.cli._options import MinAbsFoldChange, MinRelevanceScore, NoQualityFilter, quality_from_cli
+from drevalpy.cli._options import MinAbsFoldChange, MinRelevanceScore, NoQualityFilter, NSplits, quality_from_cli
 
 
 def split_dataset(
     dataset: Annotated[str, typer.Argument(help="Registered dataset name or path to a .h5mu file.")],
     output_dir: Annotated[str, typer.Argument(help="Output directory for split .npz files.")],
     mode: Annotated[str, typer.Option("--mode", "-m", help="Split mode: LPO, LSO, LDO, LTO or LStO.")] = "LPO",
-    n_splits: Annotated[int, typer.Option("--n-splits", "-n", help="Number of CV folds.")] = 5,
+    n_splits: NSplits = 5,
     validation_ratio: Annotated[
         float, typer.Option("--validation-ratio", help="Fraction of training data for validation.")
     ] = 0.1,

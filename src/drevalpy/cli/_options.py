@@ -83,6 +83,7 @@ NJobs = Annotated[
         "Other models ignore it. The results do not depend on it.",
     ),
 ]
+NSplits = Annotated[int, typer.Option("--n-splits", "-n", help="Number of CV folds.")]
 GroupByOption = Annotated[
     str | None,
     typer.Option(
