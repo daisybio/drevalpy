@@ -44,6 +44,7 @@ EXPECTED_ORIGINS: dict[str, str] = {
     "Predictor": "drevalpy.components.predictors.abstract.base",
     "Section": "drevalpy.visualization.base",
     "Side": "drevalpy.types.data.feature_source",
+    "SingleDrugPredictor": "drevalpy.components.predictors.abstract.single_drug",
     "PairMask": "drevalpy.types.data.pair_mask",
     "Fold": "drevalpy.types.data.fold",
     "SplitValidationError": "drevalpy.registry.splitter._validation",

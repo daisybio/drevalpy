@@ -27,6 +27,7 @@ from drevalpy.components.featurizers.featurizer import Featurizer, all_nan_rows_
 from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
 from drevalpy.components.predictors.abstract.matrix import MatrixPredictor
+from drevalpy.components.predictors.abstract.single_drug import SingleDrugPredictor
 from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.data.quality import CurveQuality, curve_quality_mask
 from drevalpy.data.splitters import observed_mask
@@ -81,6 +82,7 @@ __all__ = [
     "Predictor",
     "Section",
     "Side",
+    "SingleDrugPredictor",
     "SplitValidationError",
     "Splitter",
     "UnknownNameError",
