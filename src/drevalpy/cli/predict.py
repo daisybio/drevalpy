@@ -48,4 +48,5 @@ def predict_cmd(
     out = UPath(output if output.endswith(".npz") else f"{output}.npz")
     out.parent.mkdir(parents=True, exist_ok=True)
     result.save(out)
-    typer.echo(f"Predictions: {result.model_name} on {result.dataset_name}, {len(result.predictions)} pairs -> {out}")
+    pairs = len(result.predictions)
+    typer.echo(f"Predictions: {result.model_name} on {result.dataset_name} ({result.measure}), {pairs} pairs -> {out}")

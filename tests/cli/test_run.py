@@ -78,6 +78,7 @@ def test_a_minimal_invocation_forwards_the_documented_defaults(worker: Recorder,
         "n_jobs": 1,
         "response_transformation": None,
         "quality": CurveQuality.default(),
+        "measure": None,
         "wandb_project": None,
     }
 
@@ -110,6 +111,7 @@ def test_a_minimal_invocation_forwards_the_documented_defaults(worker: Recorder,
         ),
         pytest.param(["--wandb-project", "drevalpy"], {"wandb_project": "drevalpy"}, id="wandb"),
         pytest.param(["--no-quality-filter"], {"quality": CurveQuality.off()}, id="no-quality-filter"),
+        pytest.param(["--measure", "LN_IC50"], {"measure": "LN_IC50"}, id="measure"),
     ],
 )
 def test_option_forwarding(worker: Recorder, tmp_path: UPath, args: list[str], expected: dict[str, Any]) -> None:

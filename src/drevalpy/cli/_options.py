@@ -95,6 +95,15 @@ GroupByOption = Annotated[
     ),
 ]
 
+Measure = Annotated[
+    str | None,
+    typer.Option(
+        "--measure",
+        help="Response measure to train and score on: pEC50 (the default) or any response layer of the dataset, "
+        "such as LN_IC50, AUC or IC50.",
+    ),
+]
+
 NoQualityFilter = Annotated[
     bool,
     typer.Option("--no-quality-filter", help="Keep every pair with a finite response; apply no curve-quality rule."),

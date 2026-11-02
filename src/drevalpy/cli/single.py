@@ -34,6 +34,13 @@ def single_cmd(
     hpo_random_state: HpoRandomState = None,
     response_transformation: ResponseTransformationOption = ResponseTransformation.NONE,
     split_mode: Annotated[str, typer.Option("--split-mode", help="Split mode fallback (e.g. LPO, LSO, LDO).")] = "LPO",
+    measure: Annotated[
+        str | None,
+        typer.Option(
+            "--measure",
+            help="Response measure to train and score on (default: the one the fold was split on, else pEC50).",
+        ),
+    ] = None,
     wandb_project: WandbProject = None,
     n_jobs: NJobs = 1,
 ) -> None:
@@ -63,6 +70,7 @@ def single_cmd(
         hpo_num_trials=hpo_num_trials,
         hpo_random_state=hpo_random_state,
         seed=seed,
+        measure=measure,
         wandb_project=wandb_project,
         n_jobs=n_jobs,
     )

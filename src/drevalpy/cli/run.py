@@ -17,6 +17,7 @@ from ._options import (
     HpoMetric,
     HpoNumTrials,
     HpoRandomState,
+    Measure,
     MinAbsFoldChange,
     MinRelevanceScore,
     ModelsArgument,
@@ -75,6 +76,7 @@ def run_cmd(
     sample_featurizer: SampleFeaturizerOption = None,
     drug_featurizer: DrugFeaturizerOption = None,
     predictor: PredictorOption = None,
+    measure: Measure = None,
     no_quality_filter: NoQualityFilter = False,
     min_relevance_score: MinRelevanceScore = None,
     min_abs_fold_change: MinAbsFoldChange = None,
@@ -107,6 +109,7 @@ def run_cmd(
         robustness_repeats=robustness_repeats,
         response_transformation=transformer,
         quality=quality_from_cli(no_quality_filter, min_relevance_score, min_abs_fold_change),
+        measure=measure,
         wandb_project=wandb_project,
         n_jobs=n_jobs,
     )

@@ -15,6 +15,7 @@ from ._options import (
     HpoMetric,
     HpoNumTrials,
     HpoRandomState,
+    Measure,
     MinAbsFoldChange,
     MinRelevanceScore,
     NJobs,
@@ -47,6 +48,7 @@ def train_cmd(
     ] = 42,
     hpo_random_state: HpoRandomState = None,
     response_transformation: ResponseTransformationOption = ResponseTransformation.NONE,
+    measure: Measure = None,
     no_quality_filter: NoQualityFilter = False,
     min_relevance_score: MinRelevanceScore = None,
     min_abs_fold_change: MinAbsFoldChange = None,
@@ -71,6 +73,7 @@ def train_cmd(
         hpo_random_state=hpo_random_state,
         response_transformation=transformer,
         quality=quality,
+        measure=measure,
         seed=seed,
         n_jobs=n_jobs,
     )
@@ -81,10 +84,11 @@ def train_cmd(
     metadata = {
         "model_name": fitted.name,
         "dataset_name": data.name,
+        "measure": fitted.measure,
         "seed": seed,
         "response_transformation": response_transformation.value,
         "hyperparameter_tuning": hpo,
         "drevalpy_version": __version__,
     }
     (out / METADATA_FILE).write_text(json.dumps(metadata, indent=2) + "\n")
-    typer.echo(f"Model: {fitted.name} trained on {data.name} -> {out}")
+    typer.echo(f"Model: {fitted.name} trained on {data.name} ({fitted.measure}) -> {out}")

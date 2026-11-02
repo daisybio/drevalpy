@@ -65,12 +65,19 @@ def test_forwards_the_loaded_dataset_and_defaults(splitter: Recorder, loader: Re
         "validation_ratio": 0.1,
         "random_state": 42,
         "quality": CurveQuality.default(),
+        "measure": None,
     }
 
 
 @pytest.mark.parametrize(
     ("flag", "key", "value"),
-    [("--mode", "mode", "LSO"), ("-m", "mode", "LSO"), ("--n-splits", "n_splits", 2), ("-n", "n_splits", 2)],
+    [
+        ("--mode", "mode", "LSO"),
+        ("-m", "mode", "LSO"),
+        ("--n-splits", "n_splits", 2),
+        ("-n", "n_splits", 2),
+        ("--measure", "measure", "AUC"),
+    ],
 )
 def test_short_and_long_options(splitter: Recorder, tmp_path: UPath, flag: str, key: str, value: object) -> None:
     _invoke(tmp_path, flag, str(value))

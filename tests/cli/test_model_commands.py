@@ -22,6 +22,7 @@ runner = make_runner()
 
 class StubModel:
     name = "StubModel"
+    measure = "pEC50"
 
     def __init__(self) -> None:
         """Record saved paths."""
@@ -66,6 +67,7 @@ class TestTrainForwarding:
             "hpo_metric": "RMSE",
             "hpo_num_trials": 16,
             "hpo_random_state": None,
+            "measure": None,
             "seed": 42,
             "n_jobs": 1,
         }
@@ -82,6 +84,12 @@ class TestTrainForwarding:
         assert isinstance(train_worker.kwargs["response_transformation"], StandardScaler)
         assert not hasattr(train_worker.kwargs["response_transformation"], "mean_")
         assert train_worker.kwargs["quality"].min_abs_fold_change == 1.5
+
+    def test_forwards_the_measure_and_records_it(self, train_worker: Recorder, tmp_path: UPath) -> None:
+        _invoke_train(tmp_path, "--measure", "LN_IC50")
+
+        assert train_worker.kwargs["measure"] == "LN_IC50"
+        assert json.loads((tmp_path / "model" / "metadata.json").read_text())["measure"] == "pEC50"
 
     def test_no_quality_filter_turns_the_rule_off(self, train_worker: Recorder, tmp_path: UPath) -> None:
         _invoke_train(tmp_path, "--no-quality-filter")
@@ -100,10 +108,11 @@ class TestTrainOutput:
         assert record["model_name"] == "StubModel"
         assert record["dataset_name"] == "StubDataset"
         assert record["seed"] == 5
+        assert record["measure"] == "pEC50"
         assert record["response_transformation"] == "minmax"
         assert record["hyperparameter_tuning"] is False
         assert record["drevalpy_version"]
-        assert f"StubModel trained on StubDataset -> {tmp_path / 'model'}" in result.output
+        assert f"StubModel trained on StubDataset (pEC50) -> {tmp_path / 'model'}" in result.output
 
 
 class TestTrainErrors:
@@ -192,6 +201,7 @@ class TestSingleForwarding:
             "hpo_num_trials": 16,
             "hpo_random_state": None,
             "seed": 42,
+            "measure": None,
             "wandb_project": None,
             "n_jobs": 1,
         }
@@ -200,6 +210,7 @@ class TestSingleForwarding:
         _invoke_single(
             fold_file, tmp_path, "--no-hpo", "--hpo-metric", "Pearson", "--hpo-trials", "2", "--hpo-random-state", "9",
             "--seed", "3", "--n-jobs", "2", "--wandb-project", "my-project", "--split-mode", "LSO",
+            "--measure", "AUC",
         )  # fmt: skip
 
         assert single_worker.kwargs == {
@@ -208,6 +219,7 @@ class TestSingleForwarding:
             "hpo_num_trials": 2,
             "hpo_random_state": 9,
             "seed": 3,
+            "measure": "AUC",
             "wandb_project": "my-project",
             "n_jobs": 2,
             "response_transformation": None,
