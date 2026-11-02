@@ -33,6 +33,7 @@ from drevalpy.components.predictors.literature._torch_utils import DevicePicklin
 from drevalpy.registry.predictor import register
 from drevalpy.types.data.batch.feature_block import BlockSpec, FeatureBlock
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
+from drevalpy.types.enums.accelerator import Accelerator
 
 if TYPE_CHECKING:
     import torch
@@ -76,6 +77,8 @@ def _build_network(
     "paccMann",
     description="PaccMann: SMILES convolutions and gene expression linked by context attention.",
     reference=PACCMANN_REFERENCE,
+    license="MIT",
+    accelerator=Accelerator.OPTIONAL,
 )
 class PaccMannPredictor(DevicePicklingMixin, Predictor):
     """Registered PaccMann predictor consuming ModelInputBatch directly."""

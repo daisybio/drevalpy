@@ -32,6 +32,7 @@ from drevalpy.log import get_logger
 from drevalpy.registry.predictor import register
 from drevalpy.types.data.batch.feature_block import BlockSpec
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
+from drevalpy.types.enums.accelerator import Accelerator
 
 if TYPE_CHECKING:
     import torch
@@ -45,6 +46,8 @@ logger = get_logger(__name__)
     "precily",
     description="Precily pathway + SMILESVec model.",
     reference=PRECILY_REFERENCE,
+    license="NOASSERTION",
+    accelerator=Accelerator.OPTIONAL,
 )
 class PrecilyPredictor(DevicePicklingMixin, Predictor):
     """Registered Precily predictor consuming ModelInputBatch directly."""

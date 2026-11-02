@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
 
+from drevalpy._utils.accelerator import lightning_accelerator
 from drevalpy.components.contracts.feature_format import FeatureFormat
 from drevalpy.components.predictors._lightning_training import LightningRun, reload_best_weights, run_lightning_fit
 from drevalpy.components.predictors.abstract.base import Predictor, fit_response
@@ -16,6 +17,7 @@ from drevalpy.components.predictors.literature._pair_predict import require_drug
 from drevalpy.registry.predictor import register
 from drevalpy.types.data.batch.feature_block import BlockSpec
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
+from drevalpy.types.enums.accelerator import Accelerator
 
 # torch, pytorch_lightning and torch_geometric are imported inside the methods
 # that need them, not at module scope: this module is imported eagerly by
@@ -85,6 +87,8 @@ class _DrugGNNDataset:
     "drugGNN",
     description="DrugGNN: GCN on molecular graphs with dense sample features.",
     reference=DRUGGNN_REFERENCE,
+    license="Apache-2.0",
+    accelerator=Accelerator.OPTIONAL,
 )
 class DrugGNNPredictor(Predictor):
     """Registered DrugGNN predictor consuming ModelInputBatch directly."""
@@ -273,7 +277,9 @@ class DrugGNNPredictor(Predictor):
             batch_size=int(self._hyperparameters["batch_size"]),
         )
 
-        trainer = pl.Trainer(accelerator="auto", devices="auto", enable_progress_bar=False, logger=False)
+        trainer = pl.Trainer(
+            accelerator=lightning_accelerator(), devices="auto", enable_progress_bar=False, logger=False
+        )
         predictions_list = trainer.predict(self._model, dataloaders=predict_loader)
 
         if not predictions_list:

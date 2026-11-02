@@ -33,6 +33,7 @@ from drevalpy.components.predictors.literature._torch_utils import DevicePicklin
 from drevalpy.registry.predictor import register
 from drevalpy.types.data.batch.feature_block import BlockSpec
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
+from drevalpy.types.enums.accelerator import Accelerator
 
 if TYPE_CHECKING:
     import torch
@@ -67,6 +68,8 @@ def _build_combined_model(gene_input_size: int, hyperparameters: dict[str, Any],
     "pharmaFormer",
     description="PharmaFormer landmark genes + BPE PharmaFormer model.",
     reference=PHARMAFORMER_REFERENCE,
+    license="Apache-2.0",
+    accelerator=Accelerator.OPTIONAL,
 )
 class PharmaFormerPredictor(DevicePicklingMixin, Predictor):
     """Registered PharmaFormer predictor consuming ModelInputBatch directly."""
