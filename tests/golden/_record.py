@@ -17,7 +17,9 @@ from __future__ import annotations
 
 import os
 
+# The baseline is recorded on the CPU; an accelerator (CUDA, MPS, ...) would change the numbers.
 os.environ.setdefault("CUDA_VISIBLE_DEVICES", "")
+os.environ["DREVALPY_FORCE_CPU"] = "1"
 
 import json
 import shutil
