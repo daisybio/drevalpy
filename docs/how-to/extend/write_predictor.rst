@@ -11,7 +11,8 @@ Declare what the predictor reads
 --------------------------------
 
 A predictor subclasses one of three bases from ``drevalpy.plugin`` and registers with
-``register_predictor(name, *, description, tags=None, reference=None)``. What it reads from each
+``register_predictor(name, *, description, tags=None, reference=None, accelerator=Accelerator.NONE,
+license=None, artifact_license=None)``. What it reads from each
 side is its ``sample_inputs`` and ``drug_inputs`` declaration, an ``Inputs``:
 
 ``Inputs.none()``
@@ -143,7 +144,8 @@ repository. Pass it as ``reference=`` to the register decorator, as ``toyRidge``
 does not change training, composition or saved models. It needs a ``repo_url`` (``http`` or
 ``https``), a citation (``citation_text``, ``citation_doi`` or both) and ``deviations``, which says
 how the port differs from the original; constructing a reference without them raises
-``ValueError``.
+``ValueError``. A component with a reference also needs ``license=``, the license of the code it
+was ported from; see the next section.
 
 .. code-block:: python
 
@@ -154,6 +156,56 @@ how the port differs from the original; constructing a reference without them ra
        citation_text="Example et al., 2024.",
        deviations="Uses ridge regression instead of the original network.",
    )
+
+Declare accelerator use and licenses
+------------------------------------
+
+Three more decorator arguments describe a component. ``drevalpy list predictors NAME`` and
+``drevalpy describe MODEL`` show them, and none of them changes what the component computes.
+
+``accelerator``
+   An ``Accelerator`` from ``drevalpy.plugin``. ``Accelerator.NONE`` (the default) means the
+   component runs on the CPU only. ``Accelerator.OPTIONAL`` means it uses a torch accelerator,
+   such as a CUDA GPU or Apple MPS, when torch finds one, and the CPU otherwise.
+   ``Accelerator.REQUIRED`` means it cannot run without one: ``DRPModel.train`` and ``predict``
+   then raise ``DrEvalError`` on a machine without an accelerator. A model takes the strongest
+   level of its predictor and featurizers. The level is only a declaration: pick the device
+   yourself with torch, for example ``torch.accelerator.current_accelerator()``. The built-in
+   components also honour ``DREVALPY_FORCE_CPU`` (:doc:`/reference/environment`).
+``license``
+   The SPDX license of the code the component was ported from, such as ``"MIT"`` or
+   ``"GPL-3.0-only"``. It is required with ``reference=``; use ``"NOASSERTION"`` when that code
+   has no license. Without it, the component has the license of the installed package that
+   ships it, read from the package's ``License-Expression`` metadata (the ``license`` field of
+   its ``pyproject.toml``). A component from a loose extension file has ``NOASSERTION``.
+``artifact_license``
+   The SPDX license of the third-party files the component downloads, such as pretrained
+   weights, embeddings or gene sets. Leave it out when the component downloads none.
+
+Registration rejects an expression that is not valid SPDX. ``NOASSERTION`` and ``LicenseRef-*``
+ids are accepted.
+
+.. code-block:: python
+
+   import numpy as np
+
+   from drevalpy.plugin import Accelerator, FeatureFreePredictor, register_predictor
+
+
+   @register_predictor(
+       "portedMean",
+       description="Predict the mean training response.",
+       reference=reference,
+       accelerator=Accelerator.OPTIONAL,
+       license="Apache-2.0",
+       artifact_license="CC-BY-4.0",
+   )
+   class PortedMean(FeatureFreePredictor):
+       def _fit(self, batch):
+           self._mean = float(np.mean(batch.response))
+
+       def _predict(self, batch):
+           return np.full(batch.n_pairs, self._mean)
 
 Fit one model per drug
 ----------------------

@@ -30,7 +30,11 @@ Implement ``fit`` and ``transform``
 -----------------------------------
 
 Subclass ``Featurizer`` and register the class with ``register_featurizer(name, *, side,
-description, tags=None, reference=None)``. ``side`` is ``Side.SAMPLE`` or ``Side.DRUG``: a
+description, tags=None, reference=None, accelerator=Accelerator.NONE, license=None,
+artifact_license=None)``. ``reference``, ``accelerator``, ``license`` and
+``artifact_license`` work as for a predictor; see
+:ref:`how-to/extend/write_predictor:Declare accelerator use and licenses`. Declare
+``artifact_license`` when the featurizer downloads files such as pretrained embeddings. ``side`` is ``Side.SAMPLE`` or ``Side.DRUG``: a
 featurizer works on exactly one side, and each side has a registry of its own, so the name
 only has to be unique within that side. The decorator sets ``name`` and ``side`` on the class.
 A model that uses the featurizer on the other side is rejected, because that side's registry

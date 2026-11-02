@@ -134,6 +134,65 @@ decide the result.
                  runs = list(pool.map(train, paths))
              ExperimentResult(runs).save("agg")
 
+Route models to GPU nodes
+-------------------------
+
+Some models use a GPU or another accelerator when one is available, and a few need one. On a
+cluster, send only those jobs to GPU nodes. ``describe`` prints, for each model, whether it uses
+an accelerator (``none``, ``optional`` or ``required``), and ``--tsv`` writes the same rows as a
+tab-separated file for a workflow manager.
+
+.. tab-set::
+   :sync-group: interface
+
+   .. tab-item:: CLI
+      :sync: cli
+
+      .. code-block:: bash
+
+         drevalpy describe NaiveMeanEffectsPredictor SimpleNeuralNetwork --tsv models.tsv
+
+      In this Nextflow workflow, the models that use an accelerator go to a process with the
+      label ``gpu`` and the others to one with the label ``cpu``. Your ``nextflow.config`` sets
+      the queue and resources of each label, for example ``withLabel: gpu { accelerator = 1 }``:
+
+      .. code-block:: groovy
+
+         process TRAIN_GPU {
+             label 'gpu'
+             input:
+             tuple val(model), path(fold)
+             path dataset
+             output:
+             path "${model}_${fold.baseName}.npz"
+             script:
+             "drevalpy single ${model} ${dataset} ${fold} ${model}_${fold.baseName}.npz"
+         }
+
+         // TRAIN_CPU is the same process with label 'cpu'.
+
+         workflow {
+             folds = Channel.fromPath('splits/fold_*.npz')
+             models = Channel.fromPath('models.tsv')
+                 .splitCsv(header: true, sep: '\t')
+                 .branch { gpu: it.accelerator != 'none'; cpu: true }
+             TRAIN_GPU(models.gpu.map { it.model }.combine(folds), file('toy.h5mu'))
+             TRAIN_CPU(models.cpu.map { it.model }.combine(folds), file('toy.h5mu'))
+         }
+
+   .. tab-item:: Python
+      :sync: python
+
+      ``ModelSpec.accelerator`` holds the same value:
+
+      .. code-block:: python
+
+         print(ModelSpec.from_name("SimpleNeuralNetwork").accelerator.value)
+
+      .. code-block:: text
+
+         optional
+
 Combine the runs
 ----------------
 

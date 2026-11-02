@@ -28,6 +28,19 @@ The three extras are mutually exclusive. Without any of them, everything that ne
 such as the neural-network predictors, is unavailable; the other predictors and all the
 benchmarking tools work.
 
+Use a GPU or another accelerator
+--------------------------------
+
+The components marked "Optional" in the Accelerator column of :doc:`/reference/components` use
+an accelerator when torch finds one: a CUDA GPU, Apple MPS on a Mac, or another torch backend.
+They need no option for it. ``drevalpy describe MODEL`` shows whether a model uses one. Set
+``DREVALPY_FORCE_CPU=1`` to keep everything on the CPU.
+
+- Some operations are missing on MPS. Set ``PYTORCH_ENABLE_MPS_FALLBACK=1``, a variable of torch
+  itself, to run those on the CPU, or set ``DREVALPY_FORCE_CPU=1``.
+- Results on an accelerator are not bit-identical to results on the CPU, even with the same
+  seed. Compare models on the same kind of device.
+
 Install from source
 -------------------
 
