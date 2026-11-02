@@ -244,6 +244,8 @@ New commands and functions
   look good for models that rank samples poorly.
 - ``drevalpy data split``, ``drevalpy experiments randomization`` and ``drevalpy single`` accept a
   registered dataset name as well as a file, like ``drevalpy run --dataset``.
+- ``drevalpy run --n-splits`` (``-n``) and ``drevalpy.run(..., n_splits=)`` set the number of
+  folds, 5 by default; before, ``run`` always made 5.
 - ``drevalpy list zoo-presets`` and ``drevalpy list datasets`` show the model presets you can
   pass to ``run`` and the datasets you can load by name.
 - ``DREVALPY_EXTENSIONS_DIR`` is read by ``load_extensions()`` in Python, not only by the
