@@ -1,7 +1,7 @@
 Environment variables
 =====================
 
-DrEvalPy reads seven environment variables. All are optional.
+DrEvalPy reads eight environment variables. All are optional.
 
 .. list-table::
    :header-rows: 1
@@ -25,6 +25,9 @@ DrEvalPy reads seven environment variables. All are optional.
    * - ``DREVALPY_EXTENSIONS_DIR``
      - unset
      - Extension directories loaded without ``-e``
+   * - ``DREVALPY_FORCE_CPU``
+     - unset
+     - Keep the built-in torch components on the CPU
    * - ``DREVALPY_STRICT_PLUGINS``
      - unset
      - Make a failing plugin an error
@@ -81,6 +84,16 @@ Windows). Empty entries are dropped.
   with ``--extensions-dir`` / ``-e``.
 
 See :doc:`extension_files` for what a directory may contain.
+
+``DREVALPY_FORCE_CPU``
+----------------------
+
+Set to ``1``, ``true``, ``yes`` or ``on`` (case-insensitive) to run the built-in torch
+components on the CPU even when torch finds an accelerator such as a CUDA GPU or Apple MPS.
+Without the variable, a component whose ``accelerator`` is ``optional`` uses the
+accelerator. A model whose component requires an accelerator then fails in ``DRPModel.train``
+and ``predict`` with a ``DrEvalError``. See :ref:`how-to/install:Use a GPU or another
+accelerator`.
 
 ``DREVALPY_STRICT_PLUGINS``
 ---------------------------

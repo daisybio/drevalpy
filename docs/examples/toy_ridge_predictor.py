@@ -32,6 +32,7 @@ TOY_RIDGE_REFERENCE = LiteratureReference(
     "toyRidge",
     description="Ridge regression on concatenated dense sample and drug features.",
     reference=TOY_RIDGE_REFERENCE,
+    license="MIT",
 )
 class ToyRidgePredictor(MatrixPredictor):
     """Wrap :class:`sklearn.linear_model.Ridge`."""

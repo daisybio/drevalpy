@@ -12,9 +12,11 @@ from drevalpy.components.featurizers._featurizer_label import requires_explicit_
 from drevalpy.components.predictors.inputs import Inputs, predictor_inputs
 from drevalpy.plugin import PrecomputableFeaturizer
 from drevalpy.registry._builtins import builtin_names, get_skipped_builtin_modules, register_builtins
+from drevalpy.registry._component import component_license
 from drevalpy.registry.featurizer import featurizer_registries
 from drevalpy.registry.predictor import predictor_registry
 from drevalpy.types.data.feature_source import Side
+from drevalpy.types.enums.accelerator import Accelerator
 
 DOCS_DIR = Path(__file__).resolve().parent
 GENERATED_CATALOGS = {
@@ -50,6 +52,17 @@ def _featurizer_config(name: str, cls: type[Any]) -> dict[str, Any]:
     return config
 
 
+def _accelerator_cell(cls: type[Any]) -> str:
+    level = cls.accelerator
+    return "CPU only" if level is Accelerator.NONE else level.value.capitalize()
+
+
+def _license_cell(cls: type[Any]) -> str:
+    """Render the code license, and the license of the downloaded files when there are any."""
+    cell = f"``{component_license(cls)}``"
+    return f"{cell}; files: ``{cls.artifact_license}``" if cls.artifact_license else cell
+
+
 def _output_formats(cls: type[Any], config: dict[str, Any]) -> str:
     formats = dict.fromkeys(spec.format.value for spec in cls.output_blocks(config))
     return ", ".join(f"``{fmt}``" for fmt in formats) or "Those of its children"
@@ -59,11 +72,13 @@ def _render_featurizers(side: Side, rows: list[tuple[str, type[Any]]]) -> str:
     lines = [
         ".. list-table::",
         "   :header-rows: 1",
-        "   :widths: 22 18 14 46",
+        "   :widths: 20 14 12 10 14 30",
         "",
         "   * - Name",
         "     - Output format",
         "     - Precomputable",
+        "     - Accelerator",
+        "     - License",
         "     - Description",
     ]
     for name, cls in rows:
@@ -73,6 +88,8 @@ def _render_featurizers(side: Side, rows: list[tuple[str, type[Any]]]) -> str:
                 f"   * - ``{name}``",
                 f"     - {_output_formats(cls, config)}",
                 f"     - {chr(0x2705) if issubclass(cls, PrecomputableFeaturizer) else chr(0x274C)}",
+                f"     - {_accelerator_cell(cls)}",
+                f"     - {_license_cell(cls)}",
                 f"     - {_description(name, featurizer_registries[side].metadata(name))}",
             ]
         )
@@ -101,11 +118,13 @@ def _render_predictors(rows: list[tuple[str, type[Any]]]) -> str:
     lines = [
         ".. list-table::",
         "   :header-rows: 1",
-        "   :widths: 20 20 20 40",
+        "   :widths: 16 17 17 10 14 26",
         "",
         "   * - Name",
         "     - Sample inputs",
         "     - Drug inputs",
+        "     - Accelerator",
+        "     - License",
         "     - Description",
     ]
     for name, cls in rows:
@@ -114,6 +133,8 @@ def _render_predictors(rows: list[tuple[str, type[Any]]]) -> str:
                 f"   * - ``{name}``",
                 f"     - {_inputs_cell(predictor_inputs(cls, 'sample'))}",
                 f"     - {_inputs_cell(predictor_inputs(cls, 'drug'))}",
+                f"     - {_accelerator_cell(cls)}",
+                f"     - {_license_cell(cls)}",
                 f"     - {_description(name, predictor_registry.metadata(name))}",
             ]
         )

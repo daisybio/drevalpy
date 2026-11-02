@@ -124,6 +124,12 @@ that said "cell line" now says "sample".
 Defaults and results that changed
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+- **The torch models use any accelerator.** The built-in torch components train on a CUDA GPU,
+  Apple MPS or another torch backend when torch finds one, not only on CUDA. ``neuralNetwork``,
+  ``molir`` and ``superfeltr`` are no longer pinned to the CPU. Results on an accelerator are not
+  bit-identical to results on the CPU. Set ``DREVALPY_FORCE_CPU=1`` to keep everything on the
+  CPU; see :ref:`how-to/install:Use a GPU or another accelerator`.
+- PyTorch 2.6 or newer is required.
 - ``--response-transformation`` defaults to ``none`` in ``drevalpy run`` and ``drevalpy single``,
   so the response is not standardized unless you ask for it. The values are ``none``, ``standard``,
   ``minmax`` and ``robust``, plus the 1.x group means ``drug_mean`` and ``drug_tissue_mean``.
@@ -210,6 +216,10 @@ New commands and functions
   dataset, and ``drevalpy predict MODEL_DIR --dataset DATASET --output FILE`` applies it. In Python they are
   ``drevalpy.train`` and the saved ``DRPModel``. See :doc:`/how-to/train_save_load`.
 - ``drevalpy --version`` prints the installed version.
+- ``drevalpy describe MODEL...`` prints the components of each model, whether it uses an
+  accelerator, whether it uses early stopping and the licenses of its code and downloaded files.
+  ``--tsv FILE`` writes the same rows as TSV, so a workflow can send the models that use a GPU to
+  GPU nodes; see :ref:`how-to/run_folds_in_parallel:Route models to GPU nodes`.
 - ``curate(..., replicate_fits=True)`` and ``drevalpy curate run --replicate-fits`` also fit every
   dose series on its own, into ``uns["replicate_fits"]``, to measure how well replicates agree
   and to compare biological with technical variability. ``metadata=`` (``--metadata COL``,
@@ -302,12 +312,22 @@ Cross-study evaluation, component grids and recorded failures
 - **Parallel single-drug models.** ``--n-jobs`` on ``drevalpy run``, ``single`` and ``train``, and
   ``n_jobs=`` in Python, fit the per-drug models of ``SingleDrugElasticNet``,
   ``SingleDrugRandomForest``, ``SingleDrugKNN``, ``MOLIR`` and ``SuperFELTR`` in parallel
-  worker processes. The results are identical for every value. ``MOLIR`` and ``SuperFELTR`` train on
-  the CPU and write no default Lightning logs.
+  worker processes. The results are identical for every value. ``MOLIR`` and ``SuperFELTR`` write
+  no default Lightning logs.
 
 Components and imports
 ~~~~~~~~~~~~~~~~~~~~~~
 
+- ``register_predictor`` and ``register_featurizer`` take ``accelerator``, an
+  ``Accelerator`` from ``drevalpy.plugin``: ``NONE`` (the default), ``OPTIONAL`` or ``REQUIRED``.
+  A model takes the strongest level of its components, as ``ModelSpec.accelerator``. A model that
+  requires an accelerator raises ``DrEvalError`` in ``DRPModel.train`` and ``predict`` when none
+  is available. See :ref:`how-to/extend/write_predictor:Declare accelerator use and licenses`.
+- ``register_predictor`` and ``register_featurizer`` take ``license``, the SPDX license of the
+  code a component was ported from, and ``artifact_license``, that of the files it downloads.
+  ``license`` is required with ``reference=``; without it, a component has the license of the
+  package that ships it. ``ModelSpec.licenses`` lists the licenses of a model, and
+  ``drevalpy list predictors NAME`` and the component tables show them.
 - A featurizer subclasses ``Featurizer``, declares the blocks it emits with ``output_blocks``, and is
   registered on one side with ``@register_featurizer(name, side=Side.SAMPLE)`` or ``side=Side.DRUG``.
   Each side has its own featurizer registry; ``oneHot``, ``constant``, ``concatFeaturizers`` and ``view``
