@@ -30,6 +30,7 @@ if TYPE_CHECKING:
     "srmf",
     description="SRMF matrix factorization model.",
     reference=SRMF_REFERENCE,
+    license="NOASSERTION",
 )
 class SRMFPredictor(Predictor):
     """Registered SRMF predictor using similarity-regularized matrix factorization."""

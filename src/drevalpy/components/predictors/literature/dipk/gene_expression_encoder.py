@@ -10,7 +10,7 @@ import torch.optim as optim
 from torch.nn import functional
 from torch.utils.data import DataLoader
 
-from drevalpy.components.predictors.literature._torch_utils import select_device
+from drevalpy._utils.accelerator import select_device
 from drevalpy.components.predictors.literature.dipk._autoencoder_batches import validation_loss
 from drevalpy.experiment._tracking import log_metrics
 

@@ -28,6 +28,7 @@ from drevalpy.components.predictors.literature._torch_utils import DevicePicklin
 from drevalpy.registry.predictor import register
 from drevalpy.types.data.batch.feature_block import BlockSpec
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
+from drevalpy.types.enums.accelerator import Accelerator
 
 if TYPE_CHECKING:
     import torch
@@ -40,6 +41,8 @@ if TYPE_CHECKING:
     "dipk",
     description="DIPK BIONIC + MolGNet model.",
     reference=DIPK_REFERENCE,
+    license="NOASSERTION",
+    accelerator=Accelerator.OPTIONAL,
 )
 class DIPKPredictor(DevicePicklingMixin, Predictor):
     """DIPK predictor that trains an attention-based model on gene expression, BIONIC, and MolGNet features."""

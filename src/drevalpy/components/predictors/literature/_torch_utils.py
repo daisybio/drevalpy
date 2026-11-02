@@ -1,33 +1,20 @@
-"""Torch device selection shared by the literature predictors.
+"""Device handling shared by the literature predictors.
 
-``torch`` is imported inside the functions: the predictors are registered on
-``import drevalpy``, so the training stack must stay off that path (see
-``tests/test_import_cost_policy.py``).
+The device itself is chosen by :func:`drevalpy._utils.accelerator.select_device`.
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import Any, ClassVar
 
-if TYPE_CHECKING:
-    import torch
-
-
-def select_device() -> torch.device:
-    """Return the CUDA device when one is available, else the CPU.
-
-    :returns: The device to train and predict on.
-    """
-    import torch
-
-    return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+from drevalpy._utils.accelerator import select_device
 
 
 class DevicePicklingMixin:
     """Select a torch device for a predictor, and pickle it without the device.
 
-    The device is selected on construction. A fitted model trained on a GPU must still
-    load on a CPU-only machine, so the device
+    The device is selected on construction. A fitted model trained on an accelerator must still
+    load on a machine without one, so the device
     is not part of the pickle. After loading, the modules named in :attr:`device_modules`
     are moved to the device :func:`select_device` picks there; an attribute may hold one
     module, a list of modules, or ``None``.

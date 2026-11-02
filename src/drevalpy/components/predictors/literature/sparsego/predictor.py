@@ -29,6 +29,7 @@ from drevalpy.components.predictors.literature._torch_utils import DevicePicklin
 from drevalpy.registry.predictor import register
 from drevalpy.types.data.batch.feature_block import BlockSpec
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
+from drevalpy.types.enums.accelerator import Accelerator
 
 if TYPE_CHECKING:
     from torch.utils.data import DataLoader
@@ -56,6 +57,8 @@ def _resolve_active_view(batch: ModelInputBatch) -> str:
     "sparsego",
     description="SparseGO GO-structured visible neural network.",
     reference=SPARSEGO_REFERENCE,
+    license="NOASSERTION",
+    accelerator=Accelerator.OPTIONAL,
 )
 class SparseGOPredictor(DevicePicklingMixin, Predictor):
     """SparseGO predictor consuming ModelInputBatch directly."""

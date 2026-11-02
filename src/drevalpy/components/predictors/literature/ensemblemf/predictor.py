@@ -23,6 +23,7 @@ from drevalpy.components.predictors.literature._torch_utils import DevicePicklin
 from drevalpy.registry.predictor import register
 from drevalpy.types.data.batch.feature_block import BlockSpec
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
+from drevalpy.types.enums.accelerator import Accelerator
 
 if TYPE_CHECKING:
     import torch
@@ -35,6 +36,8 @@ if TYPE_CHECKING:
     "ensembleMF",
     description="EnsembleMF: ensembled two-tower matrix factorization over expression and fingerprints.",
     reference=ENSEMBLEMF_REFERENCE,
+    license="MIT",
+    accelerator=Accelerator.OPTIONAL,
 )
 class EnsembleMFPredictor(DevicePicklingMixin, Predictor):
     """Ensemble of two-tower matrix-factorization networks consuming ModelInputBatch directly."""
@@ -165,10 +168,13 @@ class EnsembleMFPredictor(DevicePicklingMixin, Predictor):
             patience=int(hp["patience"]),
         )
         seed = int(hp["seed"])
-        fork_devices = [self._device] if self._device.type == "cuda" else []
+        on_cpu = self._device.type == "cpu"
+        fork: dict[str, Any] = (
+            {"devices": []} if on_cpu else {"devices": [self._device], "device_type": self._device.type}
+        )
         self._nets = []
         for member in range(int(hp["n_ensemble"])):
-            with torch.random.fork_rng(devices=fork_devices):
+            with torch.random.fork_rng(**fork):
                 if seed >= 0:
                     torch.manual_seed(seed + member)
                 net = self._build_net(len(drug_ids))

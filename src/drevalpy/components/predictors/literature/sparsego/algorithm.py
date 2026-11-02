@@ -15,7 +15,7 @@ import torch
 import torch.nn as nn
 from scipy import sparse
 
-from drevalpy.components.predictors.literature._torch_utils import select_device
+from drevalpy._utils.accelerator import select_device
 
 from .utils import create_index
 

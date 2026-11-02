@@ -3,7 +3,7 @@
 import torch
 import torch.nn as nn
 
-from drevalpy.components.predictors.literature._torch_utils import select_device
+from drevalpy._utils.accelerator import select_device
 
 from .attention_utils import MultiHeadAttentionLayer
 

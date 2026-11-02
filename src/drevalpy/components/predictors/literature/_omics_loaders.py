@@ -118,7 +118,6 @@ def fit_omics_model(
             patience=patience,
             checkpoint_dir=checkpoint_dir,
             devices=1,
-            accelerator="cpu",  # the models are too small to profit from a GPU
             default_logger=False,
             **run_options,
         ),
