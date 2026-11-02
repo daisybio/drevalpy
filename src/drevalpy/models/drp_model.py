@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 from upath import UPath
 
+from drevalpy._utils.accelerator import ensure_available
 from drevalpy._utils.n_jobs import check_n_jobs
 from drevalpy.components.contracts.training_context import TrainingContext
 from drevalpy.components.featurizers._featurizer_label import CONCAT
@@ -181,6 +182,8 @@ class DRPModel:
     ) -> None:
         """Start a fresh fit using training and optional disjoint stopping data.
 
+        A model that requires an accelerator raises ``DrEvalError`` when torch finds none.
+
         :param dataset: Response matrix and raw features.
         :param scope: Training response positions.
         :param early_stopping_scope: Disjoint positions used only for stopping.
@@ -190,6 +193,7 @@ class DRPModel:
             all CPUs. It changes the time a fit takes, not its result, and is ignored by every other model.
         """
         check_n_jobs(n_jobs)
+        ensure_available(self.spec.accelerator, self.name)
         self._reset()
         directory = (
             tempfile.TemporaryDirectory(prefix="drevalpy-checkpoints-")
@@ -308,7 +312,8 @@ class DRPModel:
     def predict(self, dataset: Dataset, scope: PairMask) -> np.ndarray:
         """Predict original-unit responses in scope order, preserving missing positions.
 
-        Pairs with missing features get NaN predictions.
+        Pairs with missing features get NaN predictions. A model that requires an accelerator raises
+        ``DrEvalError`` when torch finds none.
 
         :param dataset: Response matrix and raw features.
         :param scope: Requested response positions, including unobserved responses.
@@ -316,6 +321,7 @@ class DRPModel:
         :raises RuntimeError: If the model has not been trained or loaded.
         :raises ValueError: If the predictor returns anything but one value per pair.
         """
+        ensure_available(self.spec.accelerator, self.name)
         if self.state == ModelState.EMPTY:
             return np.full(len(scope), np.nan)
         if not self.is_fitted():

@@ -14,6 +14,7 @@ from drevalpy.models import hyperparameters as hp
 from drevalpy.models.config import ModelConfig
 from drevalpy.models.config.immutable import freeze_value, thaw_value
 from drevalpy.models.tuning.search_space import space
+from drevalpy.types.enums.accelerator import Accelerator
 
 
 class UnknownModelError(UnknownNameError):
@@ -156,3 +157,32 @@ class ModelSpec:
         from drevalpy.registry.predictor import get as get_predictor
 
         return bool(get_predictor(self.config.predictor.name).supports_early_stopping) or self.requires_early_stopping
+
+    def _component_classes(self) -> list[type[Any]]:
+        """Return the predictor class, then the featurizer leaf classes of the sample and drug side."""
+        from drevalpy.registry.predictor import get as get_predictor
+
+        classes: list[type[Any]] = [get_predictor(self.config.predictor.name)]
+        for root in (self.config.sample_featurizer, self.config.drug_featurizer):
+            if root is not None:
+                classes.extend(leaf.featurizer_class for leaf in root.leaves())
+        return classes
+
+    @property
+    def accelerator(self) -> Accelerator:
+        """The strongest ``accelerator`` among the predictor and the featurizer leaves."""
+        return Accelerator.strongest(cls.accelerator for cls in self._component_classes())
+
+    @property
+    def licenses(self) -> tuple[str, ...]:
+        """The distinct SPDX licenses of the components' code, then of their downloaded files.
+
+        Components are taken in order: the predictor, then the sample and drug featurizer leaves.
+        A component without a declared ``license`` has the license of the package that ships it.
+        """
+        from drevalpy.registry._component import component_license
+
+        classes = self._component_classes()
+        values = [component_license(cls) for cls in classes]
+        values += [cls.artifact_license for cls in classes if cls.artifact_license]
+        return tuple(dict.fromkeys(values))

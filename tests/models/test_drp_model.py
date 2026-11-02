@@ -6,11 +6,14 @@ import numpy as np
 import pytest
 from sklearn.preprocessing import StandardScaler
 
+from drevalpy._utils import accelerator
 from drevalpy.components.featurizers import FeatureMismatchError
-from drevalpy.errors import InvalidInputError
+from drevalpy.errors import DrEvalError, InvalidInputError
 from drevalpy.models import DRPModel, ModelSpec
 from drevalpy.models.drp_model import ModelState, _build_components, validate_fit_scopes
+from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types import PairMask
+from drevalpy.types.enums.accelerator import Accelerator
 from tests.models.synthetic_fixtures import (
     lso_fold,
     small_data_spec,
@@ -329,3 +332,20 @@ def test_build_components_creates_independent_featurizers_and_predictor() -> Non
     mode = first[2]._hyperparameters["prediction_mode"]
     assert mode == "regression"
     assert type(mode) is str
+
+
+def test_a_model_that_requires_an_accelerator_fails_fast_without_one(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(get_predictor("elasticNet"), "accelerator", Accelerator.REQUIRED)
+    dataset = synthetic_model_dataset_gene_expression_fingerprints()
+    fold = lso_fold()
+    model = DRPModel(small_data_spec("ElasticNet"))
+
+    monkeypatch.setattr(accelerator, "accelerator_available", lambda: False)
+    with pytest.raises(DrEvalError, match="'ElasticNet' requires an accelerator"):
+        model.train(dataset, fold.train, model_checkpoint_dir=tmp_path)
+
+    monkeypatch.setattr(accelerator, "accelerator_available", lambda: True)
+    model.train(dataset, fold.train, model_checkpoint_dir=tmp_path)
+    monkeypatch.setattr(accelerator, "accelerator_available", lambda: False)
+    with pytest.raises(DrEvalError, match="'ElasticNet' requires an accelerator"):
+        model.predict(dataset, fold.test)

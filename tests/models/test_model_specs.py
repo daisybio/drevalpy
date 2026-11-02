@@ -14,6 +14,12 @@ from drevalpy.models import ModelSpec
 from drevalpy.models._combinations import Combinations, SkippedCombination, combinations
 from drevalpy.models.spec import UnknownModelError
 from drevalpy.models.zoo import get_zoo_config
+from drevalpy.registry.featurizer import get_featurizer
+from drevalpy.registry.featurizer import register as register_featurizer
+from drevalpy.registry.predictor import get as get_predictor
+from drevalpy.registry.predictor import register as register_predictor
+from drevalpy.types.data.feature_source import Side
+from drevalpy.types.enums.accelerator import Accelerator
 
 
 def test_from_name_returns_reusable_named_recipe() -> None:
@@ -259,3 +265,42 @@ def test_no_valid_combination_raises_with_every_reason() -> None:
 def test_invalid_arguments_are_rejected(kwargs: dict, match: str) -> None:
     with pytest.raises(InvalidInputError, match=match):
         combinations(**{"predictors": ["elasticNet"], **kwargs})
+
+
+@pytest.mark.parametrize(
+    ("name", "accelerator"),
+    [
+        ("pca[gene_expression]:fingerprints:ridge", Accelerator.NONE),
+        ("pca[gene_expression]+aeGeneExpression[gene_expression]:fingerprints:ridge", Accelerator.OPTIONAL),
+        ("DIPK", Accelerator.OPTIONAL),
+    ],
+    ids=["cpu-only", "concat-child", "predictor"],
+)
+def test_the_model_takes_the_strongest_accelerator_level_of_its_components(name: str, accelerator: Accelerator) -> None:
+    assert ModelSpec.from_name(name).accelerator is accelerator
+
+
+def test_a_required_featurizer_makes_the_model_require_an_accelerator() -> None:
+    pca = get_featurizer("pca", Side.SAMPLE)
+    register_featurizer("gpuPca", side=Side.SAMPLE, description="pca on a GPU", accelerator="required")(
+        type("GpuPca", (pca,), {})
+    )
+
+    assert ModelSpec.from_name("gpuPca[gene_expression]:fingerprints:ridge").accelerator is Accelerator.REQUIRED
+
+
+def test_licenses_list_the_code_then_the_artifacts_without_repeats() -> None:
+    ridge = get_predictor("ridge")
+    register_predictor("licensedRidge", description="ridge", license="Apache-2.0", artifact_license="CC-BY-4.0")(
+        type("LicensedRidge", (ridge,), {})
+    )
+    pca = get_featurizer("pca", Side.SAMPLE)
+    register_featurizer("ccPca", side=Side.SAMPLE, description="pca", artifact_license="CC-BY-4.0")(
+        type("CcPca", (pca,), {})
+    )
+
+    spec = ModelSpec.from_name("ccPca[gene_expression]:fingerprints:licensedRidge")
+
+    # ccPca is defined outside an installed package, so it inherits NOASSERTION; fingerprints has drevalpy's MIT.
+    assert spec.licenses == ("Apache-2.0", "NOASSERTION", "MIT", "CC-BY-4.0")
+    assert ModelSpec.from_name("pca[gene_expression]:fingerprints:ridge").licenses == ("MIT",)
