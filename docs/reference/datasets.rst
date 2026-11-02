@@ -119,7 +119,8 @@ The file must have a modality named ``response``; without it loading raises ``Ke
        Further annotation columns, such as ``ncit_class`` or ``target_moa``, can be used as
        a grouping for per-group scores; see :doc:`/reference/metrics`
    * - ``X``
-     - The pEC50 of each sample and drug
+     - The pEC50 of each sample and drug, the default response measure. ``uns["x_column"]``
+       names the measure ``X`` holds
    * - ``layers``
      - The other dose-response summaries and quality metrics, listed below
    * - ``varm``
@@ -409,7 +410,7 @@ A pair whose ``relevance_score`` or ``fold_change`` is NaN fails. Pass the rule 
        ``--min-relevance-score`` and ``--min-abs-fold-change``
    * - No rule
      - ``CurveQuality.off()``; on the command line, ``--no-quality-filter``. Every pair with a
-       finite response is kept and no quality layer is read
+       value of the response measure is kept and no quality layer is read
 
 ``CurveQuality`` is a frozen dataclass with 15 numeric thresholds, each ``None`` when it is not
 checked, and ``regulation``, the labels (``"up"``, ``"down"``, ``"not"``) to keep. The thresholds
@@ -417,6 +418,10 @@ beyond the default two are ``max_p_value``, ``min_log_p_value``, ``min_f_value``
 ``min_f_value_sam``, ``min_r2``, ``max_rmse``, ``min_signal_quality``, ``min_abs_slope``,
 ``max_abs_slope``, ``min_front``, ``max_back``, ``min_pec50`` and ``max_pec50``. ``mask(dataset)``
 returns the boolean pair mask.
+
+The rule does not follow the response measure (see
+:ref:`how-to/run_experiment:Choose the response measure`). Each threshold reads its own layer,
+and ``min_pec50`` and ``max_pec50`` read the pEC50 in ``X`` whatever the measure is.
 
 A rule that needs a response layer the dataset lacks raises ``UnknownNameError`` (a ``KeyError``). A dataset without the
 quality layers, such as one with only a pEC50 matrix, therefore needs ``CurveQuality.off()``

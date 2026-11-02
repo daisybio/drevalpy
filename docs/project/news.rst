@@ -14,7 +14,7 @@ Breaking changes from 1.6.0
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - **Nothing that 1.x wrote loads in v2.** Re-run experiments and retrain models. Result files,
-  splits and saved models are in new formats; a saved model is a ``.zip`` archive of format version 2.
+  splits and saved models are in new formats; a saved model is a ``.zip`` archive of format version 3.
   :ref:`how-to/migrate/index:Which 1.x files still load` lists what each loader says.
 - **The command line is one script.** ``drevalpy`` has the subcommands ``run``, ``single``,
   ``aggregate``, ``curate``, ``report``, ``data``, ``experiments`` and ``list``, and the 17
@@ -103,6 +103,9 @@ These affect only code, configurations and datasets written for an unreleased 2.
   Nextflow pipeline ``drevalpy/curate``; see :doc:`/how-to/curate_at_scale`.
 - **drevalpy curate is a command group.** ``drevalpy curate INPUT OUTPUT`` is now
   ``drevalpy curate run INPUT OUTPUT``.
+- **A saved model records its response measure.** The model archive is format version 3, so
+  models saved by an earlier 2.0 build must be retrained. ``RunResult.fold_key`` includes the
+  measure.
 
 Samples instead of cell lines
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -124,6 +127,15 @@ that said "cell line" now says "sample".
 Defaults and results that changed
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+- **The response measure is a choice again, with pEC50 as the default.** 1.x trained on
+  ``LN_IC50_curvecurator`` by default. ``--measure`` on ``drevalpy run``, ``train``, ``single``
+  and ``data split``, and ``measure=`` on ``drevalpy.run``, ``train``, ``single`` and ``split``,
+  pick ``LN_IC50``, ``AUC`` or any other response layer. ``Dataset.measure``,
+  ``Dataset.measures()`` and ``Dataset.with_measure(name)`` read and set it. The curve-quality
+  rule does not change with the measure. Folds, results (``RunResult.measure``,
+  ``ExperimentResult.measure``) and fitted models (``DRPModel.measure``) record it, and the
+  leaderboard subtitle shows it. ``drevalpy predict`` scores against the model's measure. See
+  :ref:`how-to/run_experiment:Choose the response measure`.
 - **The torch models use any accelerator.** The built-in torch components train on a CUDA GPU,
   Apple MPS or another torch backend when torch finds one, not only on CUDA. ``neuralNetwork``,
   ``molir`` and ``superfeltr`` are no longer pinned to the CPU. Results on an accelerator are not

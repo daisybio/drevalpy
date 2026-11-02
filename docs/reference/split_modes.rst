@@ -65,7 +65,7 @@ Folds
    * - Property
      - Value
    * - Signature
-     - ``split(dataset, mode, n_splits=5, validation_ratio=0.1, random_state=42)``
+     - ``split(dataset, mode, n_splits=5, validation_ratio=0.1, random_state=42, *, quality=None, measure=None)``
    * - Fold assignment
      - ``KFold(shuffle=True)`` over the groups of the mode: observed pairs, samples, tissues
        or drugs. ``LStO`` makes one fold per study and ignores ``n_splits``
@@ -74,7 +74,10 @@ Folds
        are removed. For ``LStO`` the groups are the pairs of the training studies: a random
        share of them, so a validation pair may come from any training study
    * - Pairs considered
-     - Pairs with a finite response that pass the curve-quality rule in :doc:`datasets`
+     - Pairs with a finite value of the response measure that pass the curve-quality rule in
+       :doc:`datasets`
+   * - Response measure
+     - ``measure``, ``pEC50`` or a response layer; ``None`` keeps the dataset's measure
    * - Curve-quality rule
      - ``quality``, a ``CurveQuality``; ``None`` means ``CurveQuality.default()``. ``split``
        passes it to the splitter, and the built-in modes leave out the pairs that fail it
@@ -107,6 +110,9 @@ Each fold carries this metadata:
      - The curve-quality rule of the split, as written by ``CurveQuality.to_metadata()``: a
        mapping from each threshold that is set to its value, such as ``min_abs_fold_change``
        ``0.45``; empty for ``CurveQuality.off()``
+   * - ``measure``
+     - The response measure of the split, such as ``pEC50``. A run on the fold must use the
+       same measure
    * - ``test_study``
      - ``LStO`` only: the name of the study the fold tests on
 

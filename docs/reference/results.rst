@@ -169,6 +169,8 @@ A run file is a compressed ``.npz`` archive.
      - Content
    * - ``quality``
      - The curve-quality rule the split applied; see :doc:`split_modes`
+   * - ``measure``
+     - The response measure the run was trained and scored on, such as ``pEC50``
    * - ``test_study``
      - The study of the test set; ``LStO`` only
    * - ``n_splits``
@@ -192,7 +194,7 @@ Predictions file
 ----------------
 
 ``drevalpy predict MODEL_DIR -d DATASET -o OUT`` applies a model saved by ``drevalpy train`` to
-every pair of the dataset that has an observed response. It writes a run file, so ``RunResult.load``
+every pair of the dataset that has an observed value of the model's response measure. It writes a run file, so ``RunResult.load``
 reads it and the arrays are those of `Run file`_. The differences are in the content:
 
 - ``predictions``, ``ground_truth``, ``sample_ids`` and ``drug_ids`` hold one entry for each
@@ -204,17 +206,18 @@ reads it and the arrays are those of `Run file`_. The differences are in the con
   hyperparameters.
 - ``metrics`` score the predictions against the observed responses of the same pairs. For the
   dataset the model was trained on they are in-sample scores.
-- ``split_mode`` and ``fold_id`` are empty, ``fold_index`` is ``0``, and ``fold_metadata`` and
-  ``trials`` are empty. The file is not a fold of an experiment, so ``drevalpy aggregate`` and
-  ``drevalpy report``, which expect fold files, should not be given it.
+- ``split_mode`` and ``fold_id`` are empty, ``fold_index`` is ``0``, ``fold_metadata`` holds only
+  the ``measure`` of the model, and ``trials`` is empty. The file is not a fold of an experiment,
+  so ``drevalpy aggregate`` and ``drevalpy report``, which expect fold files, should not be given
+  it.
 
 The file uses the run-file layout rather than a table so that no new reader is needed and the ids,
 predictions and observed responses stay aligned in one archive. To get a table, build one from the
 arrays, for example with ``pandas.DataFrame``.
 
 The model directory that ``drevalpy train`` writes holds ``model.zip``, the archive that
-``DRPModel.save`` writes, and ``metadata.json`` with the model name, dataset name, ``seed``,
-``response_transformation``, ``hyperparameter_tuning`` and ``drevalpy_version``.
+``DRPModel.save`` writes, and ``metadata.json`` with the model name, dataset name, ``measure``,
+``seed``, ``response_transformation``, ``hyperparameter_tuning`` and ``drevalpy_version``.
 
 Split file
 ----------
