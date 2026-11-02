@@ -267,6 +267,11 @@ Errors and logging
 - ``drevalpy`` takes the global options ``--verbose`` / ``-v`` (debug logging) and ``--quiet`` /
   ``-q`` (warnings only). By default the report logs one line per plot instead of one per model of
   every per-model plot; ``-v`` brings the per-model timings back.
+- An unknown featurizer, predictor or split mode name is answered with the closest registered names
+  ("Did you mean ...?") before the list of all of them. In a model configuration, a ``view`` written under
+  ``options`` raises with the mapping to write instead, and an unknown key of a featurizer or predictor
+  mapping lists the keys it accepts and says that featurizer arguments go under ``options`` and predictor
+  hyperparameters under ``defaults`` or ``hyperparameter_space``. See :doc:`/reference/recipes`.
 - The randomization tests write their datasets to files named ``<mode>__<view>.h5mu``.
 - ``drevalpy run`` has no short ``-r`` for ``--randomization-mode``; repeat the long flag. A
   mode, ``--fit-speed`` or ``--join`` value that does not exist is rejected with the list of valid

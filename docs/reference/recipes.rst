@@ -85,8 +85,11 @@ Duplicate leaves
 
 Sides
    Each featurizer is registered on one side and is looked up in that side's registry. A
-   featurizer on the wrong side raises, for example, ``Unknown sample featurizer
-   'fingerprints'``, followed by the sample featurizers there are.
+   featurizer on the wrong side raises, for example, ``'fingerprints' is a drug featurizer and
+   cannot be used on the sample side``. A name that no registry holds raises, for example,
+   ``Unknown sample featurizer 'scaledGeneExpresion'. Did you mean 'scaledGeneExpression', ...?``,
+   followed by the sample featurizers there are. An unknown predictor or split mode raises the
+   same way, with the close matches first.
 
 Drug featurizer
    A multi-drug predictor that takes featurizers needs both a sample and a drug featurizer;
@@ -193,7 +196,11 @@ The ``predictor`` key takes a predictor name or a mapping with the fields ``name
 
 Other spellings, such as a list of featurizers or a one-key mapping like
 ``{"pca[methylation]": {n_components: 8}}``, raise a ``ValueError`` that shows the form to
-write instead.
+write instead. A key that a featurizer or predictor mapping does not have raises with the
+keys it accepts; for a featurizer, the message adds that its arguments go under ``options``, and
+for a predictor that its hyperparameters go under ``defaults`` or ``hyperparameter_space``. A
+``view`` under ``options`` raises with the mapping to write instead, ``{name: pca, view:
+gene_expression}``.
 
 A model configuration has the keys ``sample_featurizer``, ``drug_featurizer``, ``predictor``
 and ``prediction_mode`` (``regression`` by default). Other keys raise an error.
