@@ -20,7 +20,19 @@ from tests.cli._helpers import HELP_ENV, Recorder, make_runner, plain
 runner = make_runner()
 
 
-COMMANDS = ("run", "single", "train", "predict", "aggregate", "curate", "report", "data", "experiments", "list")
+COMMANDS = (
+    "run",
+    "single",
+    "describe",
+    "train",
+    "predict",
+    "aggregate",
+    "curate",
+    "report",
+    "data",
+    "experiments",
+    "list",
+)
 
 
 class TestHelp:

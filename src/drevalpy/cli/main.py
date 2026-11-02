@@ -12,6 +12,7 @@ from drevalpy.cli.aggregate import aggregate_cmd
 from drevalpy.cli.catalog import list_app
 from drevalpy.cli.curate import curate_app
 from drevalpy.cli.data import data_app
+from drevalpy.cli.describe import describe_cmd
 from drevalpy.cli.experiments import experiments_app
 from drevalpy.cli.predict import predict_cmd
 from drevalpy.cli.report import report_cmd
@@ -102,6 +103,7 @@ app.add_typer(experiments_app, name="experiments")
 app.add_typer(list_app, name="list")
 app.command("run")(run_cmd)
 app.command("single")(single_cmd)
+app.command("describe")(describe_cmd)
 app.command("train")(train_cmd)
 app.command("predict")(predict_cmd)
 app.command("aggregate")(aggregate_cmd)

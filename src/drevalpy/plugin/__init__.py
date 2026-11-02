@@ -44,6 +44,7 @@ from drevalpy.types.data.dataset import Dataset
 from drevalpy.types.data.feature_source import FeatureSource, Side
 from drevalpy.types.data.fold import Fold
 from drevalpy.types.data.pair_mask import PairMask
+from drevalpy.types.enums.accelerator import Accelerator
 from drevalpy.types.enums.model_scope import ModelScope
 from drevalpy.types.enums.prediction_mode import PredictionMode
 from drevalpy.types.results import ExperimentResult, ModelResult
@@ -51,6 +52,7 @@ from drevalpy.visualization.base import Plot, Section, save_png, show
 from drevalpy.visualization.requirements import PlotRequirement
 
 __all__ = [
+    "Accelerator",
     "BlockSpec",
     "CurveQuality",
     "Dataset",

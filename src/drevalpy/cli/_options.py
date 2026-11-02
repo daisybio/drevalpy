@@ -1,8 +1,9 @@
 """Typer option definitions shared by several commands, and the values they resolve to.
 
-The groups: hyperparameter tuning (``--hpo``, ``--hpo-metric``, ``--hpo-trials``, ``--hpo-random-state``,
-``--wandb-project``), ``--response-transformation``, ``--n-jobs``, ``--group-by`` and the curve-quality rule
-(``--no-quality-filter``, ``--min-relevance-score``, ``--min-abs-fold-change``).
+The groups: the models (the MODELS argument and the ``-S/-D/-P`` grid), hyperparameter tuning (``--hpo``,
+``--hpo-metric``, ``--hpo-trials``, ``--hpo-random-state``, ``--wandb-project``), ``--response-transformation``,
+``--n-jobs``, ``--group-by`` and the curve-quality rule (``--no-quality-filter``, ``--min-relevance-score``,
+``--min-abs-fold-change``).
 """
 
 from __future__ import annotations
@@ -19,6 +20,7 @@ from ._summary import normalize_group_by
 
 if TYPE_CHECKING:
     from drevalpy.data.quality import CurveQuality
+    from drevalpy.models import ModelSpec
     from drevalpy.models.response_transformation import ResponseTransformer
 
 
@@ -42,6 +44,21 @@ class RandomizationMode(StrEnum):
     SVCD = "SVCD"
 
 
+ModelsArgument = Annotated[
+    list[str] | None, typer.Argument(help="Zoo name(s) or recipe(s), such as pca[gene_expression]:elasticNet.")
+]
+SampleFeaturizerOption = Annotated[
+    list[str] | None,
+    typer.Option("--sample-featurizer", "-S", help="Sample featurizer recipe for a grid; repeatable."),
+]
+DrugFeaturizerOption = Annotated[
+    list[str] | None,
+    typer.Option("--drug-featurizer", "-D", help="Drug featurizer recipe for a grid; repeatable."),
+]
+PredictorOption = Annotated[
+    list[str] | None,
+    typer.Option("--predictor", "-P", help="Predictor of a grid; repeatable. Every valid combination is used."),
+]
 ResponseTransformationOption = Annotated[
     ResponseTransformation,
     typer.Option(
@@ -89,6 +106,39 @@ MinAbsFoldChange = Annotated[
     float | None,
     typer.Option("--min-abs-fold-change", help="Minimum absolute log2 fold change of a curve (default: 0.45)."),
 ]
+
+
+def resolve_model_specs(
+    models: list[str], sample: list[str], drug: list[str], predictors: list[str]
+) -> list[ModelSpec]:
+    """Build the model specs of the MODEL arguments and of the ``-S/-D/-P`` grid, one per name.
+
+    Every grid combination that is skipped as incompatible is noted on stderr.
+
+    :param models: Zoo names or recipes given as MODEL arguments.
+    :param sample: Sample featurizer recipes of the grid.
+    :param drug: Drug featurizer recipes of the grid.
+    :param predictors: Predictors of the grid.
+    :returns: The specs in the order given, without a second spec of the same name.
+    :raises typer.BadParameter: If neither a model nor a predictor is given, or featurizers are given without a
+        predictor.
+    """
+    from drevalpy.models import ModelSpec, combinations
+
+    if not models and not predictors:
+        raise typer.BadParameter("Give at least one MODEL or one --predictor/-P.")
+    if (sample or drug) and not predictors:
+        raise typer.BadParameter("--sample-featurizer/-S and --drug-featurizer/-D need at least one --predictor/-P.")
+    specs = [ModelSpec.from_name(m) for m in models]
+    if predictors:
+        grid = combinations(sample=sample, drug=drug, predictors=predictors)
+        for skipped in grid.skipped:
+            typer.echo(f"Skipped {skipped.recipe}: {skipped.reason}", err=True)
+        specs.extend(grid.specs)
+    unique: dict[str, ModelSpec] = {}
+    for spec in specs:
+        unique.setdefault(spec.name, spec)
+    return list(unique.values())
 
 
 def resolve_response_transformation(value: ResponseTransformation) -> ResponseTransformer | None:

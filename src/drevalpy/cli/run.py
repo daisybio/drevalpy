@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Annotated
+from typing import Annotated
 
 import typer
 from upath import UPath
@@ -11,6 +11,7 @@ from drevalpy.evaluation import Metric
 from drevalpy.types.enums.randomization import RandomizationType
 
 from ._options import (
+    DrugFeaturizerOption,
     GroupByOption,
     Hpo,
     HpoMetric,
@@ -18,48 +19,20 @@ from ._options import (
     HpoRandomState,
     MinAbsFoldChange,
     MinRelevanceScore,
+    ModelsArgument,
     NJobs,
     NoQualityFilter,
+    PredictorOption,
     RandomizationMode,
     ResponseTransformation,
     ResponseTransformationOption,
+    SampleFeaturizerOption,
     WandbProject,
     quality_from_cli,
+    resolve_model_specs,
     resolve_response_transformation,
 )
 from ._summary import format_grouped_summary, resolve_group_by_dataset
-
-if TYPE_CHECKING:
-    from drevalpy.models import ModelSpec
-
-
-def _model_specs(models: list[str], sample: list[str], drug: list[str], predictors: list[str]) -> list[ModelSpec]:
-    """Build the model specs of the MODEL arguments and of the ``-S/-D/-P`` grid, one per name.
-
-    :param models: Zoo names or recipes given as MODEL arguments.
-    :param sample: Sample featurizer recipes of the grid.
-    :param drug: Drug featurizer recipes of the grid.
-    :param predictors: Predictors of the grid.
-    :returns: The specs in the order given, without a second spec of the same name.
-    :raises typer.BadParameter: If neither a model nor a predictor is given, or featurizers are given without a
-        predictor.
-    """
-    from drevalpy.models import ModelSpec, combinations
-
-    if not models and not predictors:
-        raise typer.BadParameter("Give at least one MODEL or one --predictor/-P.")
-    if (sample or drug) and not predictors:
-        raise typer.BadParameter("--sample-featurizer/-S and --drug-featurizer/-D need at least one --predictor/-P.")
-    specs = [ModelSpec.from_name(m) for m in models]
-    if predictors:
-        grid = combinations(sample=sample, drug=drug, predictors=predictors)
-        for skipped in grid.skipped:
-            typer.echo(f"Skipped {skipped.recipe}: {skipped.reason}")
-        specs.extend(grid.specs)
-    unique: dict[str, ModelSpec] = {}
-    for spec in specs:
-        unique.setdefault(spec.name, spec)
-    return list(unique.values())
 
 
 def run_cmd(
@@ -67,9 +40,7 @@ def run_cmd(
         list[str],
         typer.Option("--dataset", "-d", help="Dataset name or .h5mu path; repeat to concatenate several studies."),
     ],
-    models: Annotated[
-        list[str] | None, typer.Argument(help="Zoo name(s) or recipe(s), such as pca[gene_expression]:elasticNet.")
-    ] = None,
+    models: ModelsArgument = None,
     split_mode: Annotated[
         str, typer.Option("--split-mode", "-s", help="Split mode: LPO, LSO, LDO, LTO, LStO.")
     ] = "LPO",
@@ -99,18 +70,9 @@ def run_cmd(
     ] = 0,
     response_transformation: ResponseTransformationOption = ResponseTransformation.NONE,
     group_by: GroupByOption = None,
-    sample_featurizer: Annotated[
-        list[str] | None,
-        typer.Option("--sample-featurizer", "-S", help="Sample featurizer recipe for a grid; repeatable."),
-    ] = None,
-    drug_featurizer: Annotated[
-        list[str] | None,
-        typer.Option("--drug-featurizer", "-D", help="Drug featurizer recipe for a grid; repeatable."),
-    ] = None,
-    predictor: Annotated[
-        list[str] | None,
-        typer.Option("--predictor", "-P", help="Predictor of a grid; repeatable. Every valid combination is run."),
-    ] = None,
+    sample_featurizer: SampleFeaturizerOption = None,
+    drug_featurizer: DrugFeaturizerOption = None,
+    predictor: PredictorOption = None,
     no_quality_filter: NoQualityFilter = False,
     min_relevance_score: MinRelevanceScore = None,
     min_abs_fold_change: MinAbsFoldChange = None,
@@ -122,7 +84,7 @@ def run_cmd(
     from drevalpy.types.results.failure import ExperimentFailedError
 
     transformer = resolve_response_transformation(response_transformation)
-    model_specs = _model_specs(models or [], sample_featurizer or [], drug_featurizer or [], predictor or [])
+    model_specs = resolve_model_specs(models or [], sample_featurizer or [], drug_featurizer or [], predictor or [])
     group_dataset = resolve_group_by_dataset(group_by, dataset)
     out = UPath(output_dir)
     out.mkdir(parents=True, exist_ok=True)

@@ -17,6 +17,7 @@ from tests._trusted_subprocess import run_trusted_python
 REPO_ROOT = UPath(__file__).resolve().parents[2]
 
 EXPECTED_ORIGINS: dict[str, str] = {
+    "Accelerator": "drevalpy.types.enums.accelerator",
     "BlockSpec": "drevalpy.types.data.batch.feature_block",
     "CurveQuality": "drevalpy.data.quality",
     "Dataset": "drevalpy.types.data.dataset._dataset",
