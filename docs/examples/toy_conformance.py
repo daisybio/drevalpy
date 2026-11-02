@@ -21,10 +21,11 @@ from .toy_drug_featurizer import ToyDrugHashFeaturizer
 from .toy_mean_predictor import ToyMeanPredictor
 from .toy_ridge_predictor import ToyRidgePredictor
 from .toy_sample_featurizer import ToySampleFeaturizer
+from .toy_single_drug_predictor import ToySingleDrugRidgePredictor
 from .toy_visualization import ToyResidualHistogram
 
 FEATURIZERS = (ToySampleFeaturizer, ToyDrugHashFeaturizer)
-PREDICTORS = (ToyMeanPredictor, ToyRidgePredictor, ToyBlockRidgePredictor)
+PREDICTORS = (ToyMeanPredictor, ToyRidgePredictor, ToyBlockRidgePredictor, ToySingleDrugRidgePredictor)
 
 
 def check_components() -> None:

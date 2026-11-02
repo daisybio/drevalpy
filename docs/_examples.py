@@ -40,6 +40,7 @@ EXAMPLE_MODULES: tuple[str, ...] = (
     "toy_mean_predictor",
     "toy_ridge_predictor",
     "toy_block_predictor",
+    "toy_single_drug_predictor",
     "toy_splitter",
     "toy_visualization",
     "toy_conformance",
@@ -50,7 +51,7 @@ EXAMPLE_MODULES: tuple[str, ...] = (
 EXPECTED_REGISTRATIONS: dict[str, tuple[str, ...]] = {
     "sample_featurizer": ("toySample",),
     "drug_featurizer": ("toyDrugHash",),
-    "predictor": ("toyBlockRidge", "toyMean", "toyRidge"),
+    "predictor": ("toyBlockRidge", "toyMean", "toyRidge", "toySingleDrugRidge"),
     "splitter": ("TOY_LSO",),
     "visualization": ("toyResiduals",),
 }

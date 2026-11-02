@@ -335,6 +335,12 @@ Components and imports
   reads on each side as ``sample_inputs`` and ``drug_inputs``: ``Inputs.none()``, ``Inputs.matrix()`` or
   ``Inputs.blocks(...)``. A model whose parts disagree is rejected before training. Fitted components are
   saved by pickling them, so they need no state methods.
+- ``SingleDrugPredictor`` in ``drevalpy.plugin`` is the base of a predictor that fits one model per drug:
+  a subclass implements ``_fit_drug`` and ``_predict_drug`` on the pairs of one drug, and the base routes
+  the pairs, gives each drug its own checkpoint directory, fits the drugs in ``n_jobs`` worker processes
+  and predicts NaN for a drug without a model. The built-in single-drug predictors use it, and
+  ``drevalpy.components.predictors.single_drug_routing`` is removed. See
+  :ref:`how-to/extend/write_predictor:Fit one model per drug`.
 - A global feature block is made with ``global_feature_block``, and its side information is
   ``annotations``.
 - ``precompute(dataset, featurizer_name, side)`` and ``precompute_all(dataset)`` in
