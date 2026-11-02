@@ -129,21 +129,23 @@ for you. Nextflow's executors submit the ``fit-chunk`` jobs to SLURM, AWS Batch 
 scheduler, its ``errorStrategy`` retries a job that ran out of memory with more memory, and
 ``-resume`` refits only the chunks whose content changed.
 
-The pipeline reads a samplesheet with one row per screen: an ``id`` and ``wells``, the path of the
-screen's well table in Parquet or CSV:
+The pipeline fits one screen per run. ``--input`` is the screen's well table, in Parquet or CSV.
+Pick the scheduler in a Nextflow config of your own, for example ``slurm.config``:
 
-.. code-block:: text
+.. code-block:: groovy
 
-   id,wells
-   my_screen,data/my_screen_wells.parquet
+   process.executor = 'slurm'
+   process.queue    = 'my-partition'
 
-Run it with the profile of your scheduler:
+Pass it with ``-c``, together with the container profile:
 
 .. code-block:: console
 
-   $ nextflow run drevalpy/curate -profile docker,slurm --input samplesheet.csv --outdir results
+   $ nextflow run drevalpy/curate -r <commit> -profile apptainer -c slurm.config \
+       --input data/my_screen_wells.parquet --outdir results --replicate_fits
 
-It writes ``results/curves/<id>.h5ad`` for each screen. The fit options are the parameters
-``--replicate_fits``, ``--min_doses``, ``--metadata`` (comma-separated), ``--max_chunk_size``,
-``--fit_speed`` and ``--normalize``, with the meaning of the ``curate run`` options. The
-profiles and the other settings are documented in the pipeline's repository.
+It writes ``results/curves.h5ad``. The fit options are the parameters ``--replicate_fits``,
+``--min_doses``, ``--metadata`` (comma-separated), ``--max_chunk_size``, ``--fit_speed`` and
+``--normalize``, with the meaning of the ``curate run`` options. To fit several screens, run the
+pipeline once per screen. The profiles and the other settings are documented in the pipeline's
+repository.
