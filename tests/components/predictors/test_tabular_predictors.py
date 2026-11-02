@@ -241,7 +241,7 @@ def test_single_drug_knn_standardizes_and_selects_per_drug() -> None:
     predictor = SingleDrugKNNPredictor({"mrmr_k": 2, "n_neighbors": 20})
     predictor.fit(ModelInputBatch.from_response(response, sample=sample))
 
-    first, second = predictor._estimators["d1"], predictor._estimators["d2"]
+    first, second = predictor._models["d1"], predictor._models["d2"]
     assert first.named_steps["mrmr"].selected_[0] == 2
     assert first.named_steps["knn"].n_neighbors == 6
     assert second.named_steps["knn"].n_neighbors == 2
