@@ -205,10 +205,10 @@ Check the port
 
 Numbers from a ported model need not match the 1.x model, even when the
 algorithm is the same. Preprocessing, the choice of folds, the response scale
-(pEC50 in v2) and the search over hyperparameters have all changed. Compare both
-against a baseline on the same data instead of comparing the two outputs. To
-test the predictor itself, use the shipped conformance checks, as
-:doc:`/how-to/extend/test_components` shows.
+(pEC50 by default in v2, ``LN_IC50`` in 1.x) and the search over hyperparameters
+have all changed. Compare both against a baseline on the same data instead of
+comparing the two outputs. To test the predictor itself, use the shipped
+conformance checks, as :doc:`/how-to/extend/test_components` shows.
 
 What does not carry over
 ------------------------

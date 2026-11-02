@@ -170,6 +170,66 @@ sampler alone.
 
          reseeded = drevalpy.run(models, dataset, "LPO", hyperparameter_tuning=False, seed=7)
 
+Choose the response measure
+---------------------------
+
+The models train on one response measure and are scored on it. The default is pEC50, which a
+dataset holds in ``X``. Any response layer can be the measure instead: ``LN_IC50``, ``AUC``,
+``IC50``, ``EC50``, or a layer of your own dataset. ``--measure`` on the command line and
+``measure=`` in Python choose it.
+
+.. tab-set::
+   :sync-group: interface
+
+   .. tab-item:: CLI
+      :sync: cli
+
+      ``drevalpy run``, ``drevalpy train``, ``drevalpy single`` and ``drevalpy data split`` take
+      ``--measure``.
+
+      .. code-block:: bash
+
+         drevalpy run NaiveDrugMeanPredictor NaiveMeanEffectsPredictor \
+             --dataset toy.h5mu --split-mode LPO --no-hpo --measure LN_IC50 --output-dir results_ln_ic50
+
+   .. tab-item:: Python
+      :sync: python
+
+      ``drevalpy.run``, ``drevalpy.train``, ``drevalpy.single`` and ``drevalpy.split`` take
+      ``measure``. ``dataset.measures()`` lists the names a dataset accepts: the measure in ``X``
+      first, then every response layer.
+
+      .. code-block:: python
+
+         print(dataset.measures()[:2])
+         ln_ic50 = drevalpy.run(models, dataset, "LPO", hyperparameter_tuning=False, measure="LN_IC50")
+         print(ln_ic50.measure)
+
+      .. code-block:: text
+
+         ['pEC50', 'LN_IC50']
+         LN_IC50
+
+      ``dataset.with_measure("LN_IC50")`` returns the same data with that measure as its
+      ``response_matrix``. An unknown name raises ``UnknownNameError``, which lists the available
+      ones.
+
+The measure changes the target, not the pairs the quality rule keeps. The curve-quality rule
+still reads its own layers, and its pEC50 thresholds read the pEC50 in ``X``; see
+:doc:`/reference/datasets`. Pairs without a value of the measure are left out.
+
+The folds depend on the measure, because only the pairs that have it are split. A fold records
+its measure in ``fold.metadata["measure"]``. Split with the same measure you train on:
+``drevalpy single`` takes the measure from the fold and rejects a different one. The results
+record the measure too, and runs of different measures cannot be combined into one experiment. A
+fitted model remembers its measure: ``drevalpy predict`` compares the predictions with it, and
+a dataset set to another measure is an error.
+
+Raw ``IC50`` and ``EC50`` values in µM are heavy-tailed, so a few pairs dominate the squared
+errors. Prefer ``LN_IC50``, or add a response transformation as in the next section. The
+literature models train on whatever measure you choose, including those designed for
+``LN_IC50``.
+
 Scale the response
 ------------------
 

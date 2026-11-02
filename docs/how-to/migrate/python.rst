@@ -71,6 +71,9 @@ Map imports and objects
      - ``drevalpy.load(name_or_path)``. The built-in names are ``BeatAML2``,
        ``CTRPv1``, ``CTRPv2``, ``GDSC1``, ``GDSC2``, ``PDX_Bruna`` and
        ``TOYv1``; ``CCLE``, ``TOYv2`` and the ``CTRPv2_clean*`` datasets are gone.
+       The ``measure`` of ``load_dataset`` is the ``measure`` of ``drevalpy.run``,
+       ``drevalpy.split`` and ``drevalpy.train``; the default changed from
+       ``LN_IC50_curvecurator`` to ``pEC50``.
    * - ``DrugResponseDataset`` (``response``, ``cell_line_ids``, ``drug_ids``:
        one row per pair)
      - ``drevalpy.types.data.dataset.Dataset``: ``response_matrix`` of samples by
@@ -234,10 +237,11 @@ The 1.x result files map to these calls:
    print(true_vs_pred.head())
    print(run.best_hyperparameters)
 
-``response`` is a pEC50 value, from the response matrix. 1.x gave ``LN_IC50`` or
-the measure you chose. A group where the data cannot support a metric, such as a
-group with a constant response, is skipped in the grouped tables for every model. A
-correlation of a constant prediction within a group is 0 and counts.
+``response`` is a pEC50 value, from the response matrix. 1.x gave ``LN_IC50`` by
+default; pass ``measure="LN_IC50"`` to ``drevalpy.run`` for the same measure. A
+group where the data cannot support a metric, such as a group with a constant
+response, is skipped in the grouped tables for every model. A correlation of a
+constant prediction within a group is 0 and counts.
 
 The report that 1.x wrote as ``index.html`` is built from the saved result:
 

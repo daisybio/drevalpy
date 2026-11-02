@@ -105,8 +105,10 @@ Map the ``drevalpy`` flags
      - ``drevalpy curate run --cores`` and ``--normalize``. See
        `Fit your own raw data`_.
    * - ``--measure``
-     - Removed. A v2 dataset stores one response matrix, in pEC50. Fit other
-       measures into it with ``drevalpy curate run``.
+     - ``--measure`` on ``run``, ``train``, ``single`` and ``data split``. The default
+       changed from ``LN_IC50`` (``LN_IC50_curvecurator`` in 1.6) to ``pEC50``; pass
+       ``--measure LN_IC50`` for the 1.x target. See
+       :ref:`how-to/run_experiment:Choose the response measure`.
    * - ``--overwrite``
      - Removed. See above.
    * - ``--optim_metric``

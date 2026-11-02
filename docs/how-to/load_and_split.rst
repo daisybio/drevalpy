@@ -61,6 +61,7 @@ this out. ``GDSC1``, ``CTRPv2`` and the other screens are much larger.
              Name: TOYv1
              Samples: 32
              Drugs: 12
+             Measure: pEC50
              Measured pairs: 384
              Randomization: None
              Modalities:
@@ -112,6 +113,7 @@ and then loads that file.
              Name: SYNTHETIC
              Samples: 60
              Drugs: 8
+             Measure: pEC50
              Measured pairs: 456
              Randomization: None
              Modalities:
@@ -125,7 +127,7 @@ Look inside a dataset
 
 The command line has no command that prints a dataset; use Python. A ``Dataset`` gives the
 identifiers of its samples and drugs, the tissue of each sample, and the response matrix with
-the pEC50 of every pair. Unmeasured pairs are ``NaN``.
+the response measure of every pair, pEC50 by default. Unmeasured pairs are ``NaN``.
 
 .. tab-set::
    :sync-group: interface
@@ -214,6 +216,7 @@ The default ``random_state`` (``--seed`` on the command line) is 42, so repeatin
                  dataset: SYNTHETIC
                  fold_id: 35d304f70093
                  quality: {'min_relevance_score': 1.3010299956639813, 'min_abs_fold_change': 0.45}
+                 measure: pEC50
 
 Each mask is a boolean matrix of the same shape as the response matrix: samples by drugs. The
 three masks of a fold do not overlap. With the built-in split modes, only pairs that pass the curve-quality rule in
@@ -221,6 +224,10 @@ three masks of a fold do not overlap. With the built-in split modes, only pairs 
 number of measured pairs. The rule is the default one unless you pass ``quality=`` to ``split``
 (``CurveQuality.off()`` keeps every measured pair). On the command line, ``drevalpy data split``
 has ``--no-quality-filter``, ``--min-relevance-score`` and ``--min-abs-fold-change``.
+
+Only pairs that have the response measure are split, so the folds depend on it. ``--measure``
+and ``measure=`` choose it, and the fold records it under ``measure``. Train on the folds with
+the same measure; see :ref:`how-to/run_experiment:Choose the response measure`.
 
 Check a fold
 ------------

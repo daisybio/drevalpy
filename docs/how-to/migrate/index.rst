@@ -69,7 +69,7 @@ checks when you try:
      - ``DRPModel.load`` raises ``ValueError``: the checkpoint path "must be an
        archive file path, not a directory".
    * - A saved model of another format version
-     - Format version 2 (``FORMAT_VERSION`` in ``drevalpy/models/_archive.py``).
+     - Format version 3 (``FORMAT_VERSION`` in ``drevalpy/models/_archive.py``).
      - ``UnsupportedCheckpointFormatError`` naming the stored version and the
        one this release reads; retrain the model and save it again.
 

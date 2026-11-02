@@ -52,6 +52,7 @@ features per sample. About 5 % of the sample-drug combinations are missing, as i
              Name: SYNTHETIC
              Samples: 60
              Drugs: 8
+             Measure: pEC50
              Measured pairs: 456
              Randomization: None
              Modalities:

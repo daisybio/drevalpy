@@ -77,6 +77,7 @@ a dataset takes it.
              Name: SCREEN_A+SCREEN_B
              Samples: 120
              Drugs: 8
+             Measure: pEC50
              Measured pairs: 792
              Randomization: None
              Modalities:

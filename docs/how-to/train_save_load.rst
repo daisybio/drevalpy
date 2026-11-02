@@ -31,10 +31,10 @@ model, so the predictions are in the units of the response.
 
       ``drevalpy train MODEL --dataset DATASET --output MODEL_DIR`` trains the model and writes the
       directory ``MODEL_DIR``. It holds ``model.zip``, the archive that ``DRPModel.save`` writes,
-      and ``metadata.json``, which records the model, the dataset, the seed, the response
-      transformation and the version of DrEvalPy. ``drevalpy predict MODEL_DIR --dataset DATASET
-      --output PREDICTIONS`` loads the archive and predicts every pair of the dataset that has an
-      observed response.
+      and ``metadata.json``, which records the model, the dataset, the response measure, the seed,
+      the response transformation and the version of DrEvalPy. ``drevalpy predict MODEL_DIR
+      --dataset DATASET --output PREDICTIONS`` loads the archive and predicts every pair of the
+      dataset that has an observed value of the model's measure.
 
       .. code-block:: bash
 
@@ -42,8 +42,8 @@ model, so the predictions are in the units of the response.
          drevalpy train ElasticNet --dataset toy.h5mu --output final_model --no-hpo
          drevalpy predict final_model --dataset toy.h5mu --output predictions.npz
 
-      ``train`` takes the options ``--hpo-metric``, ``--hpo-trials``, ``--hpo-random-state`` and
-      ``--seed`` of ``run``, ``--response-transformation``, and the curve-quality options
+      ``train`` takes the options ``--hpo-metric``, ``--hpo-trials``, ``--hpo-random-state``,
+      ``--seed`` and ``--measure`` of ``run``, ``--response-transformation``, and the curve-quality options
       ``--no-quality-filter``, ``--min-relevance-score`` and ``--min-abs-fold-change``. The dataset
       of ``predict`` can be another dataset than the one the model was trained on; it needs the
       views the model reads. ``predictions.npz`` has the layout of a run file; see
@@ -75,8 +75,8 @@ model, so the predictions are in the units of the response.
 
          (456,)
 
-      ``train`` also takes ``response_transformation``, ``quality`` (a ``CurveQuality``), ``seed``
-      and the tuning options ``hpo_metric``, ``hpo_num_trials`` and ``hpo_random_state``. The
+      ``train`` also takes ``response_transformation``, ``quality`` (a ``CurveQuality``), ``measure``,
+      ``seed`` and the tuning options ``hpo_metric``, ``hpo_num_trials`` and ``hpo_random_state``. The
       sections below explain ``save`` and ``load``.
 
 Train a model on a fold
@@ -223,8 +223,9 @@ appends ``.zip`` to the path if it is missing. Saving a model that is not traine
 Load a model
 ------------
 
-``DRPModel.load`` restores the model, including its response transformation, and predicts the
-same values:
+``DRPModel.load`` restores the model, including its response transformation and its response
+measure (``model.measure``), and predicts the same values. ``drevalpy predict`` scores the
+predictions against that measure; see :ref:`how-to/run_experiment:Choose the response measure`.
 
 .. tab-set::
    :sync-group: interface
