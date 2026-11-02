@@ -52,9 +52,9 @@ import numpy as np
 if TYPE_CHECKING:
     from drevalpy.types.data.dataset import Dataset
 
-#: Sentinel layer name for the response matrix itself. ``pEC50`` is stored as
-#: ``X`` (see ``response.uns["x_column"]``), not as a layer, so the two pEC50
-#: options resolve through ``response_matrix``.
+#: Sentinel layer name for ``X``. ``pEC50`` is stored as ``X`` (see
+#: ``response.uns["x_column"]``), not as a layer, so the two pEC50 options read ``X``
+#: whatever measure the dataset trains on.
 _RESPONSE_MATRIX: Final = "pEC50"
 
 _Comparison = Callable[[np.ndarray, float], np.ndarray]
@@ -167,7 +167,7 @@ class CurveQuality:
 
     @classmethod
     def off(cls) -> CurveQuality:
-        """No quality rule: every pair with a finite response is kept.
+        """No quality rule: every pair with a finite response, in the dataset's measure, is kept.
 
         :meth:`mask` then reads no response layers, so datasets without the
         quality metrics can be used.
@@ -182,7 +182,9 @@ class CurveQuality:
         """Mask of the pairs whose fitted curve meets every requested threshold.
 
         When no threshold and no *regulation* is set (see :meth:`off`), this is
-        ``np.isfinite(dataset.response_matrix)`` and reads no response layers.
+        ``np.isfinite(dataset.response_matrix)``, the pairs that have the dataset's
+        :attr:`~drevalpy.types.data.dataset.Dataset.measure`, and reads no other layers.
+        The thresholds read their own layers whatever that measure is.
 
         Raises ``KeyError`` if a layer a requested threshold needs is not in the dataset.
         Raises ``ValueError`` if *regulation* contains a label CurveCurator does not use.
@@ -256,8 +258,8 @@ def _threshold_mask(dataset: Dataset, name: str, threshold: float) -> np.ndarray
 
 
 def _metric(dataset: Dataset, layer: str) -> np.ndarray:
-    """Read one metric, resolving the pEC50 sentinel to the response matrix."""
-    source = dataset.response_matrix if layer == _RESPONSE_MATRIX else dataset.get_response_layer(layer)
+    """Read one metric, resolving the pEC50 sentinel to ``X``."""
+    source = dataset.get_response_layer(dataset.x_measure if layer == _RESPONSE_MATRIX else layer)
     return np.asarray(source, dtype=np.float64)
 
 

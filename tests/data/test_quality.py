@@ -66,6 +66,9 @@ class FakeDataset:
     def drug_ids(self) -> np.ndarray:
         return np.array([f"D_{i}" for i in range(_SHAPE[1])])
 
+    x_measure = "pEC50"
+    measure = "pEC50"
+
     @property
     def response_matrix(self) -> np.ndarray:
         return self._response
@@ -82,6 +85,8 @@ class FakeDataset:
         return list(self._layers)
 
     def get_response_layer(self, name: str) -> np.ndarray:
+        if name == self.x_measure:
+            return self._response
         if name not in self._layers:
             raise KeyError(f"Response layer '{name}' not found. Available: {list(self._layers)}")
         return self._layers[name]

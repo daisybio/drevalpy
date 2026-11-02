@@ -21,6 +21,7 @@ def split(
     random_state: int = 42,
     *,
     quality: CurveQuality | None = None,
+    measure: str | None = None,
 ) -> list[Fold]:
     """Split a dataset using a registered splitter.
 
@@ -33,11 +34,16 @@ def split(
         ``CurveQuality.default()``. The built-in splitters leave out the pairs that fail it. The rule is
         recorded in each fold's metadata under ``quality`` as the one requested; a custom splitter may
         deliberately ignore it.
+    :param measure: Response measure to split on, see :meth:`Dataset.with_measure`; ``None`` keeps the
+        dataset's. Only pairs that have it are split. It is recorded in each fold's metadata under
+        ``measure``, and a run on the fold must use the same measure.
     :returns: List of Fold, one per fold.
     :raises ValueError: If two folds produce the same fold ID.
     """
     from drevalpy.registry import splitter as splitters
 
+    if measure is not None:
+        dataset = dataset.with_measure(measure)
     rule = quality or CurveQuality.default()
     splitter = splitters.get(mode)
     folds = splitter(
@@ -56,6 +62,7 @@ def split(
         fold.metadata.setdefault("dataset", dataset.name)
         fold.metadata.setdefault("fold_id", fold_id)
         fold.metadata["quality"] = rule.to_metadata()
+        fold.metadata["measure"] = dataset.measure
 
     if len(set(fold_ids)) != len(fold_ids):
         raise ValueError(f"Duplicate fold_ids generated: {fold_ids}")
