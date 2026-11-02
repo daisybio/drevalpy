@@ -184,9 +184,7 @@ class LeaderboardPlot(Plot):
         draw_subtitle(
             fig,
             result.dataset_name,
-            # Every run trains on ``Dataset.response_matrix``, i.e. the response
-            # modality's X, which curation fills with pEC50.
-            "pEC50",
+            result.measure,
             get_test_mode_name(result.split_mode, result.max_folds),
             font_adder,
             colors,

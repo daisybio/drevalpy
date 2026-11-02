@@ -58,6 +58,7 @@ def train(
     hpo_random_state: int | None = None,
     response_transformation: ResponseTransformer | None = None,
     quality: CurveQuality | None = None,
+    measure: str | None = None,
     seed: int = 42,
     n_jobs: int = 1,
 ) -> DRPModel:
@@ -81,6 +82,8 @@ def train(
     :param response_transformation: Optional unfitted response transformation, cloned for every fit.
     :param quality: Curve-quality rule a pair must pass to be used; ``None`` means
         ``CurveQuality.default()``, as for :func:`drevalpy.run`.
+    :param measure: Response measure to train on, as for :func:`drevalpy.run`; the model remembers it
+        (:attr:`~drevalpy.models.DRPModel.measure`) and predicts it.
     :param seed: Root seed of the validation slice, the tuning and the final fit.
     :param n_jobs: Number of worker processes a single-drug model fits its per-drug models in, during tuning and in the
         final fit; ``-1`` uses all CPUs. The model does not depend on it, and other models ignore it.
@@ -89,6 +92,8 @@ def train(
     check_n_jobs(n_jobs)
     spec = ModelSpec.from_name(model) if isinstance(model, str) else model
     data = load(dataset) if isinstance(dataset, str) else dataset
+    if measure is not None:
+        data = data.with_measure(measure)
     execution = build_execution(
         spec,
         data,

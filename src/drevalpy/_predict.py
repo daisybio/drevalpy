@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
+from drevalpy.errors import InvalidInputError
 from drevalpy.evaluation import evaluate
 from drevalpy.models.drp_model import DRPModel
 from drevalpy.types import PairMask
@@ -17,13 +18,22 @@ def predict_observed(model: DRPModel, dataset: Dataset) -> RunResult:
 
     The dataset need not be the one the model was trained on. Predictions are in the units of the
     response, since the model inverts its response transformation. A pair the model has no
-    features for gets ``NaN``.
+    features for gets ``NaN``. The observed responses are the model's
+    :attr:`~drevalpy.models.DRPModel.measure`, and the pairs predicted are those that have it.
 
     :param model: Fitted model, such as one from :func:`drevalpy.train` or ``DRPModel.load``.
     :param dataset: Dataset to apply the model to.
     :returns: The predictions with the observed responses and ids of the same pairs, in the layout of a run file.
         ``metrics`` score the model on those pairs, so for the training dataset they are in-sample.
+    :raises InvalidInputError: If the model is not fitted, or *dataset* was set to another measure than the model's.
     """
+    measure = model.measure
+    if measure is None:
+        raise InvalidInputError(f"Model {model.name!r} must be trained or loaded before it predicts")
+    if dataset.measure not in (measure, dataset.x_measure):
+        msg = f"Model {model.name!r} was trained on {measure!r}, but the dataset is set to {dataset.measure!r}"
+        raise InvalidInputError(msg)
+    dataset = dataset.with_measure(measure)
     scope = PairMask(np.isfinite(dataset.response_matrix))
     observed = ResponseBatch.from_dataset(dataset, scope)
     predictions = model.predict(dataset, scope)
@@ -38,4 +48,5 @@ def predict_observed(model: DRPModel, dataset: Dataset) -> RunResult:
         best_hyperparameters=model.hyperparameters,
         metrics=evaluate(predictions, observed.response),
         randomization=dataset.randomization,
+        fold_metadata={"measure": measure},
     )

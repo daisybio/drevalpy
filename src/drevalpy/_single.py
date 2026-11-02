@@ -27,6 +27,7 @@ def single(
     hpo_num_trials: int = 16,
     hpo_random_state: int | None = None,
     seed: int = 42,
+    measure: str | None = None,
     wandb_project: str | None = None,
     n_jobs: int = 1,
 ) -> RunResult:
@@ -42,6 +43,9 @@ def single(
     :param hpo_num_trials: Number of HPO trials.
     :param hpo_random_state: Random seed for the HPO sampler; defaults to ``seed``.
     :param seed: Root seed; every HPO run and final fit is seeded from it and the execution identity.
+    :param measure: Response measure to train and score on, as for :func:`drevalpy.run`. ``None`` takes the
+        measure the fold was split on (its ``measure`` metadata), else the dataset's. A fold split on another
+        measure is rejected.
     :param wandb_project: Weights & Biases project to log the trials and the final fit to; ``None`` disables
         tracking.
     :param n_jobs: Number of worker processes a single-drug model fits its per-drug models in, during tuning and in the
@@ -49,9 +53,10 @@ def single(
     :returns: RunResult with predictions, ground truth, and metrics.
     """
     check_n_jobs(n_jobs)
+    measure = measure or fold.metadata.get("measure")
     return _fit_fold(
         model_spec,
-        dataset,
+        dataset if measure is None else dataset.with_measure(measure),
         fold,
         hyperparameter_tuning=hyperparameter_tuning,
         response_transformation=response_transformation,

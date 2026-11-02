@@ -139,6 +139,7 @@ def run(
     seed: int = 42,
     response_transformation: ResponseTransformer | None = None,
     quality: CurveQuality | None = None,
+    measure: str | None = None,
     wandb_project: str | None = None,
     on_error: Literal["record", "raise"] = "record",
     n_jobs: int = 1,
@@ -162,6 +163,9 @@ def run(
     :param response_transformation: Optional unfitted response transformation, cloned for every fit. The normalization
         reference ``NaiveMeanEffectsPredictor`` is always fitted on the untransformed response.
     :param quality: Curve-quality rule passed to the splitter; ``None`` means ``CurveQuality.default()``.
+    :param measure: Response measure to train and score on, such as ``LN_IC50`` or ``AUC``: ``pEC50`` or any
+        response layer of the dataset (see :meth:`~drevalpy.types.data.dataset.Dataset.with_measure`). ``None``
+        keeps the dataset's measure, pEC50 unless it was set.
     :param wandb_project: Weights & Biases project to log to; ``None`` disables tracking.
     :param on_error: ``"record"`` keeps going when a run raises, logs a warning and stores a ``RunFailure`` on
         the result; ``"raise"`` re-raises the first error. ``KeyboardInterrupt`` always propagates.
@@ -179,6 +183,8 @@ def run(
         raise InvalidInputError(f"on_error must be 'record' or 'raise', got {on_error!r}")
     _validate_models(models)
     ds = resolve_dataset(dataset)
+    if measure is not None:
+        ds = ds.with_measure(measure)
     folds = split(ds, split_mode, n_splits=n_splits, random_state=seed, quality=quality)
 
     if robustness_repeats > 0:
