@@ -24,3 +24,5 @@ SingleDrugMorgoth:
     - true
   threshold_quantile:
     - 0.5
+  fast_split:
+    - true
