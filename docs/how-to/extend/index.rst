@@ -7,6 +7,10 @@ Write the component with the public ``drevalpy.plugin`` surface, check it with
 ``drevalpy.testing``, then make it visible either by loading it from a directory or by shipping
 it as an installable plugin.
 
+**Start a plugin**
+
+- :doc:`create_plugin`: create a plugin package step by step, starting from the demo plugin.
+
 **Write a component**
 
 - :doc:`write_featurizer`: turn raw views or identifiers into features.
@@ -24,6 +28,7 @@ it as an installable plugin.
 .. toctree::
    :maxdepth: 1
 
+   create_plugin
    write_featurizer
    write_predictor
    write_splitter

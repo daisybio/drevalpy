@@ -8,6 +8,10 @@ once it is installed. There is no flag to pass and no environment variable to se
 for components you want to share or keep permanently. For components that live in a working
 directory, use :doc:`load_extensions` instead.
 
+The `demo plugin <https://github.com/drevalpy/demo-plugin>`__ is a complete package to copy, and
+:doc:`create_plugin` walks through turning it into your own. This page describes the parts that
+make a package a plugin.
+
 Lay out the package
 -------------------
 
@@ -23,13 +27,24 @@ them, so importing it triggers every ``register_*`` decorator:
        components.py        # imports the modules below
        featurizers.py       # @register_featurizer(...)
        predictors.py        # @register_predictor(...)
+       zoo.yaml             # model presets
 
 .. snippet: skip
 
 .. code-block:: python
 
    # src/my_plugin/components.py
+   from pathlib import Path
+
+   from drevalpy.plugin import load_extensions
+
    from my_plugin import featurizers, predictors  # noqa: F401
+
+   load_extensions(zoo_files=[str(Path(__file__).with_name("zoo.yaml"))], directories=[])
+
+The last line loads the presets of ``zoo.yaml`` after the components they name are registered;
+leave it out for a plugin without presets. :ref:`how-to/extend/create_plugin:Ship presets`
+explains it.
 
 Write the components with the public surface described in :doc:`write_featurizer`,
 :doc:`write_predictor`, :doc:`write_splitter` and :doc:`write_visualization`: import from
