@@ -1,11 +1,11 @@
 """Registration of predictor and featurizer classes, and the catalog facts listed for them.
 
 The predictor and featurizer ``register`` decorators share :func:`component_decorator`: it
-checks the description, tags and reference when the decorator is created, then rejects a class
-with unimplemented abstract members (a component that forgets ``_fit`` would otherwise only fail
-when an experiment instantiates it), runs the kind's own checks and registers the class. The
-description and tags live once, in the registry entry's metadata; the class gets only its
-``reference``.
+checks the description, tags, reference, accelerator level and licenses when the decorator is
+created, then rejects a class with unimplemented abstract members (a component that forgets
+``_fit`` would otherwise only fail when an experiment instantiates it), runs the kind's own checks
+and registers the class. The description and tags live once, in the registry entry's metadata; the
+class gets its ``reference``, ``accelerator``, ``license`` and ``artifact_license``.
 """
 
 from __future__ import annotations
@@ -15,7 +15,9 @@ from dataclasses import dataclass, fields
 from typing import Any, TypeVar
 
 from drevalpy.components.predictors.inputs import predictor_inputs
+from drevalpy.registry._license import distribution_license, spdx
 from drevalpy.registry._registry import Registry
+from drevalpy.types.enums.accelerator import Accelerator
 
 C = TypeVar("C", bound=type[Any])
 
@@ -80,6 +82,30 @@ def _clean_tags(tags: Iterable[str] | None) -> frozenset[str]:
     return frozenset(cleaned)
 
 
+def _accelerator(value: Accelerator | str) -> Accelerator:
+    """Return *value* as an :class:`Accelerator` level.
+
+    :param value: A level, or its value.
+    :returns: The level.
+    :raises ValueError: If *value* is not ``"none"``, ``"optional"`` or ``"required"``.
+    """
+    try:
+        return Accelerator(value)
+    except ValueError:
+        valid = ", ".join(level.value for level in Accelerator)
+        msg = f"accelerator must be one of {valid}, got {value!r}"
+        raise ValueError(msg) from None
+
+
+def component_license(cls: type[Any]) -> str:
+    """Return the license of a component's code: its declared ``license``, else its package's.
+
+    :param cls: Component class.
+    :returns: An SPDX license expression.
+    """
+    return getattr(cls, "license", None) or distribution_license(cls)
+
+
 def component_decorator(
     registry: Registry[type[Any]],
     name: str,
@@ -87,6 +113,9 @@ def component_decorator(
     description: str,
     tags: Iterable[str] | None,
     reference: LiteratureReference | None,
+    accelerator: Accelerator | str,
+    license: str | None,
+    artifact_license: str | None,
     validate: Callable[[str, type[Any]], None],
 ) -> Callable[[C], C]:
     """Return a class decorator that checks a component and registers it under *name*.
@@ -98,10 +127,18 @@ def component_decorator(
     :param description: Short human-readable summary, stored in the entry's metadata.
     :param tags: Optional discovery tags, stored in the entry's metadata.
     :param reference: Optional literature citation, set as the class's ``reference``.
+    :param accelerator: Whether the component uses a torch accelerator, set as the
+        class's ``accelerator``.
+    :param license: SPDX license of the code the component was ported from, set as the class's
+        ``license``. Required with a *reference*; ``None`` otherwise means the license of the
+        package that ships the component.
+    :param artifact_license: SPDX license of the third-party files the component downloads, set
+        as the class's ``artifact_license``; ``None`` when it downloads none.
     :param validate: Invariants of the component kind, called as ``validate(name, cls)``.
     :returns: Decorator that registers and returns the decorated class.
-    :raises ValueError: If *description* is blank, or (when decorating) the class still has
-        unimplemented abstract members.
+    :raises ValueError: If *description* is blank, *accelerator* is not a level, a
+        license is not a valid SPDX expression, a *reference* comes without a *license*, or
+        (when decorating) the class still has unimplemented abstract members.
     :raises TypeError: If *reference* is not a :class:`LiteratureReference`; bad *tags* raise
         ``TypeError`` too.
     """
@@ -112,6 +149,15 @@ def component_decorator(
     if reference is not None and not isinstance(reference, LiteratureReference):
         msg = f"reference must be LiteratureReference, got {type(reference).__name__}"
         raise TypeError(msg)
+    level = _accelerator(accelerator)
+    if reference is not None and license is None:
+        msg = (
+            f"{registry.kind} '{name}' has a reference, so it needs license=: the SPDX license of the "
+            "code it was ported from, or 'NOASSERTION' when that code has none"
+        )
+        raise ValueError(msg)
+    code_license = None if license is None else spdx(license, field="license")
+    files_license = None if artifact_license is None else spdx(artifact_license, field="artifact_license")
     metadata = {"description": stripped, "tags": _clean_tags(tags)}
 
     def decorate(cls: C) -> C:
@@ -125,6 +171,9 @@ def component_decorator(
         validate(name, cls)
         registry.register(name, cls, metadata=metadata)
         cls.reference = reference
+        cls.accelerator = level
+        cls.license = code_license
+        cls.artifact_license = files_license
         return cls
 
     return decorate
@@ -154,6 +203,9 @@ def _component_metadata(registry: Registry[type[Any]], registry_name: str, name:
         "citation_doi": reference.citation_doi if reference else "",
         "citation_text": reference.citation_text if reference else "",
         "deviations": reference.deviations if reference else "",
+        "accelerator": getattr(cls, "accelerator", Accelerator.NONE).value,
+        "license": component_license(cls),
+        "artifact_license": getattr(cls, "artifact_license", None) or "",
     }
 
 

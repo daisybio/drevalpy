@@ -20,6 +20,7 @@ from drevalpy.registry.featurizer import featurizer_registry
 from drevalpy.registry.featurizer import register as register_featurizer
 from drevalpy.registry.predictor import predictor_registry
 from drevalpy.types.data.batch.feature_block import BlockSpec
+from drevalpy.types.enums.accelerator import Accelerator
 from tests.registry._helpers import empty_component_registries
 
 _REFERENCE_KWARGS = {
@@ -50,7 +51,15 @@ def _no_checks(name: str, cls: type) -> None:
 
 
 def _decorator(registry: Registry[type], name: str = "demo", **kwargs):
-    options = {"description": "demo", "tags": None, "reference": None, "validate": _no_checks} | kwargs
+    options = {
+        "description": "demo",
+        "tags": None,
+        "reference": None,
+        "accelerator": Accelerator.NONE,
+        "license": None,
+        "artifact_license": None,
+        "validate": _no_checks,
+    } | kwargs
     return component_decorator(registry, name, **options)
 
 
@@ -98,8 +107,29 @@ def test_literature_reference_rejects_missing_or_malformed_fields(kwargs: dict, 
         ({"tags": "baseline"}, TypeError, "iterable of strings"),
         ({"tags": ("ok", 1)}, TypeError, "tags must contain strings"),
         ({"reference": "not-a-reference"}, TypeError, "reference must be LiteratureReference"),
+        ({"accelerator": "gpu"}, ValueError, "accelerator must be one of none, optional, required"),
+        (
+            {"reference": LiteratureReference(**_REFERENCE_KWARGS)},
+            ValueError,
+            "'demo' has a reference, so it needs license=",
+        ),
+        ({"license": "MITT"}, ValueError, "license 'MITT' names unknown SPDX license id"),
+        ({"license": "  "}, ValueError, "license must be a non-empty SPDX"),
+        ({"license": 3}, TypeError, "license must be an SPDX license expression string"),
+        ({"artifact_license": "MIT ANDD"}, ValueError, "artifact_license 'MIT ANDD' is not a valid SPDX"),
     ],
-    ids=["blank-description", "bare-string-tags", "non-string-tags", "bad-reference-type"],
+    ids=[
+        "blank-description",
+        "bare-string-tags",
+        "non-string-tags",
+        "bad-reference-type",
+        "unknown-accelerator-level",
+        "reference-without-license",
+        "unknown-license-id",
+        "blank-license",
+        "non-string-license",
+        "malformed-artifact-license",
+    ],
 )
 def test_bad_registration_arguments_are_rejected_before_the_class_body(
     kwargs: dict, error: type[Exception], message: str
@@ -113,13 +143,38 @@ def test_registration_stores_description_and_tags_in_the_registry_and_the_refere
     reference = LiteratureReference(**_REFERENCE_KWARGS)
     lit = type("Lit", (), {})
 
-    returned = _decorator(registry, "lit", description="  lit model ", tags=(" b ", ""), reference=reference)(lit)
+    returned = _decorator(
+        registry, "lit", description="  lit model ", tags=(" b ", ""), reference=reference, license="GPL-3.0-only"
+    )(lit)
 
     assert returned is lit
     assert registry.get("lit") is lit
     assert dict(registry.metadata("lit")) == {"description": "lit model", "tags": frozenset({"b"})}
     assert vars(lit)["reference"] is reference
+    assert (lit.accelerator, lit.license, lit.artifact_license) == (Accelerator.NONE, "GPL-3.0-only", None)
     assert not {"description", "tags", "registry_name"} & set(vars(lit))
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("mit", "MIT"),
+        ("MIT OR Apache-2.0", "MIT OR Apache-2.0"),
+        (" gpl-3.0-or-later ", "GPL-3.0-or-later"),
+        ("NOASSERTION", "NOASSERTION"),
+        ("LicenseRef-academic AND MIT", "LicenseRef-academic AND MIT"),
+    ],
+)
+def test_licenses_are_normalized_spdx_expressions(value: str, expected: str) -> None:
+    cls = _decorator(Registry("example"), license=value, artifact_license=value)(type("Licensed", (), {}))
+
+    assert (cls.license, cls.artifact_license) == (expected, expected)
+
+
+def test_the_accelerator_level_is_read_from_its_value() -> None:
+    cls = _decorator(Registry("example"), accelerator="optional")(type("Gpu", (), {}))
+
+    assert cls.accelerator is Accelerator.OPTIONAL
 
 
 def test_an_incomplete_subclass_is_rejected_before_the_kind_validator() -> None:
@@ -196,6 +251,7 @@ def test_featurizer_metadata(kwargs: dict, output_format: str) -> None:
     assert (meta["registry"], meta["name"], meta["class_name"]) == ("featurizer", "f", "Featurizer")
     assert (meta["description"], meta["tags"], meta["side"]) == ("d", frozenset({"t"}), "drug")
     assert (meta["repo_url"], meta["citation"], meta["deviations"]) == ("", "", "")
+    assert (meta["accelerator"], meta["license"], meta["artifact_license"]) == ("none", "NOASSERTION", "")
 
 
 @pytest.mark.usefixtures("_empty_registries")
@@ -212,7 +268,18 @@ def test_predictor_metadata_summarizes_the_inputs_and_copies_the_reference(
     sample: Inputs, drug: Inputs, interface: str
 ) -> None:
     reference = LiteratureReference(**_REFERENCE_KWARGS)
-    cls = type("Declared", (), {"sample_inputs": sample, "drug_inputs": drug, "reference": reference})
+    cls = type(
+        "Declared",
+        (),
+        {
+            "sample_inputs": sample,
+            "drug_inputs": drug,
+            "reference": reference,
+            "accelerator": Accelerator.OPTIONAL,
+            "license": "Apache-2.0",
+            "artifact_license": "CC-BY-4.0",
+        },
+    )
     predictor_registry.register("declared", cls, metadata={"description": "p", "tags": frozenset()})
 
     meta = predictor_component_metadata("predictors", "declared", cls)
@@ -224,4 +291,9 @@ def test_predictor_metadata_summarizes_the_inputs_and_copies_the_reference(
         "10.1234/example",
         "https://github.com/example/repo",
         "none",
+    )
+    assert (meta["accelerator"], meta["license"], meta["artifact_license"]) == (
+        "optional",
+        "Apache-2.0",
+        "CC-BY-4.0",
     )

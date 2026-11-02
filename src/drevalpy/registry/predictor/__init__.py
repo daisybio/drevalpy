@@ -9,6 +9,7 @@ from drevalpy.components.contracts.hyperparameter_space import validate_componen
 from drevalpy.components.predictors.inputs import predictor_inputs
 from drevalpy.registry._component import LiteratureReference, component_decorator
 from drevalpy.registry._registry import Registry
+from drevalpy.types.enums.accelerator import Accelerator
 
 __all__ = ["get", "predictor_registry", "register"]
 
@@ -35,6 +36,9 @@ def register(
     description: str,
     tags: Iterable[str] | None = None,
     reference: LiteratureReference | None = None,
+    accelerator: Accelerator | str = Accelerator.NONE,
+    license: str | None = None,
+    artifact_license: str | None = None,
 ) -> Callable[[type[Any]], type[Any]]:
     """Return a class decorator that registers a predictor under *name*.
 
@@ -45,10 +49,23 @@ def register(
     :param description: Short human-readable summary for catalog listings.
     :param tags: Optional discovery tags.
     :param reference: Optional literature citation metadata.
+    :param accelerator: ``"optional"`` when the predictor uses a torch accelerator if
+        there is one, ``"required"`` when it cannot run without one.
+    :param license: SPDX license of the code the predictor was ported from; required with a
+        *reference*. Without one, the predictor has the license of the package that ships it.
+    :param artifact_license: SPDX license of the third-party files the predictor downloads.
     :returns: Class decorator that registers and returns the decorated predictor.
     """
     return component_decorator(
-        predictor_registry, name, description=description, tags=tags, reference=reference, validate=_validate
+        predictor_registry,
+        name,
+        description=description,
+        tags=tags,
+        reference=reference,
+        accelerator=accelerator,
+        license=license,
+        artifact_license=artifact_license,
+        validate=_validate,
     )
 
 

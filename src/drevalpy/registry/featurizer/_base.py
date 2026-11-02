@@ -18,6 +18,7 @@ from drevalpy.registry._component import LiteratureReference, component_decorato
 from drevalpy.registry._registry import Registry
 from drevalpy.registry.featurizer._validate import validate_featurizer_declarations
 from drevalpy.types.data.feature_source import Side
+from drevalpy.types.enums.accelerator import Accelerator
 
 C = TypeVar("C", bound=type[Any])
 
@@ -48,17 +49,26 @@ def register(
     description: str,
     tags: Iterable[str] | None = None,
     reference: LiteratureReference | None = None,
+    accelerator: Accelerator | str = Accelerator.NONE,
+    license: str | None = None,
+    artifact_license: str | None = None,
 ) -> Callable[[C], C]:
     """Return a class decorator that registers a featurizer under *name* on *side*.
 
-    The decorator sets ``name`` and ``side`` on the class. To offer the same featurizer on both
-    sides, register one subclass per side.
+    The decorator sets ``name``, ``side``, ``accelerator``, ``license`` and
+    ``artifact_license`` on the class. To offer the same featurizer on both sides, register one
+    subclass per side.
 
     :param name: Registry name used in model configs and listings, unique within *side*.
     :param side: The side the featurizer reads.
     :param description: Short human-readable summary.
     :param tags: Optional discovery tags.
     :param reference: Optional literature citation metadata.
+    :param accelerator: ``"optional"`` when the featurizer uses a torch accelerator
+        if there is one, ``"required"`` when it cannot run without one.
+    :param license: SPDX license of the code the featurizer was ported from; required with a
+        *reference*. Without one, the featurizer has the license of the package that ships it.
+    :param artifact_license: SPDX license of the third-party files the featurizer downloads.
     :returns: Class decorator that registers and returns the decorated class.
     """
     resolved = _side(side)
@@ -73,6 +83,9 @@ def register(
         description=description,
         tags=tags,
         reference=reference,
+        accelerator=accelerator,
+        license=license,
+        artifact_license=artifact_license,
         validate=validate,
     )
 
