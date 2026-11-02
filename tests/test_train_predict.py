@@ -74,7 +74,7 @@ def test_a_single_drug_model_fits_an_estimator_for_every_drug(synthetic_dataset)
     fitted = drevalpy.train("SingleDrugElasticNet", synthetic_dataset, hyperparameter_tuning=False)
     scope = PairMask(_observed(synthetic_dataset))
 
-    assert set(fitted._predictor._estimators) == {str(drug) for drug in synthetic_dataset.drug_ids}
+    assert set(fitted._predictor._models) == {str(drug) for drug in synthetic_dataset.drug_ids}
     assert np.isfinite(fitted.predict(synthetic_dataset, scope)).all()
 
 
