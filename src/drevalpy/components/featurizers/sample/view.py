@@ -27,7 +27,7 @@ class ViewSampleFeaturizer(Featurizer):
         :raises ValueError: If *view* is empty or blank.
         """
         if not view or not view.strip():
-            msg = "raw featurizer requires an explicit view"
+            msg = "the view featurizer requires an explicit view"
             raise ValueError(msg)
         self._view = view
         self._gene_list = gene_list
