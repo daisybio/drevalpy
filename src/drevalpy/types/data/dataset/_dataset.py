@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 from upath import UPath as Path
 
+from drevalpy.errors import UnknownNameError
 from drevalpy.types.data.views import TISSUE_IDENTIFIER
 from drevalpy.types.enums.randomization import RandomizationType, randomization_label
 
@@ -32,6 +33,9 @@ if TYPE_CHECKING:
     import mudata as md
     import pandas as pd
 
+#: The measure ``X`` holds when ``response.uns`` does not name it.
+DEFAULT_MEASURE = "pEC50"
+
 
 class Dataset:
     """Single entry point for all dataset access in drevalpy.
@@ -41,6 +45,9 @@ class Dataset:
     (gene_expression, proteomics, etc.). Every other curve metric - ``LN_IC50``,
     ``AUC``, ``IC50``, the goodness-of-fit columns - is a named layer; see
     :func:`drevalpy.curation.curate`.
+
+    :attr:`measure` names the response that models are trained on and scored against, and
+    :attr:`response_matrix` returns it: pEC50 by default, any layer after :meth:`with_measure`.
 
     Drug features are stored as ``response.varm`` entries, drug graphs in
     ``mdata.uns["drug_graphs"]``, and model-specific auxiliary data in other
@@ -54,6 +61,7 @@ class Dataset:
         *,
         name: str,
         randomization: tuple[str, str] | None = None,
+        measure: str | None = None,
     ) -> None:
         """Wrap an existing MuData object.
 
@@ -61,6 +69,8 @@ class Dataset:
         :param name: Human-readable dataset name.
         :param randomization: Optional (mode, view) tuple describing which
             randomization was applied.
+        :param measure: The response measure to train on, see :meth:`with_measure`; ``None``
+            means the measure ``X`` holds.
         :raises KeyError: If the "response" modality is missing.
         """
         if "response" not in mdata.mod:
@@ -68,6 +78,9 @@ class Dataset:
         self._mdata = mdata
         mdata.uns["dataset_name"] = name
         self.randomization = randomization
+        self._measure = self.x_measure
+        if measure is not None:
+            self._measure = self._check_measure(measure)
 
     @classmethod
     def load(cls, path: str | Path) -> Dataset:
@@ -144,15 +157,49 @@ class Dataset:
         return self._mdata.mod["response"]
 
     @property
-    def response_matrix(self) -> np.ndarray:
-        """pEC50 response matrix (n_samples x n_drugs).
+    def x_measure(self) -> str:
+        """The measure ``X`` holds: ``response.uns["x_column"]``, ``pEC50`` when unset."""
+        return str(self.response.uns.get("x_column", DEFAULT_MEASURE))
 
-        ``X`` holds pEC50. Use :meth:`get_response_layer` for any other measure,
-        for example ``get_response_layer("LN_IC50")``.
+    @property
+    def measure(self) -> str:
+        """The response measure models are trained on, such as ``pEC50`` or ``LN_IC50``."""
+        return self._measure
+
+    def measures(self) -> list[str]:
+        """Return the measures :meth:`with_measure` accepts: the one ``X`` holds, then every layer.
+
+        :returns: Measure names, ``X``'s first.
+        """
+        return [self.x_measure, *(name for name in self.response_layer_names() if name != self.x_measure)]
+
+    def with_measure(self, measure: str) -> Dataset:
+        """Return this dataset with *measure* as the response models are trained on.
+
+        The result shares the MuData with this dataset; only :attr:`response_matrix` changes. The
+        curve-quality rule keeps reading its own layers (see :mod:`drevalpy.data.quality`). A name the
+        dataset does not have raises ``UnknownNameError`` listing :meth:`measures`.
+
+        :param measure: ``pEC50`` or the name of any response layer, such as ``LN_IC50`` or ``AUC``.
+        :returns: A dataset whose :attr:`response_matrix` is *measure*; this one if it already is.
+        """
+        if measure == self._measure:
+            return self
+        return Dataset(self._mdata, name=self.name, randomization=self.randomization, measure=measure)
+
+    def _check_measure(self, measure: str) -> str:
+        if measure not in self.measures():
+            msg = f"Dataset {self.name!r} has no response measure {measure!r}. Available: {self.measures()}"
+            raise UnknownNameError(msg)
+        return measure
+
+    @property
+    def response_matrix(self) -> np.ndarray:
+        """The :attr:`measure` of every pair (n_samples x n_drugs), ``NaN`` where it is missing.
 
         :returns: Dense float32 array of shape (n_samples, n_drugs).
         """
-        return np.asarray(to_dense(self.response.X), dtype=np.float32)
+        return self.get_response_layer(self._measure)
 
     @property
     def sample_ids(self) -> np.ndarray:
@@ -171,12 +218,16 @@ class Dataset:
         return np.asarray(self.response.var_names)
 
     def get_response_layer(self, name: str) -> np.ndarray:
-        """Retrieve a named response layer (e.g. "AUC").
+        """Retrieve a named response layer (e.g. "AUC"), whatever :attr:`measure` is.
 
-        :param name: Layer name within the response AnnData.
+        The measure ``X`` holds (:attr:`x_measure`, usually ``pEC50``) is read from ``X``.
+
+        :param name: Layer name within the response AnnData, or :attr:`x_measure`.
         :returns: Dense float32 array of shape (n_samples, n_drugs).
         :raises KeyError: If the layer does not exist.
         """
+        if name == self.x_measure:
+            return np.asarray(to_dense(self.response.X), dtype=np.float32)
         if name not in self.response.layers:
             raise KeyError(f"Response layer '{name}' not found. Available: {self.response_layer_names()}")
         return np.asarray(to_dense(self.response.layers[name]), dtype=np.float32)
@@ -252,7 +303,7 @@ class Dataset:
         :returns: A new Dataset with the specified views randomized.
         """
         new_mdata = randomized_mdata(self._mdata, views, RandomizationType(randomization_type), random_state)
-        return Dataset(new_mdata, name=self.name, randomization=randomization)
+        return Dataset(new_mdata, name=self.name, randomization=randomization, measure=self._measure)
 
     # ------------------------------------------------------------------
     # Dunder methods
@@ -271,6 +322,7 @@ class Dataset:
             f"    Name: {self.name}",
             f"    Samples: {n_cl}",
             f"    Drugs: {n_dr}",
+            f"    Measure: {self.measure}",
             f"    Measured pairs: {n_measured}",
             f"    Randomization: {randomization_label(self.randomization) if self.randomization else None}",
             "    Modalities:",

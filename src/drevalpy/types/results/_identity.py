@@ -19,12 +19,15 @@ class RunIdentity:
     randomization: tuple[str, str] | None = None
     robustness_repeat: int | None = None
     provenance: str = "{}"
+    #: The response measure the run was trained and scored on.
+    measure: str = "pEC50"
 
     @property
-    def fold_key(self) -> tuple[str, str, str, str | int]:
+    def fold_key(self) -> tuple[str, str, str, str, str | int]:
         """Identity shared by ordinary and stress-test runs of one fold."""
         return (
             self.dataset_name,
+            self.measure,
             self.split_mode,
             "id" if self.fold_id else "index",
             self.fold_id if self.fold_id else self.fold_index,
@@ -67,4 +70,5 @@ class RunIdentity:
             randomization,
             metadata.get("robustness_repeat"),
             json.dumps(identity, sort_keys=True, separators=(",", ":")),
+            metadata.get("measure", "pEC50"),
         )

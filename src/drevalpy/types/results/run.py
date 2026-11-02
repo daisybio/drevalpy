@@ -83,6 +83,11 @@ class RunResult:
         return self.fold_metadata.get("robustness_repeat")
 
     @property
+    def measure(self) -> str:
+        """The response measure the run was trained and scored on, from ``fold_metadata``; pEC50 when unset."""
+        return self.identity.measure
+
+    @property
     def identity(self) -> RunIdentity:
         """Immutable identity shared with experiment execution."""
         return RunIdentity.from_metadata(
@@ -96,8 +101,8 @@ class RunResult:
         )
 
     @property
-    def fold_key(self) -> tuple[str, str, str, str | int]:
-        """Dataset/split/fold identity shared by ordinary and stress-test runs."""
+    def fold_key(self) -> tuple[str, str, str, str, str | int]:
+        """Dataset/measure/split/fold identity shared by ordinary and stress-test runs."""
         return self.identity.fold_key
 
     @property

@@ -32,7 +32,7 @@ class ExperimentResult:
     def __init__(self, run_results: list[RunResult], failures: Sequence[RunFailure] = ()) -> None:
         """Create an ExperimentResult from a flat list of RunResults.
 
-        :param run_results: Non-empty list of RunResult objects sharing the same dataset.
+        :param run_results: Non-empty list of RunResult objects sharing the same dataset and response measure.
         :param failures: Runs that raised instead of producing a result; kept as the :attr:`failures` tuple.
         :raises InvalidInputError: If the list is empty or contains inconsistent metadata.
         """
@@ -43,11 +43,17 @@ class ExperimentResult:
         if len(dataset_names) > 1:
             raise InvalidInputError(f"All RunResults must share the same dataset_name, got: {dataset_names}")
 
+        measures = {r.measure for r in run_results}
+        if len(measures) > 1:
+            raise InvalidInputError(f"All RunResults must share the same response measure, got: {sorted(measures)}")
+
         split_modes = {r.split_mode for r in run_results if r.split_mode}
         if len(split_modes) > 1:
             raise InvalidInputError(f"All RunResults must share the same split_mode, got: {split_modes}")
 
         self.dataset_name: str = dataset_names.pop()
+        #: The response measure every run was trained and scored on.
+        self.measure: str = measures.pop()
         self.split_mode: str = split_modes.pop() if split_modes else ""
         self.normalized_by: str | None = None
         self.reference_runs: tuple[RunResult, ...] = ()
