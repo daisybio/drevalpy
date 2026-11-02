@@ -362,11 +362,15 @@ def test_views_are_passed_through_unchanged(name, view) -> None:
         ("pca", "requires an explicit view"),
         ({"name": "pca"}, "requires an explicit view"),
         ({"name": "pca", "view": "  "}, "view must be a non-empty string"),
+        (
+            {"name": "view", "options": {"view": "gene_expression"}},
+            "takes 'view' as a key next to 'name', not under 'options'; write {name: view, view: gene_expression}",
+        ),
     ],
-    ids=["view", "pca", "missing", "blank"],
+    ids=["view", "pca", "missing", "blank", "view-under-options"],
 )
 def test_view_parametric_featurizer_without_a_usable_view_is_rejected(raw, match) -> None:
-    with pytest.raises(ValueError, match=match):
+    with pytest.raises(ValueError, match=re.escape(match)):
         FeaturizerConfig.parse(raw, "sample")
 
 

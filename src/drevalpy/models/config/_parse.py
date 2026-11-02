@@ -17,7 +17,7 @@ A featurizer slot is either a recipe string or the canonical mapping;
 :func:`normalize_featurizer` is the one place that reads them::
 
     "scaledGeneExpression"                     name=scaledGeneExpression
-    "view[gene_expression]"                     name=raw, view=gene_expression
+    "view[gene_expression]"                     name=view, view=gene_expression
     "view[gene_expression]+view[mutations]"      name=concatFeaturizers, two children
     {"name": "pca", "view": "methylation",     canonical: name, view, featurizers (concat
      "options": {...}, "defaults": {...}}      children), options, hyperparameter_space, defaults
@@ -69,6 +69,9 @@ _MODEL_RECIPE = (
     | _SLOT("sample") + _COLON + _NAME("predictor")
     | _NAME("predictor")
 ) + pp.StringEnd()
+
+DEFAULTS = "defaults"
+"""The key a featurizer or predictor mapping accepts besides its fields; folded into ``hyperparameter_space``."""
 
 _FEATURIZER_SYNTAX = "atoms must be non-empty and shaped 'name' or 'name[view]', joined by '+'"
 _MODEL_SYNTAX = "expected 'predictor', 'sampleFeaturizer:predictor', or 'sampleFeaturizer:drugFeaturizer:predictor'"
@@ -331,9 +334,9 @@ def normalize_featurizer(raw: Any, side: str | None = None) -> dict[str, Any]:
     declared = fields.get("hyperparameter_space")
     if fields.get("options"):
         _reject_tunable_options(get_featurizer(fields["name"], side), declared, fields["options"], what)
-    if "defaults" in fields:
+    if DEFAULTS in fields:
         fields["hyperparameter_space"] = _space_with_defaults(
-            get_featurizer(fields["name"], side), declared, fields.pop("defaults"), what
+            get_featurizer(fields["name"], side), declared, fields.pop(DEFAULTS), what
         )
     children = fields.get("featurizers")
     if children is not None:
@@ -379,11 +382,11 @@ def normalize_predictor(raw: Any) -> dict[str, Any]:
             hint = f"; the one-key form is not accepted, write {canonical!r}"
         raise ValueError(f"A predictor mapping needs a 'name' key{hint}")
     fields = dict(raw)
-    if "defaults" in fields:
+    if DEFAULTS in fields:
         fields["hyperparameter_space"] = _space_with_defaults(
             get_predictor(fields["name"]),
             fields.get("hyperparameter_space"),
-            fields.pop("defaults"),
+            fields.pop(DEFAULTS),
             f"predictor {fields['name']!r}",
         )
     return fields

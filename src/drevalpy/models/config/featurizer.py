@@ -122,15 +122,22 @@ class FeaturizerConfig(BaseModel):
         """Require a view for featurizers that are only meaningful per view.
 
         Such featurizers are addressed with a parametric label like ``pca[expression]``,
-        so a bare name is ambiguous rather than defaultable.
+        so a bare name is ambiguous rather than defaultable. A view written under ``options``
+        is the likely slip, so the message then shows where it goes instead.
 
         :returns: This config, unchanged.
         :raises ValueError: If the featurizer needs an explicit view and none is set.
         """
-        if requires_explicit_view(self.name, self.side) and not self.view:
+        if not requires_explicit_view(self.name, self.side) or self.view:
+            return self
+        if self.options is not None and "view" in self.options:
+            msg = (
+                f"Featurizer {self.name!r} takes 'view' as a key next to 'name', not under 'options'; "
+                f"write {{name: {self.name}, view: {self.options['view']}}}"
+            )
+        else:
             msg = f"Featurizer {self.name!r} requires an explicit view, e.g. {self.name}[gene_expression]"
-            raise ValueError(msg)
-        return self
+        raise ValueError(msg)
 
     @model_validator(mode="after")
     def _require_concat_children(self) -> FeaturizerConfig:

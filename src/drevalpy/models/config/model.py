@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, ValidationInfo, field_validator, model_validator
 
 from drevalpy.models.config._parse import format_featurizer_recipe, format_model_recipe
 from drevalpy.models.config.featurizer import FeaturizerConfig
@@ -29,21 +29,21 @@ class ModelConfig(BaseModel):
     predictor: PredictorConfig
     prediction_mode: PredictionMode = PredictionMode.REGRESSION
 
-    @model_validator(mode="before")
+    @field_validator("sample_featurizer", "drug_featurizer", mode="before")
     @classmethod
-    def _side_featurizer_slots(cls, data: object) -> object:
-        """Read each featurizer slot for its side, so its nodes look up that side's registry.
+    def _side_featurizer_slots(cls, value: object, info: ValidationInfo) -> object:
+        """Read a featurizer slot for its side, so its nodes look up that side's registry.
 
-        :param data: The fields, as a mapping.
-        :returns: The fields with each featurizer slot validated for its side.
+        A field validator, so pydantic reports errors of the slot under its name.
+
+        :param value: The slot's featurizer config in any accepted spelling, or ``None``.
+        :param info: Validation info naming the slot.
+        :returns: The slot validated for its side.
         """
-        if not isinstance(data, dict):
-            return data
-        fields = dict(data)
-        for slot, side in (("sample_featurizer", Side.SAMPLE), ("drug_featurizer", Side.DRUG)):
-            if fields.get(slot) is not None:
-                fields[slot] = FeaturizerConfig.parse(fields[slot], side)
-        return fields
+        if value is None:
+            return value
+        side = Side.SAMPLE if info.field_name == "sample_featurizer" else Side.DRUG
+        return FeaturizerConfig.parse(value, side)
 
     _validate_semantics = model_validator(mode="after")(validate)
 

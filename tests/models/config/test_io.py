@@ -177,6 +177,44 @@ def test_from_dict_errors(payload, kwargs, match) -> None:
         from_dict(payload, **kwargs)
 
 
+FEATURIZER_KEYS = "A featurizer accepts the keys name, side, view, featurizers, options, hyperparameter_space, defaults"
+
+
+@pytest.mark.parametrize(
+    ("payload", "message"),
+    [
+        (
+            {"sample_featurizer": {"name": "scaledGeneExpression", "gene_list": "x"}, "predictor": "naiveMean"},
+            "sample_featurizer -> gene_list: Extra inputs are not permitted. "
+            f"{FEATURIZER_KEYS}; arguments of the featurizer go under 'options'",
+        ),
+        (
+            {
+                "sample_featurizer": {
+                    "name": "concatFeaturizers",
+                    "featurizers": [{"name": "scaledGeneExpression", "gene_list": "x", "n": 1}],
+                },
+                "predictor": "naiveMean",
+            },
+            "sample_featurizer -> featurizers -> 0 -> gene_list: Extra inputs are not permitted; "
+            "sample_featurizer -> featurizers -> 0 -> n: Extra inputs are not permitted. "
+            f"{FEATURIZER_KEYS}; arguments of the featurizer go under 'options'",
+        ),
+        (
+            {"predictor": {"name": "naiveMean", "alpha": 1}},
+            "predictor -> alpha: Extra inputs are not permitted. A predictor accepts the keys name, "
+            "hyperparameter_space, defaults; hyperparameters go under 'defaults' or 'hyperparameter_space'",
+        ),
+        ({"predictor": "naiveMean", "unknown_key": True}, "unknown_key: Extra inputs are not permitted"),
+    ],
+    ids=["featurizer", "concat-child-once", "predictor", "model-no-hint"],
+)
+def test_unknown_keys_name_the_keys_the_mapping_accepts(payload, message) -> None:
+    with pytest.raises(ValueError) as caught:
+        from_dict(payload)
+    assert str(caught.value) == f"Invalid model config: {message}"
+
+
 def test_from_yaml_errors_report_the_path(tmp_path: Path) -> None:
     bad = tmp_path / "bad.yaml"
     bad.write_text("predictor: naiveMean\nunknown_key: true\n", encoding="utf-8")
