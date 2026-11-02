@@ -58,7 +58,13 @@ def load_model(path: str | UPath) -> DRPModel:
 def elastic_net_payload(components: Any, *, spec: Any = None) -> dict[str, Any]:
     if spec is None:
         spec = ModelSpec.from_name("ElasticNet").with_hyperparameters({"alpha": 0.1}).dump()
-    return {"format": FORMAT_NAME, "version": FORMAT_VERSION, "spec": spec, "components": components}
+    return {
+        "format": FORMAT_NAME,
+        "version": FORMAT_VERSION,
+        "spec": spec,
+        "components": components,
+        "measure": "pEC50",
+    }
 
 
 class TestResolveCheckpointPath:
@@ -102,9 +108,9 @@ class TestLoadArchive:
     def test_round_trips_the_spec_and_the_components(self, tmp_path) -> None:
         save_model(fitted_elastic_net(), str(UPath(tmp_path) / "elastic_net"))
 
-        spec, components = load_archive(str(UPath(tmp_path) / "elastic_net"))
+        spec, components, measure = load_archive(str(UPath(tmp_path) / "elastic_net"))
 
-        assert spec["name"] == "ElasticNet"
+        assert (spec["name"], measure) == ("ElasticNet", "pEC50")
         assert spec["hyperparameters"]["predictor.elasticNet.alpha"] == 0.1
         assert all("." in key for key in spec["hyperparameters"])
         assert set(components) == {
@@ -135,7 +141,7 @@ class TestLoadArchive:
             load_archive(str(archive))
 
     def test_rejects_another_version_and_says_how_to_recover(self, tmp_path) -> None:
-        assert FORMAT_VERSION == 2
+        assert FORMAT_VERSION == 3
         payload = elastic_net_payload({})
         payload["version"] = 5
         archive = write_archive(UPath(tmp_path) / "elastic_net.zip", payload)
@@ -154,6 +160,12 @@ class TestLoadArchive:
             ),
             pytest.param(
                 elastic_net_payload({}, spec="bad"), CorruptedCheckpointError, "spec is not a mapping", id="spec"
+            ),
+            pytest.param(
+                {**elastic_net_payload({}), "measure": None},
+                CorruptedCheckpointError,
+                "has no response measure",
+                id="no-measure",
             ),
             pytest.param(
                 {**elastic_net_payload({}), "format": "unknown-format"},

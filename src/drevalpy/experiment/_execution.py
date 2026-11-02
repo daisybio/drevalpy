@@ -8,6 +8,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, cast
 
+from drevalpy.errors import InvalidInputError
 from drevalpy.evaluation import Metric
 from drevalpy.models.config.immutable import freeze_value, thaw_value
 from drevalpy.models.spec import ModelSpec
@@ -101,6 +102,7 @@ def build_execution(
     :returns: Immutable execution decisions.
     :raises TypeError: If *model* is not a ``ModelSpec``.
     :raises ValueError: If *hpo_num_trials* is negative.
+    :raises InvalidInputError: If the fold was split on another response measure than the dataset's.
     """
     if not isinstance(model, ModelSpec):
         raise TypeError("Experiment models must be ModelSpec values")
@@ -116,7 +118,15 @@ def build_execution(
     if model.supports_early_stopping and len(fold.val) > 1:
         stopping, validation_scope = fold.early_stopping_mask()
     scopes = FitScopes(fold.train, stopping, validation_scope, fold.train | validation_scope, fold.test)
+    fold_measure = fold.metadata.get("measure", dataset.measure)
+    if fold_measure != dataset.measure:
+        msg = (
+            f"The fold was split on the response measure {fold_measure!r}, but the dataset trains on "
+            f"{dataset.measure!r}; split again, or use dataset.with_measure({fold_measure!r})"
+        )
+        raise InvalidInputError(msg)
     metadata = copy.deepcopy(fold.metadata)
+    metadata["measure"] = dataset.measure
     if "split_mode" in metadata:
         metadata["split_mode"] = mode
     if dataset.randomization_provenance is not None:

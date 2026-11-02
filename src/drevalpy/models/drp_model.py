@@ -141,6 +141,7 @@ class DRPModel:
         self._sample_featurizer: Featurizer | None = None
         self._drug_featurizer: Featurizer | None = None
         self._predictor: Predictor | None = None
+        self._measure: str | None = None
         self.state = ModelState.UNTRAINED
 
     @property
@@ -165,8 +166,14 @@ class DRPModel:
         """
         return self.state == ModelState.FITTED
 
+    @property
+    def measure(self) -> str | None:
+        """The response measure the model was trained on, such as ``pEC50``; ``None`` before training."""
+        return self._measure
+
     def _reset(self) -> None:
         self.state = ModelState.UNTRAINED
+        self._measure = None
         self._fitted_response_transformation = None
         self._sample_featurizer = self._drug_featurizer = self._predictor = None
         self._sample_featurizer, self._drug_featurizer, self._predictor = _build_components(self.spec)
@@ -203,6 +210,7 @@ class DRPModel:
         with directory as checkpoint_dir:
             context = TrainingContext(checkpoint_dir=UPath(checkpoint_dir), n_jobs=n_jobs)
             self._fit(dataset, scope, early_stopping_scope, training_context=context)
+        self._measure = dataset.measure
 
     def _fit(
         self,
@@ -365,6 +373,7 @@ class DRPModel:
                 "response_transformation": self._response_transformation,
                 "fitted_response_transformation": self._fitted_response_transformation,
             },
+            measure=self._measure,
         )
 
     @classmethod
@@ -383,7 +392,7 @@ class DRPModel:
         """
         from drevalpy.models._archive import CorruptedCheckpointError, load_archive
 
-        spec_data, components = load_archive(path)
+        spec_data, components, measure = load_archive(path)
         try:
             spec = ModelSpec.load(spec_data)
         except (KeyError, TypeError, ValueError) as exc:
@@ -395,5 +404,6 @@ class DRPModel:
         model._drug_featurizer = components.get("drug_featurizer")
         model._predictor = components["predictor"]
         model._fitted_response_transformation = components.get("fitted_response_transformation")
+        model._measure = measure
         model.state = ModelState.FITTED
         return model

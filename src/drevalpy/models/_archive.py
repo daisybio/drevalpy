@@ -29,7 +29,7 @@ from upath import UPath as Path
 from drevalpy.errors import DrEvalError
 
 FORMAT_NAME = "drevalpy-model"
-FORMAT_VERSION = 2
+FORMAT_VERSION = 3
 PAYLOAD_MEMBER = "payload.joblib"
 
 
@@ -182,16 +182,23 @@ def _torch_modules(root: Any, module_type: type) -> Iterator[Any]:
             stack.extend(vars(value).values())
 
 
-def save_archive(path: str | Path, spec: dict[str, Any], components: dict[str, Any]) -> None:
-    """Write a model spec and its fitted components as one ZIP archive.
+def save_archive(path: str | Path, spec: dict[str, Any], components: dict[str, Any], *, measure: str) -> None:
+    """Write a model spec, its fitted components and its response measure as one ZIP archive.
 
     :param path: Archive file path; ``.zip`` is appended when missing.
     :param spec: Plain-data model spec (``ModelSpec.dump()``).
     :param components: Fitted component objects by role; torch modules are saved on the CPU.
+    :param measure: The response measure the model was trained on.
     """
     target = _as_path(path)
     _reject_directory_path(target)
-    payload = {"format": FORMAT_NAME, "version": FORMAT_VERSION, "spec": spec, "components": components}
+    payload = {
+        "format": FORMAT_NAME,
+        "version": FORMAT_VERSION,
+        "spec": spec,
+        "components": components,
+        "measure": measure,
+    }
     with _modules_on_cpu(components):
         _write_archive_atomically(resolve_checkpoint_path(target), payload)
 
@@ -208,7 +215,7 @@ def _unsupported_format(payload: dict[str, Any]) -> UnsupportedCheckpointFormatE
     )
 
 
-def load_archive(path: str | Path) -> tuple[dict[str, Any], dict[str, Any]]:
+def load_archive(path: str | Path) -> tuple[dict[str, Any], dict[str, Any], str]:
     """Read a model archive written by :func:`save_archive`.
 
     .. warning::
@@ -216,7 +223,7 @@ def load_archive(path: str | Path) -> tuple[dict[str, Any], dict[str, Any]]:
        trusted sources.
 
     :param path: Archive file path; ``.zip`` is appended when missing.
-    :returns: The plain-data spec and the component objects by role.
+    :returns: The plain-data spec, the component objects by role and the response measure.
     :raises FileNotFoundError: If the archive does not exist.
     :raises UnsupportedCheckpointFormatError: If the format or version is unsupported.
     :raises CorruptedCheckpointError: If the payload structure is invalid.
@@ -236,4 +243,7 @@ def load_archive(path: str | Path) -> tuple[dict[str, Any], dict[str, Any]]:
         raise CorruptedCheckpointError("checkpoint spec is not a mapping")
     if not isinstance(components, dict):
         raise CorruptedCheckpointError("checkpoint components are not a mapping")
-    return spec, components
+    measure = payload.get("measure")
+    if not isinstance(measure, str) or not measure:
+        raise CorruptedCheckpointError("checkpoint has no response measure")
+    return spec, components, measure
