@@ -14,7 +14,7 @@ from typing import Any
 import numpy as np
 import pytest
 
-from drevalpy import run
+from drevalpy import run, synthetic
 from drevalpy.errors import InvalidInputError
 from drevalpy.models import ModelSpec
 from drevalpy.models.response_transformation import GroupMeanCenterer, get_response_transformation
@@ -102,9 +102,9 @@ def recorder(monkeypatch: pytest.MonkeyPatch) -> _SingleRecorder:
 
 
 def _set_folds(monkeypatch: pytest.MonkeyPatch, n_folds: int, seen: list[Any] | None = None) -> None:
-    def fake_split(ds: Any, mode: str, random_state: int = 42, quality: Any = None) -> list[Fold]:
+    def fake_split(ds: Any, mode: str, n_splits: int = 5, random_state: int = 42, quality: Any = None) -> list[Fold]:
         if seen is not None:
-            seen.append((ds, mode, random_state, quality))
+            seen.append((ds, mode, random_state, quality, n_splits))
         return [_make_fold(fold_index=i) for i in range(n_folds)]
 
     monkeypatch.setattr(RUN_MODULE, "split", fake_split)
@@ -352,6 +352,32 @@ class TestForwardedArguments:
 
         assert [(entry[1], entry[3]) for entry in split_calls] == [("LDO", rule)]
         assert inspect.signature(run).parameters["quality"].default is None
+
+    def test_n_splits_reaches_split_and_defaults_to_five(self, recorder, dataset, monkeypatch) -> None:
+        split_calls: list[Any] = []
+        _set_folds(monkeypatch, 1, split_calls)
+
+        _run("M", dataset)
+        _run("M", dataset, n_splits=3)
+
+        assert [entry[4] for entry in split_calls] == [5, 3]
+
+    @pytest.mark.slow
+    def test_end_to_end_n_splits_sets_the_runs_per_model(self) -> None:
+        result = run(
+            [ModelSpec.from_name("NaiveMeanEffectsPredictor")],
+            synthetic(),
+            "LPO",
+            n_splits=2,
+            hyperparameter_tuning=False,
+        )
+
+        assert [m.n_folds for m in result.models] == [2]
+
+    @pytest.mark.slow
+    def test_fewer_than_two_splits_fail_in_the_splitter(self) -> None:
+        with pytest.raises(ValueError, match="n_splits=2 or more"):
+            run([ModelSpec.from_name("NaiveMeanEffectsPredictor")], synthetic(), "LPO", n_splits=1)
 
     def test_the_randomization_type_and_seed_reach_randomization(self, recorder, dataset, monkeypatch) -> None:
         _set_folds(monkeypatch, 1)

@@ -142,6 +142,7 @@ def run(
     wandb_project: str | None = None,
     on_error: Literal["record", "raise"] = "record",
     n_jobs: int = 1,
+    n_splits: int = 5,
 ) -> ExperimentResult:
     """Run the full experiment pipeline.
 
@@ -166,6 +167,8 @@ def run(
         the result; ``"raise"`` re-raises the first error. ``KeyboardInterrupt`` always propagates.
     :param n_jobs: Number of worker processes a single-drug model fits its per-drug models in, during tuning and in
         every final fit; ``-1`` uses all CPUs. Results are identical for every value, and other models ignore it.
+    :param n_splits: Number of CV folds the splitter makes; the k-fold splitters reject fewer than 2. LStO
+        ignores it and makes one fold per study.
     :returns: ExperimentResult grouping all model results, with the recorded failures.
     :raises ExperimentFailedError: If ``on_error="record"`` and no run produced a result.
     :raises InvalidInputError: If ``on_error`` is neither ``"record"`` nor ``"raise"``, or ``n_jobs`` is neither
@@ -176,7 +179,7 @@ def run(
         raise InvalidInputError(f"on_error must be 'record' or 'raise', got {on_error!r}")
     _validate_models(models)
     ds = resolve_dataset(dataset)
-    folds = split(ds, split_mode, random_state=seed, quality=quality)
+    folds = split(ds, split_mode, n_splits=n_splits, random_state=seed, quality=quality)
 
     if robustness_repeats > 0:
         folds = [s for fold in folds for s in [fold, *robustness(fold, robustness_repeats)]]
