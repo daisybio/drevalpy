@@ -36,6 +36,8 @@ _CODE_LICENSES = {
     ("predictor", "paccMann"): "MIT",
     ("predictor", "pharmaFormer"): "Apache-2.0",
     ("predictor", "precily"): "NOASSERTION",
+    # morgoth has no license file; its setup.py declares the MIT classifier.
+    ("predictor", "singleDrugMorgoth"): "MIT",
     ("predictor", "sparsego"): "NOASSERTION",
     ("predictor", "srmf"): "NOASSERTION",
     ("predictor", "superfeltr"): "NOASSERTION",

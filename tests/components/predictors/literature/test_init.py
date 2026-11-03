@@ -14,6 +14,7 @@ from drevalpy.components.predictors.literature._metadata import (
     DRUGGNN_REFERENCE,
     ENSEMBLEMF_REFERENCE,
     MOLIR_REFERENCE,
+    MORGOTH_REFERENCE,
     PACCMANN_REFERENCE,
     PHARMAFORMER_REFERENCE,
     PRECILY_REFERENCE,
@@ -43,6 +44,7 @@ LITERATURE_FACTORY_NAMES = [
     "SparseGO",
     "EnsembleMF",
     "PaccMann",
+    "SingleDrugMorgoth",
 ]
 
 FORBIDDEN_TOKENS = (
@@ -67,6 +69,7 @@ LITERATURE_PACKAGES = (
     "druggnn",
     "ensemblemf",
     "paccmann",
+    "morgoth",
 )
 
 LIFECYCLE_METHODS = ("_fit", "_predict")
@@ -106,9 +109,10 @@ def _defined_lifecycle_methods(path: Path) -> set[str]:
     return defined_methods
 
 
-#: MOLIR and SuperFELTR inherit the lifecycle from the shared per-drug omics shell and its single-drug base.
+#: MOLIR and SuperFELTR inherit the lifecycle from the shared per-drug omics shell and its single-drug base;
+#: SingleDrugMorgoth inherits ``_predict`` from the single-drug base.
 SHARED_LIFECYCLE_OWNERS = (LITERATURE_ROOT / "_single_drug_omics.py", PREDICTORS_ROOT / "abstract" / "single_drug.py")
-SHELL_PACKAGES = frozenset({"molir", "superfeltr"})
+SHELL_PACKAGES = frozenset({"molir", "superfeltr", "morgoth"})
 
 
 @pytest.mark.parametrize("package", LITERATURE_PACKAGES)
@@ -172,6 +176,7 @@ ALL_REFERENCES = (
     pytest.param(SPARSEGO_REFERENCE, id="sparsego"),
     pytest.param(ENSEMBLEMF_REFERENCE, id="ensemblemf"),
     pytest.param(PACCMANN_REFERENCE, id="paccmann"),
+    pytest.param(MORGOTH_REFERENCE, id="morgoth"),
 )
 
 DOIS = (
@@ -185,6 +190,7 @@ DOIS = (
     pytest.param(SPARSEGO_REFERENCE, "10.1016/j.ebiom.2023.104767", id="sparsego"),
     pytest.param(ENSEMBLEMF_REFERENCE, "10.1038/s41467-026-72903-w", id="ensemblemf"),
     pytest.param(PACCMANN_REFERENCE, "10.1021/acs.molpharmaceut.9b00520", id="paccmann"),
+    pytest.param(MORGOTH_REFERENCE, "10.1039/D5DD00284B", id="morgoth"),
 )
 
 
