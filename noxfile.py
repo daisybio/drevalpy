@@ -144,7 +144,7 @@ def tests(session: Session) -> None:
 
     :param session: The Session object.
     """
-    session.install(".[xgboost,precily,sparsego,paccmann]")
+    session.install(".[xgboost,precily,sparsego,paccmann,morgoth]")
     session.install("coverage[toml]", "pytest", "pygments")
     try:
         session.run(

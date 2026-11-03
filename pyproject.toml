@@ -58,6 +58,7 @@ gseapy = { version = ">=1.1.0", optional = true }
 mygene = { version = "*", optional = true }
 obonet = { version = "*", optional = true }
 rdkit = { version = ">=2022.9", optional = true }
+morgoth = { version = ">=1.6", optional = true }
 
 [tool.poetry.requires-plugins]
 poetry-plugin-export = ">=1.8"
@@ -69,6 +70,7 @@ lightgbm = ["lightgbm"]
 precily = ["gseapy"]
 sparsego = ["mygene", "obonet"]
 paccmann = ["rdkit"]
+morgoth = ["morgoth"]
 
 [tool.poetry.dependencies.ray]
 extras = ["tune"]
