@@ -126,6 +126,8 @@ class SRMF(DRPModel):
         drug_response_matrix = output.to_dataframe()
         if "tissue" in drug_response_matrix.columns:
             drug_response_matrix = drug_response_matrix.drop(columns=["tissue"])
+        if "Regulation" in drug_response_matrix.columns:
+            drug_response_matrix = drug_response_matrix.drop(columns=["Regulation"])
         drug_response_matrix = (
             drug_response_matrix.groupby([CELL_LINE_IDENTIFIER, DRUG_IDENTIFIER]).mean().reset_index()
         )
@@ -137,7 +139,7 @@ class SRMF(DRPModel):
             index=cell_lines, columns=drugs
         )  # missing rows and columns are filled with NaN
 
-        self.w = ~np.isnan(drug_response_matrix)
+        self.w = ~drug_response_matrix.isna()
         drug_response_matrix = drug_response_matrix.copy()
         drug_response_matrix[np.isnan(drug_response_matrix)] = 0
 

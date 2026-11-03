@@ -163,6 +163,14 @@ def register_pipeline_callback(app: typer.Typer) -> None:
             bool,
             typer.Option("--multiprocessing", help="If set, we will use raytune for fitting. Default is False."),
         ] = False,
+        n_jobs: Annotated[
+            int,
+            typer.Option(
+                "--n_jobs",
+                help="Number of drugs a single drug model is trained for in parallel. Cannot be combined with "
+                "--multiprocessing. Default is 1.",
+            ),
+        ] = 1,
         model_checkpoint_dir: Annotated[
             str, typer.Option("--model_checkpoint_dir", help="Directory to save model checkpoints.")
         ] = "TEMPORARY",
@@ -238,6 +246,7 @@ def register_pipeline_callback(app: typer.Typer) -> None:
             n_cv_splits=n_cv_splits,
             response_transformation=response_transformation,
             multiprocessing=multiprocessing,
+            n_jobs=n_jobs,
             model_checkpoint_dir=model_checkpoint_dir,
             final_model_on_full_data=final_model_on_full_data,
             no_hyperparameter_tuning=no_hyperparameter_tuning,

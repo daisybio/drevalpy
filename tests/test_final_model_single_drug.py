@@ -254,7 +254,7 @@ def test_pipeline_hands_the_drug_id_to_the_final_model(monkeypatch, sample_datas
         overwrite=True,
     )
 
-    # One final model per drug, each with its own drug id and the full, unmasked dataset.
+    # One final model per drug, each with its own drug id and the dataset of this drug.
     assert [call["drug_id"] for call in calls] == list(two_drugs)
     for call in calls:
-        assert set(call["full_dataset"].drug_ids) == set(two_drugs)
+        assert set(call["full_dataset"].drug_ids) == {call["drug_id"]}

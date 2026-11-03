@@ -259,7 +259,9 @@ class PrecilyModel(DRPModel):
             )
 
         df = pd.read_csv(pathway_file, index_col=0)
-        features = {cell_line_id: {"pathways": row.values.astype(np.float32)} for cell_line_id, row in df.iterrows()}
+        features = {
+            str(cell_line_id): {"pathways": row.values.astype(np.float32)} for cell_line_id, row in df.iterrows()
+        }
         return FeatureDataset(features)
 
     def load_drug_features(self, data_path: str, dataset_name: str) -> FeatureDataset:

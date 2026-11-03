@@ -81,7 +81,7 @@ def _randomize_smiles(smiles_list: list[str], n_variants: int) -> list[list[str]
     except ImportError as e:  # pragma: no cover - depends on the environment
         raise ImportError("Please install rdkit to augment SMILES for PaccMann: pip install rdkit") from e
 
-    RDLogger.DisableLog("rdApp.*")  # RDKit warns loudly about SMILES it can still parse
+    RDLogger.DisableLog("rdApp.*")  # type: ignore[attr-defined]  # RDKit warns loudly about SMILES it can still parse
     rng = np.random.default_rng(SMILES_AUGMENTATION_SEED)
 
     variants = []

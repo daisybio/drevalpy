@@ -32,7 +32,7 @@ def gene_list_data_dir(tmp_path) -> str:
 
     gene_lists = tmp_path / "meta" / "gene_lists"
     gene_lists.mkdir(parents=True)
-    (gene_lists / "landmark_genes_reduced.csv").write_text(
+    (gene_lists / "landmark_genes.csv").write_text(
         "Entrez ID,Symbol,Name,Gene Family,Type,RNA-Seq Correlation,RNA-Seq Correlation Self-Rank\n"
         "3638,INSIG1,insulin induced gene 1,,landmark,,\n"
         "2309,FOXO3,forkhead box O3,Forkhead boxes,landmark,,\n"
@@ -57,7 +57,7 @@ def _gene_names(features) -> list[str]:
 
 def test_load_single_cell_line_view_defaults_to_landmark_genes(gene_list_data_dir) -> None:
     """
-    Omitting gene_list must reproduce the previously hard-coded landmark_genes_reduced behaviour.
+    Omitting gene_list must reproduce the previously hard-coded landmark_genes behaviour.
 
     :param gene_list_data_dir: path to the temporary data directory
     """
@@ -100,7 +100,7 @@ def test_sklearn_model_gene_list_default() -> None:
     assert MODEL_FACTORY["ElasticNet"] is ElasticNetModel
     model = ElasticNetModel()
     model.build_model(hyperparameters={"alpha": 1.0, "l1_ratio": 0.2})
-    assert model.gene_list == SklearnModel.gene_list == "landmark_genes_reduced"
+    assert model.gene_list == SklearnModel.gene_list == "landmark_genes"
 
 
 def test_sklearn_model_gene_list_hyperparameter(gene_list_data_dir) -> None:
@@ -118,7 +118,7 @@ def test_sklearn_model_gene_list_hyperparameter(gene_list_data_dir) -> None:
     features = model.load_cell_line_features(data_path=gene_list_data_dir, dataset_name="GDSC1_small")
     assert sorted(_gene_names(features)) == sorted(_TARGET_GENES)
     # The class default is untouched, only the instance was reconfigured.
-    assert SklearnModel.gene_list == "landmark_genes_reduced"
+    assert SklearnModel.gene_list == "landmark_genes"
 
 
 def test_sklearn_model_gene_list_does_not_leak_between_instances(gene_list_data_dir) -> None:

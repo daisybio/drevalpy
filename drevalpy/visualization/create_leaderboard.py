@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
-"""
-DrEvalPy Leaderboard Visualization.
+"""DrEvalPy Leaderboard Visualization.
 
 This script generates a leaderboard visualization (normalized PCC, RMSE, raw Pearson and,
 optionally, per-drug Pearson) from
 the evaluation results CSV file produced by the DrEvalPy evaluation pipeline.
-Usage:
-python create_leaderboard.py --results_path /path/to/results.csv [--true_vs_pred_path /path/to/true_vs_pred.csv]
+Usage for GitHub:
+python drevalpy/visualization/create_leaderboard.py \
+    --results_path results/leaderboard_Oct26/evaluation_results.csv \
+    --output_dir results/leaderboard_Oct26 \
+    --true_vs_pred_path results/leaderboard_Oct26/true_vs_pred.csv \
+    --cd_width 12 \
+    --cd_height 12
 In addition to the leaderboard, a critical difference diagram (Friedman + post-hoc Conover test over the CV splits)
 is saved to the output directory.
 """
@@ -47,8 +51,7 @@ COMPETITOR_COLOR = "#6A5ACD"
 
 
 def configure_matplotlib(font_adder: int = 0):
-    """
-    Configure global matplotlib parameters for the current theme.
+    """Configure global matplotlib parameters for the current theme.
 
     :param font_adder: Increment to add to the base font size.
     """
@@ -72,8 +75,7 @@ def configure_matplotlib(font_adder: int = 0):
 
 
 def load_per_drug_pearson(true_vs_pred_path: str, test_mode: str = "LCO") -> pd.DataFrame:
-    """
-    Compute the per-drug Pearson from true_vs_pred.csv.
+    """Compute the per-drug Pearson from true_vs_pred.csv.
 
     For every algorithm and CV split, the Pearson between y_true and y_pred is computed within each drug and
     averaged over drugs (drugs without a defined Pearson, e.g. constant response, are skipped). The result is then
@@ -93,7 +95,8 @@ def load_per_drug_pearson(true_vs_pred_path: str, test_mode: str = "LCO") -> pd.
     df = df[(df["rand_setting"] == "predictions") & (df["test_mode"] == test_mode)]
 
     per_drug = df.groupby(["algorithm", "CV_split", "pubchem_id"]).apply(
-        lambda x: pearson(x["y_pred"].to_numpy(), x["y_true"].to_numpy()), include_groups=False
+        lambda x: pearson(x["y_pred"].to_numpy(), x["y_true"].to_numpy()),
+        include_groups=False,  # type: ignore[call-overload]
     )
     per_split = per_drug.groupby(["algorithm", "CV_split"]).mean()
     df_agg = per_split.groupby("algorithm").agg(["mean", "std"]).reset_index()
@@ -103,8 +106,7 @@ def load_per_drug_pearson(true_vs_pred_path: str, test_mode: str = "LCO") -> pd.
 
 
 def load_results(results_path: str, test_mode: str = "LCO", true_vs_pred_path: Optional[str] = None) -> pd.DataFrame:
-    """
-    Load and aggregate results from the evaluation CSV.
+    """Load and aggregate results from the evaluation CSV.
 
     :param results_path: Path to evaluation_results.csv.
     :param test_mode: Filtering mode (e.g., LCO).
@@ -148,8 +150,7 @@ def load_results(results_path: str, test_mode: str = "LCO", true_vs_pred_path: O
 
 
 def get_bar_color(rank: int, is_baseline: bool) -> dict:
-    """
-    Assign colors based on model rank and type.
+    """Assign colors based on model rank and type.
 
     :param rank: Model index in sorted list.
     :param is_baseline: Boolean if model is a baseline.
@@ -173,8 +174,7 @@ def get_bar_color(rank: int, is_baseline: bool) -> dict:
 
 
 def draw_bar(ax, x: float, y: float, width: float, height: float, color: str, alpha: float = 1.0):
-    """
-    Draw a custom rounded rectangle bar.
+    """Draw a custom rounded rectangle bar.
 
     :param ax: Matplotlib axis.
     :param x: Origin X.
@@ -209,8 +209,7 @@ def create_leaderboard(
     show_top_n: Optional[int] = None,
     font_adder: int = 6,
 ) -> tuple:
-    """
-    Generate the leaderboard figure (normalized PCC, RMSE, raw Pearson and, if available, per-drug Pearson).
+    """Generate the leaderboard figure (normalized PCC, RMSE, raw Pearson and, if available, per-drug Pearson).
 
     :param df: Input results data.
     :param output_path: File path for save.
@@ -585,8 +584,7 @@ def create_leaderboard(
 def create_critical_difference_diagram(
     results_path: str, output_dir: Path, test_mode: str, metric: str, figsize: Optional[tuple[float, float]] = None
 ) -> None:
-    """
-    Draw the critical difference diagram over the CV splits and save it as SVG plus the Conover p-value table.
+    """Draw the critical difference diagram over the CV splits and save it as SVG plus the Conover p-value table.
 
     :param results_path: Path to evaluation_results.csv.
     :param output_dir: Directory to save the diagram to.
@@ -602,8 +600,7 @@ def create_critical_difference_diagram(
 
 
 def _get_test_mode_name(test_mode: str) -> str:
-    """
-    Map shorthand mode codes to full descriptive names.
+    """Map shorthand mode codes to full descriptive names.
 
     :param test_mode: Suffix code (LCO, etc).
     :return: Full string name.

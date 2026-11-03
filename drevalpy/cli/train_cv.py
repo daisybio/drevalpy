@@ -16,7 +16,7 @@ def register(app: typer.Typer) -> None:
             str,
             typer.Option(
                 "--model_name",
-                help="Model name (model_name for global models, model_name.drug_name for single-drug models).",
+                help="Model name.",
             ),
         ],
         hyperparameters: Annotated[
@@ -45,6 +45,12 @@ def register(app: typer.Typer) -> None:
                 help="model checkpoint directory, if not provided: temporary directory is used",
             ),
         ] = "TEMPORARY",
+        n_jobs: Annotated[
+            int,
+            typer.Option(
+                "--n_jobs", help="Number of drugs a single drug model is trained for in parallel, default: 1."
+            ),
+        ] = 1,
     ) -> None:
         """Train on a CV split and save validation predictions as pickle."""
         run_train_and_predict_cv(
@@ -55,4 +61,5 @@ def register(app: typer.Typer) -> None:
             cv_data=cv_data,
             response_transformation=response_transformation,
             model_checkpoint_dir=model_checkpoint_dir,
+            n_jobs=n_jobs,
         )

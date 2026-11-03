@@ -229,7 +229,7 @@ class DrugGNN(DRPModel):
     """DrugGNN model."""
 
     #: Gene list used to subset gene_expression. Overridable via the "gene_list" hyperparameter.
-    gene_list: str | None = "landmark_genes_reduced"
+    gene_list: str | None = "landmark_genes"
 
     def __init__(self):
         """Initialize the DrugGNN model."""
@@ -265,7 +265,7 @@ class DrugGNN(DRPModel):
         """Build the model.
 
         :param hyperparameters: The hyperparameters. "gene_list" (str | None) is the gene list used to subset
-            gene_expression; None loads all genes. Optional, defaults to landmark_genes_reduced.
+            gene_expression; None loads all genes. Optional, defaults to landmark_genes.
         """
         # Log hyperparameters to wandb if enabled
         self.log_hyperparameters(hyperparameters)

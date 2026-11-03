@@ -27,6 +27,13 @@ You can visualize them using
 
 This creates an index.html file which you can open in your browser to see the results of your run.
 
+Single-Drug Models such as SingleDrugElasticNet fit one model per drug. With ``--n_jobs``, the drugs are trained in
+parallel, here on 4 CPUs:
+
+.. code-block:: bash
+
+    drevalpy --run_id my_sd_run --models SingleDrugElasticNet --baselines NaiveMeanEffectsPredictor --dataset_name TOYv1 --test_mode LCO --n_jobs 4
+
 We recommend the use of our nextflow pipeline for computational demanding runs and for improved reproducibility. No
 knowledge of nextflow is required to run it. The nextflow pipeline is available on the `nf-core GitHub
 <https://github.com/nf-core/drugresponseeval.git>`_, the documentation can be found `here <https://nf-co.re/drugresponseeval/dev/>`_.

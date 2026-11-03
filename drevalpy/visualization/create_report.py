@@ -23,8 +23,8 @@ from drevalpy.visualization.utils import (
 def generate_reports_for_test_mode(
     test_mode: str,
     evaluation_results: pd.DataFrame,
-    evaluation_results_per_drug: pd.DataFrame,
-    evaluation_results_per_cell_line: pd.DataFrame,
+    evaluation_results_per_drug: pd.DataFrame | None,
+    evaluation_results_per_cell_line: pd.DataFrame | None,
     true_vs_pred: pd.DataFrame,
     run_id: str,
     path_data: Union[str, pathlib.Path],
@@ -97,8 +97,8 @@ def generate_reports_for_test_mode(
 def generate_reports_for_all_test_modes(
     test_modes: list[str],
     evaluation_results: pd.DataFrame,
-    evaluation_results_per_drug: pd.DataFrame,
-    evaluation_results_per_cell_line: pd.DataFrame,
+    evaluation_results_per_drug: pd.DataFrame | None,
+    evaluation_results_per_cell_line: pd.DataFrame | None,
     true_vs_pred: pd.DataFrame,
     run_id: str,
     path_data: Union[str, pathlib.Path],

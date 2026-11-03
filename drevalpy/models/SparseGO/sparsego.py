@@ -262,20 +262,20 @@ class SparseGONetwork(nn.Module):
         self.gene_dim = len(gene2id)
         self.term_dim = len(term2id)
 
-        rows = [term2id[term] for term in genes_terms_pairs[:, 0]]
-        columns = [gene2id[gene] for gene in genes_terms_pairs[:, 1]]
+        rows = np.array([term2id[term] for term in genes_terms_pairs[:, 0]])
+        columns = np.array([gene2id[gene] for gene in genes_terms_pairs[:, 1]])
         data = np.ones(len(rows))
 
         genes_terms = sparse.coo_matrix((data, (rows, columns)), shape=(self.term_dim, self.gene_dim))
 
         # Expand to k neurons per GO term by repeating each row k times
         genes_terms_more_neurons = sparse.lil_matrix((self.term_dim * self.num_neurons_per_GO, self.gene_dim))
-        genes_terms = genes_terms.tolil()
+        genes_terms_lil = genes_terms.tolil()
         row = 0
         for i in range(genes_terms_more_neurons.shape[0]):
             if (i != 0) and (i % self.num_neurons_per_GO) == 0:
                 row += 1
-            genes_terms_more_neurons[i, :] = genes_terms[row, :]
+            genes_terms_more_neurons[i, :] = genes_terms_lil[row, :]  # type: ignore[assignment]
 
         rows_t = torch.from_numpy(sparse.find(genes_terms_more_neurons)[0]).view(1, -1).long()
         cols_t = torch.from_numpy(sparse.find(genes_terms_more_neurons)[1]).view(1, -1).long()
@@ -310,8 +310,8 @@ class SparseGONetwork(nn.Module):
         """
         output_id = create_index(layer_pairs[:, 0])
 
-        rows = [output_id[term] for term in layer_pairs[:, 0]]
-        columns = [input_id[term] for term in layer_pairs[:, 1]]
+        rows = np.array([output_id[term] for term in layer_pairs[:, 0]])
+        columns = np.array([input_id[term] for term in layer_pairs[:, 1]])
         data = np.ones(len(rows))
 
         connections_matrix = sparse.coo_matrix((data, (rows, columns)), shape=(len(output_id), len(input_id)))

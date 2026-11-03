@@ -6,6 +6,8 @@ import os
 import shutil
 import tempfile
 import warnings
+from collections.abc import Callable
+from functools import partial
 from pathlib import Path
 from typing import Any
 
@@ -24,7 +26,7 @@ from .datasets.dataset import DrugResponseDataset, FeatureDataset, split_early_s
 from .datasets.loader import DERIVED_DATASETS
 from .datasets.splits import ExternalSplitCreator, create_and_record_splits
 from .evaluation import get_mode
-from .models import MODEL_FACTORY, MULTI_DRUG_MODEL_FACTORY, SINGLE_DRUG_MODEL_FACTORY
+from .models import MODEL_FACTORY, SINGLE_DRUG_MODEL_FACTORY
 from .models.drp_model import DRPModel
 from .pipeline_function import pipeline_function
 
@@ -145,6 +147,7 @@ def drug_response_experiment(
     wandb_project: str | None = None,
     custom_splitter: ExternalSplitCreator | str | Path | None = None,
     custom_split_name: str | None = None,
+    n_jobs: int = 1,
 ) -> None:
     """
     Run the drug response prediction experiment. Save results to disc.
@@ -205,7 +208,9 @@ def drug_response_experiment(
         When provided, built-in ``split_dataset`` is skipped and ``test_mode`` selects validation checks.
     :param custom_split_name: optional result-directory label when using a custom splitter.
         Defaults to ``test_mode`` when omitted.
-    :raises ValueError: if no cv splits are found
+    :param n_jobs: number of drugs a single drug model is trained for in parallel. Cannot be combined with
+        multiprocessing. On a GPU, the drugs are trained sequentially.
+    :raises ValueError: if no cv splits are found or if multiprocessing is combined with n_jobs > 1
     """
     seed_everything(42)
     if test_mode == "LDO" and response_data.dataset_name in DERIVED_DATASETS:
@@ -241,13 +246,14 @@ def drug_response_experiment(
         custom_splitter=custom_splitter,
     )
 
-    # Build the list of models to run (done regardless of whether splits were newly created or loaded)
-    model_list = make_model_list(models + baselines, response_data)
-    for model_name in model_list.keys():
-        print(f"Running {model_name}")
-        model_name, drug_id = get_model_name_and_drug_id(model_name)
+    if multiprocessing and n_jobs > 1:
+        raise ValueError("multiprocessing (Ray) cannot be combined with n_jobs > 1.")
+    if response_data.cv_splits is None:
+        raise ValueError("No cv splits found.")
 
-        model_class = MODEL_FACTORY[model_name]
+    for model_class in models + baselines:
+        model_name = model_class.get_model_name()
+        print(f"Running {model_name}")
         # The normalization baseline is the ruler of every "Normalized *" metric, so it has to stay on
         # the original response scale. For the globally affine scalers this is a no-op (means are
         # affine-equivariant), but the conditional means (drug_mean, drug_tissue_mean) do change its
@@ -260,232 +266,46 @@ def drug_response_experiment(
             print("- Full Test -")
             is_baseline = False
 
-        predictions_path = generate_data_saving_path(
-            model_name=model_name,
-            drug_id=drug_id,
+        run_model = partial(
+            _run_model,
+            model_class=model_class,
+            is_baseline=is_baseline,
+            model_transformation=model_transformation,
             result_path=result_path,
-            suffix="predictions",
+            test_mode=test_mode,
+            dataset_name=response_data.dataset_name,
+            n_cv_splits=actual_n_cv_splits,
+            hpam_optimization_metric=hpam_optimization_metric,
+            multiprocessing=multiprocessing,
+            randomization_mode=randomization_mode,
+            randomization_type=randomization_type,
+            n_trials_robustness=n_trials_robustness,
+            path_data=path_data,
+            model_checkpoint_dir=model_checkpoint_dir,
+            hyperparameter_tuning=hyperparameter_tuning,
+            final_model_on_full_data=final_model_on_full_data,
+            wandb_project=wandb_project,
         )
-        hpam_path = generate_data_saving_path(
-            model_name=model_name,
-            drug_id=drug_id,
-            result_path=result_path,
-            suffix="best_hpams",
-        )
-        parent_dir = os.path.dirname(predictions_path)
-
-        model_hpam_set = model_class.get_hyperparameter_set()
-        if not hyperparameter_tuning:
-            model_hpam_set = [model_hpam_set[0]]
-
-        if response_data.cv_splits is None:
-            raise ValueError("No cv splits found.")
-
-        for split_index, split in enumerate(response_data.cv_splits):
-            print()
-            print(f"################# FOLD {split_index + 1}/{len(response_data.cv_splits)} " f"#################")
-            print()
-
-            prediction_file = os.path.join(predictions_path, f"predictions_split_{split_index}.csv")
-
-            hpam_filename = f"best_hpams_split_{split_index}.json"
-            hpam_save_path = os.path.join(hpam_path, hpam_filename)
-
-            (
-                train_dataset,
-                validation_dataset,
-                early_stopping_dataset,
-                test_dataset,
-            ) = get_datasets_from_cv_split(split, model_class, model_name, drug_id)
-
-            model = model_class()
-            # Base wandb configuration for this split (used when training actually happens)
-            base_wandb_config = {
-                "model_name": model_name,
-                "drug_id": drug_id,
-                "split_index": split_index,
-                "test_mode": test_mode,
-                "dataset": response_data.dataset_name,
-                "n_cv_splits": actual_n_cv_splits,
-                "hyperparameter_tuning": hyperparameter_tuning,
-            }
-
-            if not os.path.isfile(
-                prediction_file
-            ):  # if this split has not been run yet (or for a single drug model, this drug_id)
-                tuning_inputs = {
-                    "model": model,
-                    "train_dataset": train_dataset,
-                    "validation_dataset": validation_dataset,
-                    "early_stopping_dataset": early_stopping_dataset,
-                    "hpam_set": model_hpam_set,
-                    "response_transformation": model_transformation,
-                    "metric": hpam_optimization_metric,
-                    "path_data": path_data,
-                    "model_checkpoint_dir": model_checkpoint_dir,
-                }
-
-                # During hyperparameter tuning, create separate wandb runs per trial if enabled
-                if wandb_project is not None:
-                    tuning_inputs["wandb_project"] = wandb_project
-                    tuning_inputs["split_index"] = split_index
-                    tuning_inputs["wandb_base_config"] = base_wandb_config
-
-                if multiprocessing:
-                    tuning_inputs["ray_path"] = os.path.abspath(os.path.join(result_path, "raytune"))
-                    best_hpams = hpam_tune_raytune(**tuning_inputs)
-                else:
-                    best_hpams = hpam_tune(**tuning_inputs)
-
-                print(f"Best hyperparameters: {best_hpams}")
-                print("Training model on full train and validation set to predict test set")
-
-                # Log best hyperparameters to wandb (they will be logged when build_model is called)
-                # The best hyperparameters will be logged via build_model -> log_hyperparameters
-                # save best hyperparameters as json
-                with open(
-                    hpam_save_path,
-                    "w",
-                    encoding="utf-8",
-                ) as f:
-                    json.dump(best_hpams, f)
-
-                train_dataset.add_rows(validation_dataset)  # use full train val set data for final training
-                train_dataset.shuffle(random_state=42)
-
-                # Initialize wandb for the final training on the full train+validation set
-                # This happens regardless of whether hyperparameter tuning was performed
-                if wandb_project is not None:
-                    final_run_name = f"{model_name}"
-                    if drug_id is not None:
-                        final_run_name += f"_{drug_id}"
-                    final_run_name += f"_split_{split_index}_final"
-
-                    final_config = {
-                        **base_wandb_config,
-                        "phase": "final_training",
-                    }
-                    model.init_wandb(
-                        project=wandb_project,
-                        config=final_config,
-                        name=final_run_name,
-                        tags=[model_name, test_mode, response_data.dataset_name or "unknown", "final"],
+        if model_class.is_single_drug_model:
+            # one model per drug: split the data by drug, then train the drugs in parallel
+            drug_ids = np.unique(response_data.drug_ids)
+            splits_per_drug = [split_by_drug(split, drug_ids) for split in response_data.cv_splits]
+            cross_study_per_drug = split_by_drug({cs.dataset_name: cs for cs in cross_study_datasets}, drug_ids)
+            full_dataset_per_drug = split_by_drug({"full": response_data}, drug_ids)
+            run_per_drug(
+                run_model,
+                {
+                    drug: (
+                        [split[drug] for split in splits_per_drug],
+                        list(cross_study_per_drug[drug].values()),
+                        full_dataset_per_drug[drug]["full"],
                     )
-
-                test_dataset = train_and_predict(
-                    model=model,
-                    hpams=best_hpams,
-                    path_data=path_data,
-                    train_dataset=train_dataset,
-                    prediction_dataset=test_dataset,
-                    early_stopping_dataset=(early_stopping_dataset if model.early_stopping else None),
-                    response_transformation=model_transformation,
-                    model_checkpoint_dir=model_checkpoint_dir,
-                )
-
-                # Log final metrics on test set for all models
-                # Metrics will be logged as test_RMSE, test_R^2, test_Pearson, etc.
-                # This happens regardless of whether hyperparameter tuning was performed
-                if (
-                    wandb_project is not None
-                    and wandb is not None
-                    and len(test_dataset) > 0
-                    and test_dataset.predictions is not None
-                    and len(test_dataset.predictions) > 0
-                ):
-                    # Ensure wandb run is active before logging metrics
-                    if wandb.run is not None:
-                        model.compute_and_log_final_metrics(
-                            test_dataset,
-                            additional_metrics=[hpam_optimization_metric],
-                            prefix="test_",
-                        )
-
-                for cross_study_dataset in cross_study_datasets:
-                    print(f"Cross study prediction on {cross_study_dataset.dataset_name}")
-                    cross_study_dataset.remove_nan_responses()
-                    cross_study_prediction(
-                        dataset=cross_study_dataset,
-                        model=model,
-                        test_mode=test_mode,
-                        train_dataset=train_dataset,
-                        path_data=path_data,
-                        early_stopping_dataset=(early_stopping_dataset if model.early_stopping else None),
-                        response_transformation=model_transformation,
-                        path_out=parent_dir,
-                        split_index=split_index,
-                        single_drug_id=(drug_id if model_name in SINGLE_DRUG_MODEL_FACTORY else None),
-                    )
-
-                test_dataset.to_csv(prediction_file)
-            else:
-                print(f"Split {split_index} already exists. Skipping.")
-                with open(
-                    hpam_save_path,
-                    encoding="utf-8",
-                ) as f:
-                    best_hpams = json.load(f)
-
-            # Finish wandb run for this split
-            if wandb_project is not None:
-                model.finish_wandb()
-            if not is_baseline:
-                if randomization_mode is not None:
-                    print(f"Randomization tests for {model_class.get_model_name()}")
-                    # if this line changes, it also needs to be changed in pipeline:
-                    # randomization_split.py
-                    randomization_test_views = get_randomization_test_views(
-                        model=model, randomization_mode=randomization_mode
-                    )
-                    randomization_test(
-                        randomization_test_views=randomization_test_views,
-                        model=model,
-                        hpam_set=best_hpams,
-                        path_data=path_data,
-                        train_dataset=train_dataset,
-                        test_dataset=test_dataset,
-                        early_stopping_dataset=(early_stopping_dataset if model.early_stopping else None),
-                        path_out=parent_dir,
-                        split_index=split_index,
-                        randomization_type=randomization_type,
-                        response_transformation=model_transformation,
-                        model_checkpoint_dir=model_checkpoint_dir,
-                    )
-                if n_trials_robustness > 0:
-                    print(f"Robustness test for {model_class.get_model_name()}")
-                    robustness_test(
-                        n_trials=n_trials_robustness,
-                        model=model,
-                        hpam_set=best_hpams,
-                        path_data=path_data,
-                        train_dataset=train_dataset,
-                        test_dataset=test_dataset,
-                        early_stopping_dataset=(early_stopping_dataset if model.early_stopping else None),
-                        path_out=parent_dir,
-                        split_index=split_index,
-                        response_transformation=model_transformation,
-                    )
-
-        if final_model_on_full_data and (model_class not in baselines):
-            final_model_path = generate_data_saving_path(
-                model_name=model_name,
-                drug_id=drug_id,
-                result_path=result_path,
-                suffix="final_model",
+                    for drug in full_dataset_per_drug
+                },
+                n_jobs=n_jobs,
             )
-            train_final_model(
-                model_class=model_class,
-                full_dataset=response_data.copy(),
-                drug_id=drug_id,
-                response_transformation=model_transformation,
-                path_data=path_data,
-                model_checkpoint_dir=model_checkpoint_dir,
-                metric=hpam_optimization_metric,
-                final_model_path=final_model_path,
-                test_mode=test_mode,
-                val_ratio=0.1,
-                hyperparameter_tuning=hyperparameter_tuning,
-            )
+        else:
+            run_model(None, response_data.cv_splits, cross_study_datasets, response_data.copy())
 
     consolidate_single_drug_model_predictions(
         models=models,
@@ -497,6 +317,283 @@ def drug_response_experiment(
         out_path=result_path,
     )
     print("Done!")
+
+
+def _run_model(
+    drug_id: str | None,
+    cv_splits: list[dict[str, DrugResponseDataset]],
+    cross_study_datasets: list[DrugResponseDataset],
+    full_dataset: DrugResponseDataset,
+    *,
+    model_class: type[DRPModel],
+    is_baseline: bool,
+    model_transformation: TransformerMixin | None,
+    result_path: str,
+    test_mode: str,
+    dataset_name: str,
+    n_cv_splits: int,
+    hpam_optimization_metric: str,
+    multiprocessing: bool,
+    randomization_mode: list[str] | None,
+    randomization_type: str,
+    n_trials_robustness: int,
+    path_data: str,
+    model_checkpoint_dir: str,
+    hyperparameter_tuning: bool,
+    final_model_on_full_data: bool,
+    wandb_project: str | None,
+) -> None:
+    """
+    Run all CV splits (and the final model) of one model, for single drug models of one drug.
+
+    See drug_response_experiment for the parameters not listed here.
+
+    :param drug_id: drug id for single drug models, None for global models
+    :param cv_splits: CV splits, for single drug models already reduced to drug_id
+    :param cross_study_datasets: cross-study datasets, for single drug models already reduced to drug_id
+    :param full_dataset: full dataset for the final model, for single drug models already reduced to drug_id
+    :param model_class: model to run
+    :param is_baseline: if True, no randomization and robustness tests and no final model
+    :param model_transformation: normalizer to use for the response data
+    :param result_path: path to the results of this test mode
+    :param test_mode: test mode one of "LPO", "LCO", "LTO", "LDO"
+    :param dataset_name: name of the response dataset, for wandb
+    :param n_cv_splits: number of CV splits, for wandb
+    :param hpam_optimization_metric: metric to use for hyperparameter optimization
+    :param multiprocessing: whether to use Ray for hyperparameter tuning
+    :param randomization_mode: randomization modes to run
+    :param randomization_type: type of randomization to use
+    :param n_trials_robustness: number of robustness trials
+    :param path_data: path to the data directory
+    :param model_checkpoint_dir: directory to save model checkpoints
+    :param hyperparameter_tuning: whether to tune hyperparameters
+    :param final_model_on_full_data: whether to train a final model on the full dataset
+    :param wandb_project: wandb project name, None to disable wandb
+    """
+    model_name = model_class.get_model_name()
+    predictions_path = generate_data_saving_path(
+        model_name=model_name,
+        drug_id=drug_id,
+        result_path=result_path,
+        suffix="predictions",
+    )
+    hpam_path = generate_data_saving_path(
+        model_name=model_name,
+        drug_id=drug_id,
+        result_path=result_path,
+        suffix="best_hpams",
+    )
+    parent_dir = os.path.dirname(predictions_path)
+
+    model_hpam_set = model_class.get_hyperparameter_set()
+    if not hyperparameter_tuning:
+        model_hpam_set = [model_hpam_set[0]]
+
+    for split_index, split in enumerate(cv_splits):
+        print()
+        print(f"################# FOLD {split_index + 1}/{len(cv_splits)} " f"#################")
+        print()
+
+        prediction_file = os.path.join(predictions_path, f"predictions_split_{split_index}.csv")
+
+        hpam_filename = f"best_hpams_split_{split_index}.json"
+        hpam_save_path = os.path.join(hpam_path, hpam_filename)
+
+        (
+            train_dataset,
+            validation_dataset,
+            early_stopping_dataset,
+            test_dataset,
+        ) = get_datasets_from_cv_split(split, model_class, model_name, drug_id)
+
+        model = model_class()
+        # Base wandb configuration for this split (used when training actually happens)
+        base_wandb_config = {
+            "model_name": model_name,
+            "drug_id": drug_id,
+            "split_index": split_index,
+            "test_mode": test_mode,
+            "dataset": dataset_name,
+            "n_cv_splits": n_cv_splits,
+            "hyperparameter_tuning": hyperparameter_tuning,
+        }
+
+        if not os.path.isfile(
+            prediction_file
+        ):  # if this split has not been run yet (or for a single drug model, this drug_id)
+            tuning_inputs = {
+                "model": model,
+                "train_dataset": train_dataset,
+                "validation_dataset": validation_dataset,
+                "early_stopping_dataset": early_stopping_dataset,
+                "hpam_set": model_hpam_set,
+                "response_transformation": model_transformation,
+                "metric": hpam_optimization_metric,
+                "path_data": path_data,
+                "model_checkpoint_dir": model_checkpoint_dir,
+            }
+
+            # During hyperparameter tuning, create separate wandb runs per trial if enabled
+            if wandb_project is not None:
+                tuning_inputs["wandb_project"] = wandb_project
+                tuning_inputs["split_index"] = split_index
+                tuning_inputs["wandb_base_config"] = base_wandb_config
+
+            if multiprocessing:
+                tuning_inputs["ray_path"] = os.path.abspath(os.path.join(result_path, "raytune"))
+                best_hpams = hpam_tune_raytune(**tuning_inputs)
+            else:
+                best_hpams = hpam_tune(**tuning_inputs)
+
+            print(f"Best hyperparameters: {best_hpams}")
+            print("Training model on full train and validation set to predict test set")
+
+            # Log best hyperparameters to wandb (they will be logged when build_model is called)
+            # The best hyperparameters will be logged via build_model -> log_hyperparameters
+            # save best hyperparameters as json
+            with open(
+                hpam_save_path,
+                "w",
+                encoding="utf-8",
+            ) as f:
+                json.dump(best_hpams, f)
+
+            train_dataset.add_rows(validation_dataset)  # use full train val set data for final training
+            train_dataset.shuffle(random_state=42)
+
+            # Initialize wandb for the final training on the full train+validation set
+            # This happens regardless of whether hyperparameter tuning was performed
+            if wandb_project is not None:
+                final_run_name = f"{model_name}"
+                if drug_id is not None:
+                    final_run_name += f"_{drug_id}"
+                final_run_name += f"_split_{split_index}_final"
+
+                final_config = {
+                    **base_wandb_config,
+                    "phase": "final_training",
+                }
+                model.init_wandb(
+                    project=wandb_project,
+                    config=final_config,
+                    name=final_run_name,
+                    tags=[model_name, test_mode, dataset_name or "unknown", "final"],
+                )
+
+            test_dataset = train_and_predict(
+                model=model,
+                hpams=best_hpams,
+                path_data=path_data,
+                train_dataset=train_dataset,
+                prediction_dataset=test_dataset,
+                early_stopping_dataset=(early_stopping_dataset if model.early_stopping else None),
+                response_transformation=model_transformation,
+                model_checkpoint_dir=model_checkpoint_dir,
+            )
+
+            # Log final metrics on test set for all models
+            # Metrics will be logged as test_RMSE, test_R^2, test_Pearson, etc.
+            # This happens regardless of whether hyperparameter tuning was performed
+            if (
+                wandb_project is not None
+                and wandb is not None
+                and len(test_dataset) > 0
+                and test_dataset.predictions is not None
+                and len(test_dataset.predictions) > 0
+            ):
+                # Ensure wandb run is active before logging metrics
+                if wandb.run is not None:
+                    model.compute_and_log_final_metrics(
+                        test_dataset,
+                        additional_metrics=[hpam_optimization_metric],
+                        prefix="test_",
+                    )
+
+            for cross_study_dataset in cross_study_datasets:
+                print(f"Cross study prediction on {cross_study_dataset.dataset_name}")
+                cross_study_dataset.remove_nan_responses()
+                cross_study_prediction(
+                    dataset=cross_study_dataset,
+                    model=model,
+                    test_mode=test_mode,
+                    train_dataset=train_dataset,
+                    path_data=path_data,
+                    early_stopping_dataset=(early_stopping_dataset if model.early_stopping else None),
+                    response_transformation=model_transformation,
+                    path_out=parent_dir,
+                    split_index=split_index,
+                    single_drug_id=drug_id,
+                )
+
+            test_dataset.to_csv(prediction_file)
+        else:
+            print(f"Split {split_index} already exists. Skipping.")
+            with open(
+                hpam_save_path,
+                encoding="utf-8",
+            ) as f:
+                best_hpams = json.load(f)
+
+        # Finish wandb run for this split
+        if wandb_project is not None:
+            model.finish_wandb()
+        if not is_baseline:
+            if randomization_mode is not None:
+                print(f"Randomization tests for {model_class.get_model_name()}")
+                # if this line changes, it also needs to be changed in pipeline:
+                # randomization_split.py
+                randomization_test_views = get_randomization_test_views(
+                    model=model, randomization_mode=randomization_mode
+                )
+                randomization_test(
+                    randomization_test_views=randomization_test_views,
+                    model=model,
+                    hpam_set=best_hpams,
+                    path_data=path_data,
+                    train_dataset=train_dataset,
+                    test_dataset=test_dataset,
+                    early_stopping_dataset=(early_stopping_dataset if model.early_stopping else None),
+                    path_out=parent_dir,
+                    split_index=split_index,
+                    randomization_type=randomization_type,
+                    response_transformation=model_transformation,
+                    model_checkpoint_dir=model_checkpoint_dir,
+                )
+            if n_trials_robustness > 0:
+                print(f"Robustness test for {model_class.get_model_name()}")
+                robustness_test(
+                    n_trials=n_trials_robustness,
+                    model=model,
+                    hpam_set=best_hpams,
+                    path_data=path_data,
+                    train_dataset=train_dataset,
+                    test_dataset=test_dataset,
+                    early_stopping_dataset=(early_stopping_dataset if model.early_stopping else None),
+                    path_out=parent_dir,
+                    split_index=split_index,
+                    response_transformation=model_transformation,
+                )
+
+    if final_model_on_full_data and not is_baseline:
+        final_model_path = generate_data_saving_path(
+            model_name=model_name,
+            drug_id=drug_id,
+            result_path=result_path,
+            suffix="final_model",
+        )
+        train_final_model(
+            model_class=model_class,
+            full_dataset=full_dataset,
+            drug_id=drug_id,
+            response_transformation=model_transformation,
+            path_data=path_data,
+            model_checkpoint_dir=model_checkpoint_dir,
+            metric=hpam_optimization_metric,
+            final_model_path=final_model_path,
+            test_mode=test_mode,
+            val_ratio=0.1,
+            hyperparameter_tuning=hyperparameter_tuning,
+        )
 
 
 @pipeline_function
@@ -1457,47 +1554,83 @@ def hpam_tune_raytune(
 
 
 @pipeline_function
-def make_model_list(models: list[type[DRPModel]], response_data: DrugResponseDataset) -> dict[str, str]:
+def split_by_drug(
+    datasets: dict[str, DrugResponseDataset | None], drug_ids: np.ndarray
+) -> dict[str, dict[str, DrugResponseDataset | None]]:
     """
-    Make a list of models to evaluate: if it is a single drug model, add the drug id to the model name.
+    Split each dataset into one dataset per drug, e.g., a CV split to train a single drug model per drug.
 
-    :param models: list of models to evaluate
-    :param response_data: response data, needed to get the unique drugs for single drug models
-    :returns: dictionary of model names: model class, e.g., {"SimpleNeuralNetwork": "SimpleNeuralNetwork",
-        "MOLIR.Afatinib": "MOLIR"}
+    Splitting once in the main process avoids sending the data of all drugs to every worker of run_per_drug.
+
+    :param datasets: datasets to split, e.g., {"train": ..., "validation": ..., "test": ...}
+    :param drug_ids: drugs to split into
+    :returns: {drug_id: {name: dataset reduced to this drug}}
     """
-    model_list = {}
-    unique_drugs = np.unique(response_data.drug_ids)
-    for model in models:
-        if model.is_single_drug_model:
-            for drug in unique_drugs:
-                model_list[f"{model.get_model_name()}.{drug}"] = model.get_model_name()
-        else:
-            model_list[model.get_model_name()] = model.get_model_name()
-    return model_list
+    per_drug: dict[str, dict[str, DrugResponseDataset | None]] = {str(drug): {} for drug in drug_ids}
+    for name, dataset in datasets.items():
+        for drug in drug_ids:
+            drug_dataset = None
+            if dataset is not None:
+                drug_dataset = dataset.copy()
+                drug_dataset.mask(dataset.drug_ids == drug)
+            per_drug[str(drug)][name] = drug_dataset
+    return per_drug
+
+
+def _single_threaded(cwd: str, func: Callable[..., Any], *args: Any) -> Any:
+    """
+    Run a function in a worker of run_per_drug without nested parallelism.
+
+    Otherwise, e.g., a random forest with n_jobs=-1 would start one thread per CPU in every worker.
+
+    :param cwd: working directory of the caller. Workers are reused across calls and keep the working directory
+        they were started in, which breaks relative output paths.
+    :param func: function to run
+    :param args: arguments of func
+    :returns: return value of func
+    """
+    os.chdir(cwd)
+    torch.set_num_threads(1)
+    with joblib.parallel_config(backend="sequential"):
+        return func(*args)
+
+
+def _run_drug(func: Callable[..., Any], drug_id: str, progress: str, *args: Any) -> Any:
+    """
+    Log which drug is run, then run it.
+
+    :param func: function to run, called as ``func(drug_id, *args)``
+    :param drug_id: drug to run
+    :param progress: position of the drug among all drugs, e.g., 3/500
+    :param args: further arguments of func
+    :returns: return value of func
+    """
+    # one write with the newline and flushed, otherwise the lines of parallel workers get mixed up in the log
+    print(f"########## Drug {drug_id} ({progress}) ##########\n", end="", flush=True)
+    return func(drug_id, *args)
 
 
 @pipeline_function
-def get_model_name_and_drug_id(model_name: str) -> tuple[str, str | None]:
-    """Get the model name and drug id from the model name.
-
-    :param model_name: model name, e.g., SimpleNeuralNetwork or MOLIR.Afatinib
-    :returns: tuple of model name and, potentially drug id if it is a single drug model
-    :raises AssertionError: if the model name is not found in the model factory
+def run_per_drug(func: Callable[..., Any], drug_args: dict[str, tuple], n_jobs: int = 1) -> dict[str, Any]:
     """
-    if model_name in MULTI_DRUG_MODEL_FACTORY:
-        return model_name, None
-    else:
-        name_split = model_name.split(".")
-        model_name = name_split[0]
-        if model_name not in SINGLE_DRUG_MODEL_FACTORY:
-            raise AssertionError(
-                f"Model {model_name} not found in MODEL_FACTORY or SINGLE_DRUG_MODEL_FACTORY. "
-                "Please add the model to the factory."
-            )
-        drug_id = name_split[1]
+    Run ``func(drug_id, *args)`` for every drug, e.g., to train a single drug model per drug.
 
-        return model_name, drug_id
+    The drugs are distributed over n_jobs processes. An error for one drug is raised for all.
+
+    :param func: function to run per drug, called as ``func(drug_id, *drug_args[drug_id])``
+    :param drug_args: {drug_id: arguments of func for this drug}, e.g., the output of split_by_drug
+    :param n_jobs: number of drugs to run in parallel
+    :returns: {drug_id: return value of func}
+    """
+    progress = {drug: f"{i + 1}/{len(drug_args)}" for i, drug in enumerate(drug_args)}
+    if n_jobs == 1:
+        return {drug: _run_drug(func, drug, progress[drug], *args) for drug, args in drug_args.items()}
+    with joblib.parallel_config(backend="loky", inner_max_num_threads=1):
+        results = joblib.Parallel(n_jobs=n_jobs)(
+            joblib.delayed(_single_threaded)(os.getcwd(), _run_drug, func, drug, progress[drug], *args)
+            for drug, args in drug_args.items()
+        )
+    return dict(zip(drug_args, results, strict=True))
 
 
 @pipeline_function

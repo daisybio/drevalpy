@@ -23,6 +23,7 @@ from ..utils import (
     prepare_proteomics,
     scale_gene_expression,
 )
+from .target_mutation import TargetMutationFeatures
 
 
 class SklearnModel(DRPModel):
@@ -32,7 +33,7 @@ class SklearnModel(DRPModel):
     drug_views = []
     #: Gene list used to subset gene_expression. Overridable via the "gene_list" hyperparameter.
     #: The default reproduces the previously hard-coded behaviour.
-    gene_list: str | None = "landmark_genes_reduced"
+    gene_list: str | None = "landmark_genes"
 
     def __init__(self):
         """
@@ -57,6 +58,9 @@ class SklearnModel(DRPModel):
         # methylation-specific defaults
         self.methylation_pca = None
         self.methylation_n_components = 100
+        # target mutation feature, initialized by _init_target_mutation if the hyperparameter target_mutation is set
+        self.use_target_mutation = False
+        self.target_mutation: TargetMutationFeatures | None = None
 
     @classmethod
     def get_model_name(cls) -> str:
@@ -87,6 +91,7 @@ class SklearnModel(DRPModel):
         # Kept in self.hyperparameters, so save()/load() carry it and predict() uses the same gene
         # space the model was trained on.
         self.gene_list = hyperparameters.get("gene_list", type(self).gene_list)
+        self.use_target_mutation = bool(hyperparameters.get("target_mutation", False))
 
         # proteomics features are not supported for all models
         if "proteomics" in self.cell_line_views:
@@ -108,6 +113,26 @@ class SklearnModel(DRPModel):
             normalization_width=self.proteomics_normalization_width,
         )
 
+    def _init_target_mutation(self, data_path: str, dataset_name: str) -> None:
+        """
+        Reads the tables of the target mutation feature, if the hyperparameter target_mutation is set.
+
+        The tables are looked up in <data_path>/meta/target_mutation, which can be changed with the hyperparameter
+        target_mutation_path. A model restored with load() already has them and keeps them.
+
+        :param data_path: Path to the data
+        :param dataset_name: Name of the dataset, its cell_line_names.csv maps cell line names to Cellosaurus IDs
+        """
+        if not self.use_target_mutation or self.target_mutation is not None:
+            return
+        self.target_mutation = TargetMutationFeatures.from_directory(
+            target_mutation_path=self.hyperparameters.get(
+                "target_mutation_path", os.path.join(data_path, "meta", "target_mutation")
+            ),
+            cell_line_names_path=os.path.join(data_path, dataset_name, "cell_line_names.csv"),
+            standardize=bool(self.hyperparameters.get("target_mutation_standardize", True)),
+        )
+
     def load_cell_line_features(self, data_path: str, dataset_name: str) -> FeatureDataset:
         """
         Loads the cell line features for a single-view sklearn model.
@@ -116,6 +141,7 @@ class SklearnModel(DRPModel):
         :param dataset_name: Name of the dataset
         :returns: FeatureDataset containing the cell line features
         """
+        self._init_target_mutation(data_path, dataset_name)
         return load_single_cell_line_view(
             self.cell_line_views, data_path, dataset_name, self.get_model_name(), gene_list=self.gene_list
         )
@@ -128,7 +154,50 @@ class SklearnModel(DRPModel):
         :param dataset_name: Name of the dataset
         :returns: FeatureDataset containing the drug features
         """
+        self._init_target_mutation(data_path, dataset_name)
         return load_single_drug_view(self.drug_views, data_path, dataset_name, self.get_model_name())
+
+    def get_concatenated_features(
+        self,
+        cell_line_view: str | None,
+        drug_view: str | None,
+        cell_line_ids_output: np.ndarray,
+        drug_ids_output: np.ndarray,
+        cell_line_input: FeatureDataset | None,
+        drug_input: FeatureDataset | None,
+    ) -> np.ndarray:
+        """
+        Concatenates the cell line and drug features and, if target_mutation is set, the target mutation block.
+
+        The block holds the mutation status of the gene the drug acts on (6 columns, see TargetMutationFeatures) and
+        is appended to the right of the cell line and drug features.
+
+        :param cell_line_view: gene expression, methylation, etc.
+        :param drug_view: ids, fingerprints, etc.
+        :param cell_line_ids_output: cell line ids
+        :param drug_ids_output: drug ids
+        :param cell_line_input: input associated with the cell line
+        :param drug_input: input associated with the drug
+        :returns: X, the feature matrix
+        :raises RuntimeError: if target_mutation is set, but the tables were not loaded
+        """
+        x = super().get_concatenated_features(
+            cell_line_view=cell_line_view,
+            drug_view=drug_view,
+            cell_line_ids_output=cell_line_ids_output,
+            drug_ids_output=drug_ids_output,
+            cell_line_input=cell_line_input,
+            drug_input=drug_input,
+        )
+        if not self.use_target_mutation:
+            return x
+        if self.target_mutation is None:
+            raise RuntimeError(
+                "target_mutation is set, but the tables are not loaded. "
+                "Call load_cell_line_features or load_drug_features first."
+            )
+        block = self.target_mutation.transform(cell_line_ids_output, drug_ids_output)
+        return np.concatenate((x, block.astype(x.dtype)), axis=1)
 
     def train(
         self,
@@ -149,6 +218,8 @@ class SklearnModel(DRPModel):
         :param model_checkpoint_dir: not needed
         """
         if len(output) > 0:
+            if self.target_mutation is not None:
+                self.target_mutation.fit(output.cell_line_ids, output.drug_ids)
             if "gene_expression" in self.cell_line_views:
                 cell_line_input = scale_gene_expression(
                     cell_line_input=cell_line_input,
@@ -242,6 +313,7 @@ class SklearnModel(DRPModel):
         - hyperparameters.json: dictionary of model hyperparameters (if present)
         - scaler.pkl: fitted gene expression scaler (if present)
         - proteomics_transformer.pkl: fitted proteomics transformer (if present)
+        - target_mutation.pkl: lookups and fitted standardization of the target mutation feature (if used)
 
         :param directory: path to the directory where model files will be stored
         :raises ValueError: if the model is not trained
@@ -257,6 +329,8 @@ class SklearnModel(DRPModel):
             joblib.dump(self.gene_expression_scaler, os.path.join(directory, "scaler.pkl"))
         if self.proteomics_transformer is not None:
             joblib.dump(self.proteomics_transformer, os.path.join(directory, "proteomics_transformer.pkl"))
+        if self.target_mutation is not None:
+            joblib.dump(self.target_mutation, os.path.join(directory, "target_mutation.pkl"))
 
     @classmethod
     def load(cls, directory: str) -> "SklearnModel":
@@ -268,6 +342,7 @@ class SklearnModel(DRPModel):
         - hyperparameters.json: model hyperparameters (optional)
         - scaler.pkl: gene expression scaler (optional)
         - proteomics_transformer.pkl: proteomics transformer (optional)
+        - target_mutation.pkl: target mutation feature (optional)
 
         :param directory: path to the directory where model files are stored
         :return: an instance of the model with restored state
@@ -292,6 +367,10 @@ class SklearnModel(DRPModel):
         transformer_path = os.path.join(directory, "proteomics_transformer.pkl")
         if os.path.exists(transformer_path):
             instance.proteomics_transformer = joblib.load(transformer_path)
+
+        target_mutation_path = os.path.join(directory, "target_mutation.pkl")
+        if os.path.exists(target_mutation_path):
+            instance.target_mutation = joblib.load(target_mutation_path)
 
         return instance
 
@@ -410,6 +489,9 @@ class GradientBoosting(SklearnModel):
             max_iter=self.hyperparameters.get("max_iter", 100),
             learning_rate=self.hyperparameters.get("learning_rate", 0.1),
             max_depth=self.hyperparameters.get("max_depth", 3),
+            validation_fraction=self.hyperparameters.get("validation_fraction", 0.1),
+            n_iter_no_change=self.hyperparameters.get("n_iter_no_change", 10),
+            random_state=self.hyperparameters.get("random_state", 42),
         )
 
 

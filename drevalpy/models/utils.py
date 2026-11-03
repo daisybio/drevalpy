@@ -216,7 +216,7 @@ def get_multiomics_feature_dataset(
     :param data_path: path to the data, e.g., data/
     :param dataset_name: name of the dataset, e.g., GDSC2
     :param gene_lists: dictionary of names of lists of genes to include, for each omics type,
-                e.g., {"gene_expression": "landmark_genes_reduced"}, if None, all features are not reduced
+                e.g., {"gene_expression": "landmark_genes"}, if None, all features are not reduced
     :param omics: list of omics to include, e.g., ["gene_expression", "methylation"]
     :returns: FeatureDataset with the multiomics features
     :raises ValueError: if no omics features are found
@@ -543,7 +543,7 @@ def load_single_cell_line_view(
     data_path: str,
     dataset_name: str,
     model_name: str,
-    gene_list: str | None = "landmark_genes_reduced",
+    gene_list: str | None = "landmark_genes",
 ) -> FeatureDataset:
     """
     Load cell line features for a single-view model.
@@ -664,3 +664,83 @@ def load_single_drug_view(
         return load_generic_csv(
             path=data_path, dataset_name=dataset_name, feature_name=drug_views[0], index_col=DRUG_IDENTIFIER
         )
+
+
+class MRMRSelector(BaseEstimator, TransformerMixin):
+    """
+    Supervised feature selection by greedy mRMR (minimum redundancy, maximum relevance).
+
+    Relevance is the F-statistic of the univariate linear fit of the response on a column; redundancy is the mean
+    absolute Pearson correlation to the columns chosen so far (floored at ``floor``). The next column maximizes
+    relevance divided by redundancy. Columns without variance have no relevance and are never chosen. If no
+    column has any relevance, all columns are kept.
+
+    Used as a step of an sklearn pipeline, the selection is fitted on the training rows only.
+    """
+
+    def __init__(self, k: int = 20, floor: float = 0.001):
+        """
+        Initializes the selector.
+
+        :param k: number of columns to select (capped at the number of columns)
+        :param floor: lower bound of the redundancy, avoids division by (almost) zero
+        """
+        self.k = k
+        self.floor = floor
+
+    def fit(self, X, y):  # noqa: N803
+        """
+        Selects the columns on the given rows.
+
+        :param X: feature matrix (rows x columns), finite
+        :param y: response vector of the same rows, finite
+        :returns: the fitted selector, ``selected_`` holds the column indices in selection order
+        :raises ValueError: if ``X`` or ``y`` contains non-finite values or ``k`` is smaller than one
+        """
+        x = np.asarray(X, dtype=np.float64)
+        y = np.asarray(y, dtype=np.float64)
+        if self.k < 1:
+            raise ValueError(f"k must be at least 1, not {self.k}.")
+        if not (np.isfinite(x).all() and np.isfinite(y).all()):
+            raise ValueError("mRMR needs finite values in X and y; remove missing responses first.")
+        n, p = x.shape
+        centered = x - x.mean(axis=0)
+        norm = np.sqrt((centered**2).sum(axis=0))
+        varies = norm > 0
+        y_centered = y - y.mean()
+        y_norm = np.sqrt((y_centered**2).sum())
+
+        r = np.zeros(p)
+        if y_norm > 0:
+            np.divide(centered.T @ y_centered, norm * y_norm, out=r, where=varies)
+        r2 = np.clip(r**2, 0.0, 1.0 - 1e-15)
+        relevance = np.where(varies, r2 / (1.0 - r2) * (n - 2), 0.0)
+
+        unit = np.zeros_like(centered)
+        np.divide(centered, norm, out=unit, where=varies)  # unit columns: correlation = dot product
+        candidates = [j for j in range(p) if relevance[j] > 0]
+        chosen: list[int] = []
+        redundancy_sum = np.zeros(p)
+        for _ in range(min(self.k, len(candidates))):
+            cand = np.array(candidates, dtype=int)
+            if chosen:
+                denominator = redundancy_sum[cand] / len(chosen)
+                denominator = np.where(denominator == 1.0, np.inf, denominator)
+                score = relevance[cand] / denominator
+            else:
+                score = relevance[cand]
+            best = int(cand[int(np.argmax(score))])
+            chosen.append(best)
+            candidates.remove(best)
+            redundancy_sum += np.maximum(np.abs(unit.T @ unit[:, best]), self.floor)
+        self.selected_ = np.array(chosen if chosen else range(p), dtype=int)
+        return self
+
+    def transform(self, X):  # noqa: N803
+        """
+        Keeps the selected columns.
+
+        :param X: feature matrix with the same columns as in ``fit``
+        :returns: matrix with the selected columns in selection order
+        """
+        return np.asarray(X)[:, self.selected_]

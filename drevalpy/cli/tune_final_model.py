@@ -21,7 +21,7 @@ def register(app: typer.Typer) -> None:
             str,
             typer.Option(
                 "--model_name",
-                help="Model name (model_name for global models, model_name.drug_name for single-drug models).",
+                help="Model name.",
             ),
         ],
         hpam_combi: Annotated[
@@ -38,6 +38,12 @@ def register(app: typer.Typer) -> None:
                 help="model checkpoint directory, if not provided: temporary directory is used",
             ),
         ] = "TEMPORARY",
+        n_jobs: Annotated[
+            int,
+            typer.Option(
+                "--n_jobs", help="Number of drugs a single drug model is trained for in parallel. Default: 1."
+            ),
+        ] = 1,
     ) -> None:
         """Find optimal hyperparameters for the final model on full data."""
         run_tune_final_model(
@@ -49,4 +55,5 @@ def register(app: typer.Typer) -> None:
             response_transformation=response_transformation,
             path_data=path_data,
             model_checkpoint_dir=model_checkpoint_dir,
+            n_jobs=n_jobs,
         )

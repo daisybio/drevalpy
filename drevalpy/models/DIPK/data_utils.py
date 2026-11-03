@@ -41,10 +41,10 @@ def load_bionic_features(data_path: str, dataset_name: str, gene_add_num: int = 
     dataset = pd.read_csv(ppi_path, index_col=0, sep="\t")
 
     # Ensure BIONIC dictionary uses gene names directly
-    bionic_gene_dict = {gene: dataset.loc[gene].values for gene in gene_list if gene in dataset.index}
+    bionic_gene_dict = {gene: dataset.loc[gene].to_numpy(dtype=float) for gene in gene_list if gene in dataset.index}
 
     # Compute BIONIC features
-    bionic_feature_dict = {}
+    bionic_feature_dict: dict[str, np.ndarray] = {}
     for cell_line, expressions in expression_dict.items():
         # Sort the selected genes based on descending expression values
         sorted_genes = sorted(
@@ -60,7 +60,7 @@ def load_bionic_features(data_path: str, dataset_name: str, gene_add_num: int = 
             # Handle case where no features are found (padding with zeros)
             aggregated_feature = np.zeros(next(iter(bionic_gene_dict.values())).shape)
 
-        bionic_feature_dict[cell_line] = aggregated_feature
+        bionic_feature_dict[str(cell_line)] = aggregated_feature
 
     feature_data = {cell_line: {"bionic_features": features} for cell_line, features in bionic_feature_dict.items()}
     return FeatureDataset(features=feature_data)

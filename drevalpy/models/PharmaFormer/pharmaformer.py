@@ -87,7 +87,7 @@ class PharmaFormerModel(DRPModel):
     drug_views = ["bpe_smiles"]
     early_stopping = True
     #: Gene list used to subset gene_expression. Overridable via the "gene_list" hyperparameter.
-    gene_list: str | None = "landmark_genes_reduced"
+    gene_list: str | None = "landmark_genes"
 
     def __init__(self) -> None:
         """Initialize the PharmaFormer model."""
@@ -114,7 +114,7 @@ class PharmaFormerModel(DRPModel):
         :param hyperparameters: Model hyperparameters including gene_hidden_size, drug_hidden_size,
             feature_dim, nhead, num_layers, dim_feedforward, dropout, batch_size, lr, epochs, patience.
             "gene_list" (str | None) is the gene list used to subset gene_expression; None loads all genes.
-            Optional, defaults to landmark_genes_reduced.
+            Optional, defaults to landmark_genes.
         """
         # Log hyperparameters to wandb if enabled
         self.log_hyperparameters(hyperparameters)

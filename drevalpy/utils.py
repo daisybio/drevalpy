@@ -184,6 +184,7 @@ def main(args) -> None:
             wandb_project=args.wandb_project,
             custom_splitter=getattr(args, "custom_splitter_path", None),
             custom_split_name=getattr(args, "custom_split_name", None),
+            n_jobs=getattr(args, "n_jobs", 1),
         )
 
 

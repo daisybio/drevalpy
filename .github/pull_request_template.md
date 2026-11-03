@@ -5,6 +5,7 @@
 <!-- Please fill in the appropriate checklist below (delete whatever is not relevant). These are the most common things requested on pull requests (PRs). -->
 
 - [ ] This comment contains a description of changes (with reason)
+- [ ] This comment contains a human-written summary of the changes (not AI-generated)
 - [ ] Referenced issue is linked
 - [ ] If you've fixed a bug or added code that should be tested, add tests!
 - [ ] Documentation in `docs` is updated. If you've created a new file, add it to the API documentation pages.

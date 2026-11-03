@@ -314,8 +314,7 @@ def _critical_difference_diagram(
     ypos = -0.5
     for alg in ranks.index:
         bar = crossbar_sets[alg]
-        not_different = crossbar_sets[alg]
-        if len(not_different) == 1:
+        if len(bar) == 1:
             continue
         crossbar_levels.append([bar])
 
@@ -324,7 +323,7 @@ def _critical_difference_diagram(
             ax.plot(
                 # Adding a separate line between each pair enables showing a
                 # marker over each elbow with crossbar_props={'marker': 'o'}.
-                [ranks[i] for i in bar],
+                [ranks[str(i)] for i in bar],
                 [ypos] * len(bar),
                 **crossbar_props,
             )

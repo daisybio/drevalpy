@@ -29,6 +29,7 @@ from drevalpy.models.drp_model import DRPModel
         "Precily",
         "SparseGO",
         "EnsembleMF",
+        "RandomForestAEMolGNet",
     ],
 )
 def test_global_models(
@@ -69,6 +70,8 @@ def test_global_models(
         hpam_combi["epochs"] = 1
         hpam_combi["epochs_autoencoder"] = 1
         hpam_combi["heads"] = 1
+    elif model_name == "RandomForestAEMolGNet":
+        hpam_combi["epochs_autoencoder"] = 1
     elif model_name in ["SimpleNeuralNetwork", "MultiViewNeuralNetwork"]:
         hpam_combi["units_per_layer"] = [2, 2]
         hpam_combi["max_epochs"] = 1
@@ -102,11 +105,6 @@ def test_global_models(
         hpam_combi["min_samples_split"] = 2
         hpam_combi["min_samples_leaf"] = 2
         hpam_combi["n_estimators"] = 2
-    # the toy bundle ships only the reduced landmark gene list
-    if hpam_combi.get("gene_list") == "landmark_genes":
-        hpam_combi["gene_list"] = "landmark_genes_reduced"
-    if "view_configs" in hpam_combi:
-        hpam_combi["view_configs"]["gene_lists"]["gene_expression"] = "landmark_genes_reduced"
     model.build_model(hyperparameters=hpam_combi)
 
     cell_line_input = model.load_cell_line_features(data_path=str(data_dir), dataset_name="TOYv1")

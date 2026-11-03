@@ -467,11 +467,6 @@ def _call_other_baselines(model: str, train_dataset: DrugResponseDataset, val_da
             hpam_combi["n_neighbors"] = 3
             hpam_combi["weights"] = "distance"
             hpam_combi["variance"] = 0.75
-        # the toy bundle ships only the reduced landmark gene list
-        if hpam_combi.get("gene_list") == "landmark_genes":
-            hpam_combi["gene_list"] = "landmark_genes_reduced"
-        if "view_configs" in hpam_combi:
-            hpam_combi["view_configs"]["gene_lists"]["gene_expression"] = "landmark_genes_reduced"
         model_instance.build_model(hpam_combi)
 
         train_dataset, val_dataset, cell_line_input, drug_input = _subset_dataset(

@@ -38,7 +38,7 @@ class ComparisonScatter(OutPlot):
         :param algorithm: used to distinguish between per-algorithm plots and per-test_mode plots (all models then).
         """
         exclude_models = (
-            {"NaiveDrugMeanPredictor"}.union({model for model in SINGLE_DRUG_MODEL_FACTORY.keys()})
+            {"NaiveDrugMeanPredictor"}.union({*SINGLE_DRUG_MODEL_FACTORY.keys()})
             if color_by == "drug"
             else {"NaiveCellLineMeanPredictor"}
         )

@@ -38,6 +38,7 @@ class DrugResponseDataset:
     _response: np.ndarray
     _cell_line_ids: np.ndarray
     _tissues: np.ndarray | None = None
+    _regulation: np.ndarray | None = None
     _drug_ids: np.ndarray
     _predictions: np.ndarray | None = None
     _cv_splits: list[dict[str, "DrugResponseDataset"]]
@@ -52,6 +53,7 @@ class DrugResponseDataset:
         tissues: np.ndarray | None = None,
         predictions: np.ndarray | None = None,
         dataset_name: str = "unnamed",
+        regulation: np.ndarray | None = None,
     ) -> None:
         """
         Initializes the drug response dataset.
@@ -62,6 +64,7 @@ class DrugResponseDataset:
         :param tissues: Optionally, tissue types of the cell lines for leave-tissue-out cv
         :param predictions: optional. Predicted drug response values per cell line and drug
         :param dataset_name: optional. Name of the dataset, default: "unnamed"
+        :param regulation: optional. CurveCurator curve regulation per row ('down', 'not', 'up' or 'NA')
         :raises AssertionError: If response, cell_line_ids, drug_ids, (and the optional predictions) do not all have
             the same length.
         """
@@ -82,6 +85,13 @@ class DrugResponseDataset:
             self._tissues = np.array(tissues).astype(str)
         else:
             self._tissues = None
+        if regulation is not None:
+            reg = np.asarray(regulation)
+            if reg.dtype.kind != "U":  # already normalized, e.g. when copy() re-runs the constructor
+                reg = pd.Series(reg).fillna("NA").to_numpy(dtype=str)
+            self._regulation = reg
+        else:
+            self._regulation = None
 
     @pipeline_function
     @classmethod
@@ -132,6 +142,7 @@ class DrugResponseDataset:
             predictions=predictions,
             dataset_name=dataset_name,
             tissues=data[tissue_column].values.astype(str) if tissue_column in data.columns else None,
+            regulation=data["Regulation"].values if "Regulation" in data.columns else None,
         )
 
     @property
@@ -178,6 +189,15 @@ class DrugResponseDataset:
         :returns: numpy array containing tissue types or None.
         """
         return self._tissues
+
+    @property
+    def regulation(self) -> np.ndarray | None:
+        """
+        Returns the CurveCurator curve regulation ('down', 'not', 'up' or 'NA') if it exists.
+
+        :returns: numpy array containing the regulation or None.
+        """
+        return self._regulation
 
     @property
     def cv_splits(self) -> list[dict[str, "DrugResponseDataset"]]:
@@ -238,6 +258,8 @@ class DrugResponseDataset:
             data["predictions"] = self.predictions
         if self.tissue is not None:
             data["tissue"] = self.tissue
+        if self.regulation is not None:
+            data["Regulation"] = self.regulation
 
         return pd.DataFrame(data)
 
@@ -262,6 +284,9 @@ class DrugResponseDataset:
 
         if self.tissue is not None and other.tissue is not None:
             self._tissues = np.concatenate([self.tissue, other.tissue])
+
+        if self.regulation is not None and other.regulation is not None:
+            self._regulation = np.concatenate([self.regulation, other.regulation])
 
         if self.predictions is not None and other.predictions is not None:
             self._predictions = np.concatenate([self._predictions, other.predictions])
@@ -289,6 +314,8 @@ class DrugResponseDataset:
             self._predictions = self.predictions[indices]
         if self.tissue is not None:
             self._tissues = self.tissue[indices]
+        if self.regulation is not None:
+            self._regulation = self.regulation[indices]
 
     def _remove_drugs(self, drugs_to_remove: str | list[str]) -> None:
         """
@@ -376,6 +403,7 @@ class DrugResponseDataset:
                 cell_line_ids=self.cell_line_ids,
                 drug_ids=self.drug_ids,
                 tissues=self.tissue,
+                regulation=self.regulation,
                 split_validation=split_validation,
                 validation_ratio=validation_ratio,
                 random_state=random_state,
@@ -402,6 +430,7 @@ class DrugResponseDataset:
                 cell_line_ids=self.cell_line_ids,
                 drug_ids=self.drug_ids,
                 tissues=self.tissue,
+                regulation=self.regulation,
                 split_validation=split_validation,
                 validation_ratio=validation_ratio,
                 random_state=random_state,
@@ -499,6 +528,7 @@ class DrugResponseDataset:
             predictions=copy.deepcopy(self.predictions),
             tissues=copy.deepcopy(self.tissue),
             dataset_name=self.dataset_name,
+            regulation=copy.deepcopy(self.regulation),
         )
 
     def __hash__(self) -> int:
@@ -514,6 +544,7 @@ class DrugResponseDataset:
                 tuple(self.response),
                 (tuple(self.predictions) if self.predictions is not None else None),
                 (tuple(self.tissue) if self.tissue is not None else None),
+                (tuple(self.regulation) if self.regulation is not None else None),
             )
         )
 
@@ -534,6 +565,8 @@ class DrugResponseDataset:
             self._predictions = self.predictions[mask]
         if self.tissue is not None:
             self._tissues = self.tissue[mask]
+        if self.regulation is not None:
+            self._regulation = self.regulation[mask]
 
     def _transformation_kwargs(self, response_transformation: TransformerMixin) -> dict:
         """
@@ -645,6 +678,7 @@ def _leave_pair_out_cv(
     cell_line_ids: np.ndarray,
     drug_ids: np.ndarray,
     tissues: np.ndarray | None = None,
+    regulation: np.ndarray | None = None,
     split_validation: bool = True,
     validation_ratio: float = 0.1,
     random_state: int = 42,
@@ -658,6 +692,7 @@ def _leave_pair_out_cv(
     :param cell_line_ids: cell line IDs
     :param drug_ids: drug IDs
     :param tissues: tissue types of the cell line, if available
+    :param regulation: CurveCurator curve regulation, if available
     :param split_validation: whether to split the training set into training and validation set
     :param validation_ratio: ratio of validation set (of the training set)
     :param random_state: random state
@@ -675,6 +710,8 @@ def _leave_pair_out_cv(
     drug_ids = drug_ids[shuffled_indices].copy()
     if tissues is not None:
         tissues = tissues[shuffled_indices].copy()
+    if regulation is not None:
+        regulation = regulation[shuffled_indices].copy()
 
     # We use GroupKFold to ensure that each pair is only in one fold (prevent data leakage due to
     # experimental replicates).
@@ -698,6 +735,7 @@ def _leave_pair_out_cv(
                 drug_ids=drug_ids[train_indices],
                 response=response[train_indices],
                 tissues=tissues[train_indices] if tissues is not None else None,
+                regulation=regulation[train_indices] if regulation is not None else None,
                 dataset_name=dataset_name,
             ),
             "test": DrugResponseDataset(
@@ -705,6 +743,7 @@ def _leave_pair_out_cv(
                 drug_ids=drug_ids[test_indices],
                 response=response[test_indices],
                 tissues=tissues[test_indices] if tissues is not None else None,
+                regulation=regulation[test_indices] if regulation is not None else None,
                 dataset_name=dataset_name,
             ),
         }
@@ -715,6 +754,7 @@ def _leave_pair_out_cv(
                 drug_ids=drug_ids[validation_indices],
                 response=response[validation_indices],
                 tissues=tissues[validation_indices] if tissues is not None else None,
+                regulation=regulation[validation_indices] if regulation is not None else None,
                 dataset_name=dataset_name,
             )
 
@@ -729,6 +769,7 @@ def _leave_group_out_cv(
     cell_line_ids: np.ndarray,
     drug_ids: np.ndarray,
     tissues: np.ndarray | None = None,
+    regulation: np.ndarray | None = None,
     split_validation: bool = True,
     validation_ratio: float = 0.1,
     random_state: int = 42,
@@ -743,6 +784,7 @@ def _leave_group_out_cv(
     :param cell_line_ids: cell line IDs
     :param drug_ids: drug IDs
     :param tissues: tissue types of the cell line, if available (required for LTO)
+    :param regulation: CurveCurator curve regulation, if available
     :param split_validation: whether to split the training set into training and validation set
     :param validation_ratio: ratio of validation set (of the training set)
     :param random_state: random state
@@ -773,6 +815,7 @@ def _leave_group_out_cv(
     cell_line_ids = cell_line_ids[shuffled_indices].copy()
     drug_ids = drug_ids[shuffled_indices].copy()
     tissues = tissues[shuffled_indices].copy() if tissues is not None else None
+    regulation = regulation[shuffled_indices].copy() if regulation is not None else None
     group_ids = group_ids[shuffled_indices].copy()
     gkf = GroupKFold(n_splits=n_cv_splits)
     cv_sets = []
@@ -784,6 +827,7 @@ def _leave_group_out_cv(
                 drug_ids=drug_ids[train_indices],
                 response=response[train_indices],
                 tissues=tissues[train_indices] if tissues is not None else None,
+                regulation=regulation[train_indices] if regulation is not None else None,
                 dataset_name=dataset_name,
             ),
             "test": DrugResponseDataset(
@@ -791,6 +835,7 @@ def _leave_group_out_cv(
                 drug_ids=drug_ids[test_indices],
                 response=response[test_indices],
                 tissues=tissues[test_indices] if tissues is not None else None,
+                regulation=regulation[test_indices] if regulation is not None else None,
                 dataset_name=dataset_name,
             ),
         }
@@ -812,6 +857,7 @@ def _leave_group_out_cv(
                 drug_ids=drug_ids[train_indices],
                 response=response[train_indices],
                 tissues=tissues[train_indices] if tissues is not None else None,
+                regulation=regulation[train_indices] if regulation is not None else None,
                 dataset_name=dataset_name,
             )
             cv_fold["validation"] = DrugResponseDataset(
@@ -819,6 +865,7 @@ def _leave_group_out_cv(
                 drug_ids=drug_ids[validation_indices],
                 response=response[validation_indices],
                 tissues=tissues[validation_indices] if tissues is not None else None,
+                regulation=regulation[validation_indices] if regulation is not None else None,
                 dataset_name=dataset_name,
             )
 

@@ -6,6 +6,7 @@ Code adapted from: Hauptmann et al. (2023, 10.1186/s12859-023-05166-7),
 https://github.com/kramerlab/Multi-Omics_analysis
 """
 
+import multiprocessing
 import os
 import secrets
 
@@ -166,13 +167,18 @@ def create_dataset_and_loaders(
     :param output_earlystopping: early stopping dataset
     :returns: training and validation data loaders
     """
+    # in a worker process (e.g., of run_per_drug), loading in the worker itself avoids nested processes, which also
+    # fail there because loky cannot start plain multiprocessing processes
+    in_worker = multiprocessing.parent_process() is not None
+    train_workers = 0 if in_worker else 1 if os.name == "nt" else 4  # multiprocessing on Windows is not supported
+    val_workers = 0 if in_worker else 1
     train_dataset = RegressionDataset(output_train, cell_line_input)
     train_loader = DataLoader(
         train_dataset,
         batch_size=batch_size,
         shuffle=False,
-        num_workers=1 if os.name == "nt" else 4,  # multiprocessing on Windows is not supported
-        persistent_workers=True,
+        num_workers=train_workers,
+        persistent_workers=train_workers > 0,
         drop_last=True,  # avoids batch norm errors if last batch < batch_size
     )
 
@@ -186,8 +192,8 @@ def create_dataset_and_loaders(
             val_dataset,
             batch_size=batch_size,
             shuffle=False,
-            num_workers=1,
-            persistent_workers=True,
+            num_workers=val_workers,
+            persistent_workers=val_workers > 0,
         )
     return train_loader, val_loader
 
@@ -425,12 +431,14 @@ class MOLIModel(RegressionMetricsMixin, pl.LightningModule):
         # Initialize the Lightning trainer
         trainer = pl.Trainer(
             max_epochs=self.epochs,
-            logger=loggers if loggers else True,  # Use default logger if no wandb
+            # no default logger: parallel drugs would race for the same lightning_logs/version_N directory
+            logger=loggers if loggers else False,
             callbacks=[
                 early_stop_callback,
                 self.checkpoint_callback,
                 TQDMProgressBar(refresh_rate=0),
             ],
+            accelerator="cpu",  # the model is too small to profit from a GPU
             devices=1,
             enable_model_summary=False,
         )
