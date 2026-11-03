@@ -7,7 +7,9 @@ import dataclasses
 import numpy as np
 import pytest
 
+from drevalpy.data import synthetic
 from drevalpy.types.data.batch.response_batch import ResponseBatch
+from drevalpy.types.data.pair_mask import PairMask
 
 
 @pytest.fixture()
@@ -86,5 +88,45 @@ class TestImmutability:
 
     def test_slots_replace_the_instance_dict(self, batch: ResponseBatch):
         """``slots=True`` keeps these per-pair containers cheap to allocate."""
-        assert ResponseBatch.__slots__ == ("response", "sample_ids", "drug_ids")
+        assert ResponseBatch.__slots__ == ("response", "sample_ids", "drug_ids", "layers")
         assert not hasattr(batch, "__dict__")
+
+
+class TestLayers:
+    def test_a_batch_has_no_layers_by_default(self, batch: ResponseBatch):
+        assert dict(batch.layers) == {}
+
+    def test_a_layer_needs_one_value_per_pair(self):
+        with pytest.raises(ValueError, match="regulation"):
+            ResponseBatch(
+                np.array([1.0, 2.0]), np.array(["s1", "s2"]), np.array(["d1", "d2"]), {"regulation": np.zeros(3)}
+            )
+
+    def test_subset_keeps_the_layers_aligned(self):
+        batch = ResponseBatch(
+            np.array([1.0, 2.0, 3.0]),
+            np.array(["s1", "s2", "s3"]),
+            np.array(["d1", "d1", "d1"]),
+            {"regulation": np.array([-1.0, 0.0, 1.0])},
+        )
+
+        assert batch.subset(np.array([True, False, True])).layers["regulation"].tolist() == [-1.0, 1.0]
+
+    def test_from_dataset_reads_a_layer_at_the_observed_pairs_of_a_shuffled_scope(self):
+        dataset = synthetic(n_samples=6, n_drugs=3, seed=1)
+        scope = PairMask(np.ones(dataset.response_matrix.shape, dtype=bool), pair_seed=3)
+
+        batch = ResponseBatch.from_dataset(dataset, scope, observed_only=True, layers=("regulation",))
+
+        pairs = scope.pairs[~np.isnan(dataset.response_matrix[scope.pairs[:, 0], scope.pairs[:, 1]])]
+        expected = dataset.get_response_layer("regulation")[pairs[:, 0], pairs[:, 1]]
+        np.testing.assert_array_equal(batch.layers["regulation"], expected)
+        assert len(batch.layers["regulation"]) == len(batch)
+
+    def test_from_dataset_leaves_out_a_layer_the_dataset_lacks(self):
+        dataset = synthetic(n_samples=4, n_drugs=2, seed=1)
+        scope = PairMask(np.ones(dataset.response_matrix.shape, dtype=bool))
+
+        batch = ResponseBatch.from_dataset(dataset, scope, layers=("no_such_layer",))
+
+        assert dict(batch.layers) == {}

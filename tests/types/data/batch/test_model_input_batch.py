@@ -174,3 +174,47 @@ class TestSubsetPairs:
     def test_rejects_a_mask_of_the_wrong_length(self) -> None:
         with pytest.raises(ValueError, match="matching n_pairs"):
             _batch().subset_pairs(np.array([True]))
+
+
+class TestResponseLayers:
+    def test_from_response_carries_the_response_layers(self) -> None:
+        response = ResponseBatch(
+            np.array([1.0, 2.0]),
+            np.array(["cl1", "cl2"]),
+            np.array(["d1", "d2"]),
+            {"regulation": np.array([-1.0, 0.0])},
+        )
+
+        batch = ModelInputBatch.from_response(response, sample=_entity_result())
+
+        assert batch.response_layers["regulation"].tolist() == [-1.0, 0.0]
+
+    def test_a_batch_has_no_response_layers_by_default(self) -> None:
+        assert dict(_batch().response_layers) == {}
+
+    def test_subset_pairs_keeps_the_response_layers_aligned(self) -> None:
+        batch = ModelInputBatch.from_response(
+            ResponseBatch(
+                np.array([1.0, 2.0]),
+                np.array(["cl1", "cl2"]),
+                np.array(["d1", "d2"]),
+                {"regulation": np.array([-1.0, 1.0])},
+            ),
+            sample=_entity_result(),
+        )
+
+        assert batch.subset_pairs(np.array([False, True])).response_layers["regulation"].tolist() == [1.0]
+
+    def test_a_response_layer_needs_one_value_per_pair(self) -> None:
+        batch = _batch()
+        with pytest.raises(ValueError, match="regulation"):
+            ModelInputBatch(
+                batch.sample_ids,
+                batch.drug_ids,
+                batch.response,
+                batch.sample,
+                batch.drug,
+                batch.sample_pair_idx,
+                batch.drug_pair_idx,
+                response_layers={"regulation": np.zeros(3)},
+            )

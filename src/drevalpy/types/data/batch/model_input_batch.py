@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 
 import numpy as np
@@ -30,7 +31,11 @@ def _validate_pair_indices(
 
 @dataclass
 class ModelInputBatch:
-    """Response pairs indexed into canonical per-side featurizer results."""
+    """Response pairs indexed into canonical per-side featurizer results.
+
+    ``response_layers`` holds the training-time response layers a predictor declares
+    in ``Predictor.response_layers``, one value per pair; it is empty at prediction.
+    """
 
     sample_ids: np.ndarray
     drug_ids: np.ndarray
@@ -41,6 +46,7 @@ class ModelInputBatch:
     drug_pair_idx: np.ndarray | None
     early_stopping_response: ResponseBatch | None = None
     training_context: TrainingContext = field(default_factory=TrainingContext)
+    response_layers: Mapping[str, np.ndarray] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         """Validate pair lengths and indices against canonical entity tables."""
@@ -49,6 +55,9 @@ class ModelInputBatch:
             value = getattr(self, name)
             if value is not None and (np.asarray(value).ndim != 1 or len(value) != n):
                 raise ValueError(f"{name} must be one-dimensional with n_pairs ({n}) entries")
+        for name, values in self.response_layers.items():
+            if np.ndim(values) != 1 or len(values) != n:
+                raise ValueError(f"Response layer {name!r} must be one-dimensional with n_pairs ({n}) entries")
         if self.response is not None:
             self.response = np.asarray(self.response, dtype=np.float64)
         for side, table, indices in (
@@ -74,7 +83,7 @@ class ModelInputBatch:
     ) -> ModelInputBatch:
         """Index response pairs into already computed entity-level results.
 
-        :param response: Requested pairs and optional targets.
+        :param response: Requested pairs and optional targets; its ``layers`` become ``response_layers``.
         :param sample: Canonical sample features.
         :param drug: Optional canonical drug features.
         :param early_stopping_response: Optional disjoint stopping pairs.
@@ -91,6 +100,7 @@ class ModelInputBatch:
             None if drug is None else drug.rows_for(response.drug_ids),
             early_stopping_response,
             training_context or TrainingContext(),
+            response.layers,
         )
 
     def to_feature_matrix(self) -> np.ndarray:
@@ -133,4 +143,5 @@ class ModelInputBatch:
             sample_pair_idx=self.sample_pair_idx[mask],
             drug_pair_idx=None if self.drug_pair_idx is None else self.drug_pair_idx[mask],
             early_stopping_response=stopping,
+            response_layers={name: values[mask] for name, values in self.response_layers.items()},
         )
