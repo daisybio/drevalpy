@@ -106,7 +106,7 @@ from drevalpy.registry.featurizer import names_for_side
 from drevalpy.registry.predictor import predictor_registry
 assert len(names_for_side("sample")) == 18
 assert len(names_for_side("drug")) == 12
-assert len(predictor_registry) == 30
+assert len(predictor_registry) == 31
 print("ok")
 """
     completed = run_trusted_python(script)
