@@ -44,6 +44,7 @@ SUPPORTED_SINGLE_DRUG_MODELS: Final = (
     "SingleDrugElasticNet[gex]",
     "SingleDrugElasticNet[proteomics]",
     "SingleDrugKNN",
+    "SingleDrugMorgoth",
     "MOLIR",
     "SuperFELTR",
 )
