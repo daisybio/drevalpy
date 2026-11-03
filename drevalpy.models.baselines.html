@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Implemented baselines &mdash; DrEvalPy 1.6.0 documentation</title>
+  <title>Implemented baselines &mdash; DrEvalPy 1.7.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
       <link rel="stylesheet" type="text/css" href="_static/custom_cookietemple.css?v=8d02248d" />
@@ -14,7 +14,7 @@
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=72d88caf"></script>
+      <script src="_static/documentation_options.js?v=030dc6f6"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
@@ -65,6 +65,7 @@
 <li class="toctree-l5"><a class="reference internal" href="drevalpy.models.DrugGNN.html">DrugGNN</a></li>
 <li class="toctree-l5"><a class="reference internal" href="drevalpy.models.EnsembleMF.html">EnsembleMF</a></li>
 <li class="toctree-l5"><a class="reference internal" href="drevalpy.models.MOLIR.html">MOLIR</a></li>
+<li class="toctree-l5"><a class="reference internal" href="drevalpy.models.Morgoth.html">MORGOTH</a></li>
 <li class="toctree-l5"><a class="reference internal" href="drevalpy.models.PaccMann.html">PaccMann</a></li>
 <li class="toctree-l5"><a class="reference internal" href="drevalpy.models.PharmaFormer.html">PharmaFormer</a></li>
 <li class="toctree-l5"><a class="reference internal" href="drevalpy.models.Precily.html">Precily</a></li>
@@ -80,6 +81,7 @@
 <li class="toctree-l6"><a class="reference internal" href="#multi-view-random-forest">Multi-View Random Forest</a></li>
 <li class="toctree-l6"><a class="reference internal" href="#multi-view-xgboost">Multi-View XGBoost</a></li>
 <li class="toctree-l6"><a class="reference internal" href="#multi-view-lightgbm">Multi-View LightGBM</a></li>
+<li class="toctree-l6"><a class="reference internal" href="#random-forest-on-dipk-s-features">Random Forest on DIPK’s features</a></li>
 </ul>
 </li>
 </ul>
@@ -223,6 +225,192 @@ preprocessing transformer:</p>
 <li><p><code class="docutils literal notranslate"><span class="pre">proteomics_normalization_downshift</span></code> (default: 1.8): downshift parameter for median-center normalization</p></li>
 </ul>
 </section>
+<section id="mutation-status-of-the-target-gene">
+<h3>Mutation status of the target gene<a class="headerlink" href="#mutation-status-of-the-target-gene" title="Link to this heading"></a></h3>
+<p>The sklearn models can append the mutation status of the gene a drug acts on. The feature depends on the pair of
+cell line and drug (BRAF for dabrafenib, PIK3CA for alpelisib), so it is built in <code class="docutils literal notranslate"><span class="pre">get_concatenated_features</span></code>
+and is not a cell line or a drug view. It is switched on with the hyperparameter <code class="docutils literal notranslate"><span class="pre">target_mutation</span></code>:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">RandomForest</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">target_mutation</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">  </span><span class="l l-Scalar l-Scalar-Plain">...</span>
+</pre></div>
+</div>
+<p>The block has 6 columns, appended to the right of the other features: a one-hot encoding of the status
+(<code class="docutils literal notranslate"><span class="pre">activating</span></code>, <code class="docutils literal notranslate"><span class="pre">LoF</span></code>, <code class="docutils literal notranslate"><span class="pre">other</span></code>, <code class="docutils literal notranslate"><span class="pre">wildtype</span></code>, <code class="docutils literal notranslate"><span class="pre">missing</span></code>) and <code class="docutils literal notranslate"><span class="pre">target_sensitizing</span></code>, which is 1 if the status
+equals the status that makes cells sensitive to the drug. Drugs without an entry get only zeros, and a cell line
+that is not in the status table gets <code class="docutils literal notranslate"><span class="pre">missing</span></code>. It needs two tables in <code class="docutils literal notranslate"><span class="pre">&lt;data_path&gt;/meta/target_mutation/</span></code>
+(another directory can be set with <code class="docutils literal notranslate"><span class="pre">target_mutation_path</span></code>):</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">curated_drug_target_variant.csv</span></code>: <code class="docutils literal notranslate"><span class="pre">pubchem_id</span></code>, <code class="docutils literal notranslate"><span class="pre">biomarker_gene</span></code> and <code class="docutils literal notranslate"><span class="pre">sensitive_status</span></code> per drug.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">functional_status_matrix.csv</span></code>: <code class="docutils literal notranslate"><span class="pre">cellosaurus_id</span></code>, <code class="docutils literal notranslate"><span class="pre">gene</span></code> and <code class="docutils literal notranslate"><span class="pre">status</span></code> per cell line and gene.</p></li>
+</ul>
+<p>Cell lines are matched through the <code class="docutils literal notranslate"><span class="pre">cell_line_names.csv</span></code> of the dataset. The block is standardized with the mean and
+standard deviation of the training rows, which linear models with a penalty need. Set
+<code class="docutils literal notranslate"><span class="pre">target_mutation_standardize:</span> <span class="pre">false</span></code> to switch it off.</p>
+<p>Where the tables come from. All scripts are in <code class="docutils literal notranslate"><span class="pre">drevalpy/datasets/featurizer/</span></code> and write to
+<code class="docutils literal notranslate"><span class="pre">&lt;data_path&gt;/meta/target_mutation/</span></code>. Run them in this order (<code class="docutils literal notranslate"><span class="pre">--data_path</span></code> defaults to <code class="docutils literal notranslate"><span class="pre">data</span></code>):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>drevalpy.datasets.featurizer.create_target_mutation_status<span class="w"> </span>--data_path<span class="w"> </span>data
+python<span class="w"> </span>-m<span class="w"> </span>drevalpy.datasets.featurizer.create_curated_drug_target_table<span class="w"> </span>--data_path<span class="w"> </span>data
+python<span class="w"> </span>-m<span class="w"> </span>drevalpy.datasets.featurizer.check_curated_drug_target_table<span class="w"> </span>--data_path<span class="w"> </span>data<span class="w">  </span><span class="c1"># optional</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">functional_status_matrix.csv</span></code> is built from the DepMap 24Q4 files <code class="docutils literal notranslate"><span class="pre">OmicsSomaticMutations.csv</span></code> and <code class="docutils literal notranslate"><span class="pre">Model.csv</span></code> by
+<code class="docutils literal notranslate"><span class="pre">drevalpy/datasets/featurizer/create_target_mutation_status.py</span></code>, which also downloads them from figshare (md5
+checked). Per variant and gene the status is <code class="docutils literal notranslate"><span class="pre">activating</span></code> (hotspot or oncogene high impact), <code class="docutils literal notranslate"><span class="pre">LoF</span></code> (truncating
+variant; for the tumour suppressors TP53, PTEN and NF1 also hotspots), <code class="docutils literal notranslate"><span class="pre">other</span></code> or <code class="docutils literal notranslate"><span class="pre">wildtype</span></code>. An oncogene counts as
+<code class="docutils literal notranslate"><span class="pre">LoF</span></code> only if all its variants are truncating. <code class="docutils literal notranslate"><span class="pre">PI3K_AKT</span></code> and <code class="docutils literal notranslate"><span class="pre">RAS_MAPK</span></code> are aggregates of their components.
+A splice variant without protein change is not recognized as truncating, so it can stay <code class="docutils literal notranslate"><span class="pre">activating</span></code>.
+Without arguments the script uses every <code class="docutils literal notranslate"><span class="pre">&lt;data_path&gt;/*/cell_line_names.csv</span></code> and <code class="docutils literal notranslate"><span class="pre">mutations.csv</span></code>, so the matrix
+covers all datasets in <code class="docutils literal notranslate"><span class="pre">data_path</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">curated_drug_target_variant.csv</span></code> is built by <code class="docutils literal notranslate"><span class="pre">drevalpy/datasets/featurizer/create_curated_drug_target_table.py</span></code>
+from the seed table <code class="docutils literal notranslate"><span class="pre">target_mutation_seed.csv</span></code> (next bullet). It does not read any response data, so the table is
+the same for every dataset and the evaluation does not depend on how it was curated. The seed can hold several
+biomarker genes per drug, the model uses one, so the script keeps exactly one row per drug. Candidates are the rows
+whose gene the status matrix can represent; drivers that are fusions or amplifications (ALK, MET, ERBB2, FGFR1,
+FGFR4) and genes outside the matrix are dropped. Among the candidates the row with the best CIViC <code class="docutils literal notranslate"><span class="pre">evidence_level</span></code>
+wins (A before E, rules without a level last), then the one with the most <code class="docutils literal notranslate"><span class="pre">n_evidence_items</span></code>, then the first in the
+seed. The script also writes <code class="docutils literal notranslate"><span class="pre">curated_drug_target_report.csv</span></code> with the outcome per seed row (<code class="docutils literal notranslate"><span class="pre">kept</span></code>, <code class="docutils literal notranslate"><span class="pre">other</span> <span class="pre">row</span>
+<span class="pre">of</span> <span class="pre">the</span> <span class="pre">drug</span> <span class="pre">selected</span></code>, <code class="docutils literal notranslate"><span class="pre">not</span> <span class="pre">representable</span> <span class="pre">(fusion</span> <span class="pre">or</span> <span class="pre">amplification)</span></code> or <code class="docutils literal notranslate"><span class="pre">gene</span> <span class="pre">not</span> <span class="pre">in</span> <span class="pre">the</span> <span class="pre">status</span> <span class="pre">matrix</span></code>) and
+checks the status values. If the seed file given with <code class="docutils literal notranslate"><span class="pre">--seed</span></code> (default: <code class="docutils literal notranslate"><span class="pre">&lt;data_path&gt;/meta/target_mutation/target_mutation_seed.csv</span></code>) does not exist, the
+script builds it first with <code class="docutils literal notranslate"><span class="pre">create_target_mutation_seed.py</span></code> (internet needed, about 15 minutes).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">target_mutation_seed.csv</span></code> (not part of the repository, it is published on Zenodo) links each drug to a biomarker gene and the alteration state associated with
+sensitivity. It is derived from public databases by <code class="docutils literal notranslate"><span class="pre">create_target_mutation_seed.py</span></code>, see
+<a class="reference internal" href="#target-mutation-seed"><span class="std std-ref">Creating the seed table</span></a> below. Drugs that a dataset lists under a code name and that have no entry in the
+databases get no row and therefore only zeros in the block.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">check_curated_drug_target_table.py</span></code> is an optional diagnostic. For every drug it compares the AUC of the
+sensitizing group with all other cell lines (Cohen d, Mann-Whitney) in the given datasets and writes
+<code class="docutils literal notranslate"><span class="pre">curated_drug_target_check.csv</span></code>. It changes nothing; it shows where an entry is not supported by the data.</p></li>
+</ul>
+<section id="creating-the-seed-table">
+<span id="target-mutation-seed"></span><h4>Creating the seed table<a class="headerlink" href="#creating-the-seed-table" title="Link to this heading"></a></h4>
+<p><code class="docutils literal notranslate"><span class="pre">create_target_mutation_seed.py</span></code> creates <code class="docutils literal notranslate"><span class="pre">target_mutation_seed.csv</span></code>. The script needs no input table: it reads the
+drug lists of the datasets that drevalpy provides and derives targets and biomarkers from public databases and
+literature at run time. No per-drug rule is supplied to the script, and no drug-response data is read.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>drevalpy.datasets.featurizer.create_target_mutation_seed<span class="w"> </span>--data_path<span class="w"> </span>data<span class="w"> </span>--out<span class="w"> </span>target_mutation_seed.csv
+</pre></div>
+</div>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">--data_path</span></code> (default <code class="docutils literal notranslate"><span class="pre">data</span></code>): drevalpy data directory; <code class="docutils literal notranslate"><span class="pre">&lt;data_path&gt;/&lt;dataset&gt;/drug_names.csv</span></code> is used if
+present.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--datasets</span></code> (default: all drevalpy datasets): datasets to use, e.g. <code class="docutils literal notranslate"><span class="pre">--datasets</span> <span class="pre">GDSC1</span> <span class="pre">CTRPv2</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--out</span></code> (default <code class="docutils literal notranslate"><span class="pre">target_mutation_seed.csv</span></code>): output file.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--no_remote</span></code>: do not fetch datasets that are not in <code class="docutils literal notranslate"><span class="pre">--data_path</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--min_pchembl</span></code> (default <code class="docutils literal notranslate"><span class="pre">7.0</span></code>): potency cutoff of the binding-activity target fallback (step 3).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--workers</span></code> (default <code class="docutils literal notranslate"><span class="pre">3</span></code>): parallel target look-ups.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--max_drugs</span></code>: process only the first N drugs (testing).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--email</span></code>: optional contact address passed to Europe PMC.</p></li>
+</ul>
+<p>It needs internet access to <code class="docutils literal notranslate"><span class="pre">civicdb.org</span></code>, <code class="docutils literal notranslate"><span class="pre">pubchem.ncbi.nlm.nih.gov</span></code>, <code class="docutils literal notranslate"><span class="pre">www.ebi.ac.uk</span></code> (ChEMBL, Europe PMC) and,
+for datasets that are not stored locally, <code class="docutils literal notranslate"><span class="pre">zenodo.org</span></code>. For all 9 datasets (about 1,190 distinct drugs) it runs for
+roughly 15 minutes, dominated by the rate-limited PubChem and ChEMBL requests.</p>
+<p>What the script does:</p>
+<ol class="arabic simple">
+<li><p><strong>Collects the drugs.</strong> For every dataset in <code class="docutils literal notranslate"><span class="pre">AVAILABLE_DATASETS</span></code> (the derived <code class="docutils literal notranslate"><span class="pre">CTRPv2_clean*</span></code> variants are
+skipped) the file <code class="docutils literal notranslate"><span class="pre">drug_names.csv</span></code> is read. A dataset that is not in <code class="docutils literal notranslate"><span class="pre">--data_path</span></code> is not downloaded: only that
+one file is fetched from its Zenodo archive by HTTP range requests (for the TOY datasets from the nf-core test-data
+repository). Drugs are merged by <code class="docutils literal notranslate"><span class="pre">pubchem_id</span></code>, so the <code class="docutils literal notranslate"><span class="pre">pubchem_id</span></code> of the output is the one of the datasets.</p></li>
+<li><p><strong>Pulls all predictive evidence from CIViC</strong> (GraphQL): every <code class="docutils literal notranslate"><span class="pre">PREDICTIVE</span></code> evidence item with significance
+<code class="docutils literal notranslate"><span class="pre">SENSITIVITYRESPONSE</span></code> or <code class="docutils literal notranslate"><span class="pre">RESISTANCE</span></code>, linking a therapy to a molecular profile (gene and variant) with an
+evidence level and a PubMed ID. <strong>Reviews are not used as evidence:</strong> the publication type of every cited PubMed ID
+is read from Europe PMC, and an item whose source is a review is skipped (counted in <code class="docutils literal notranslate"><span class="pre">review_items_excluded</span></code>).
+Sources without a PubMed ID (a DOI or conference abstract) cannot be typed and are kept.</p></li>
+<li><p><strong>Finds the target genes of the drug.</strong> The ChEMBL molecule is found via the PubChem CID (for drugs without a
+numeric CID by exact name). <code class="docutils literal notranslate"><span class="pre">chembl_mechanism</span></code> uses the targets of the mechanism-of-action records of the molecule
+and of its parent. Only if there is no such record, <code class="docutils literal notranslate"><span class="pre">chembl_binding_activity</span></code> uses the human targets with potent
+binding-assay activity (pChEMBL &gt;= <code class="docutils literal notranslate"><span class="pre">--min_pchembl</span></code>) and at least half as many measurements as the most-measured
+target.</p></li>
+<li><p><strong>Matches the drug to a CIViC therapy</strong> by any of its dataset names, then by PubChem and ChEMBL synonyms (for
+example MK-1775 and adavosertib). A name that differs from <code class="docutils literal notranslate"><span class="pre">drug_name</span></code> is recorded in <code class="docutils literal notranslate"><span class="pre">source</span></code>.</p></li>
+<li><p><strong>Direct rules.</strong> Every target gene with CIViC sensitivity evidence for the drug yields one row. If none has, one
+gene of the same pathway bucket (<code class="docutils literal notranslate"><span class="pre">RAS_MAPK</span></code>, <code class="docutils literal notranslate"><span class="pre">PI3K_AKT</span></code>) as a target is used. Evidence on other genes
+(combination partners, context) is ignored. For fusion profiles <code class="docutils literal notranslate"><span class="pre">A::B</span></code> only the 3’ gene counts.</p></li>
+<li><p><strong>Indirect rules</strong> (synthetic-lethal or dependence biomarkers that are not the target): PARP1/PARP2 inhibitors give
+BRCA1, BRCA2, PALB2, ATM, RAD51C, RAD51D or BARD1 <code class="docutils literal notranslate"><span class="pre">LoF</span></code>; MDM2/MDM4 inhibitors give TP53 <code class="docutils literal notranslate"><span class="pre">wildtype</span></code>;
+ATR/CHEK1/CHEK2/WEE1 inhibitors give TP53 <code class="docutils literal notranslate"><span class="pre">LoF</span></code>. A rule is only written if it is confirmed: either CIViC has
+evidence for the drug on that gene in the expected direction (<code class="docutils literal notranslate"><span class="pre">civic_predictive_indirect</span></code>), or, for compounds that
+CIViC does not list, Europe PMC returns a primary paper that names the compound in its title
+(<code class="docutils literal notranslate"><span class="pre">mechanism_literature</span></code>). Reviews and drug-screen papers (GDSC, CCLE) are rejected by title pattern.</p></li>
+<li><p><strong>Classifies the status</strong> from the CIViC profile text, aware of the gene role: <code class="docutils literal notranslate"><span class="pre">wildtype</span></code> stays <code class="docutils literal notranslate"><span class="pre">wildtype</span></code>;
+loss of function, loss and inactivating give <code class="docutils literal notranslate"><span class="pre">LoF</span></code>, and so does a plain mutation, deletion, frameshift or
+truncation of a canonical tumour suppressor; everything else is <code class="docutils literal notranslate"><span class="pre">activating</span></code>.</p></li>
+<li><p><strong>Writes the table</strong> and prints a summary, including a warning if web requests still failed after retries (run
+the script again to complete the affected drugs).</p></li>
+</ol>
+<p>The script embeds three small class-level tables, not per-drug rules: <code class="docutils literal notranslate"><span class="pre">PATHWAY</span></code>, <code class="docutils literal notranslate"><span class="pre">TSG</span></code> (tumour suppressors) and
+<code class="docutils literal notranslate"><span class="pre">INDIRECT_MAP</span></code> (step 6).</p>
+<p>Columns of the seed:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>column</p></th>
+<th class="head"><p>description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">drug_name</span></code></p></td>
+<td><p>first name found in the datasets.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">pubchem_id</span></code></p></td>
+<td><p>PubChem CID as used in the drevalpy datasets.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">datasets</span></code></p></td>
+<td><p>drevalpy datasets containing the drug, separated by <code class="docutils literal notranslate"><span class="pre">;</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">biomarker_gene</span></code></p></td>
+<td><p>gene whose alteration state is associated with sensitivity.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">sensitive_status</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">activating</span></code>, <code class="docutils literal notranslate"><span class="pre">LoF</span></code> or <code class="docutils literal notranslate"><span class="pre">wildtype</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">target_genes</span></code></p></td>
+<td><p>target genes from ChEMBL, separated by <code class="docutils literal notranslate"><span class="pre">;</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">target_source</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">chembl_mechanism</span></code> or <code class="docutils literal notranslate"><span class="pre">chembl_binding_activity</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">evidence_type</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">civic_predictive_target</span></code>, <code class="docutils literal notranslate"><span class="pre">civic_predictive_pathway</span></code>, <code class="docutils literal notranslate"><span class="pre">civic_predictive_indirect</span></code> or
+<code class="docutils literal notranslate"><span class="pre">mechanism_literature</span></code> (steps 5 and 6).</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">evidence_level</span></code></p></td>
+<td><p>best CIViC level of the evidence used: A validated, B clinical, C case study, D preclinical,
+E inferential; empty for <code class="docutils literal notranslate"><span class="pre">mechanism_literature</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">n_evidence_items</span></code></p></td>
+<td><p>number of CIViC evidence items used for this drug and gene (1 for <code class="docutils literal notranslate"><span class="pre">mechanism_literature</span></code>).</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">review_items_excluded</span></code></p></td>
+<td><p>number of evidence items not used because their source is a review.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">source</span></code></p></td>
+<td><p>the evidence: CIViC evidence IDs (at most five), level and PubMed IDs, or the paper that
+confirms a <code class="docutils literal notranslate"><span class="pre">mechanism_literature</span></code> rule.</p></td>
+</tr>
+</tbody>
+</table>
+<p>The shipped seed was created on 2026-10-23 from all 9 datasets: 186 rules for 115 drugs (150 target, 5 pathway, 19
+indirect, 12 mechanism-literature; 151 <code class="docutils literal notranslate"><span class="pre">activating</span></code>, 34 <code class="docutils literal notranslate"><span class="pre">LoF</span></code>, 1 <code class="docutils literal notranslate"><span class="pre">wildtype</span></code>). Of the 174 CIViC-based rules 42
+have best level A, 48 B, 23 C and 61 D or E. After the choice of one row per drug and the removal of genes that the
+status matrix cannot represent, 66 drugs remain in the curated table.</p>
+<p>Limitations:</p>
+<ul class="simple">
+<li><p>The result depends on the live databases and changes with their releases; record the run date with the output.</p></li>
+<li><p>Only drugs with evidence receive a rule: 606 of the 1,190 drugs have no target in ChEMBL (mostly combination
+preparations and internal codes), and a rule needs CIViC evidence on a target gene or an indirect class.</p></li>
+<li><p>ChEMBL records some targets at family or complex level (FKBP1A for the mTOR inhibitors sirolimus and temsirolimus,
+which therefore get no MTOR rule). The PI3Kbeta to PTEN class is not derived because it holds for beta-selective
+inhibitors only. Nutlin-3 has an MDM2 target, but CIViC does not list it and its discovery paper does not name it in
+the title, so it gets no rule.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">mechanism_literature</span></code> rules rest on a mechanism principle; the cited paper characterizes the compound but does
+not test the biomarker in the listed direction. Filter on <code class="docutils literal notranslate"><span class="pre">evidence_level</span></code> where only well-supported rules are
+wanted.</p></li>
+<li><p>Screens are excluded by title only. A check of the cited PubMed IDs found no large pharmacogenomic screen (GDSC,
+CCLE, CTRP), but a paper whose title gives no hint that it re-analyses such data would not be detected.</p></li>
+<li><p>Synonym matching uses PubChem and ChEMBL name synonyms; the matched name is recorded in <code class="docutils literal notranslate"><span class="pre">source</span></code>.</p></li>
+</ul>
+</section>
+</section>
 </section>
 <section id="naive-predictors">
 <h2>Naive Predictors<a class="headerlink" href="#naive-predictors" title="Link to this heading"></a></h2>
@@ -240,8 +428,13 @@ a single input matrix. Available models (names as registered for <code class="do
 <section id="single-drug-baselines">
 <h2>Single-Drug Baselines<a class="headerlink" href="#single-drug-baselines" title="Link to this heading"></a></h2>
 <p>Single-drug variants of the sklearn models. These models are trained separately for each drug, using only
-cell line features (no drug features). Available models: <code class="docutils literal notranslate"><span class="pre">SingleDrugRandomForest</span></code> and
-<code class="docutils literal notranslate"><span class="pre">SingleDrugElasticNet</span></code>. Both support flexible inputs for the cell line view.</p>
+cell line features (no drug features). Available models: <code class="docutils literal notranslate"><span class="pre">SingleDrugRandomForest</span></code>,
+<code class="docutils literal notranslate"><span class="pre">SingleDrugElasticNet</span></code> and <code class="docutils literal notranslate"><span class="pre">SingleDrugKNN</span></code>. All support flexible inputs for the cell line view.</p>
+<p><code class="docutils literal notranslate"><span class="pre">SingleDrugKNN</span></code> searches, for a test cell line, the most similar training cell lines and averages their
+responses to the same drug. The distance is computed on the <code class="docutils literal notranslate"><span class="pre">mrmr_k</span></code> features (default 20) that are most relevant
+for the response of this drug, selected by mRMR (<code class="xref py py-class docutils literal notranslate"><span class="pre">drevalpy.models.utils.MRMRSelector</span></code>) on the training rows
+only. <code class="docutils literal notranslate"><span class="pre">mrmr_k:</span> <span class="pre">null</span></code> uses all features of the gene list. In contrast to the pooled <code class="docutils literal notranslate"><span class="pre">KNNRegressor</span></code>, drug
+identity does not enter the distance.</p>
 </section>
 <section id="multi-view-random-forest">
 <h2>Multi-View Random Forest<a class="headerlink" href="#multi-view-random-forest" title="Link to this heading"></a></h2>
@@ -258,6 +451,136 @@ matrices are concatenated before training. Methylation data, if used, is reduced
 <h2>Multi-View LightGBM<a class="headerlink" href="#multi-view-lightgbm" title="Link to this heading"></a></h2>
 <p>A LightGBM regressor that accepts multiple cell line views, configured like the <code class="docutils literal notranslate"><span class="pre">MultiViewRandomForest</span></code>.
 It requires the <code class="docutils literal notranslate"><span class="pre">lightgbm</span></code> package.</p>
+</section>
+<section id="random-forest-on-dipk-s-features">
+<h2>Random Forest on DIPK’s features<a class="headerlink" href="#random-forest-on-dipk-s-features" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">RandomForestAEMolGNet</span></code> takes two of the three learned inputs of the published
+<a class="reference internal" href="drevalpy.models.DIPK.html"><span class="doc">DIPK</span></a> model – an autoencoder embedding of gene expression and a
+MolGNet embedding of the drug molecule – and feeds them to a <code class="docutils literal notranslate"><span class="pre">RandomForestRegressor</span></code> instead of
+DIPK’s neural network. DIPK’s third input, the BIONIC network features, is not used at all.</p>
+<section id="why-this-model-exists">
+<h3>Why this model exists<a class="headerlink" href="#why-this-model-exists" title="Link to this heading"></a></h3>
+<p>DIPK outperforms a Random Forest baseline, but it changes two things at once: the features become
+learned embeddings <em>and</em> the predictor becomes a neural network. A benchmark cannot tell from that
+comparison which of the two changes carries the improvement. This model holds the features fixed
+and swaps only the predictor, so the two effects separate. It is therefore primarily an ablation
+of DIPK, and only secondarily a model of its own.</p>
+</section>
+<section id="what-it-does">
+<h3>What it does<a class="headerlink" href="#what-it-does" title="Link to this heading"></a></h3>
+<ol class="arabic simple">
+<li><p><strong>Cell lines.</strong> Gene expression is restricted to <code class="docutils literal notranslate"><span class="pre">gene_list</span></code> (default
+<code class="docutils literal notranslate"><span class="pre">tcga_autoencoder_genes_available</span></code>, see below) and transformed to
+<code class="docutils literal notranslate"><span class="pre">log2(x</span> <span class="pre">+</span> <span class="pre">1)</span></code> for the TPM datasets (CCLE, CTRPv1, CTRPv2; the others are already log scaled). In every
+fold a <code class="docutils literal notranslate"><span class="pre">GeneExpressionEncoder</span></code> – the same autoencoder class DIPK uses – is trained from
+scratch on the training cell lines and then encodes all cell lines into 512 latent features.</p></li>
+<li><p><strong>Drugs.</strong> The node-level MolGNet embeddings shipped with each dataset under
+<code class="docutils literal notranslate"><span class="pre">DIPK_features/Drugs/MolGNet_&lt;drug&gt;.csv</span></code> are pooled over the atoms of the molecule. The
+default <code class="docutils literal notranslate"><span class="pre">mean_max</span></code> concatenates the per-dimension mean and maximum, giving 1536 features.</p></li>
+<li><p><strong>Prediction.</strong> Both blocks are concatenated and handed to the Random Forest, exactly like any
+other flexible-input sklearn baseline.</p></li>
+</ol>
+<p>The dataset must therefore carry DIPK’s feature files; on a dataset without them the model raises
+<code class="docutils literal notranslate"><span class="pre">FileNotFoundError</span></code> rather than falling back to fingerprints.</p>
+</section>
+<section id="differences-from-dipk">
+<h3>Differences from <code class="docutils literal notranslate"><span class="pre">DIPK</span></code><a class="headerlink" href="#differences-from-dipk" title="Link to this heading"></a></h3>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Aspect</p></th>
+<th class="head"><p><code class="docutils literal notranslate"><span class="pre">DIPK</span></code></p></th>
+<th class="head"><p><code class="docutils literal notranslate"><span class="pre">RandomForestAEMolGNet</span></code></p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Predictor</p></td>
+<td><p>attention network + fully connected head</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">RandomForestRegressor</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Drug features</p></td>
+<td><p>node-level MolGNet, pooled by attention</p></td>
+<td><p>node-level MolGNet, mean+max pooled</p></td>
+</tr>
+<tr class="row-even"><td><p>BIONIC network features</p></td>
+<td><p>used as a third input</p></td>
+<td><p>not used</p></td>
+</tr>
+</tbody>
+</table>
+<p>Both models fit the autoencoder inside each fold and only on training cell lines, so neither leaks
+test expression into the encoder.</p>
+</section>
+<section id="autoencoder-hyperparameters">
+<h3>Autoencoder hyperparameters<a class="headerlink" href="#autoencoder-hyperparameters" title="Link to this heading"></a></h3>
+<p>The four parameters DIPK also has keep DIPK’s names, so that a configuration reads the same for
+both models:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">epochs_autoencoder</span></code> (default 2000), <code class="docutils literal notranslate"><span class="pre">lr_autoencoder</span></code> (1e-4), <code class="docutils literal notranslate"><span class="pre">patience_autoencoder</span></code> (50),
+<code class="docutils literal notranslate"><span class="pre">batch_size_autoencoder</span></code> (32 for <code class="docutils literal notranslate"><span class="pre">RandomForestAEMolGNet</span></code>; DIPK keeps its own default of 1024).</p></li>
+</ul>
+<p>The batch size differs from DIPK’s on purpose. <code class="docutils literal notranslate"><span class="pre">RandomForestAEMolGNet</span></code> trains the autoencoder on one row per
+cell line (about 700 per fold), so a batch of 1024 is the full batch: one gradient step per epoch, and early stopping
+(patience 50) ends the training after roughly 100 to 170 steps. With 32 an epoch has about 21 steps.</p>
+<p>The cell lines of the early stopping split validate the autoencoder. The one parameter that only exists
+here is <code class="docutils literal notranslate"><span class="pre">autoencoder_cache_dir</span></code> (unset): see below.</p>
+</section>
+<section id="gene-list">
+<h3>Gene list<a class="headerlink" href="#gene-list" title="Link to this heading"></a></h3>
+<p><strong>Motivation.</strong> The default list <code class="docutils literal notranslate"><span class="pre">tcga_autoencoder_genes_available</span></code> is much larger than the 2,270 genes of
+<code class="docutils literal notranslate"><span class="pre">gene_expression_intersection</span></code>. It was chosen for four reasons:</p>
+<ul class="simple">
+<li><p>The TCGA-pretrained encoder and the encoder trained from scratch on the cell lines must see the <em>same</em> feature
+space. With different gene sets, the effect of pretraining and the effect of the gene set would be confounded.</p></li>
+<li><p>The space is <em>deployment-optimal</em>: every gene is measurable by Ion Torrent RNA-seq (Ion AmpliSeq Transcriptome Human
+Gene Expression Panel), so new samples can be scored with the same model.</p></li>
+<li><p>Noise genes (not expressed or constant in the cell lines) are removed, but there is deliberately <strong>no
+top-variance selection</strong>: it would discard driver genes with a low variance. The reduction is left to the
+autoencoder bottleneck. Known landmark and clinical driver genes are protected from the noise filter.</p></li>
+<li><p>Every gene must exist in the expression data of all datasets (CTRPv2, GDSC1, PDX_Bruna, BeatAML2), so that all datasets share one space.</p></li>
+</ul>
+<p><strong>Construction.</strong> The list is a chain of set operations. Nothing in the chain uses the pretrained autoencoder or
+response data, and only the last list is written, to <code class="docutils literal notranslate"><span class="pre">&lt;data_path&gt;/meta/gene_lists/tcga_autoencoder_genes_available.csv</span></code>:</p>
+<ol class="arabic simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">expression_intersection</span></code>: genes in the expression data of all datasets.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">panel_intersection</span></code>: intersected with the genes of the Ion Torrent panel.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">expressed_genes</span></code>: noise filter on the linear TPM expression of a TPM dataset (default CTRPv2),
+applied as <code class="docutils literal notranslate"><span class="pre">log2(x</span> <span class="pre">+</span> <span class="pre">1)</span></code>: a gene is dropped if its mean is below 0.5 or its variance below 1e-3, unless it is in
+the protect list (the 867 landmark genes of <code class="docutils literal notranslate"><span class="pre">meta/gene_lists/landmark_genes.csv</span></code> plus 26 clinical driver genes,
+893 genes; override with <code class="docutils literal notranslate"><span class="pre">--protect</span> <span class="pre">&lt;csv</span> <span class="pre">with</span> <span class="pre">column</span> <span class="pre">Symbol&gt;</span></code>). The thresholds only make sense for linear TPM;
+the script raises an error if the noise dataset looks log scaled already.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">tcga_autoencoder_genes_available</span></code>: minus the genes without a locus in the TCGA gene annotation
+(<code class="docutils literal notranslate"><span class="pre">gencode.v23.probemap.tsv</span></code>), which cannot be mapped to TCGA expression.</p></li>
+</ol>
+<p>If the file is not in the metadata, the model creates it when it loads a dataset: from the expression of that dataset
+alone, saved as <code class="docutils literal notranslate"><span class="pre">tcga_autoencoder_genes_available_&lt;dataset&gt;.csv</span></code>. The noise filter then uses the dataset itself if it
+is a TPM dataset, otherwise CTRPv2 if present, otherwise it is skipped. The lists of different datasets differ, so
+models trained on one dataset and applied to another need the shared file.</p>
+<p><strong>Inputs.</strong> By default the script downloads the gene content of the panel: the public <em>AmpliSeq for Illumina
+Transcriptome RNA Manifest</em> (dated 2019-03-13, anonymous, 20,802 genes; the <code class="docutils literal notranslate"><span class="pre">[Targets]</span></code> section, column <code class="docutils literal notranslate"><span class="pre">Gene</span></code>)</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>https://support.illumina.com/content/dam/illumina-support/documents/downloads/productfiles/ampliseq-for-illumina/ampliseq-for-illumina-transcriptome-rna-manifest-20190313.zip
+</pre></div>
+</div>
+<p>It has the same genes as the Ion AmpliSeq Transcriptome Human Gene Expression Panel (user guide
+<a class="reference external" href="https://assets.thermofisher.com/TFS-Assets/LSG/manuals/MAN0010742_AmpliSeqTranscriptomeHumanGeneExpr_UG.pdf">MAN0010742</a>,
+over 20,000 genes); the 10 ERCC spike-in controls of the Thermo Fisher BED file are not part of it and are not in the
+data anyway, so the result is identical. Alternatively, pass the Thermo Fisher target file with <code class="docutils literal notranslate"><span class="pre">--panel</span></code>
+(<code class="docutils literal notranslate"><span class="pre">hg19_AmpliSeq_Transcriptome_21K_v1.bed</span></code>, ERCC variant; semicolon separated, no header, gene symbol in the seventh
+column, adjustable with <code class="docutils literal notranslate"><span class="pre">--panel_symbol_column</span></code>). The TCGA probemap (GENCODE v23, Xena Toil hub) is downloaded automatically; pass
+<code class="docutils literal notranslate"><span class="pre">--probemap</span> <span class="pre">&lt;gencode.v23.probemap.tsv&gt;</span></code> to use a local copy instead.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>drevalpy.datasets.featurizer.create_autoencoder_gene_list<span class="w"> </span>--data_path<span class="w"> </span>data
+</pre></div>
+</div>
+</section>
+<section id="reusing-an-encoder-across-models">
+<h3>Reusing an encoder across models<a class="headerlink" href="#reusing-an-encoder-across-models" title="Link to this heading"></a></h3>
+<p>The encoder depends only on the training cell lines, the gene list and the autoencoder
+hyperparameters – not on the drug features. Setting <code class="docutils literal notranslate"><span class="pre">autoencoder_cache_dir</span></code> (or the
+<code class="docutils literal notranslate"><span class="pre">DREVAL_AE_CACHE</span></code> environment variable) makes models that share those train the encoder once per
+fold and reuse it. Apart from saving time this makes such models pairwise comparable: with an
+identical encoder, any difference between them cannot come from the encoder. Caching is off unless
+one of the two is set, and the cache key covers the gene <em>order</em> as well as the gene names, since
+the same genes in a different order produce a different encoder.</p>
+</section>
 </section>
 </section>
 

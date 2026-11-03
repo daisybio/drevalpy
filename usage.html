@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>How to use DrEvalPy &mdash; DrEvalPy 1.6.0 documentation</title>
+  <title>How to use DrEvalPy &mdash; DrEvalPy 1.7.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
       <link rel="stylesheet" type="text/css" href="_static/custom_cookietemple.css?v=8d02248d" />
@@ -14,7 +14,7 @@
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=72d88caf"></script>
+      <script src="_static/documentation_options.js?v=030dc6f6"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
@@ -280,6 +280,13 @@ retransformed after final predictions. For more information, see the <a class="r
 </dd></dl>
 
 <dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-n_jobs">
+<span class="sig-name descname"><span class="pre">--n_jobs</span></span><span class="sig-prename descclassname"> <span class="pre">INTEGER</span></span><a class="headerlink" href="#cmdoption-n_jobs" title="Link to this definition"></a></dt>
+<dd><p>Number of drugs a Single-Drug Model is trained for in parallel, in separate worker processes. Each worker uses a
+single thread, so up to <code class="docutils literal notranslate"><span class="pre">n_jobs</span></code> CPUs are used. Has no effect on Multi-Drug Models and cannot be combined with <code class="docutils literal notranslate"><span class="pre">--multiprocessing</span></code>. [default: <code class="docutils literal notranslate"><span class="pre">1</span></code>]</p>
+</dd></dl>
+
+<dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-model_checkpoint_dir">
 <span class="sig-name descname"><span class="pre">--model_checkpoint_dir</span></span><span class="sig-prename descclassname"> <span class="pre">TEXT</span></span><a class="headerlink" href="#cmdoption-model_checkpoint_dir" title="Link to this definition"></a></dt>
 <dd><p>Directory to save model checkpoints. [default: <code class="docutils literal notranslate"><span class="pre">TEMPORARY</span></code>]</p>
@@ -393,7 +400,7 @@ some <strong>state-of-the-art models</strong> to compare your model against. You
 We first identify the best hyperparameters for all models and baselines in a cross-validation setting. Then, we
 train the models on the whole training set and evaluate them on the test set.
 For <code class="docutils literal notranslate"><span class="pre">--models</span></code>, you can also perform randomization and robustness tests. The <code class="docutils literal notranslate"><span class="pre">--baselines</span></code> are skipped for these tests.</p>
-<p>The sklearn baseline models (AdaBoostDecisionTree, ElasticNet, GradientBoosting, KNNRegressor, Lasso, RandomForest, SVR, SingleDrugRandomForest, SingleDrugElasticNet),
+<p>The sklearn baseline models (AdaBoostDecisionTree, ElasticNet, GradientBoosting, KNNRegressor, Lasso, RandomForest, SVR, SingleDrugRandomForest, SingleDrugElasticNet, SingleDrugKNN),
 the multi-view baselines (MultiViewRandomForest, MultiViewXGBoost, MultiViewLightGBM), and the machine learning baselines (SimpleNeuralNetwork, MultiViewNeuralNetwork) support
 <strong>flexible inputs</strong>: the input types can be configured via <code class="docutils literal notranslate"><span class="pre">cell_line_views</span></code> and <code class="docutils literal notranslate"><span class="pre">drug_views</span></code> in <code class="docutils literal notranslate"><span class="pre">hyperparameters.yaml</span></code> without
 needing separate model classes. The genes used for gene-based views are selected with <code class="docutils literal notranslate"><span class="pre">gene_list</span></code> (e.g., <code class="docutils literal notranslate"><span class="pre">landmark_genes</span></code>);
@@ -494,30 +501,40 @@ See the sklearn model <a class="reference internal" href="drevalpy.models.baseli
 <td><p>Single-Drug Model</p></td>
 <td><p>Fits an <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestRegressor.html">Sklearn Random Forest Regressor</a> for each drug separately. Supports flexible inputs (default: gene expression).</p></td>
 </tr>
-<tr class="row-odd"><td><p>SVR</p></td>
+<tr class="row-odd"><td><p>SingleDrugKNN</p></td>
+<td><p>Baseline Method</p></td>
+<td><p>Single-Drug Model</p></td>
+<td><p>Fits a <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.KNeighborsRegressor.html">k-nearest neighbors regressor</a> for each drug separately on the mRMR-selected genes (selection on the training rows only). Supports flexible inputs (default: gene expression).</p></td>
+</tr>
+<tr class="row-even"><td><p>SVR</p></td>
 <td><p>Baseline Method</p></td>
 <td><p>Multi-Drug Model</p></td>
 <td><p>Fits an <a class="reference external" href="https://scikit-learn.org/1.5/modules/generated/sklearn.svm.SVR.html">Sklearn Support Vector Regressor</a>. Supports flexible inputs (default: gene expression + fingerprints).</p></td>
 </tr>
-<tr class="row-even"><td><p>SimpleNeuralNetwork</p></td>
+<tr class="row-odd"><td><p>SimpleNeuralNetwork</p></td>
 <td><p>Custom Model</p></td>
 <td><p>Multi-Drug Model</p></td>
 <td><p>Fits a simple feedforward neural network (implemented with <a class="reference external" href="https://lightning.ai/docs/pytorch/stable/">Pytorch Lightning</a>) on flexible cell line and drug input (concatenated input) with 3 layers of varying dimensions and Dropout layers. Default: gene expression + fingerprints or drug_chemberta_embeddings.</p></td>
 </tr>
-<tr class="row-odd"><td><p>MultiViewNeuralNetwork</p></td>
+<tr class="row-even"><td><p>MultiViewNeuralNetwork</p></td>
 <td><p>Custom Model</p></td>
 <td><p>Multi-Drug Model</p></td>
 <td><p>Fits a simple feedforward neural network (implemented with <a class="reference external" href="https://lightning.ai/docs/pytorch/stable/">Pytorch Lightning</a>) on flexible omic inputs (default: gene expression + mutations), and drug fingerprints (concatenated input) with 3 layers of varying dimensions and Dropout layers. The dimensionality of the methylation data, if supplied, is reduced with a PCA to the first 100 components before it is fed to the model.</p></td>
 </tr>
-<tr class="row-even"><td><p>DrugGNN</p></td>
+<tr class="row-odd"><td><p>DrugGNN</p></td>
 <td><p>Custom Model</p></td>
 <td><p>Multi-Drug Model</p></td>
 <td><p>Represents drugs as graph, encodes their structure with a 3-layer GNN. Uses a 2-layer MLP for encoding gene expression. Concatenates the representations and feeds them through 2 more MLP layers.</p></td>
 </tr>
-<tr class="row-odd"><td><p>EnsembleMF</p></td>
+<tr class="row-even"><td><p>EnsembleMF</p></td>
 <td><p>Custom Model</p></td>
 <td><p>Multi-Drug Model</p></td>
 <td><p>Ensembled two-tower matrix factorization. Cell-line and drug latent factors are produced by small residual MLPs over gene expression and Morgan fingerprints, combined by a dot product with per-cell/per-drug/global biases, a free per-drug embedding and a small interaction head. Averaged over N independently seeded members.</p></td>
+</tr>
+<tr class="row-odd"><td><p>RandomForestAEMolGNet</p></td>
+<td><p>Custom Model</p></td>
+<td><p>Multi-Drug Model</p></td>
+<td><p>Ablation of DIPK: fits an <a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestRegressor.html">Sklearn Random Forest Regressor</a> on gene expression encoded by DIPK’s autoencoder (trained per fold) and MolGNet drug embeddings pooled over the atoms (default: mean + max).</p></td>
 </tr>
 <tr class="row-even"><td><p>PharmaFormer</p></td>
 <td><p>Published Model</p></td>
@@ -539,22 +556,27 @@ See the sklearn model <a class="reference internal" href="drevalpy.models.baseli
 <td><p>Single-Drug Model</p></td>
 <td><p>Regression extension of <a class="reference external" href="https://doi.org/10.1186/s12859-021-04146-z">SuperFELT: supervised feature extraction learning using triplet loss for drug response</a> by Park et al. Very similar to MOLI(R). In MOLI(R), encoders and the classifier were trained jointly. Super.FELT(R) trains them independently. MOLI(R) was trained without feature selection (except for the Variance Threshold on the gene expression). Super.FELT(R) uses feature selection for all omics data.</p></td>
 </tr>
-<tr class="row-even"><td><p>DIPK</p></td>
+<tr class="row-even"><td><p>SingleDrugMorgoth</p></td>
+<td><p>Published Model</p></td>
+<td><p>Single-Drug Model</p></td>
+<td><p><a class="reference external" href="https://doi.org/10.1039/D5DD00284B">MORGOTH</a> from Rolli et al. Multivariate random forest whose trees learn the response value and a class (response below / above a per-drug threshold) simultaneously; drevalpy uses the regression output. Trained for each drug separately on the 50 mRMR-selected landmark genes (selection on the training rows only). Requires the <code class="docutils literal notranslate"><span class="pre">morgoth</span></code> extra (<code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">&quot;drevalpy[morgoth]&quot;</span></code>).</p></td>
+</tr>
+<tr class="row-odd"><td><p>DIPK</p></td>
 <td><p>Published Model</p></td>
 <td><p>Multi-Drug Model</p></td>
 <td><p><a class="reference external" href="https://doi.org/10.1093/bib/bbae153">Deep neural network Integrating Prior Knowledge</a> from Li et al. Uses gene interaction relationships (encoded by a graph auto-encoder), gene expression profiles (encoded by a denoising auto-encoder), and molecular topologies (encoded by MolGNet). Those features are integrated using multi-head attention layers.</p></td>
 </tr>
-<tr class="row-odd"><td><p>Precily</p></td>
+<tr class="row-even"><td><p>Precily</p></td>
 <td><p>Published Model</p></td>
 <td><p>Multi-Drug Model</p></td>
 <td><p><a class="reference external" href="https://doi.org/10.1038/s41467-022-33291-z">Precily</a> from Chawla et al. Uses GSVA pathway-activity scores with SMILESVec drug embeddings. Features are concatenated and passed through multiple linear layers with ReLU and Dropout.</p></td>
 </tr>
-<tr class="row-even"><td><p>PaccMann</p></td>
+<tr class="row-odd"><td><p>PaccMann</p></td>
 <td><p>Published Model</p></td>
 <td><p>Multi-Drug Model</p></td>
 <td><p><a class="reference external" href="https://doi.org/10.1021/acs.molpharmaceut.9b00520">PaccMann</a> from Manica et al. Embeds tokenized drug SMILES and encodes them with multi-scale convolutional layers, while cell line gene expression of a curated gene panel serves as biological context. Contextual attention layers connect the gene and molecule representations, which are concatenated and passed through stacked dense layers to predict the response.</p></td>
 </tr>
-<tr class="row-odd"><td><p>SparseGO</p></td>
+<tr class="row-even"><td><p>SparseGO</p></td>
 <td><p>Published Model</p></td>
 <td><p>Multi-Drug Model</p></td>
 <td><p><a class="reference external" href="https://doi.org/10.1016/j.ebiom.2023.104767">SparseGO</a> from Del Real et al. Takes fingerprints and gene expression as input.The gene expression is processed via a sparse VNN, representing the GO term hierarchy. Each gene is connected to its annotated GO terms.</p></td>

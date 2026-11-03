@@ -1,0 +1,199 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MORGOTH &mdash; DrEvalPy 1.7.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="_static/custom_cookietemple.css?v=8d02248d" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=030dc6f6"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="PaccMann" href="drevalpy.models.PaccMann.html" />
+    <link rel="prev" title="MOLIR" href="drevalpy.models.MOLIR.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html">
+            
+              <img src="_static/drevalpy.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="benchmark_overview.html">Benchmark your own model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage.html">How to use DrEvalPy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="example_flexible_inputs.html">Custom input with drevalpy’s baselines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="example_wandb.html">DrEvalPy and Weights &amp; Biases</a></li>
+<li class="toctree-l1"><a class="reference internal" href="contributing.html">Contributor Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="reference.html">How to cite</a></li>
+<li class="toctree-l1"><a class="reference internal" href="memes.html">Memes and fun stuff</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="API.html">API</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="API.html#subpackages">Subpackages</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="drevalpy.datasets.html">Datasets</a></li>
+<li class="toctree-l3 current"><a class="reference internal" href="drevalpy.models.html">Models</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="drevalpy.models.html#drp-model">DRP Model</a></li>
+<li class="toctree-l4"><a class="reference internal" href="drevalpy.models.html#utility-functions">Utility functions</a></li>
+<li class="toctree-l4 current"><a class="reference internal" href="drevalpy.models.html#implemented-models">Implemented models</a><ul class="current">
+<li class="toctree-l5"><a class="reference internal" href="drevalpy.models.DIPK.html">DIPK</a></li>
+<li class="toctree-l5"><a class="reference internal" href="drevalpy.models.DrugGNN.html">DrugGNN</a></li>
+<li class="toctree-l5"><a class="reference internal" href="drevalpy.models.EnsembleMF.html">EnsembleMF</a></li>
+<li class="toctree-l5"><a class="reference internal" href="drevalpy.models.MOLIR.html">MOLIR</a></li>
+<li class="toctree-l5 current"><a class="current reference internal" href="#">MORGOTH</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="#installation">Installation</a></li>
+<li class="toctree-l6"><a class="reference internal" href="#hyperparameters">Hyperparameters</a></li>
+<li class="toctree-l6"><a class="reference internal" href="#singledrugmorgoth-model">SingleDrugMorgoth Model</a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="drevalpy.models.PaccMann.html">PaccMann</a></li>
+<li class="toctree-l5"><a class="reference internal" href="drevalpy.models.PharmaFormer.html">PharmaFormer</a></li>
+<li class="toctree-l5"><a class="reference internal" href="drevalpy.models.Precily.html">Precily</a></li>
+<li class="toctree-l5"><a class="reference internal" href="drevalpy.models.SRMF.html">SRMF</a></li>
+<li class="toctree-l5"><a class="reference internal" href="drevalpy.models.SparseGO.html">SparseGO</a></li>
+<li class="toctree-l5"><a class="reference internal" href="drevalpy.models.SimpleNeuralNetwork.html">Simple Neural Network</a></li>
+<li class="toctree-l5"><a class="reference internal" href="drevalpy.models.SuperFELTR.html">SuperFELTR</a></li>
+<li class="toctree-l5"><a class="reference internal" href="drevalpy.models.baselines.html">Implemented baselines</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="drevalpy.visualization.html">Visualization</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="API.html#other-functions">Other functions</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">DrEvalPy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="API.html">API</a></li>
+          <li class="breadcrumb-item"><a href="drevalpy.models.html">Models</a></li>
+      <li class="breadcrumb-item active">MORGOTH</li>
+      <li class="wy-breadcrumbs-aside">
+              <a href="https://github.com/daisybio/drevalpy/blob/development/docs/drevalpy.models.Morgoth.rst" class="fa fa-github"> Edit on GitHub</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="morgoth">
+<h1>MORGOTH<a class="headerlink" href="#morgoth" title="Link to this heading"></a></h1>
+<p><code class="docutils literal notranslate"><span class="pre">SingleDrugMorgoth</span></code> wraps <a class="reference external" href="https://github.com/volkamerlab/MORGOTH">MORGOTH</a> (Rolli et al., <em>Increasing
+trustworthiness of machine learning-based drug sensitivity prediction with a multivariate random forest approach</em>,
+Digital Discovery, 2026, <a class="reference external" href="https://doi.org/10.1039/D5DD00284B">doi:10.1039/D5DD00284B</a>). MORGOTH is a random forest
+whose trees learn the response value and a class simultaneously. The split criterion combines a classification and a
+regression impurity; <code class="docutils literal notranslate"><span class="pre">impact_classification</span></code> (λ in the paper) is the share of the classification. drevalpy uses the
+regression output as the prediction.</p>
+<p>Fitting, sample weights, the class-aware tree weights and the prediction are the functions of the <code class="docutils literal notranslate"><span class="pre">morgoth</span></code> package;
+the model only adds what drevalpy has to provide:</p>
+<ul class="simple">
+<li><p><strong>Class labels.</strong> If the response has the CurveCurator regulation, responses with regulation <code class="docutils literal notranslate"><span class="pre">NA</span></code> are dropped and
+the class is 1 (sensitive) for <code class="docutils literal notranslate"><span class="pre">down</span></code>, 0 (resistant) for <code class="docutils literal notranslate"><span class="pre">not</span></code> and <code class="docutils literal notranslate"><span class="pre">up</span></code>. The threshold is then the quantile of
+the training responses at the fraction of sensitive responses, taken from the sensitive end (low for ln(IC50), high
+for pEC50), so that it separates the classes. Without the regulation, the threshold is the <code class="docutils literal notranslate"><span class="pre">threshold_quantile</span></code> of
+the training responses (training fold only); responses below it are class 1 (sensitive for ln(IC50)), the others
+class 0. The threshold is also used for the <code class="docutils literal notranslate"><span class="pre">simple</span></code> / <code class="docutils literal notranslate"><span class="pre">linear</span></code> sample weights of the package.</p></li>
+<li><p><strong>Features.</strong> Gene expression of the genes in <code class="docutils literal notranslate"><span class="pre">gene_list</span></code> (default: landmark genes), arcsinh-transformed and
+standardized with a scaler fitted on the training cell lines. Of these, the <code class="docutils literal notranslate"><span class="pre">mrmr_k</span></code> genes (default: 50, as in the
+paper) are selected by mRMR on the training rows only.</p></li>
+<li><p><strong>Fast split.</strong> With <code class="docutils literal notranslate"><span class="pre">fast_split</span></code> (default), the split search of the package is replaced by an equivalent
+vectorized one. The replacement only exists in the current process, so the trees are then always grown in a single
+process.</p></li>
+<li><p><strong>Parallelization.</strong> Otherwise, the package grows the trees in a <code class="docutils literal notranslate"><span class="pre">multiprocessing.Pool</span></code> with all cores, as it does
+for the prediction. If the drugs already run in parallel (<code class="docutils literal notranslate"><span class="pre">n_jobs</span> <span class="pre">&gt;</span> <span class="pre">1</span></code> of the experiment, see <code class="docutils literal notranslate"><span class="pre">run_per_drug</span></code>),
+each drug uses a single process and grows its trees in the worker itself.</p></li>
+</ul>
+<section id="installation">
+<h2>Installation<a class="headerlink" href="#installation" title="Link to this heading"></a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">morgoth</span></code> package is an optional extra of drevalpy:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"drevalpy[morgoth]"</span>
+</pre></div>
+</div>
+<p>or, from source, <code class="docutils literal notranslate"><span class="pre">poetry</span> <span class="pre">install</span> <span class="pre">-E</span> <span class="pre">morgoth</span></code>.</p>
+</section>
+<section id="hyperparameters">
+<h2>Hyperparameters<a class="headerlink" href="#hyperparameters" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">n_estimators</span></code>, <code class="docutils literal notranslate"><span class="pre">min_samples_leaf</span></code>, <code class="docutils literal notranslate"><span class="pre">max_features</span></code>, <code class="docutils literal notranslate"><span class="pre">max_depth</span></code>, <code class="docutils literal notranslate"><span class="pre">criterion_class</span></code> and <code class="docutils literal notranslate"><span class="pre">criterion_reg</span></code> are
+passed on to the forest of the package. <code class="docutils literal notranslate"><span class="pre">sample_weights</span></code> is <code class="docutils literal notranslate"><span class="pre">simple</span></code>, <code class="docutils literal notranslate"><span class="pre">linear</span></code> or <code class="docutils literal notranslate"><span class="pre">none</span></code>; <code class="docutils literal notranslate"><span class="pre">tree_weights</span></code>
+switches on the class-aware aggregation over the trees (SAURON-RF). <code class="docutils literal notranslate"><span class="pre">fast_split</span></code> switches between the vectorized
+(default) and the original split search. The forest is seeded with 42.</p>
+<p>Training is fast with small <code class="docutils literal notranslate"><span class="pre">mrmr_k</span></code> and running the drugs in parallel.</p>
+</section>
+<section id="singledrugmorgoth-model">
+<h2>SingleDrugMorgoth Model<a class="headerlink" href="#singledrugmorgoth-model" title="Link to this heading"></a></h2>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="drevalpy.models.MOLIR.html" class="btn btn-neutral float-left" title="MOLIR" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="drevalpy.models.PaccMann.html" class="btn btn-neutral float-right" title="PaccMann" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, DaiSyBio at Technical University of Munich.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

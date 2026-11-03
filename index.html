@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DrEvalPy: Python Cancer Cell Line Drug Response Prediction Suite &mdash; DrEvalPy 1.6.0 documentation</title>
+  <title>DrEvalPy: Python Cancer Cell Line Drug Response Prediction Suite &mdash; DrEvalPy 1.7.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
       <link rel="stylesheet" type="text/css" href="_static/custom_cookietemple.css?v=8d02248d" />
@@ -14,7 +14,7 @@
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=72d88caf"></script>
+      <script src="_static/documentation_options.js?v=030dc6f6"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
@@ -141,6 +141,11 @@ The results will be stored in</p>
 </pre></div>
 </div>
 <p>This creates an index.html file which you can open in your browser to see the results of your run.</p>
+<p>Single-Drug Models such as SingleDrugElasticNet fit one model per drug. With <code class="docutils literal notranslate"><span class="pre">--n_jobs</span></code>, the drugs are trained in
+parallel, here on 4 CPUs:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>drevalpy<span class="w"> </span>--run_id<span class="w"> </span>my_sd_run<span class="w"> </span>--models<span class="w"> </span>SingleDrugElasticNet<span class="w"> </span>--baselines<span class="w"> </span>NaiveMeanEffectsPredictor<span class="w"> </span>--dataset_name<span class="w"> </span>TOYv1<span class="w"> </span>--test_mode<span class="w"> </span>LCO<span class="w"> </span>--n_jobs<span class="w"> </span><span class="m">4</span>
+</pre></div>
+</div>
 <p>We recommend the use of our nextflow pipeline for computational demanding runs and for improved reproducibility. No
 knowledge of nextflow is required to run it. The nextflow pipeline is available on the <a class="reference external" href="https://github.com/nf-core/drugresponseeval.git">nf-core GitHub</a>, the documentation can be found <a class="reference external" href="https://nf-co.re/drugresponseeval/dev/">here</a>.</p>
 <ul class="simple">
@@ -155,6 +160,21 @@ knowledge of nextflow is required to run it. The nextflow pipeline is available 
 </section>
 <section id="news">
 <h1>News<a class="headerlink" href="#news" title="Link to this heading"></a></h1>
+<section id="first-model-wins-the-chocolate-challenge-2026-11-03">
+<h2>🍫 First model wins the chocolate challenge! <span class="date">2026-11-03</span><a class="headerlink" href="#first-model-wins-the-chocolate-challenge-2026-11-03" title="Link to this heading"></a></h2>
+<p>This just in!! Major congrats to &#64;jfrog64, who has contributed the model RandomForestAEMolGNet, which significantly
+outperforms the RandomForest in the LCO setting. It performs on-par with our current best model EnsembleMF.
+The chocolate challenge is therefore updated:</p>
+<div class="line-block">
+<div class="line">1. Integrate your model into DrEval. Check out the page on <a class="reference internal" href="benchmark_overview.html"><span class="doc">benchmarking your own model</span></a>.</div>
+<div class="line">2. <a class="reference internal" href="precomputed_splits.html"><span class="doc">Run your model using the splits from the leaderboard</span></a> either using the standalone or the Nextflow pipeline.</div>
+<div class="line">3. Let us know your results!</div>
+<div class="line-block">
+<div class="line">3.1. 🎊If you significantly outperform EnsembleMF in the LCO setting, we will personally send you chocolate 🍫.</div>
+<div class="line">3.2. 🥺If you perform significantly worse than the NaiveDrugMeanPredictor, you will have to send us chocolate.</div>
+</div>
+</div>
+</section>
 <section id="our-paper-is-finally-published-2026-05-12">
 <h2>📄 Our paper is finally published! <span class="date">2026-05-12</span><a class="headerlink" href="#our-paper-is-finally-published-2026-05-12" title="Link to this heading"></a></h2>
 <p>After a long, long journey, our paper is finally published at <a class="reference external" href="https://doi.org/10.1038/s41467-026-72903-w">Nature Communications</a>!
@@ -218,7 +238,7 @@ Though the fight against bad practices is long, with drevalpy, balance may yet b
 <li><p><a class="reference external" href="https://github.com/eleded">Elena Sophie Dederer &amp; Gregor Chojetzki</a>: FU Berlin, integrated the KNNRegressor.</p></li>
 <li><p><a class="reference external" href="https://github.com/gretag04">Greta Agnes Gulden &amp; Larissa Susanka Koß</a>: FU Berlin, integrated Lasso and PaccMann.</p></li>
 <li><p><a class="reference external" href="https://github.com/matvee04">Matvej Elkonin</a>: FU Berlin, integrated the AdaBoostDecisionTree.</p></li>
-<li><p><a class="reference external" href="https://github.com/jfrog64">jfrog64</a>: Spotted and fixed various bugs.</p></li>
+<li><p><a class="reference external" href="https://github.com/jfrog64">jfrog64</a>: Spotted and fixed various bugs, contributed RandomForestAEMolGNet and the target mutation feature for the baseline models.</p></li>
 </ul>
 <p><strong>Advisors and Principal Investigators</strong></p>
 <ul class="simple">

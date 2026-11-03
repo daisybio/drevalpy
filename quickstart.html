@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Quickstart &mdash; DrEvalPy 1.6.0 documentation</title>
+  <title>Quickstart &mdash; DrEvalPy 1.7.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
       <link rel="stylesheet" type="text/css" href="_static/custom_cookietemple.css?v=8d02248d" />
@@ -14,7 +14,7 @@
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=72d88caf"></script>
+      <script src="_static/documentation_options.js?v=030dc6f6"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
@@ -99,6 +99,11 @@ The results will be stored in</p>
 </pre></div>
 </div>
 <p>This creates an index.html file which you can open in your browser to see the results of your run.</p>
+<p>Single-Drug Models such as SingleDrugElasticNet fit one model per drug. With <code class="docutils literal notranslate"><span class="pre">--n_jobs</span></code>, the drugs are trained in
+parallel, here on 4 CPUs:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>drevalpy<span class="w"> </span>--run_id<span class="w"> </span>my_sd_run<span class="w"> </span>--models<span class="w"> </span>SingleDrugElasticNet<span class="w"> </span>--baselines<span class="w"> </span>NaiveMeanEffectsPredictor<span class="w"> </span>--dataset_name<span class="w"> </span>TOYv1<span class="w"> </span>--test_mode<span class="w"> </span>LCO<span class="w"> </span>--n_jobs<span class="w"> </span><span class="m">4</span>
+</pre></div>
+</div>
 <p>We recommend the use of our nextflow pipeline for computational demanding runs and for improved reproducibility. No
 knowledge of nextflow is required to run it. The nextflow pipeline is available on the <a class="reference external" href="https://github.com/nf-core/drugresponseeval.git">nf-core GitHub</a>, the documentation can be found <a class="reference external" href="https://nf-co.re/drugresponseeval/dev/">here</a>.</p>
 <ul class="simple">

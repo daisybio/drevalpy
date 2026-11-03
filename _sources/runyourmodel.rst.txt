@@ -218,6 +218,17 @@ Add the entry to the dictionary itself: ``MODEL_FACTORY`` is created as a copy o
         "YourModel": YourModel,
     }
 
+A Single-Drug Model is trained for many drugs in parallel, each drug in its own worker process (see ``--n_jobs`` in
+:doc:`usage`; the nf-core pipeline uses all CPUs of a task). Make sure that your model works in such a worker:
+
+* Do not start processes yourself, e.g., use ``num_workers=0`` for a PyTorch ``DataLoader`` when running in a worker.
+  ``multiprocessing.parent_process() is not None`` tells you that you are in one.
+* Do not write to fixed paths that the parallel drugs would share, e.g., disable the default logger of PyTorch
+  Lightning, which writes to ``lightning_logs/``. Use the ``model_checkpoint_dir`` passed to ``train`` for checkpoints.
+
+If you run your Single-Drug Model with the nf-core pipeline, also add its name to the list of Single-Drug Models in
+the pipeline's ``conf/base.config``, so that its tasks get many CPUs.
+
 Now you can run your model using the DrEvalPy pipeline. Run the following command (after installing your cloned and edited DrEvalPy repository e.g. with ``pip install -e .``):
 
 .. code-block:: shell
