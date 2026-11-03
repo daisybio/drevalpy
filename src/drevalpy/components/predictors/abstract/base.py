@@ -64,6 +64,10 @@ class Predictor(TunableComponent, ABC):
     supported_modes: ClassVar[frozenset[PredictionMode]] = frozenset({PredictionMode.REGRESSION})
     scope: ClassVar[ModelScope] = ModelScope.MULTI_DRUG
     nan_threshold: ClassVar[float] = 0.2
+    #: Response layers of the dataset (such as ``regulation``) the fit reads from
+    #: ``batch.response_layers``, beside the response it trains on. Training only; a layer the
+    #: dataset lacks is left out of the batch, so the predictor must cope without it.
+    response_layers: ClassVar[tuple[str, ...]] = ()
     #: Whether it uses a torch accelerator, set by ``register(accelerator=...)``.
     accelerator: ClassVar[Accelerator] = Accelerator.NONE
     #: SPDX license of the ported code, set by ``register(license=...)``; ``None`` means the package's.
@@ -118,6 +122,7 @@ class Predictor(TunableComponent, ABC):
                 sample_pair_idx=cl_idx,
                 drug_pair_idx=drug_idx,
                 early_stopping_response=None,
+                response_layers=response.layers,
             )
             keep = self._valid_pair_mask(stopping) & ~np.isnan(response.response)
             response = response.subset(keep)

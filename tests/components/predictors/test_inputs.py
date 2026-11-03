@@ -52,6 +52,7 @@ EXPECTED: dict[str, tuple[Inputs, Inputs]] = {
     "singleDrugElasticNet": (_MATRIX, _NONE),
     "singleDrugRandomForest": (_MATRIX, _NONE),
     "singleDrugKnn": (_MATRIX, _NONE),
+    "singleDrugMorgoth": (_MATRIX, _NONE),
     "molir": (_OMICS, _NONE),
     "superfeltr": (_OMICS, _NONE),
     "dipk": (

@@ -124,6 +124,28 @@ def test_a_drug_batch_keeps_only_the_rows_its_pairs_and_stopping_pairs_use() -> 
     np.testing.assert_array_equal(d1.early_stopping_response.sample_ids, ["s3"])
 
 
+@pytest.mark.parametrize("n_jobs", [1, pytest.param(2, marks=pytest.mark.slow)])
+def test_response_layers_stay_aligned_through_the_nan_filter_and_the_per_drug_cut(n_jobs: int) -> None:
+    stopping = ResponseBatch(
+        np.array([5.0, 6.0]), np.array(["s0", "s1"]), np.array(["d1", "d2"]), {"regulation": np.array([1.0, 0.0])}
+    )
+    batch = _batch({"d1": [2, 0, 1], "d2": [1, 2]}, n_jobs=n_jobs, early_stopping_response=stopping)
+    batch = replace(
+        batch,
+        response=np.array([0.0, np.nan, 2.0, 3.0, 4.0]),
+        response_layers={"regulation": np.array([-1.0, 1.0, 0.0, np.nan, -1.0])},
+    )
+
+    models = _fit(batch)
+
+    d1, d2 = models["d1"].batch, models["d2"].batch
+    np.testing.assert_array_equal(d1.sample_ids, ["s2", "s1"])
+    np.testing.assert_array_equal(d1.response_layers["regulation"], [-1.0, 0.0])
+    np.testing.assert_array_equal(d2.response_layers["regulation"], [np.nan, -1.0])
+    assert d1.early_stopping_response is not None
+    np.testing.assert_array_equal(d1.early_stopping_response.layers["regulation"], [1.0])
+
+
 def test_a_pickled_drug_batch_is_much_smaller_than_the_full_batch() -> None:
     batch = _batch({"d1": [0, 1], "d2": [2, 3]}, n_samples=2000, n_features=50)
 
