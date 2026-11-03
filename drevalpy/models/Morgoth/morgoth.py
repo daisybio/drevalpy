@@ -115,18 +115,23 @@ class MorgothRegressor(RegressorMixin, BaseEstimator):
         :param X: feature matrix (rows x features)
         :param y: response vector
         :param y_class: class labels (1 = sensitive, 0 = resistant); if None, the classes are derived from the threshold
+            (1 = response below the threshold, 0 = at or above, which is sensitive/resistant for e.g., ln IC50)
         :returns: the fitted regressor
         """
         from morgoth.morgoth import MORGOTH
 
         y = np.asarray(y, dtype=float)
         if y_class is not None:
-            self.threshold_ = float(np.quantile(y, np.mean(y_class)))
+            q = float(np.mean(y_class))
+            # sensitive samples can be the low (e.g., ln IC50) or the high (e.g., pEC50) responses
+            if 0 < q < 1 and y[y_class == 1].mean() > y[y_class == 0].mean():
+                q = 1 - q
+            self.threshold_ = float(np.quantile(y, q))
         else:
             self.threshold_ = float(np.quantile(y, self.threshold_quantile))
         if y_class is None:
-            # same rule as the package's sample weights: values below the threshold are class 0
-            y_class = (y >= self.threshold_).astype(int)
+            # 1 = sensitive for the default ln(IC50)
+            y_class = (y < self.threshold_).astype(int)
         # the package writes these files during the fit, they are not needed
         # the patched split search only exists in this process: spawned pool workers import the package unpatched
         fit_jobs = 1 if self.fast_split else self.n_jobs
