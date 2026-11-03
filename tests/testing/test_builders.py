@@ -77,3 +77,16 @@ def test_seed_determines_the_features(dataset):
     np.testing.assert_array_equal(first.response, second.response)
     other = build_synthetic_batch(dataset, seed=2)
     assert not np.array_equal(first.sample.matrix, other.sample.matrix)
+
+
+def test_a_batch_carries_the_requested_response_layers(dataset):
+    batch = build_synthetic_batch(dataset, response_layers=("regulation", "no_such_layer"))
+
+    assert set(batch.response_layers) == {"regulation"}
+    pairs = observed_pairs(dataset)
+    rows = {sample_id: i for i, sample_id in enumerate(dataset.sample_ids)}
+    cols = {drug_id: j for j, drug_id in enumerate(dataset.drug_ids)}
+    expected = dataset.get_response_layer("regulation")[
+        [rows[s] for s in pairs.sample_ids], [cols[d] for d in pairs.drug_ids]
+    ]
+    np.testing.assert_array_equal(batch.response_layers["regulation"], expected)

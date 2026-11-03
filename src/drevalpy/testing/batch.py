@@ -8,7 +8,8 @@ response matrix, so a predictor can be trained without any featurizer at all.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
+from dataclasses import replace
 
 import numpy as np
 
@@ -22,18 +23,21 @@ N_DRUG_FEATURES = 4
 SEED = 20260813
 
 
-def observed_pairs(dataset: Dataset) -> ResponseBatch:
+def observed_pairs(dataset: Dataset, *, layers: Collection[str] = ()) -> ResponseBatch:
     """Return every measured sample/drug pair in *dataset*.
 
     :param dataset: Dataset whose response matrix is read.
+    :param layers: Response layers to read at the same pairs; names the dataset does not have are left out.
     :returns: Response triples for the non-NaN entries, in row-major order.
     """
     matrix = dataset.response_matrix
     rows, columns = np.nonzero(~np.isnan(matrix))
+    available = set(dataset.measures())
     return ResponseBatch(
         response=matrix[rows, columns].astype(np.float64),
         sample_ids=np.asarray(dataset.sample_ids)[rows],
         drug_ids=np.asarray(dataset.drug_ids)[columns],
+        layers={name: dataset.get_response_layer(name)[rows, columns] for name in layers if name in available},
     )
 
 
@@ -45,6 +49,7 @@ def build_synthetic_batch(
     n_sample_features: int = N_SAMPLE_FEATURES,
     n_drug_features: int | None = N_DRUG_FEATURES,
     seed: int = SEED,
+    response_layers: Collection[str] = (),
 ) -> ModelInputBatch:
     """Build a featurized batch over every measured pair in *dataset*.
 
@@ -61,10 +66,12 @@ def build_synthetic_batch(
     :param n_drug_features: Width of the drawn drug feature matrix, or ``None`` for
         a sample-only batch.
     :param seed: Seed for the drawn features and noise.
+    :param response_layers: Response layers of *dataset* to carry in ``batch.response_layers``, as
+        ``Predictor.response_layers`` declares them; missing ones are left out.
     :returns: A batch ready for :meth:`~drevalpy.plugin.Predictor.fit`.
     """
     rng = np.random.default_rng(seed)
-    response = observed_pairs(dataset)
+    response = observed_pairs(dataset, layers=response_layers)
     sample_entity_ids = np.asarray(dataset.sample_ids)
     drug_entity_ids = np.asarray(dataset.drug_ids)
 
@@ -103,8 +110,4 @@ def _learnable_response(
     """
     weights = rng.normal(size=sample_features.shape[1])
     signal = sample_features[sample_pair_idx] @ weights
-    return ResponseBatch(
-        response=(signal + rng.normal(scale=0.1, size=len(response))).astype(np.float64),
-        sample_ids=response.sample_ids,
-        drug_ids=response.drug_ids,
-    )
+    return replace(response, response=(signal + rng.normal(scale=0.1, size=len(response))).astype(np.float64))

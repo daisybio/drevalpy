@@ -219,14 +219,15 @@ def _default_batch(cls: type[Predictor]) -> ModelInputBatch:
     """Return the synthetic batch a predictor check runs on when the caller passes none.
 
     A predictor that declares ``drug_inputs = Inputs.none()`` gets no drug features, as
-    in a real run, where it is configured without a drug featurizer.
+    in a real run, where it is configured without a drug featurizer. The batch carries the
+    response layers the predictor declares in ``response_layers``.
 
     :param cls: Predictor class under check.
     :returns: A featurized batch over the synthetic dataset.
     """
     if predictor_inputs(cls, Side.DRUG).kind == "none":
-        return build_synthetic_batch(synthetic(), n_drug_features=None)
-    return build_synthetic_batch(synthetic())
+        return build_synthetic_batch(synthetic(), n_drug_features=None, response_layers=cls.response_layers)
+    return build_synthetic_batch(synthetic(), response_layers=cls.response_layers)
 
 
 def check_predictor_instantiates(
