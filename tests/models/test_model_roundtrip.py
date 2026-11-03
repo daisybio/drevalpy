@@ -203,6 +203,7 @@ _SMALL_HYPERPARAMETERS = {
     "PharmaFormer": {"epochs": 1, "patience": 2},
     "Precily": {"epochs": 1, "batch_size": 32},
     "SparseGO": {"epochs": 1, "batch_size": 32},
+    "SingleDrugMorgoth": {"n_estimators": 2, "mrmr_k": 2},
 }
 
 
@@ -219,6 +220,7 @@ _SMALL_HYPERPARAMETERS = {
         "MultiViewNeuralNetwork",
         "SuperFELTR",
         "SparseGO",
+        "SingleDrugMorgoth",
     ],
 )
 def test_literature_models_build_with_defaults(model_name: str) -> None:

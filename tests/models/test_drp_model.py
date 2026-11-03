@@ -349,3 +349,46 @@ def test_a_model_that_requires_an_accelerator_fails_fast_without_one(tmp_path, m
     monkeypatch.setattr(accelerator, "accelerator_available", lambda: False)
     with pytest.raises(DrEvalError, match="'ElasticNet' requires an accelerator"):
         model.predict(dataset, fold.test)
+
+
+class TestResponseLayers:
+    """The response layers a predictor declares reach its fit, untransformed, and never its predict."""
+
+    @pytest.fixture()
+    def model(self, monkeypatch) -> tuple[DRPModel, list]:
+        from drevalpy.components.predictors.abstract.base import Predictor
+
+        monkeypatch.setattr(Predictor, "response_layers", ("regulation",))
+        seen = []
+        for method in ("fit", "predict"):
+            original = getattr(Predictor, method)
+
+            def spy(self, batch, _original=original, _method=method):
+                seen.append((_method, batch))
+                return _original(self, batch)
+
+            monkeypatch.setattr(Predictor, method, spy)
+        return DRPModel(small_data_spec("ElasticNet"), response_transformation=StandardScaler()), seen
+
+    def test_fit_gets_the_layer_untransformed_and_predict_gets_none(self, tmp_path, model) -> None:
+        dataset = synthetic_model_dataset_gene_expression_fingerprints()
+        dataset.response.layers["regulation"] = np.array([[-1.0, 1.0], [0.0, np.nan]], dtype=np.float32)
+        model, seen = model
+
+        model.train(dataset, lso_fold().train, model_checkpoint_dir=tmp_path)
+        model.predict(dataset, lso_fold().test)
+
+        (_, fitted), (_, predicted) = seen
+        assert fitted.sample_ids.tolist() == ["cl1", "cl1"]
+        assert fitted.response_layers["regulation"].tolist() == [-1.0, 1.0]
+        assert not np.allclose(fitted.response, [1.0, 2.0])
+        assert dict(predicted.response_layers) == {}
+
+    def test_a_dataset_without_the_layer_trains_without_it(self, tmp_path, model) -> None:
+        model, seen = model
+
+        model.train(
+            synthetic_model_dataset_gene_expression_fingerprints(), lso_fold().train, model_checkpoint_dir=tmp_path
+        )
+
+        assert dict(seen[0][1].response_layers) == {}

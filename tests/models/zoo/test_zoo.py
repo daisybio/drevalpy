@@ -35,9 +35,16 @@ LITERATURE_ZOO_NAMES = [
     "SparseGO",
     "EnsembleMF",
     "PaccMann",
+    "SingleDrugMorgoth",
 ]
 
-BLOCK_ZOO_NAMES = set(LITERATURE_ZOO_NAMES) - {"SimpleNeuralNetwork", "MultiViewNeuralNetwork", "MOLIR", "SuperFELTR"}
+BLOCK_ZOO_NAMES = set(LITERATURE_ZOO_NAMES) - {
+    "SimpleNeuralNetwork",
+    "MultiViewNeuralNetwork",
+    "MOLIR",
+    "SuperFELTR",
+    "SingleDrugMorgoth",
+}
 
 
 def test_every_builtin_zoo_file_is_listed() -> None:
@@ -62,7 +69,14 @@ def test_scope_listing_partitions_the_zoo() -> None:
     single = list_zoo_names(include_external=False, scope=ModelScope.SINGLE_DRUG)
     multi = list_zoo_names(include_external=False, scope="multi_drug")
 
-    assert set(single) == {"SingleDrugElasticNet", "SingleDrugKNN", "SingleDrugRandomForest", "MOLIR", "SuperFELTR"}
+    assert set(single) == {
+        "SingleDrugElasticNet",
+        "SingleDrugKNN",
+        "SingleDrugMorgoth",
+        "SingleDrugRandomForest",
+        "MOLIR",
+        "SuperFELTR",
+    }
     assert set(single).isdisjoint(multi)
     assert set(single) | set(multi) == set(list_zoo_names(include_external=False))
     assert all(get_zoo_config(name).scope == ModelScope.SINGLE_DRUG for name in single)
@@ -81,6 +95,7 @@ def test_scope_listing_partitions_the_zoo() -> None:
         ("NaiveMeanEffectsPredictor", "concatFeaturizers", "oneHot", ...),
         ("SingleDrugElasticNet", "scaledGeneExpression", None, "singleDrugElasticNet"),
         ("SingleDrugRandomForest", "scaledGeneExpression", None, "singleDrugRandomForest"),
+        ("SingleDrugMorgoth", "scaledGeneExpression", None, "singleDrugMorgoth"),
         ("MOLIR", ..., None, ...),
         ("SuperFELTR", ..., None, ...),
     ],

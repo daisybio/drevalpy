@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import tempfile
 from contextlib import nullcontext
+from dataclasses import replace
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
@@ -228,9 +229,12 @@ class DRPModel:
         self._fitted_response_transformation = fit_response_transformation(
             self._response_transformation, raw.response, group_labels(self._response_transformation, dataset, raw)
         )
-        output = self._transformed_responses(dataset, scope)
+        layers = self._require_predictor().response_layers
+        output = self._transformed_responses(dataset, scope, layers)
         stopping = (
-            self._transformed_responses(dataset, early_stopping_scope) if early_stopping_scope is not None else None
+            self._transformed_responses(dataset, early_stopping_scope, layers)
+            if early_stopping_scope is not None
+            else None
         )
         sample_input, drug_input = self._feature_sources(dataset)
         output, stopping = usable_pairs(
@@ -261,23 +265,24 @@ class DRPModel:
             raise RuntimeError("Model has not been trained; call train() or load() before predict()")
         return self._predictor
 
-    def _transformed_responses(self, dataset: Dataset, scope: PairMask) -> ResponseBatch:
+    def _transformed_responses(self, dataset: Dataset, scope: PairMask, layers: tuple[str, ...]) -> ResponseBatch:
         """Return the observed responses in *scope*, transformed by the fitted response transformation.
 
-        Only training-time extractions are transformed; prediction reads the raw matrix.
+        Only training-time extractions are transformed; prediction reads the raw matrix. The
+        response layers are read at the same pairs and left untransformed.
 
         :param dataset: Source of response values.
         :param scope: Response positions.
-        :returns: Flat ResponseBatch of (sample, drug, response) triples.
+        :param layers: Response layers the predictor declares in ``Predictor.response_layers``.
+        :returns: Flat ResponseBatch of (sample, drug, response) triples with the available layers.
         """
         transformation = self._fitted_response_transformation
-        response = ResponseBatch.from_dataset(dataset, scope, observed_only=True)
-        return ResponseBatch(
-            apply_response_transformation(
+        response = ResponseBatch.from_dataset(dataset, scope, observed_only=True, layers=layers)
+        return replace(
+            response,
+            response=apply_response_transformation(
                 transformation, response.response, groups=group_labels(transformation, dataset, response)
             ),
-            response.sample_ids,
-            response.drug_ids,
         )
 
     def _feature_sources(self, dataset: Dataset) -> tuple[FeatureSource, FeatureSource | None]:

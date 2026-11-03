@@ -174,6 +174,9 @@ def _configure_single_drug_hpam(model_name: str, hpam_combi: dict) -> None:
     if model_name == "SingleDrugRandomForest":
         hpam_combi["n_estimators"] = 2
         hpam_combi["max_depth"] = 2
+    elif model_name == "SingleDrugMorgoth":
+        hpam_combi["n_estimators"] = 2
+        hpam_combi["mrmr_k"] = 5
     elif model_name in ["MOLIR", "SuperFELTR"]:
         hpam_combi["epochs"] = 1
 
