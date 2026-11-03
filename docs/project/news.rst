@@ -214,12 +214,13 @@ Defaults and results that changed
 New models
 ~~~~~~~~~~
 
-Four models from the 1.6.x line are zoo presets: ``SingleDrugKNN`` (a nearest-neighbour model per drug with
+Five models from the 1.6.x line are zoo presets: ``SingleDrugKNN`` (a nearest-neighbour model per drug with
 mRMR feature selection), ``RandomForestAEMolGNet`` (a random forest on DIPK's autoencoder and MolGNet
-features), ``EnsembleMF`` and ``PaccMann``. Every 1.6.1 model has a preset of the same name, except
-``NaiveCellLineMeanPredictor``, which is ``NaiveSampleMeanPredictor``. The table is at
-:ref:`how-to/migrate/index:Map 1.x model names to v2`, and :doc:`/explanation/literature_models` describes
-``EnsembleMF`` and ``PaccMann``.
+features), ``EnsembleMF``, ``PaccMann`` and ``SingleDrugMorgoth`` (a MORGOTH multivariate random forest per
+drug, which needs the ``morgoth`` extra; see :ref:`how-to/install:Install the MORGOTH extra`). Every 1.6.1
+model has a preset of the same name, except ``NaiveCellLineMeanPredictor``, which is
+``NaiveSampleMeanPredictor``. The table is at :ref:`how-to/migrate/index:Map 1.x model names to v2`, and
+:doc:`/explanation/literature_models` describes ``EnsembleMF``, ``PaccMann`` and ``SingleDrugMorgoth``.
 
 New commands and functions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -360,6 +361,12 @@ Components and imports
   and predicts NaN for a drug without a model. The built-in single-drug predictors use it, and
   ``drevalpy.components.predictors.single_drug_routing`` is removed. See
   :ref:`how-to/extend/write_predictor:Fit one model per drug`.
+- A predictor names the response layers its fit reads, such as ``regulation``, in the class attribute
+  ``response_layers``. The fit finds them in ``batch.response_layers``, one value per pair and untransformed;
+  a layer the dataset lacks is left out, and the mapping is empty at prediction. ``ResponseBatch.layers``,
+  ``ResponseBatch.from_dataset(..., layers=)`` and ``build_synthetic_batch(..., response_layers=)`` carry
+  them, and the conformance checks pass the predictor's layers. See
+  :ref:`how-to/extend/write_predictor:Read response layers`.
 - ``PREDICTOR_CHECKS`` in ``drevalpy.testing`` holds a fourth check,
   ``check_predictor_single_drug_routing``: a single-drug predictor must predict NaN for a drug it was
   not trained on. The default batch of a predictor check has no drug features when the predictor

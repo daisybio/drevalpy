@@ -100,6 +100,11 @@ No model ends with ``mismatch``.
    * - Precily
      - forward
      -
+   * - SingleDrugMorgoth
+     - forward
+     - Not in 1.6.1; compared against the 1.x development branch at the MORGOTH merge
+       (``e1f2ffc7``). Exact on a shared design matrix, with and without the
+       ``regulation`` layer.
 
 Three further cases check shared code rather than a model: the response
 transformations (``exact``), the leaderboard and its per-drug scores (``exact``), and
@@ -120,6 +125,8 @@ evaluates more strictly. Each of these is recorded as a deviation in the evidenc
   both once on the whole dataset, test samples and drugs included.
 - **One featurizer per model.** The single-drug models and MOLIR and SuperFELTR fit
   their scaler and gene selection once on all training samples, not once per drug.
+  SingleDrugMorgoth's 1.x scaler also left out the pairs without a ``regulation``
+  verdict.
 - **Gene selection in MOLIR.** 1.6.1 ranked genes by variance after standardizing
   them, when every gene has a variance of about one, so the choice came down to
   rounding. 2.0 ranks before standardizing.

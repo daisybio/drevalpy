@@ -181,6 +181,9 @@ spaces are wider than 1.6.1 grids, so each grid value stays inside its range.
    * - ``EnsembleMF``
      - fingerprints with ``n_bits=256``; the preset widens the ``n_bits`` space to 256 to 2048 so
        that its default lies inside it
+   * - ``SingleDrugMorgoth``
+     - ``n_estimators=100``, ``max_depth=10``, ``min_samples_leaf=10``, ``max_features=sqrt``,
+       ``impact_classification=0.5``, ``mrmr_k=50``, ``threshold_quantile=0.5``, ``random_state=42``
 
 The presets also read the gene lists of 1.6.1, so a dataset must hold every gene of the list:
 

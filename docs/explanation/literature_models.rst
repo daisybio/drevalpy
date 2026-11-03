@@ -1,8 +1,9 @@
 How the literature models differ from their papers
 ==================================================
 
-DrEvalPy includes ten literature models: DrugGNN (from GraphDRP), Precily, SRMF,
-MOLIR, SuperFELTR, PharmaFormer, DIPK, SparseGO, EnsembleMF and PaccMann. They are
+DrEvalPy includes eleven literature models: DrugGNN (from GraphDRP), Precily, SRMF,
+MOLIR, SuperFELTR, PharmaFormer, DIPK, SparseGO, EnsembleMF, PaccMann and
+SingleDrugMorgoth. They are
 reimplementations in the same framework as every other model, trained and scored under
 the same split modes. A reimplementation is not a copy, and results from DrEvalPy will not match
 a paper's table digit for digit. This page lists what was changed relative to the
@@ -288,6 +289,34 @@ ported without change of architecture.
   best epoch. Without such a scope the full budget of epochs runs and the last
   weights are kept. A trailing training batch of one pair is dropped, because batch
   normalisation cannot process it.
+
+SingleDrugMorgoth
+-----------------
+
+MORGOTH (Rolli et al., Digital Discovery 2026) is a multivariate random forest: each tree
+learns the response and a class, sensitive or resistant, at once, and
+``impact_classification`` (lambda in the paper) sets the share of the classification in the
+split criterion. The prediction is the regression output. SingleDrugMorgoth fits one forest per
+drug, on the ``mrmr_k`` genes that mRMR selects as most relevant to the response of the drug.
+It is a port of the 1.x SingleDrugMorgoth, from the development branch of DrEvalPy 1.6, and
+the forest is the one of the ``morgoth`` package.
+
+- The class of a pair comes from the ``regulation`` response layer, the verdict of
+  CurveCurator: 1 (sensitive) for a curve that goes down (-1), 0 for one that stays flat (0) or
+  goes up (1). Pairs without a verdict are not trained on, and a drug left without any pair is
+  predicted NaN. 1.x read the same verdicts as the strings ``"down"``, ``"not"`` and ``"up"``.
+- A dataset without a ``regulation`` layer gets a warning, and the class is then 1 for the
+  responses below the ``threshold_quantile`` quantile of the drug, as in 1.6.1. For pEC50, where
+  a high value is sensitive, that class marks the resistant pairs.
+- The expression is the ``scaledGeneExpression`` featurizer with ``transform: arcsinh`` on the
+  ``landmark_genes`` list. Its scaler is fitted on all training samples, not once per drug as in
+  1.x, so the selected genes and the splits can differ slightly.
+- The package searches the split of a feature in pure Python, recomputing the criterion for
+  every threshold. ``fast_split`` (on by default) replaces that search with an equivalent one
+  that sorts the values once and scores every threshold from cumulative sums, as 1.x did.
+- As in 1.x, the forest predicts in a pool of processes over all cores, and with
+  ``fast_split`` off it also fits in one. In the worker processes of a parallel per-drug fit it
+  runs in the worker itself. Windows starts each process anew, so the pool is slow there.
 
 What was checked
 ----------------

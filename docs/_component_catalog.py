@@ -24,9 +24,9 @@ GENERATED_CATALOGS = {
     "drug_featurizer": DOCS_DIR / "reference" / "_generated_drug_featurizers.rst",
     "predictor": DOCS_DIR / "reference" / "_generated_predictors.rst",
 }
-EXPECTED_BUILTIN_COMPONENT_COUNTS = {"sample_featurizer": 18, "drug_featurizer": 12, "predictor": 30}
+EXPECTED_BUILTIN_COMPONENT_COUNTS = {"sample_featurizer": 18, "drug_featurizer": 12, "predictor": 31}
 #: Built-in predictors per input kind; a predictor counts under ``matrix`` or ``blocks`` when either side has it.
-EXPECTED_PREDICTOR_INPUT_COUNTS = {"none": 1, "matrix": 14, "blocks": 15}
+EXPECTED_PREDICTOR_INPUT_COUNTS = {"none": 1, "matrix": 15, "blocks": 15}
 
 #: View a featurizer that requires an explicit view is built with to read its declarations.
 _PLACEHOLDER_VIEW = "gene_expression"

@@ -148,6 +148,10 @@ Layers written by ``drevalpy curate run``:
    * - Parameter errors
      - ``pec50_error``, ``slope_error``, ``front_error``, ``back_error``
 
+``regulation`` holds the verdict of CurveCurator on each curve, coded -1 (down), 0 (not) and 1
+(up), and ``NaN`` where there is none. Besides the quality rule, ``SingleDrugMorgoth`` reads it
+while training: a pair whose curve goes down is in its sensitive class.
+
 Replicate-fits table
 ~~~~~~~~~~~~~~~~~~~~
 
@@ -259,7 +263,7 @@ The shipped lists, by the view they apply to:
      - Genes and purpose
    * - ``landmark_genes``
      - 867 L1000 landmark genes; the expression input of the sklearn models, SimpleNN,
-       DrugGNN, PharmaFormer, DIPK, EnsembleMF and SingleDrugKNN
+       DrugGNN, PharmaFormer, DIPK, EnsembleMF, SingleDrugKNN and SingleDrugMorgoth
    * - ``landmark_genes_reduced``
      - The landmark genes also measured in the copy-number, mutation and proteomics
        intersections
