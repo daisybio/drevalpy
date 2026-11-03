@@ -129,3 +129,17 @@ PACCMANN_REFERENCE = LiteratureReference(
         "expression on the training pairs."
     ),
 )
+
+MORGOTH_REFERENCE = LiteratureReference(
+    repo_url="https://github.com/volkamerlab/MORGOTH",
+    citation_doi="10.1039/D5DD00284B",
+    citation_text=(
+        "Rolli et al., Increasing trustworthiness of machine learning-based drug sensitivity prediction with a "
+        "multivariate random forest approach, Digital Discovery 2026."
+    ),
+    deviations=(
+        "Port of the DrEvalPy 1.6.1 SingleDrugMorgoth wrapper around the morgoth package, with its threshold rule, "
+        "pool handling and vectorized split search. The expression scaler is fitted on all training samples rather "
+        "than per drug, and the class comes from the regulation layer coded -1/0/1 instead of strings."
+    ),
+)
