@@ -86,7 +86,10 @@ class DrugResponseDataset:
         else:
             self._tissues = None
         if regulation is not None:
-            self._regulation = pd.Series(regulation).fillna("NA").astype(str).to_numpy()
+            reg = np.asarray(regulation)
+            if reg.dtype.kind != "U":  # already normalized, e.g. when copy() re-runs the constructor
+                reg = pd.Series(reg).fillna("NA").to_numpy(dtype=str)
+            self._regulation = reg
         else:
             self._regulation = None
 
