@@ -230,6 +230,10 @@ column is a zoo preset; check yours with ``drevalpy list zoo-presets``.
      - ``PaccMann``
      - Same network and 1.6.1 defaults. Gene list trimmed to 1,955 genes, SMILES variants drawn from a
        fixed bank of 20 per drug. A 1.x checkpoint does not load.
+   * - ``SingleDrugMorgoth``
+     - ``SingleDrugMorgoth``
+     - Single-drug model from the 1.6 development branch. Needs the ``morgoth`` extra. The class of
+       each pair comes from the ``regulation`` layer. A 1.x checkpoint does not load.
 
 v2 adds ``Ridge``, which 1.x did not have. ``drevalpy list zoo-presets`` shows
 what each preset is made of; :doc:`/reference/model_zoo` describes them.

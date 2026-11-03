@@ -248,6 +248,46 @@ This example fits one ridge regression per drug:
   predictor, so an attribute that ``_fit_drug`` sets is lost. The base class collects the
   returned models in the parent predictor and saves them with it.
 
+Read response layers
+--------------------
+
+A predictor can train on more of a pair than its response, such as the CurveCurator verdict
+``regulation`` that ``SingleDrugMorgoth`` turns into classes. Name the response layers the fit
+reads in the class attribute ``response_layers``. The fit then finds them in
+``batch.response_layers``, a mapping from each name to one value per pair:
+
+- **Training only.** The mapping is empty at prediction, so ``_predict`` must not read it.
+- **Not transformed.** The response transformation changes ``batch.response`` but leaves the
+  layers as the dataset stores them.
+- **Possibly missing.** A layer the dataset lacks is left out of the mapping, so the fit must
+  cope without it, for example with ``batch.response_layers.get(name)``.
+
+This baseline predicts the mean response of the training pairs whose curve goes down, and the
+mean of all pairs when the dataset has no ``regulation`` layer:
+
+.. code-block:: python
+
+   import numpy as np
+
+   from drevalpy.plugin import FeatureFreePredictor, register_predictor
+
+
+   @register_predictor("downMean", description="Predict the mean response of the down-regulated pairs.")
+   class DownMean(FeatureFreePredictor):
+       response_layers = ("regulation",)
+
+       def _fit(self, batch):
+           regulation = batch.response_layers.get("regulation")
+           down = np.ones(batch.n_pairs, dtype=bool) if regulation is None else regulation == -1
+           self._mean = float(np.mean(batch.response[down if down.any() else slice(None)]))
+
+       def _predict(self, batch):
+           return np.full(batch.n_pairs, self._mean)
+
+``build_synthetic_batch(..., response_layers=)`` from ``drevalpy.testing`` builds a batch that
+carries the layers, and the conformance checks below pass the predictor's ``response_layers``
+for you.
+
 Check that it works
 -------------------
 

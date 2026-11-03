@@ -118,8 +118,8 @@ featurizer and a predictor. Ask three questions of a preset.
 
 **Is it a literature model or an ablation?**
    ``DrugGNN``, ``Precily``, ``SRMF``, ``MOLIR``, ``SuperFELTR``, ``PharmaFormer``, ``DIPK``,
-   ``SparseGO``, ``EnsembleMF`` and ``PaccMann`` reimplement published methods, and
-   :doc:`/explanation/literature_models` lists how each differs from its paper.
+   ``SparseGO``, ``EnsembleMF``, ``PaccMann`` and ``SingleDrugMorgoth`` reimplement published
+   methods, and :doc:`/explanation/literature_models` lists how each differs from its paper.
    ``RandomForestAEMolGNet`` gives a random forest the autoencoder and MolGNet features of
    ``DIPK``, which separates the effect of the features from that of the network.
    ``SingleDrugKNN`` is a k-nearest-neighbours model that fits one estimator per drug, with
@@ -127,8 +127,9 @@ featurizer and a predictor. Ask three questions of a preset.
 
 **What does it need installed or downloaded?**
    Predictors built on PyTorch, such as the neural networks, need one of the PyTorch extras
-   from :doc:`/how-to/install`. Some featurizers, such as ``chemberta`` and ``molgnet``, fetch
-   pre-trained artifacts on first use; see :doc:`/reference/environment`.
+   from :doc:`/how-to/install`, and ``SingleDrugMorgoth`` needs the ``morgoth`` extra. Some
+   featurizers, such as ``chemberta`` and ``molgnet``, fetch pre-trained artifacts on first use;
+   see :doc:`/reference/environment`.
 
 :doc:`/reference/model_zoo` describes every preset, and :doc:`/reference/components` the
 featurizers and predictors behind them. Look up one preset to see its parts:

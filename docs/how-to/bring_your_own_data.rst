@@ -198,6 +198,10 @@ layers raises ``KeyError``. If your dataset has only a pEC50 matrix, switch the 
 ``quality=CurveQuality.off()`` in ``drevalpy.split`` and ``drevalpy.run``, or ``--no-quality-filter``
 on the command line; every pair with a finite response is then kept.
 
+``SingleDrugMorgoth`` also reads the ``regulation`` layer, CurveCurator's verdict on each curve:
+it trains each forest to tell the pairs whose curve goes down from the others. Without the layer
+it warns and splits the pairs of each drug at a quantile of the response instead.
+
 A curve that CurveCurator cannot fit leaves its pair out of the result instead of stopping the
 run. To fit a large screen as parallel jobs, for example on a cluster, see :doc:`curate_at_scale`.
 
@@ -522,7 +526,8 @@ Most zoo presets keep a shipped gene list instead of the whole view, so that a m
 same genes on every dataset. The lists are those of drevalpy 1.6.x:
 
 - ``landmark_genes`` (867 genes) for the sklearn models, ``SimpleNeuralNetwork``,
-  ``DrugGNN``, ``PharmaFormer``, ``DIPK``, ``EnsembleMF`` and ``SingleDrugKNN``;
+  ``DrugGNN``, ``PharmaFormer``, ``DIPK``, ``EnsembleMF``, ``SingleDrugKNN`` and
+  ``SingleDrugMorgoth``;
 - ``gene_list_paccmann_network_prop`` for ``PaccMann`` and ``tcga_autoencoder_genes_available``
   for ``RandomForestAEMolGNet``;
 - ``drug_target_genes_all_drugs`` in the ``mutations`` view for the ``MultiView*`` models;

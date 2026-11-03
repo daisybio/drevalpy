@@ -55,7 +55,7 @@ syntax.
 
          drevalpy list zoo-presets
 
-      The table has 33 rows, one per zoo name, with the recipe, scope, prediction mode and
+      The table has 34 rows, one per zoo name, with the recipe, scope, prediction mode and
       origin of each:
 
       .. code-block:: text
@@ -79,7 +79,7 @@ syntax.
          drevalpy list predictors
 
       The ``predictors`` table, for example, begins like this and ends with the line
-      ``30 entries``:
+      ``31 entries``:
 
       .. code-block:: text
 
