@@ -173,6 +173,12 @@ A reversible change to the drug response values a model trains on, undone on its
 predictions, such as standard scaling or subtracting each drug's mean response.
 _Avoid_: target transform, response transform
 
+**Response layer**:
+One named value per pair stored beside the response, such as `LN_IC50`, `AUC` or
+the CurveCurator verdict `regulation`. A predictor names the layers its fit reads
+in `response_layers`; they are never transformed and never read at prediction.
+_Avoid_: label column, side target
+
 ## Evaluation
 
 **Experiment**:

@@ -52,6 +52,7 @@ DEFERRED_TRAINING_SYMBOLS = (
     ("drevalpy.components.predictors.literature.ensemblemf.training", "train_member"),
     ("drevalpy.components.predictors.literature.sparsego.utils", "load_ontology"),
     ("drevalpy.components.predictors.literature.paccmann.network", "PaccMannNetwork"),
+    ("drevalpy.components.predictors.literature.morgoth._forest", "MorgothRegressor"),
     ("drevalpy.components.predictors.literature.dipk.gene_expression_encoder", "GeneExpressionEncoder"),
     ("drevalpy.components.predictors.literature.dipk.gene_expression_encoder", "encode_gene_expression"),
     (

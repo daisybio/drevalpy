@@ -56,6 +56,12 @@ cu126 = [
 cu130 = [
     "torch>=2.6",
 ]
+# The MORGOTH forest of SingleDrugMorgoth. On Linux, morgoth requires fireducks, which pins
+# pyarrow 21 and pandas<2.4; `exclude-dependencies` below keeps it out of uv's resolution, and
+# drevalpy aliases fireducks.pandas to pandas when fireducks is not installed.
+morgoth = [
+    "morgoth>=1.6",
+]
 
 [project.scripts]
 drevalpy = "drevalpy.cli.main:cli_main"
@@ -90,6 +96,8 @@ exclude-newer = "3 weeks"
 # xgboost's nvidia-nccl-cu12 and torch's cu13 NCCL share libnccl.so.2; older cu12
 # releases make `import torch` fail on an undefined ncclCommResume symbol.
 override-dependencies = ["nvidia-nccl-cu12>=2.30.7; sys_platform == 'linux'"]
+# morgoth only needs fireducks.pandas for annotations (see the morgoth extra).
+exclude-dependencies = ["fireducks"]
 conflicts = [
     [
         { extra = "cpu" },

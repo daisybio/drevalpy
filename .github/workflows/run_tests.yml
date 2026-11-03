@@ -73,7 +73,7 @@ jobs:
         # `not network` (rather than no marker at all) deselects the tests that
         # download pretrained weights from the artifacts bucket, which is not
         # readable without credentials; run_network_tests.yml covers those.
-        run: uv run pytest -m "not network" --cov --cov-report=xml
+        run: uv run --extra morgoth pytest -m "not network" --cov --cov-report=xml
 
       - name: Upload coverage
         if: always() && matrix.os == 'ubuntu-latest'
