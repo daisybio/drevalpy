@@ -4,6 +4,18 @@ News
 .. role:: date
     :class: date
 
+🍫 First model wins the chocolate challenge! :date:`2026-11-03`
+-----------------------------------------------------------------
+This just in!! Major congrats to @jfrog64, who has contributed the model RandomForestAEMolGNet, which significantly
+outperforms the RandomForest in the LCO setting. It performs on-par with our current best model EnsembleMF.
+The chocolate challenge is therefore updated:
+
+| 1. Integrate your model into DrEval. Check out the page on :doc:`benchmarking your own model <benchmark_overview>`.
+| 2. :doc:`Run your model using the splits from the leaderboard <precomputed_splits>` either using the standalone or the Nextflow pipeline.
+| 3. Let us know your results!
+|    3.1. 🎊If you significantly outperform EnsembleMF in the LCO setting, we will personally send you chocolate 🍫.
+|    3.2. 🥺If you perform significantly worse than the NaiveDrugMeanPredictor, you will have to send us chocolate.
+
 📄 Our paper is finally published! :date:`2026-05-12`
 --------------------------------------------------------------
 After a long, long journey, our paper is finally published at `Nature Communications <https://doi.org/10.1038/s41467-026-72903-w>`__!
