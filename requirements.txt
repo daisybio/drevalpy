@@ -88,7 +88,7 @@ nvidia-cusparselt-cu13==0.8.1 ; python_version >= "3.11" and python_version < "3
 nvidia-nccl-cu13==2.30.7 ; python_version >= "3.11" and python_version < "3.14" and platform_system == "Linux"
 nvidia-nvjitlink==13.4.92 ; python_version >= "3.11" and python_version < "3.14" and (sys_platform == "win32" and platform_system == "Linux" and platform_machine == "AMD64" or sys_platform == "linux" and (platform_machine == "aarch64" or platform_machine == "x86_64") and platform_system == "Linux") and python_version >= "3"
 nvidia-nvshmem-cu13==3.7.2 ; python_version >= "3.11" and python_version < "3.14" and platform_system == "Linux"
-nvidia-nvtx==13.2.86 ; python_version >= "3.11" and python_version < "3.14" and (sys_platform == "win32" and platform_system == "Linux" and platform_machine == "AMD64" or sys_platform == "linux" and (platform_machine == "aarch64" or platform_machine == "x86_64") and platform_system == "Linux") and python_version >= "3"
+nvidia-nvtx==13.5.25 ; python_version >= "3.11" and python_version < "3.14" and (sys_platform == "win32" and platform_system == "Linux" and platform_machine == "AMD64" or sys_platform == "linux" and (platform_machine == "aarch64" or platform_machine == "x86_64") and platform_system == "Linux") and python_version >= "3"
 opentelemetry-api==1.45.2 ; python_version >= "3.11" and python_version < "3.14"
 opentelemetry-exporter-http-transport==0.66b2 ; python_version >= "3.11" and python_version < "3.14"
 opentelemetry-exporter-otlp-common==0.66b2 ; python_version >= "3.11" and python_version < "3.14"
