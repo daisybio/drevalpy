@@ -8,8 +8,9 @@ pairs, before the final model is fit. This page shows how to change the budget a
 that search, narrow the search space, set the values yourself, and read what the search chose.
 :doc:`/tutorials/tune_and_stress_test` walks through reading the trials of a tuned run.
 
-The examples tune ``ElasticNet`` on the simulated dataset. Keep tuning on for this preset: with
-its default hyperparameters it predicts a constant on this dataset.
+The examples tune ``ElasticNet`` on the simulated dataset. Keep tuning on for this preset: on
+this dataset it scores better tuned than with its default hyperparameters, as
+:doc:`/tutorials/first_benchmark` shows.
 
 Set the number of trials
 ------------------------
@@ -40,7 +41,7 @@ result you report.
              Split mode: LPO
              Normalized by: None
              Models: 1
-                 ElasticNet (5 folds): MSE=0.5495, RMSE=0.7407, MAE=0.5832, R^2=0.7939, Pearson=0.8935, Spearman=0.9024, Kendall=0.7275
+                 ElasticNet (5 folds): MSE=0.5524, RMSE=0.7428, MAE=0.5827, R^2=0.7925, Pearson=0.8927, Spearman=0.8974, Kendall=0.7195
 
    .. tab-item:: Python
       :sync: python
@@ -64,10 +65,11 @@ result you report.
              Split mode: LPO
              Normalized by: None
              Models: 1
-                 ElasticNet (5 folds): MSE=0.5495, RMSE=0.7407, MAE=0.5832, R^2=0.7939, Pearson=0.8935, Spearman=0.9024, Kendall=0.7275
+                 ElasticNet (5 folds): MSE=0.5524, RMSE=0.7428, MAE=0.5827, R^2=0.7925, Pearson=0.8927, Spearman=0.8974, Kendall=0.7195
 
-Every run of a stress test tunes on its own, so ``--robustness-repeats`` and
-``--randomization-mode`` multiply the cost of tuning too; see :doc:`/how-to/run_stress_tests`.
+``--robustness-repeats`` and ``--randomization-mode`` add final fits but no tuning: the runs of
+a stress test reuse the best hyperparameters of the original run on the same fold; see
+:doc:`/how-to/run_stress_tests`.
 
 Choose the tuning metric
 ------------------------
@@ -171,7 +173,7 @@ logarithmic scale.
              Split mode: LPO
              Normalized by: None
              Models: 1
-                 NarrowElasticNet (5 folds): MSE=0.5464, RMSE=0.7385, MAE=0.5787, R^2=0.7951, Pearson=0.8936, Spearman=0.9021, Kendall=0.7273
+                 NarrowElasticNet (5 folds): MSE=0.5629, RMSE=0.7495, MAE=0.5868, R^2=0.7888, Pearson=0.8908, Spearman=0.8960, Kendall=0.7206
 
 The qualified key of a hyperparameter in a composed model, such as ``predictor.elasticNet.alpha``,
 is also in ``narrow.hyperparameter_space``.
@@ -234,7 +236,7 @@ off. For a single fit with values of your choice, without any experiment, see
              Split mode: LPO
              Normalized by: None
              Models: 1
-                 FixedElasticNet (5 folds): MSE=0.5552, RMSE=0.7445, MAE=0.5839, R^2=0.7915, Pearson=0.8917, Spearman=0.9017, Kendall=0.7270
+                 FixedElasticNet (5 folds): MSE=1.7647, RMSE=1.1240, MAE=0.8812, R^2=0.3550, Pearson=0.7424, Spearman=0.7373, Kendall=0.5860
 
 Reproduce a search
 ------------------

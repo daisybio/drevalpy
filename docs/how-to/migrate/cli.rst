@@ -46,10 +46,12 @@ the part of the 1.x ``NaiveMeanEffectsPredictor`` normalization:
 
 What changed in how a run behaves:
 
-- ``run`` always makes five folds. 1.x made ``--n_cv_splits`` folds, seven by
+- ``run`` makes five folds by default. 1.x made ``--n_cv_splits`` folds, seven by
   default.
-- ``run`` does not check whether the output directory already holds results, so
-  there is no ``--overwrite``. Use a new directory for each run.
+- ``run`` saves each run as it finishes and resumes a killed run when you run the
+  same command again. An output directory written with other settings is refused;
+  ``--overwrite`` deletes it and starts again. See
+  :ref:`how-to/run_experiment:Resume a killed run`.
 - v2 does not add ``NaiveMeanEffectsPredictor`` for you, and the response
   transformation applies to every model you list.
 - ``--no-hpo`` trains each model with its default hyperparameters. 1.x used the
@@ -110,15 +112,16 @@ Map the ``drevalpy`` flags
        ``--measure LN_IC50`` for the 1.x target. See
        :ref:`how-to/run_experiment:Choose the response measure`.
    * - ``--overwrite``
-     - Removed. See above.
+     - ``--overwrite``. It deletes the experiment in the output directory first (its
+       ``metadata.json``, ``failures.json`` and model directories, nothing else) and
+       refuses a directory of other files. Without it, ``run`` resumes a directory of the
+       same run and refuses one of another run. See above.
    * - ``--optim_metric``
      - ``--hpo-metric``, default ``RMSE``.
    * - ``--wandb_project``
      - ``--wandb-project`` on ``run`` and ``single``. See :doc:`/how-to/run_experiment`.
    * - ``--n_cv_splits``
-     - Removed for ``run``, which always makes five folds.
-       ``drevalpy data split --n-splits`` sets the count for splits you make
-       yourself.
+     - ``--n-splits`` (``-n``) on ``run`` and ``data split``, default 5 instead of 7.
    * - ``--response_transformation``
      - ``--response-transformation`` with ``none`` (default), ``standard``,
        ``minmax``, ``robust``, ``drug_mean`` or ``drug_tissue_mean``. See
@@ -176,7 +179,9 @@ command covers the job.
        dataset (:doc:`/how-to/run_cross_study`). There is no responder filter.
    * - ``drevalpy-make-cv-pkls``
      - ``drevalpy data split DATASET OUTPUT_DIR --mode MODE``. It writes
-       ``fold_N.npz`` files, not pickles.
+       ``fold_N.npz`` files, not pickles. ``--validation_ratio`` is
+       ``--validation-ratio`` there and on ``run``, default 0.1 as before; the 1.x
+       ``drevalpy`` command had no such flag.
    * - ``drevalpy-make-hpam-yamls``, ``drevalpy-evaluate-hpams``
      - Removed. Tuning runs inside ``run`` and ``single``; see
        :doc:`/how-to/tune_hyperparameters`.

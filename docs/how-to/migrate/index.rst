@@ -36,6 +36,12 @@ What changed
   ``drevalpy`` prints the help and does not run an experiment.
 - Hyperparameter tuning is an Optuna search of ``--hpo-trials`` trials per
   fold. 1.x tried every combination of a grid in ``hyperparameters.yaml``.
+- A single-drug model, such as ``SingleDrugElasticNet``,
+  ``SingleDrugRandomForest``, ``MOLIR`` or ``SuperFELTR``, still fits one model
+  per drug, but v2 tunes one set of hyperparameters for all its drugs: each trial
+  fits every drug with the same values and is scored by one validation score
+  pooled over the pairs of all drugs. 1.x tuned each drug separately. The tuned
+  values and the scores of these models can therefore differ from 1.x.
 
 .. _migrate-files:
 

@@ -80,8 +80,10 @@ The summary averages only the ordinary runs: the original data in the original p
 stress-test runs are in the saved results, and no command prints them.
 
 The number of runs per model is the number of folds × (1 + robustness repeats) × (1 + randomized
-datasets). Here it is 5 × 2 × 2 = 20 runs of ``Ridge``. With tuning on, every one of these runs
-tunes on its own, so the cost of the search multiplies by the same factor; see
+datasets). Here it is 5 × 2 × 2 = 20 runs of ``Ridge``. With tuning on, only the run of the
+original data on each original fold tunes; the randomized and robustness runs of that fold reuse
+its best hyperparameters, so they differ from it only in the data, and the search runs once per
+fold. If that original run fails, its stress-test runs are recorded as failures too; see
 :doc:`/how-to/tune_hyperparameters`.
 
 Choose the randomization mode

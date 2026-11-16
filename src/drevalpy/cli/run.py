@@ -29,6 +29,7 @@ from ._options import (
     ResponseTransformation,
     ResponseTransformationOption,
     SampleFeaturizerOption,
+    ValidationRatio,
     WandbProject,
     quality_from_cli,
     resolve_model_specs,
@@ -47,7 +48,24 @@ def run_cmd(
         str, typer.Option("--split-mode", "-s", help="Split mode: LPO, LSO, LDO, LTO, LStO.")
     ] = "LPO",
     n_splits: NSplits = 5,
-    output_dir: Annotated[str, typer.Option("--output-dir", "-o", help="Output directory for results.")] = "results",
+    validation_ratio: ValidationRatio = 0.1,
+    output_dir: Annotated[
+        str,
+        typer.Option(
+            "--output-dir",
+            "-o",
+            help="Output directory for results. Each run is saved when it finishes, and rerunning the same command "
+            "resumes a killed run.",
+        ),
+    ] = "results",
+    overwrite: Annotated[
+        bool,
+        typer.Option(
+            "--overwrite",
+            help="Delete the drevalpy results in --output-dir first; needed when a run with other settings wrote "
+            "them. Other files in the directory are kept.",
+        ),
+    ] = False,
     hpo: Hpo = True,
     hpo_metric: HpoMetric = Metric.RMSE,
     hpo_num_trials: HpoNumTrials = 16,
@@ -90,14 +108,13 @@ def run_cmd(
     transformer = resolve_response_transformation(response_transformation)
     model_specs = resolve_model_specs(models or [], sample_featurizer or [], drug_featurizer or [], predictor or [])
     group_dataset = resolve_group_by_dataset(group_by, dataset)
-    out = UPath(output_dir)
-    out.mkdir(parents=True, exist_ok=True)
 
     result = run(
         models=model_specs,
         dataset=dataset if group_dataset is None else group_dataset,
         split_mode=split_mode,
         n_splits=n_splits,
+        validation_ratio=validation_ratio,
         randomization_modes=[mode.value for mode in randomization_mode] if randomization_mode else None,
         randomization_type=randomization_type,
         seed=seed,
@@ -112,10 +129,11 @@ def run_cmd(
         measure=measure,
         wandb_project=wandb_project,
         n_jobs=n_jobs,
+        output_dir=output_dir,
+        overwrite=overwrite,
     )
 
-    result.save(str(out))
-    typer.echo(f"Wrote experiment results to {out}")
+    typer.echo(f"Wrote experiment results to {UPath(output_dir)}")
     typer.echo(repr(result))
     if group_by is not None:
         typer.echo(format_grouped_summary(result, group_by, group_dataset))

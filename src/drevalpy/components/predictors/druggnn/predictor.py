@@ -1,4 +1,10 @@
-"""DrugGNN block predictor – GCN on molecular graphs with dense sample features."""
+"""DrugGNN block predictor: a simple GCN baseline on molecular graphs with dense sample features.
+
+DrugGNN is a native model inspired by GraphDRP (Nguyen et al., 2021, doi:10.1109/TCBB.2021.3060430), not a
+reimplementation of it. Three graph convolutions with mean pooling encode the drug graph, a dense branch encodes the
+landmark gene expression of the sample, and an unbounded regression head combines both. It trains with Adam on the
+mean squared error, stops early on the validation loss and restores the weights of its best validation epoch.
+"""
 
 from __future__ import annotations
 
@@ -12,7 +18,6 @@ from drevalpy.components.contracts.feature_format import FeatureFormat
 from drevalpy.components.predictors._lightning_training import LightningRun, reload_best_weights, run_lightning_fit
 from drevalpy.components.predictors.abstract.base import Predictor, fit_response
 from drevalpy.components.predictors.inputs import Inputs
-from drevalpy.components.predictors.literature._metadata import DRUGGNN_REFERENCE
 from drevalpy.components.predictors.literature._pair_predict import require_drug_pair_idx
 from drevalpy.registry.predictor import register
 from drevalpy.types.data.batch.feature_block import BlockSpec
@@ -28,7 +33,7 @@ if TYPE_CHECKING:
     import torch
     from torch_geometric.loader import DataLoader
 
-    from drevalpy.components.predictors.literature.druggnn.algorithm import DrugGNNModule
+    from drevalpy.components.predictors.druggnn.algorithm import DrugGNNModule
 
 
 class _DrugGNNDataset:
@@ -85,13 +90,11 @@ class _DrugGNNDataset:
 
 @register(
     "drugGNN",
-    description="DrugGNN: GCN on molecular graphs with dense sample features.",
-    reference=DRUGGNN_REFERENCE,
-    license="Apache-2.0",
+    description="Simple GCN baseline on molecular graphs with dense sample features.",
     accelerator=Accelerator.OPTIONAL,
 )
 class DrugGNNPredictor(Predictor):
-    """Registered DrugGNN predictor consuming ModelInputBatch directly."""
+    """Simple GCN baseline inspired by GraphDRP (Nguyen et al., 2021, doi:10.1109/TCBB.2021.3060430)."""
 
     supports_early_stopping: ClassVar[bool] = True
     sample_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX))
@@ -153,7 +156,7 @@ class DrugGNNPredictor(Predictor):
         :param drug_graphs: Array of drug graph objects.
         :returns: An untrained ``DrugGNNModule``.
         """
-        from drevalpy.components.predictors.literature.druggnn.algorithm import DrugGNNModule
+        from drevalpy.components.predictors.druggnn.algorithm import DrugGNNModule
 
         return DrugGNNModule(
             num_node_features=int(drug_graphs[0].num_node_features),

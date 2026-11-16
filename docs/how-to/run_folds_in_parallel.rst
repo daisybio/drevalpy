@@ -57,7 +57,9 @@ One ``single`` call trains one model on one fold and returns one run. Its option
 ones of ``run`` that apply to a single fit: ``--hpo-trials``, ``--hpo-metric``,
 ``--response-transformation`` and ``--seed``; see :doc:`/how-to/tune_hyperparameters`. Keep the
 default seed unless you also change it in the comparison runs, because the seed and the fold
-decide the result.
+decide the result. The normalization reference ``NaiveMeanEffectsPredictor`` always trains on
+the untransformed response, in ``single`` as in ``run``, so pass every job the same
+``--response-transformation`` as you would pass ``run``: the normalized metrics match.
 
 .. tab-set::
    :sync-group: interface

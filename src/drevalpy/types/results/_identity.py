@@ -34,9 +34,14 @@ class RunIdentity:
         )
 
     @property
+    def checkpoint_key(self) -> tuple:
+        """Identity of a run without its provenance, so it is known before the run is fitted."""
+        return (self.model_name, *self.fold_key, self.randomization, self.robustness_repeat)
+
+    @property
     def run_key(self) -> tuple:
         """Include stress-test settings and seeds without losing ordinary grouping."""
-        return (self.model_name, *self.fold_key, self.randomization, self.robustness_repeat, self.provenance)
+        return (*self.checkpoint_key, self.provenance)
 
     @classmethod
     def from_metadata(

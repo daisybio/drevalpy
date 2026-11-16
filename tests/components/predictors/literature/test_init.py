@@ -11,7 +11,6 @@ import pytest
 
 from drevalpy.components.predictors.literature._metadata import (
     DIPK_REFERENCE,
-    DRUGGNN_REFERENCE,
     ENSEMBLEMF_REFERENCE,
     MOLIR_REFERENCE,
     MORGOTH_REFERENCE,
@@ -32,7 +31,6 @@ PREDICTORS_ROOT = REPO_ROOT / "src" / "drevalpy" / "components" / "predictors"
 LITERATURE_ROOT = PREDICTORS_ROOT / "literature"
 
 LITERATURE_FACTORY_NAMES = [
-    "DrugGNN",
     "DIPK",
     "MOLIR",
     "SuperFELTR",
@@ -66,7 +64,6 @@ LITERATURE_PACKAGES = (
     "pharmaformer",
     "precily",
     "srmf",
-    "druggnn",
     "ensemblemf",
     "paccmann",
     "morgoth",
@@ -131,7 +128,7 @@ def test_literature_predictor_modules_own_lifecycle(package: str) -> None:
 def test_literature_predictor_modules_avoid_removed_adapter_modules() -> None:
     for module_name in (
         "drevalpy.components.predictors.literature.precily.predictor",
-        "drevalpy.components.predictors.literature.druggnn.predictor",
+        "drevalpy.components.predictors.druggnn.predictor",
         "drevalpy.components.predictors.neural_network.predictor",
         "drevalpy.components.predictors.literature.dipk.predictor",
     ):
@@ -166,7 +163,6 @@ def test_literature_factory_entries_are_native_facades_sharing_the_zoo_name(name
 
 
 ALL_REFERENCES = (
-    pytest.param(DRUGGNN_REFERENCE, id="druggnn"),
     pytest.param(PRECILY_REFERENCE, id="precily"),
     pytest.param(SRMF_REFERENCE, id="srmf"),
     pytest.param(MOLIR_REFERENCE, id="molir"),
@@ -180,7 +176,6 @@ ALL_REFERENCES = (
 )
 
 DOIS = (
-    pytest.param(DRUGGNN_REFERENCE, "10.1109/TCBB.2021.3060430", id="druggnn"),
     pytest.param(PRECILY_REFERENCE, "10.1038/s41467-022-33291-z", id="precily"),
     pytest.param(SRMF_REFERENCE, "10.1186/s12885-017-3500-5", id="srmf"),
     pytest.param(MOLIR_REFERENCE, "10.1186/s12859-023-05166-7", id="molir"),

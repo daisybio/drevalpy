@@ -160,11 +160,14 @@ Map the ``drug_response_experiment`` parameters
    * - ``n_trials_robustness``
      - ``robustness_repeats``
    * - ``n_cv_splits``
-     - Removed. ``run`` makes five folds. Use ``drevalpy.split`` with
-       ``n_splits`` and ``drevalpy.single`` for other counts.
-   * - ``run_id``, ``path_out``, ``overwrite``, ``path_data``
-     - Removed. ``run`` writes nothing. Save the result yourself
-       (see below).
+     - ``n_splits``, default 5 instead of 7.
+   * - ``path_out``, ``overwrite``
+     - ``output_dir`` and ``overwrite``. ``run`` saves each run in ``output_dir`` as it
+       finishes and resumes a killed run; ``overwrite`` deletes the experiment there
+       first. See :ref:`how-to/run_experiment:Resume a killed run`.
+   * - ``run_id``, ``path_data``
+     - Removed. ``output_dir`` is the directory of the run, and ``dataset`` takes a
+       name or a file.
    * - ``multiprocessing``
      - Removed. Run folds in parallel with ``drevalpy.single``
        (:doc:`/how-to/run_folds_in_parallel`).
@@ -188,14 +191,15 @@ Map the ``drug_response_experiment`` parameters
        (:doc:`/how-to/extend/write_splitter`).
 
 New parameters that 1.x did not have: ``seed`` (default ``42``),
-``hpo_num_trials``, ``hpo_random_state`` and ``randomization_random_state``.
+``hpo_num_trials``, ``hpo_random_state``, ``randomization_random_state`` and
+``validation_ratio`` (default ``0.1``, the share 1.x held out for validation).
 
 Save and read the results
 -------------------------
 
 1.x wrote a tree of CSV files under ``path_out/run_id``. In v2 the object that
-``run`` returns is the result. Save it to a directory and load it later with
-``ExperimentResult.load``:
+``run`` returns is the result, and ``run(..., output_dir=...)`` saves it as it goes. Save it to a
+directory yourself and load it later with ``ExperimentResult.load``:
 
 .. code-block:: python
 

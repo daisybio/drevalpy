@@ -4,6 +4,10 @@
 fitted model: ``drevalpy.single``, ``drevalpy.train`` and the golden recorder all go through
 it, so they seed, tune, train and predict identically. Tuning is always called: it returns
 the spec's values when the execution does not tune.
+
+After the final prediction, :func:`fit` checks the non-finite (NaN or infinite) predictions on the test scope, with the
+rule written in the "Missing and degenerate input" section of the metrics reference. Tuning
+trials are not checked.
 """
 
 from __future__ import annotations
@@ -14,6 +18,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from drevalpy._utils.seed import fit_seed, seed_everything
+from drevalpy.errors import NaNPredictionError
 from drevalpy.evaluation import evaluate
 from drevalpy.experiment._tracking import log_summary, tracking_run
 from drevalpy.log import get_logger
@@ -28,6 +33,10 @@ if TYPE_CHECKING:
     from drevalpy.types.results.trial import TrialResult
 
 logger = get_logger(__name__)
+
+#: Largest share of non-finite (NaN or infinite) test predictions, among pairs with a finite response, that a run may
+#: have and still be scored; a larger share raises :class:`~drevalpy.errors.NaNPredictionError`.
+MAX_NAN_PREDICTION_SHARE = 0.2
 
 
 @dataclass(frozen=True)
@@ -98,6 +107,34 @@ def fit(
         if len(test.response) == 0:  # ``drevalpy.train`` has no test set
             return FinalFit(model, best, trials, test, np.empty(0), {})
         predictions = model.predict(dataset, scopes.test)
+        _check_non_finite_predictions(identity.model_name, predictions, test.response)
         metrics = evaluate(predictions, test.response)
         log_summary({f"test_{key}": value for key, value in metrics.items()})
     return FinalFit(model, best, trials, test, predictions, metrics)
+
+
+def _check_non_finite_predictions(model_name: str, predictions: np.ndarray, ground_truth: np.ndarray) -> None:
+    """Warn about non-finite test predictions and refuse to score a run with too many of them.
+
+    Only pairs with a finite response count, since scoring drops the others anyway.
+
+    :param model_name: Model name, for the messages.
+    :param predictions: One prediction per test pair.
+    :param ground_truth: The observed response of each test pair.
+    :raises NaNPredictionError: If more than :data:`MAX_NAN_PREDICTION_SHARE` of the pairs with a
+        finite response have a NaN or infinite prediction.
+    """
+    scored = np.isfinite(ground_truth)
+    n_pairs = int(scored.sum())
+    n_bad = int((~np.isfinite(predictions[scored])).sum())
+    if n_bad == 0:
+        return
+    logger.warning(
+        "%s: %d of %d test predictions are NaN or infinite and are excluded from scoring", model_name, n_bad, n_pairs
+    )
+    if n_bad > MAX_NAN_PREDICTION_SHARE * n_pairs:
+        raise NaNPredictionError(
+            f"{model_name}: {n_bad} of {n_pairs} test predictions are NaN or infinite, more than "
+            f"{MAX_NAN_PREDICTION_SHARE:.0%}; the model cannot predict these pairs, for example because "
+            "their features are missing or it has no state for their sample or drug."
+        )

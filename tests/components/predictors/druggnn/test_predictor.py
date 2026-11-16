@@ -11,9 +11,12 @@ import torch
 from torch.optim import Adam
 from torch_geometric.data import Data
 
+from drevalpy.cli.describe import describe_row
 from drevalpy.components.contracts.feature_format import FeatureFormat
-from drevalpy.components.predictors.literature.druggnn.algorithm import DrugGNNModule, DrugGraphNet
-from drevalpy.components.predictors.literature.druggnn.predictor import DrugGNNPredictor
+from drevalpy.components.predictors.druggnn.algorithm import DrugGNNModule, DrugGraphNet
+from drevalpy.components.predictors.druggnn.predictor import DrugGNNPredictor
+from drevalpy.models import ModelSpec
+from drevalpy.registry._component import predictor_component_metadata
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.data.batch.feature_block import graph_feature_block, numeric_feature_block
 from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
@@ -67,6 +70,18 @@ def test_registry_name_contract_and_defaults() -> None:
     assert defaults["log_every_n_steps"] == 50
     for name, spec in DrugGNNPredictor.get_hyperparameter_space().items():
         assert defaults[name] == spec["default"]
+
+
+def test_registry_zoo_and_describe_cite_no_literature_reference() -> None:
+    cls = get_predictor("drugGNN")
+    meta = predictor_component_metadata("predictor", "drugGNN", cls)
+    row = describe_row(ModelSpec.from_name("DrugGNN"))
+
+    assert cls.reference is None
+    assert "GCN baseline" in meta["description"]
+    assert not any(meta[key] for key in ("repo_url", "citation", "citation_doi", "citation_text", "deviations"))
+    assert row["predictor"] == "drugGNN"
+    assert "GraphDRP" not in str(meta) + str(row)
 
 
 def test_fit_round_trips_through_pickle_and_records_the_widths() -> None:

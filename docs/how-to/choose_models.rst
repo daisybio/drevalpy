@@ -54,7 +54,7 @@ same holds for ``NaiveSampleMeanPredictor`` in ``LSO`` and ``NaiveTissueMeanPred
 
          drevalpy data synthetic --output toy.h5mu
          drevalpy run NaivePredictor NaiveDrugMeanPredictor \
-             --dataset toy.h5mu --split-mode LDO --no-hpo
+             --dataset toy.h5mu --split-mode LDO --no-hpo --output-dir results_baselines
 
       The summary at the end shows identical scores:
 
@@ -117,9 +117,11 @@ featurizer and a predictor. Ask three questions of a preset.
    samples. ``Scope`` in ``drevalpy list zoo-presets`` shows which a preset is.
 
 **Is it a literature model or an ablation?**
-   ``DrugGNN``, ``Precily``, ``SRMF``, ``MOLIR``, ``SuperFELTR``, ``PharmaFormer``, ``DIPK``,
-   ``SparseGO``, ``EnsembleMF``, ``PaccMann`` and ``SingleDrugMorgoth`` reimplement published
-   methods, and :doc:`/explanation/literature_models` lists how each differs from its paper.
+   ``Precily``, ``SRMF``, ``MOLIR``, ``SuperFELTR``, ``PharmaFormer``, ``DIPK``, ``SparseGO``,
+   ``EnsembleMF``, ``PaccMann`` and ``SingleDrugMorgoth`` reimplement published methods, and
+   :doc:`/explanation/literature_models` lists how each differs from its paper.
+   ``DrugGNN`` is a native baseline rather than a literature model: a simple graph convolution
+   network on the molecular graph of the drug and the landmark genes, inspired by GraphDRP.
    ``RandomForestAEMolGNet`` gives a random forest the autoencoder and MolGNet features of
    ``DIPK``, which separates the effect of the features from that of the network.
    ``SingleDrugKNN`` is a k-nearest-neighbours model that fits one estimator per drug, with
@@ -180,7 +182,7 @@ PCA of the ``gene_expression`` view, Morgan fingerprints of the drugs, and a rid
       .. code-block:: bash
 
          drevalpy run NaivePredictor "pca[gene_expression]:fingerprints:ridge" \
-             --dataset toy.h5mu --split-mode LDO --no-hpo
+             --dataset toy.h5mu --split-mode LDO --no-hpo --output-dir results_recipe
 
       .. code-block:: text
 
