@@ -25,7 +25,8 @@ from drevalpy.errors import InvalidInputError
 from drevalpy.registry._registry import Registry
 from drevalpy.types import Dataset, Fold
 
-from ._validation import Validation, validate_folds
+from ._groups import MODES, Validation
+from ._validation import validate_folds
 
 if TYPE_CHECKING:
     from drevalpy.data.quality import CurveQuality
@@ -140,12 +141,17 @@ def register(
     :param aliases: Alternative names that resolve to *mode*. Results, metadata and
         file names always use *mode*, never the alias the caller typed.
     :returns: Decorator that registers and returns the wrapped function.
+    :raises InvalidInputError: If *validation* is not a leakage constraint.
 
     Example::
 
         @register("MY_LSO", "Custom LSO with fraction", validation="LSO")
         def my_lso(dataset, n_splits=5, validation_ratio=0.1, random_state=42, *, quality): ...
     """
+    if validation not in MODES:
+        raise InvalidInputError(
+            f"Splitter {mode!r} declares validation={validation!r}; expected one of {', '.join(MODES)}."
+        )
 
     def decorator(fn: Splitter) -> Splitter:
         _require_quality_parameter(fn, mode)

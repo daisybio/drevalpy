@@ -9,7 +9,15 @@ import pytest
 from rich.logging import RichHandler
 
 from drevalpy import errors
-from drevalpy.errors import DrEvalError, InputNotFoundError, InvalidInputError, UnknownNameError
+from drevalpy.errors import (
+    DrEvalError,
+    InputNotFoundError,
+    InvalidInputError,
+    NaNPredictionError,
+    OriginalRunFailedError,
+    OutputDirectoryConflictError,
+    UnknownNameError,
+)
 from drevalpy.log import get_logger, setup_logging
 from tests._trusted_subprocess import run_trusted_python
 
@@ -20,6 +28,9 @@ from tests._trusted_subprocess import run_trusted_python
         (UnknownNameError, (ValueError, KeyError)),
         (InputNotFoundError, (FileNotFoundError,)),
         (InvalidInputError, (ValueError,)),
+        (NaNPredictionError, (ValueError,)),
+        (OutputDirectoryConflictError, (FileExistsError,)),
+        (OriginalRunFailedError, (RuntimeError,)),
     ],
 )
 def test_each_class_keeps_the_builtin_it_replaces(error_class: type[DrEvalError], builtins: tuple[type, ...]) -> None:
@@ -53,7 +64,15 @@ def test_existing_except_clauses_still_catch_the_new_classes() -> None:
 
 
 def test_public_surface() -> None:
-    assert sorted(errors.__all__) == ["DrEvalError", "InputNotFoundError", "InvalidInputError", "UnknownNameError"]
+    assert sorted(errors.__all__) == [
+        "DrEvalError",
+        "InputNotFoundError",
+        "InvalidInputError",
+        "NaNPredictionError",
+        "OriginalRunFailedError",
+        "OutputDirectoryConflictError",
+        "UnknownNameError",
+    ]
 
 
 @pytest.fixture
