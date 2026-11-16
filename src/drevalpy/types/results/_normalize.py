@@ -10,6 +10,10 @@ from drevalpy.evaluation import Metric, evaluate
 from drevalpy.evaluation._scoring import run_per_group_score
 from drevalpy.types.results.run import RunResult
 
+#: The model every normalized metric is measured against by default. ``drevalpy.run`` and ``drevalpy.single`` train
+#: it on the original response scale, so a response transformation cannot move the ruler along with the models.
+NORMALIZATION_REFERENCE = "NaiveMeanEffectsPredictor"
+
 
 def normalize_run(run: RunResult, ref_run: RunResult) -> RunResult:
     """Normalize a single RunResult against a reference RunResult.
