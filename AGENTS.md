@@ -116,7 +116,7 @@ function-local import cannot fix:
   functions that use it.
 - A module-scope **side effect** that must run before the library is imported anywhere
   stays eager: `xgboost_pred.py` calls `_set_xgboost_thread_defaults()` at module scope to
-  keep OpenMP from crashing.
+  keep OpenMP from crashing on macOS; on other platforms the call sets nothing.
 
 The same file guards `DEFERRED_TRAINING_SYMBOLS`: a symbol moved out of its module's
 import-time path must still resolve from its new module.

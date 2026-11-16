@@ -12,10 +12,13 @@ import torch
 from sklearn.preprocessing import StandardScaler
 
 from drevalpy import single
+from drevalpy._single import _fit_fold
 from drevalpy.data import split
-from drevalpy.errors import InvalidInputError
+from drevalpy.data.splitters._early_stopping import early_stopping_split
+from drevalpy.errors import InvalidInputError, NaNPredictionError
 from drevalpy.evaluation import Metric
 from drevalpy.models import DRPModel, ModelSpec
+from drevalpy.models.response_transformation import get_response_transformation
 from drevalpy.registry.splitter import SplitValidationError
 from drevalpy.types import Fold, PairMask
 from drevalpy.types.results.run import RunResult
@@ -99,12 +102,13 @@ def tuner(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
 
 
 def _fold_with_val_pairs(shape: tuple[int, int], n_val: int) -> Fold:
+    """Return an LSO fold whose validation set is one pair of each of *n_val* samples."""
     train = np.zeros(shape, dtype=bool)
     test = np.zeros(shape, dtype=bool)
     val = np.zeros(shape, dtype=bool)
     train[:2, :] = True
     test[2, :] = True
-    val.reshape(-1)[shape[1] * 3 : shape[1] * 3 + n_val] = True
+    val[3 : 3 + n_val, 0] = True
     return Fold(
         train=PairMask(train),
         test=PairMask(test),
@@ -182,20 +186,18 @@ class TestTraining:
         assert model.hyperparameters == dict(stub_model.recipe.hyperparameters)
         assert model.train_calls[0]["model_checkpoint_dir"]
 
-    def test_metrics_are_empty_when_no_prediction_is_valid(self, synthetic_dataset, folds, stub_model) -> None:
+    def test_a_run_without_a_valid_prediction_raises(self, synthetic_dataset, folds, stub_model) -> None:
         stub_model.prediction_value = float("nan")
 
-        result = single(stub_model.recipe, synthetic_dataset, folds[0], hyperparameter_tuning=False)
-
-        assert result.metrics == {}
+        with pytest.raises(NaNPredictionError, match="test predictions are NaN"):
+            single(stub_model.recipe, synthetic_dataset, folds[0], hyperparameter_tuning=False)
 
     @pytest.mark.parametrize(
         ("early_stopping", "n_val", "expects_scope"),
         [
             pytest.param(False, 4, False, id="unsupported"),
+            pytest.param(False, 1, False, id="unsupported-single-val-sample"),
             pytest.param(True, 4, True, id="carved-out"),
-            pytest.param(True, 1, False, id="single-val-pair"),
-            pytest.param(True, 0, False, id="no-val-pairs"),
         ],
     )
     def test_the_early_stopping_scope(
@@ -209,10 +211,19 @@ class TestTraining:
         scope = stub_model.instances[0].train_calls[0]["early_stopping_scope"]
         assert (scope is not None) is expects_scope
         if expects_scope:
-            expected, _ = fold.early_stopping_mask()
+            expected, _ = early_stopping_split(synthetic_dataset, fold, "LSO")
             np.testing.assert_array_equal(scope.mask, expected.mask)
             assert scope.mask.any()
             assert (scope.mask & ~fold.val.mask).sum() == 0
+
+    @pytest.mark.parametrize("n_val", [1, 0], ids=["single-val-sample", "no-val-pairs"])
+    def test_early_stopping_needs_two_validation_groups(self, synthetic_dataset, stub_model, n_val) -> None:
+        stub_model.early_stopping = True
+        fold = _fold_with_val_pairs(synthetic_dataset.response_matrix.shape, n_val)
+
+        with pytest.raises(InvalidInputError, match="validation_ratio"):
+            single(stub_model.recipe, synthetic_dataset, fold, hyperparameter_tuning=False)
+        assert stub_model.instances == []
 
 
 class TestResponseTransformation:
@@ -248,6 +259,20 @@ class TestResponseTransformation:
 
         assert stub_model.instances[0].train_calls[0]["response_transformation"] is None
         np.testing.assert_array_equal(result.predictions, np.arange(len(folds[0].test.pairs), dtype=float))
+
+    @pytest.mark.slow
+    def test_the_normalization_reference_trains_on_the_untransformed_response(self, synthetic_dataset, folds) -> None:
+        def predictions(name: str, transformation: Any) -> np.ndarray:
+            spec = ModelSpec.from_name(name)
+            return single(
+                spec, synthetic_dataset, folds[0], hyperparameter_tuning=False, response_transformation=transformation
+            ).predictions
+
+        drug_mean = get_response_transformation("drug_mean")
+        np.testing.assert_array_equal(
+            predictions("NaiveMeanEffectsPredictor", drug_mean), predictions("NaiveMeanEffectsPredictor", None)
+        )
+        assert not np.allclose(predictions("NaivePredictor", drug_mean), predictions("NaivePredictor", None))
 
 
 class TestHyperparameterTuning:
@@ -285,14 +310,61 @@ class TestHyperparameterTuning:
         assert (execution.hyperparameter_tuning, execution.hpo_num_trials, execution.hpo_metric) == (True, 3, "RMSE")
         assert execution.hpo_random_state == 11
 
+    def test_given_hyperparameters_are_fitted_without_tuning(self, synthetic_dataset, folds, stub_model, tuner) -> None:
+        result = _fit_fold(
+            stub_model.recipe,
+            synthetic_dataset,
+            folds[0],
+            hyperparameter_tuning=True,
+            response_transformation=None,
+            hpo_metric="RMSE",
+            hpo_num_trials=3,
+            hpo_random_state=None,
+            seed=42,
+            wandb_project=None,
+            n_jobs=1,
+            hyperparameters={"alpha": 7.5},
+        )
+
+        execution = tuner["execution"]
+        assert execution.hyperparameter_tuning is False
+        assert execution.model.hyperparameters["predictor.elasticNet.alpha"] == 7.5
+        assert result.fold_metadata["execution"]["hpo"]["enabled"] is False
+
+    @pytest.mark.slow
+    def test_the_best_hyperparameters_of_a_tuned_run_refit_the_same_model(self, synthetic_dataset, folds) -> None:
+        spec = ModelSpec.from_name("ElasticNet")
+        tuned = single(spec, synthetic_dataset, folds[0], hpo_num_trials=3)
+        assert tuned.best_hyperparameters != dict(spec.hyperparameters)
+
+        refit = _fit_fold(
+            spec,
+            synthetic_dataset,
+            folds[0],
+            hyperparameter_tuning=True,
+            response_transformation=None,
+            hpo_metric="RMSE",
+            hpo_num_trials=3,
+            hpo_random_state=None,
+            seed=42,
+            wandb_project=None,
+            n_jobs=1,
+            hyperparameters=tuned.best_hyperparameters,
+        )
+
+        assert refit.trials is None
+        assert refit.best_hyperparameters == tuned.best_hyperparameters
+        np.testing.assert_array_equal(refit.predictions, tuned.predictions)
+
     def test_early_stopping_narrows_the_validation_scope_handed_to_the_tuner(
-        self, synthetic_dataset, folds, stub_model, tuner
+        self, synthetic_dataset, stub_model, tuner
     ) -> None:
         stub_model.early_stopping = True
+        fold = split(synthetic_dataset, "LSO", n_splits=2, validation_ratio=0.3)[0]
 
-        single(stub_model.recipe, synthetic_dataset, folds[0], hyperparameter_tuning=True)
+        single(stub_model.recipe, synthetic_dataset, fold, hyperparameter_tuning=True)
 
-        es_expected, val_expected = folds[0].early_stopping_mask()
+        es_expected, val_expected = early_stopping_split(synthetic_dataset, fold, "LSO")
         np.testing.assert_array_equal(tuner["execution"].scopes.stopping.mask, es_expected.mask)
         np.testing.assert_array_equal(tuner["execution"].scopes.validation.mask, val_expected.mask)
 
@@ -303,7 +375,7 @@ def test_final_fit_excludes_stopping_holdout_and_transforms_training_only(
 ):
     stub_model.early_stopping = True
     fold = _fold_with_val_pairs(synthetic_dataset.response_matrix.shape, 8)
-    es, val = fold.early_stopping_mask()
+    es, val = early_stopping_split(synthetic_dataset, fold, "LSO")
     seen = []
 
     def tune(execution, dataset, **kwargs):
@@ -324,7 +396,7 @@ def test_final_fit_excludes_stopping_holdout_and_transforms_training_only(
     assert call["early_stopping_scope"] == es
     pairs = call["scope"].pairs
     expected = synthetic_dataset.response_matrix[pairs[:, 0], pairs[:, 1]]
-    np.testing.assert_allclose(call["response_transformation"].mean_, [np.nanmean(expected)])
+    np.testing.assert_allclose(call["response_transformation"].mean_, [np.nanmean(expected.astype(float))])
     if tuning:
         assert seen[0]["execution"].scopes.stopping == es
         assert seen[0]["execution"].scopes.validation == val
@@ -409,14 +481,15 @@ class TestSeeding:
 
 
 @pytest.mark.slow
-def test_neural_predictions_follow_the_seed(synthetic_dataset, folds) -> None:
+def test_neural_predictions_follow_the_seed(synthetic_dataset) -> None:
+    fold = split(synthetic_dataset, "LSO", n_splits=2, validation_ratio=0.3)[0]
     spec = ModelSpec.from_name("SimpleNeuralNetwork").with_hyperparameters(
         {"units_per_layer": [4, 4], "max_epochs": 2, "batch_size": 8}, check_values=False
     )
 
     def predict(seed: int) -> np.ndarray:
         torch.manual_seed(np.random.randint(0, 2**31))  # dirty the global RNGs so only ``seed`` can explain equality
-        return single(spec, synthetic_dataset, folds[0], hyperparameter_tuning=False, seed=seed).predictions
+        return single(spec, synthetic_dataset, fold, hyperparameter_tuning=False, seed=seed).predictions
 
     first = predict(1)
 

@@ -2,7 +2,15 @@
 
 from __future__ import annotations
 
-__all__ = ["DrEvalError", "InputNotFoundError", "InvalidInputError", "UnknownNameError"]
+__all__ = [
+    "DrEvalError",
+    "InputNotFoundError",
+    "InvalidInputError",
+    "NaNPredictionError",
+    "OriginalRunFailedError",
+    "OutputDirectoryConflictError",
+    "UnknownNameError",
+]
 
 
 class DrEvalError(Exception):
@@ -28,3 +36,15 @@ class InputNotFoundError(DrEvalError, FileNotFoundError):
 
 class InvalidInputError(DrEvalError, ValueError):
     """An argument or input file exists but its value cannot be used."""
+
+
+class NaNPredictionError(DrEvalError, ValueError):
+    """A model predicted NaN for too many test pairs for its scores to describe the test set."""
+
+
+class OutputDirectoryConflictError(DrEvalError, FileExistsError):
+    """An output directory holds results that a run with these settings did not write."""
+
+
+class OriginalRunFailedError(DrEvalError, RuntimeError):
+    """The original run of a fold failed, so its stress-test runs have no hyperparameters to reuse."""
