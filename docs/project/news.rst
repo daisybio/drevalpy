@@ -118,7 +118,9 @@ These affect only code, configurations and datasets written for an unreleased 2.
   tissues under LTO, (sample, drug) pairs under LPO and LStO) instead of the first 25 % of the
   validation pairs. These groups are left out of the rest of the validation set and of the final
   training set, and the split validators check all four parts. A validation set with fewer than
-  two groups raises ``InvalidInputError``, which asks for a larger ``validation_ratio``. Scores of
+  two groups raises ``InvalidInputError`` when a model stops early, since it needs at least two
+  validation groups; ``run(validation_ratio=...)`` and ``drevalpy run --validation-ratio`` (0.1 by
+  default) raise their number. Scores of
   the models that stop early can change, and ``Fold.early_stopping_mask`` is removed. See
   :doc:`/explanation/training_lifecycle`.
 - **Single-drug models are rejected under LDO.** They fit one model per drug and cannot predict
@@ -302,7 +304,9 @@ New commands and functions
 - ``drevalpy data split``, ``drevalpy experiments randomization`` and ``drevalpy single`` accept a
   registered dataset name as well as a file, like ``drevalpy run --dataset``.
 - ``drevalpy run --n-splits`` (``-n``) and ``drevalpy.run(..., n_splits=)`` set the number of
-  folds, 5 by default; before, ``run`` always made 5.
+  folds, 5 by default; before, ``run`` always made 5. ``drevalpy run --validation-ratio`` and
+  ``drevalpy.run(..., validation_ratio=)`` set the share of validation data, 0.1 by default as
+  before.
 - ``drevalpy list zoo-presets`` and ``drevalpy list datasets`` show the model presets you can
   pass to ``run`` and the datasets you can load by name.
 - ``DREVALPY_EXTENSIONS_DIR`` is read by ``load_extensions()`` in Python, not only by the
