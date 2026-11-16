@@ -1,9 +1,10 @@
 """Single model + single fold execution unit.
 
 :func:`_fit_fold` is the one path from a model, a dataset and a fold to a ``RunResult``:
-``drevalpy.run``, ``drevalpy.single`` and ``drevalpy single`` all go through it, so the
-normalization reference is exempt from the response transformation everywhere, and split +
-``single`` + aggregate normalizes like ``run``.
+``drevalpy.run``, ``drevalpy.single`` and ``drevalpy single`` all go through it. It builds the
+execution, fits and predicts, and trains the normalization reference ``NaiveMeanEffectsPredictor``
+without the response transformation, so a fold and the same settings give the same ``RunResult``
+whichever entry point ran them.
 """
 
 from __future__ import annotations
