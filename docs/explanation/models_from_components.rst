@@ -45,7 +45,7 @@ something about the training entities only, for example a scaling or a principal
 component basis, and it can often be computed once and reused. An *encoder* is
 different: it is a neural network layer that is trained jointly with the
 predictor, by backpropagating the prediction loss. Encoders are part of the
-predictor, not a separate component. This is why literature models such as
+predictor, not a separate component. This is why neural models such as
 DrugGNN appear as one predictor with a featurizer that supplies its inputs.
 
 Feature formats and predictor inputs
@@ -162,8 +162,8 @@ space of that component. It does not extend it.
 Why it matters for results
 --------------------------
 
-The same composition describes the literature models. DrugGNN, for example, is
-a graph drug featurizer, a landmark-gene expression sample featurizer and a
+The same composition describes the neural and literature models. DrugGNN, for
+example, is a graph drug featurizer, a landmark-gene expression sample featurizer and a
 neural predictor.
 Because every model is built the same way, a benchmark compares predictors and
 feature choices under identical splits, fitting scopes and scoring, and a

@@ -1,9 +1,8 @@
 How the literature models differ from their papers
 ==================================================
 
-DrEvalPy includes eleven literature models: DrugGNN (from GraphDRP), Precily, SRMF,
-MOLIR, SuperFELTR, PharmaFormer, DIPK, SparseGO, EnsembleMF, PaccMann and
-SingleDrugMorgoth. They are
+DrEvalPy includes ten literature models: Precily, SRMF, MOLIR, SuperFELTR,
+PharmaFormer, DIPK, SparseGO, EnsembleMF, PaccMann and SingleDrugMorgoth. They are
 reimplementations in the same framework as every other model, trained and scored under
 the same split modes. A reimplementation is not a copy, and results from DrEvalPy will not match
 a paper's table digit for digit. This page lists what was changed relative to the
@@ -36,29 +35,6 @@ Some changes apply to every literature model and are not repeated below:
 The models also differ in how they behave under the evaluation. SRMF, Precily and
 SparseGO do not stop early; they train for a fixed budget or run their own solver.
 DIPK and PharmaFormer require an early-stopping scope.
-
-DrugGNN
--------
-
-DrugGNN is based on GraphDRP. A graph network encodes the drug, a second branch
-encodes the sample, and a regression head combines them.
-
-- The drug graph uses its own featurizer, with unnormalized one-hot descriptors
-  for each atomic node (atomic number, degree, charge, number of hydrogens,
-  hybridization, aromaticity and ring membership). The published code uses a
-  different, normalized descriptor vector. The feature widths and meaning differ.
-- The sample branch reads landmark gene expression through a dense layer. The
-  published model reads binary mutation inputs through a one-dimensional
-  convolution and applies a sigmoid to the response. Here the response keeps the
-  units of the dataset and the output is unbounded.
-- The three graph convolution layers are kept, but pooling is by mean instead of
-  by maximum.
-- Training uses Adam and mean squared error. The learning rate defaults to
-  1e-3 and is tunable, while the published default is 1e-4. Training stops early
-  when the validation loss has not improved for five epochs, which the published
-  fixed-budget training does not do.
-- The model restores the weights of the epoch with the best validation loss before
-  predicting.
 
 Precily
 -------

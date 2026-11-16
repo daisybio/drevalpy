@@ -64,6 +64,9 @@ These affect only code, configurations and datasets written for an unreleased 2.
 - ``LiteratureReference`` requires an ``http(s)`` ``repo_url``, a citation (``citation_text`` or
   ``citation_doi``) and ``deviations``. Registered classes no longer carry ``description``,
   ``tags`` or ``registry_name`` attributes; read them with ``registry.metadata(name)``.
+- **DrugGNN is not a literature model.** It is a simple GCN baseline inspired by GraphDRP, so its
+  predictor moved out of the literature package to ``drevalpy.components.predictors.druggnn`` and has
+  no ``reference``. The predictor ``drugGNN`` and the preset ``DrugGNN`` keep their names.
 - Registries are imported from ``drevalpy.registry``: ``drevalpy.data.dataset_registry``,
   ``drevalpy.data.splitter_registry``, the registry names in ``drevalpy.data.datasets`` (only
   ``load`` stays) and in ``drevalpy.data.splitters`` (only ``observed_mask`` stays) are removed, as
