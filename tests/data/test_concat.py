@@ -401,6 +401,21 @@ def test_save_load_round_trip_preserves_the_result_and_the_loaded_result_splits(
     assert drevalpy.split(result, "LPO", n_splits=2)[0].metadata["dataset"] == "FIRST+SECOND"
 
 
+@pytest.mark.parametrize("mode", ["LSO", "LPO"])
+def test_a_sample_measured_in_two_studies_is_in_one_part_of_every_fold(mode: str) -> None:
+    result = concat([drevalpy.synthetic(name="GDSC2"), drevalpy.synthetic(name="CTRPv2", seed=1)])
+    source = result.mdata.obs["source_sample_id"].reindex(result.sample_ids).to_numpy()
+    keys = np.array([[(sample, drug if mode == "LPO" else "") for drug in result.drug_ids] for sample in source])
+    keys = np.char.add(np.char.add(keys[..., 0], "|"), keys[..., 1])
+
+    folds = drevalpy.split(result, mode, n_splits=5)
+
+    assert len(set(source)) < len(source)
+    for fold in folds:
+        train, val, test = (set(keys[part.mask].tolist()) for part in (fold.train, fold.val, fold.test))
+        assert train.isdisjoint(val) and train.isdisjoint(test) and val.isdisjoint(test)
+
+
 @pytest.mark.network
 def test_the_published_screens_concatenate_and_split() -> None:
     gdsc2, ctrpv2 = drevalpy.load("GDSC2"), drevalpy.load("CTRPv2")

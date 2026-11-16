@@ -8,13 +8,16 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, cast
 
+from drevalpy.data.splitters._early_stopping import early_stopping_split
 from drevalpy.errors import InvalidInputError
 from drevalpy.evaluation import Metric
 from drevalpy.models.config.immutable import freeze_value, thaw_value
 from drevalpy.models.spec import ModelSpec
 from drevalpy.registry.splitter import Validation, canonical, splitter_registry
+from drevalpy.registry.splitter._groups import MODES
 from drevalpy.registry.splitter._validation import validate_folds
 from drevalpy.types import Dataset, Fold, PairMask
+from drevalpy.types.enums.model_scope import ModelScope
 from drevalpy.types.results._identity import RunIdentity
 
 
@@ -76,6 +79,32 @@ class ExecutionSpec:
         return thaw_value(self.metadata)
 
 
+def _validation_of(mode: str) -> Validation:
+    """Return the leakage constraint of split *mode*; an unregistered mode is checked as its own name or LPO."""
+    mode = canonical(mode)
+    validation = splitter_registry.metadata(mode)["validation"] if mode in splitter_registry else mode
+    return cast(Validation, validation if validation in MODES else "LPO")
+
+
+def check_mode_supported(model: ModelSpec, mode: str) -> None:
+    """Reject a model that cannot be scored under split *mode* before any work is done.
+
+    A single-drug model fits one estimator per drug, so it has no prediction for the unseen
+    drugs of a mode that holds drugs out (LDO).
+
+    :param model: Named model recipe.
+    :param mode: Split mode the model would be evaluated under, or an alias of one.
+    :raises InvalidInputError: If *model* is a single-drug model and *mode* holds out drugs.
+    """
+    from drevalpy.registry.predictor import get as get_predictor
+
+    if _validation_of(mode) == "LDO" and get_predictor(model.config.predictor.name).scope is ModelScope.SINGLE_DRUG:
+        raise InvalidInputError(
+            f"{model.name} is a single-drug model: it fits one model per drug and cannot predict the unseen "
+            f"drugs of {canonical(mode)}; evaluate it under another split mode."
+        )
+
+
 def build_execution(
     model: ModelSpec,
     dataset: Dataset,
@@ -89,7 +118,11 @@ def build_execution(
 ) -> ExecutionSpec:
     """Validate the original fold and reserve stopping data exactly once.
 
-    An unknown *hpo_metric* raises ``ValueError`` from ``Metric``.
+    An unknown *hpo_metric* raises ``ValueError`` from ``Metric``. A single-drug model under LDO
+    raises ``InvalidInputError`` from :func:`check_mode_supported`. A model that stops early gets
+    whole groups of the split mode cut out of the validation set as its stopping set by
+    :func:`~drevalpy.data.splitters._early_stopping.early_stopping_split`, which raises
+    ``InvalidInputError`` when the validation set has fewer than two groups.
 
     :param model: Named model recipe.
     :param dataset: Source data (not retained).
@@ -110,13 +143,12 @@ def build_execution(
     if hpo_num_trials < 0:
         raise ValueError(f"n_trials must be >= 0 (got {hpo_num_trials}); use 0 for default-only tuning")
     mode = canonical(fold.metadata.get("split_mode", ""))
-    validation = splitter_registry.metadata(mode)["validation"] if mode in splitter_registry else mode
-    validate_folds(
-        [fold], cast(Validation, validation if validation in ("LSO", "LDO", "LTO", "LStO") else "LPO"), dataset
-    )
+    validation = _validation_of(mode)
+    check_mode_supported(model, mode)
+    validate_folds([fold], validation, dataset)
     stopping, validation_scope = None, fold.val
-    if model.supports_early_stopping and len(fold.val) > 1:
-        stopping, validation_scope = fold.early_stopping_mask()
+    if model.supports_early_stopping:
+        stopping, validation_scope = early_stopping_split(dataset, fold, validation)
     scopes = FitScopes(fold.train, stopping, validation_scope, fold.train | validation_scope, fold.test)
     fold_measure = fold.metadata.get("measure", dataset.measure)
     if fold_measure != dataset.measure:

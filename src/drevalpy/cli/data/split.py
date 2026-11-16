@@ -13,6 +13,7 @@ from drevalpy.cli._options import (
     MinRelevanceScore,
     NoQualityFilter,
     NSplits,
+    ValidationRatio,
     quality_from_cli,
 )
 
@@ -22,9 +23,7 @@ def split_dataset(
     output_dir: Annotated[str, typer.Argument(help="Output directory for split .npz files.")],
     mode: Annotated[str, typer.Option("--mode", "-m", help="Split mode: LPO, LSO, LDO, LTO or LStO.")] = "LPO",
     n_splits: NSplits = 5,
-    validation_ratio: Annotated[
-        float, typer.Option("--validation-ratio", help="Fraction of training data for validation.")
-    ] = 0.1,
+    validation_ratio: ValidationRatio = 0.1,
     seed: Annotated[int, typer.Option("--seed", help="Random seed.")] = 42,
     measure: Measure = None,
     no_quality_filter: NoQualityFilter = False,

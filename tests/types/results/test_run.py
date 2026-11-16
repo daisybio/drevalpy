@@ -76,6 +76,7 @@ class TestRepr:
             "Randomization: None",
             "Predictions: 5 pairs",
             "Ground truth: 3 non-NaN values",
+            "Scored: 3 pairs",
             "HPO Trials: 2",
         ):
             assert expected in text
@@ -84,6 +85,14 @@ class TestRepr:
         assert "    Hyperparameters:" in lines
         assert "        alpha: 0.25" in lines
         assert "        MSE: 0.5000" in lines
+
+    def test_n_scored_counts_the_pairs_with_a_finite_prediction_and_ground_truth(self) -> None:
+        run = make_run_result(n_pairs=5)
+        run.predictions = np.array([np.nan, 1.0, 2.0, 3.0, np.inf])
+        run.ground_truth = np.array([0.0, np.nan, 2.0, 3.0, 4.0])
+
+        assert run.n_scored == 2
+        assert "Scored: 2 pairs" in repr(run)
 
     def test_reports_randomization_and_omits_absent_trials(self) -> None:
         run = make_run_result(randomization=("SVRC", "gene_expression"))

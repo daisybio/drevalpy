@@ -55,6 +55,14 @@ HPO_KEY: Final = f"{HPO_MODEL}[hpo]"
 #: Tolerance for models whose predictions are not bit-identical across two runs in one process.
 ATOL: Final = 1e-6
 
+#: Models whose predictions vary in the last bits between runs: scikit-learn's forests (``n_jobs=-1``)
+#: add up the trees' predictions on several threads in no fixed order, which ``threadpoolctl`` does not
+#: control. They are always compared within :data:`ATOL`, so a lucky pair of identical runs cannot mark
+#: them exact.
+NONDETERMINISTIC: Final = frozenset(
+    {"MultiViewRandomForest", "RandomForest", "RandomForestAEMolGNet", "SingleDrugRandomForest"}
+)
+
 #: Shorter training for the models that take minutes at their defaults (PharmaFormer about 19 minutes,
 #: RandomForestAEMolGNet 13, PaccMann 8, DIPK 2.5), so the gate stays well under 15 minutes. The code
 #: path is the one the defaults take; only the number of epochs (or ensemble members) shrinks. Keys
@@ -85,6 +93,32 @@ class GoldenRun:
     metrics: dict[str, float]
     best_hyperparameters: dict[str, Any]
     model: Any
+
+
+@contextmanager
+def single_threaded() -> Iterator[None]:
+    """Run the block with every native thread pool (BLAS, OpenMP, torch) at one thread.
+
+    The baseline is compared bit for bit, and a parallel reduction sums in an order that depends
+    on its thread count. Left alone, each pool sizes itself from the machine's cores and from the
+    ``*_NUM_THREADS`` variables it saw when its library was loaded, which depends on import order.
+    ``threadpoolctl`` limits only the libraries already loaded, so the ones the zoo trains with
+    are imported first.
+    """
+    import lightgbm  # noqa: F401
+    import scipy.linalg  # noqa: F401
+    import sklearn  # noqa: F401
+    import torch
+    import xgboost  # noqa: F401
+    from threadpoolctl import threadpool_limits
+
+    torch_threads = torch.get_num_threads()
+    with threadpool_limits(limits=1):
+        torch.set_num_threads(1)
+        try:
+            yield
+        finally:
+            torch.set_num_threads(torch_threads)
 
 
 def build_dataset():
@@ -221,13 +255,15 @@ def _record_one(name: str, dataset, fold, *, hyperparameter_tuning: bool) -> tup
         first = train_and_predict(name, dataset, fold, **options)
     seconds = time.perf_counter() - start
     second = train_and_predict(name, dataset, fold, **options)
-    deterministic = predictions_match(first.predictions, second.predictions, exact=True) and metrics_equal(
-        first.metrics, second.metrics
+    deterministic = (
+        name not in NONDETERMINISTIC
+        and predictions_match(first.predictions, second.predictions, exact=True)
+        and metrics_equal(first.metrics, second.metrics)
     )
     if not deterministic and not predictions_match(first.predictions, second.predictions, exact=False):
         raise RuntimeError(f"{name}: two runs differ by more than atol={ATOL}")
     loaded = round_trip_predict(first, dataset, fold)
-    round_trip_exact = predictions_match(loaded, first.predictions, exact=True)
+    round_trip_exact = name not in NONDETERMINISTIC and predictions_match(loaded, first.predictions, exact=True)
     if not round_trip_exact and not predictions_match(loaded, first.predictions, exact=False):
         raise RuntimeError(f"{name}: reloaded predictions differ by more than atol={ATOL}")
     entry = {
@@ -275,23 +311,24 @@ def record(names: list[str] | None = None) -> dict[str, Any]:
         on disk; ``None`` records the whole zoo plus the tuned ElasticNet from scratch.
     :returns: The written baseline metadata.
     """
-    dataset = build_dataset()
-    fold = build_fold(dataset)
     predictions, models, excluded = _load_existing() if names else ({}, {}, {})
     keys = names or [*zoo_names(), HPO_KEY]
     jobs = [(key, HPO_MODEL, True) if key == HPO_KEY else (key, key, False) for key in keys]
-    for key, name, tuned in jobs:
-        print(f"[golden] {key} ...", file=sys.stderr, flush=True)
-        predictions.pop(key, None)
-        models.pop(key, None)
-        excluded.pop(key, None)
-        try:
-            predictions[key], models[key] = _record_one(name, dataset, fold, hyperparameter_tuning=tuned)
-        except Exception as exc:  # noqa: BLE001 - a model that cannot run offline is recorded as excluded
-            traceback.print_exc()
-            excluded[key] = f"{type(exc).__name__}: {exc}"[:500]
-            continue
-        print(f"[golden] {key}: {models[key]['seconds']}s", file=sys.stderr, flush=True)
+    with single_threaded():
+        dataset = build_dataset()
+        fold = build_fold(dataset)
+        for key, name, tuned in jobs:
+            print(f"[golden] {key} ...", file=sys.stderr, flush=True)
+            predictions.pop(key, None)
+            models.pop(key, None)
+            excluded.pop(key, None)
+            try:
+                predictions[key], models[key] = _record_one(name, dataset, fold, hyperparameter_tuning=tuned)
+            except Exception as exc:  # noqa: BLE001 - a model that cannot run offline is recorded as excluded
+                traceback.print_exc()
+                excluded[key] = f"{type(exc).__name__}: {exc}"[:500]
+                continue
+            print(f"[golden] {key}: {models[key]['seconds']}s", file=sys.stderr, flush=True)
     baseline = {
         "drevalpy_commit": _git_commit(),
         "dataset": {"seed": DATASET_SEED, **{key: list(value) for key, value in DATASET_OPTIONS.items()}},

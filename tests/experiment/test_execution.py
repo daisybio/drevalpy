@@ -7,8 +7,9 @@ from dataclasses import replace
 import numpy as np
 import pytest
 
+from drevalpy.errors import InvalidInputError
 from drevalpy.experiment import robustness
-from drevalpy.experiment._execution import build_execution
+from drevalpy.experiment._execution import build_execution, check_mode_supported
 from drevalpy.models import ModelSpec
 from drevalpy.types import Fold, PairMask
 from tests.models.synthetic_fixtures import synthetic_model_dataset
@@ -121,8 +122,42 @@ def test_lsto_folds_are_validated_as_lsto_not_as_lpo(monkeypatch):
         "drevalpy.experiment._execution.validate_folds",
         lambda folds, validation, dataset: seen.append(validation),
     )
-    _execution(monkeypatch, split_mode="LStO")
+    _execution(monkeypatch, stopping=False, split_mode="LStO")
     assert seen == ["LStO"]
+
+
+@pytest.mark.parametrize("mode", ["LDO", "LSO", "LPO"])
+def test_single_drug_models_are_rejected_only_where_drugs_are_held_out(mode):
+    spec = ModelSpec.from_name("SingleDrugElasticNet")
+
+    if mode == "LDO":
+        with pytest.raises(InvalidInputError, match="SingleDrugElasticNet is a single-drug model.*LDO"):
+            check_mode_supported(spec, mode)
+    else:
+        check_mode_supported(spec, mode)
+    check_mode_supported(ModelSpec.from_name("ElasticNet"), "LDO")
+
+
+def _one_drug_per_part_fold() -> Fold:
+    """An LDO fold of the 2x2 dataset: drug 0 trains, drug 1 validates, nothing is tested."""
+    return Fold(
+        PairMask(np.array([[True, False], [True, False]])),
+        PairMask(np.zeros((2, 2), dtype=bool)),
+        PairMask(np.array([[False, True], [False, True]])),
+        {"split_mode": "LDO", "fold_index": 0},
+    )
+
+
+def test_build_execution_rejects_a_single_drug_model_under_ldo():
+    with pytest.raises(InvalidInputError, match="single-drug"):
+        _build(ModelSpec.from_name("SingleDrugElasticNet"), synthetic_model_dataset(), _one_drug_per_part_fold())
+
+
+def test_an_early_stopping_model_needs_two_validation_groups(monkeypatch):
+    monkeypatch.setattr(ModelSpec, "supports_early_stopping", property(lambda self: True))
+
+    with pytest.raises(InvalidInputError, match="at least two drugs"):
+        _build(ModelSpec.from_name("NaivePredictor"), synthetic_model_dataset(), _one_drug_per_part_fold())
 
 
 @pytest.fixture

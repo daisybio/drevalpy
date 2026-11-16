@@ -4,9 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import numpy as np
-
-from drevalpy.data.splitters._folds import group_folds, observed_mask, pair_masks
+from drevalpy.data.splitters._folds import grouped_folds
 from drevalpy.registry.splitter import register
 from drevalpy.types import Dataset, Fold
 
@@ -23,19 +21,12 @@ def leave_pair_out(
     *,
     quality: CurveQuality,
 ) -> list[Fold]:
-    """Generate LPO folds where each (sample, drug) pair appears in exactly one test set.
+    """Generate LPO folds where each (source sample, drug) pair appears in exactly one test set.
 
-    Every pair with a finite response that passes *quality* is used.
+    Every pair with a finite response that passes *quality* is used. In a concatenated dataset
+    the measurements of one sample and drug in several studies (``source_sample_id``) are held
+    out together.
     """
-    observed = observed_mask(dataset, quality)
-    obs_rows, obs_cols = np.where(observed)
-    folds = group_folds(
-        len(obs_rows),
-        n_splits=n_splits,
-        validation_ratio=validation_ratio,
-        random_state=random_state,
+    return grouped_folds(
+        dataset, quality, mode="LPO", n_splits=n_splits, validation_ratio=validation_ratio, random_state=random_state
     )
-    return [
-        pair_masks(observed.shape, obs_rows, obs_cols, train=train, validation=validation, test=test)
-        for train, validation, test in folds
-    ]
