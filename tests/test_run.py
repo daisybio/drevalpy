@@ -115,9 +115,16 @@ def recorder(monkeypatch: pytest.MonkeyPatch) -> _SingleRecorder:
 
 
 def _set_folds(monkeypatch: pytest.MonkeyPatch, n_folds: int, seen: list[Any] | None = None) -> None:
-    def fake_split(ds: Any, mode: str, n_splits: int = 5, random_state: int = 42, quality: Any = None) -> list[Fold]:
+    def fake_split(
+        ds: Any,
+        mode: str,
+        n_splits: int = 5,
+        validation_ratio: float = 0.1,
+        random_state: int = 42,
+        quality: Any = None,
+    ) -> list[Fold]:
         if seen is not None:
-            seen.append((ds, mode, random_state, quality, n_splits))
+            seen.append((ds, mode, random_state, quality, n_splits, validation_ratio))
         return [_make_fold(fold_index=i) for i in range(n_folds)]
 
     monkeypatch.setattr(RUN_MODULE, "split", fake_split)
@@ -379,6 +386,16 @@ class TestForwardedArguments:
         _run("M", dataset, n_splits=3)
 
         assert [entry[4] for entry in split_calls] == [5, 3]
+
+    def test_the_validation_ratio_reaches_split_and_keeps_its_default(self, recorder, dataset, monkeypatch) -> None:
+        split_calls: list[Any] = []
+        _set_folds(monkeypatch, 1, split_calls)
+
+        _run("M", dataset)
+        _run("M", dataset, validation_ratio=0.3)
+
+        assert [entry[5] for entry in split_calls] == [0.1, 0.3]
+        assert inspect.signature(split).parameters["validation_ratio"].default == 0.1
 
     @pytest.mark.slow
     def test_end_to_end_n_splits_sets_the_runs_per_model(self) -> None:
@@ -714,6 +731,7 @@ class TestResume:
             pytest.param({"mode": "LPO"}, id="split-mode"),
             pytest.param({"hyperparameter_tuning": True}, id="tuning"),
             pytest.param({"robustness_repeats": 1}, id="robustness"),
+            pytest.param({"validation_ratio": 0.3}, id="validation-ratio"),
             pytest.param({"response_transformation": get_response_transformation("standard")}, id="transformation"),
         ],
     )

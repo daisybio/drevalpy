@@ -212,6 +212,7 @@ def run(
     on_error: Literal["record", "raise"] = "record",
     n_jobs: int = 1,
     n_splits: int = 5,
+    validation_ratio: float = 0.1,
     output_dir: str | None = None,
     overwrite: bool = False,
 ) -> ExperimentResult:
@@ -244,6 +245,8 @@ def run(
         every final fit; ``-1`` uses all CPUs. Results are identical for every value, and other models ignore it.
     :param n_splits: Number of CV folds the splitter makes; the k-fold splitters reject fewer than 2. LStO
         ignores it and makes one fold per study.
+    :param validation_ratio: Fraction of each fold's training groups the splitter holds out for validation, which
+        tuning scores on and models that stop early watch; such a model needs at least two validation groups.
     :param output_dir: Directory to save the results in, laid out as :doc:`/reference/results` describes. Each run
         is saved as soon as it finishes, and a run that is already saved there by a run with the same settings (every
         argument that can change a result, the content of the dataset included) is loaded instead of fitted, so a
@@ -274,6 +277,7 @@ def run(
         dataset=ds,
         split_mode=split_mode,
         n_splits=n_splits,
+        validation_ratio=validation_ratio,
         randomization_modes=randomization_modes,
         randomization_type=randomization_type,
         randomization_random_state=randomization_random_state,
@@ -287,7 +291,14 @@ def run(
         quality=quality,
     )
     store = None if output_dir is None else RunStore.open(output_dir, settings.fingerprint(), overwrite=overwrite)
-    folds = split(ds, settings.split_mode, n_splits=n_splits, random_state=seed, quality=settings.quality)
+    folds = split(
+        ds,
+        settings.split_mode,
+        n_splits=n_splits,
+        validation_ratio=validation_ratio,
+        random_state=seed,
+        quality=settings.quality,
+    )
 
     if robustness_repeats > 0:
         folds = [s for fold in folds for s in [fold, *robustness(fold, robustness_repeats)]]
