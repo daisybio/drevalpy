@@ -9,12 +9,13 @@ finished before its variants start; when it failed, the variants are recorded as
 With an ``output_dir``, every run is saved through a :class:`~drevalpy.types.results._store.RunStore` as soon as
 it finishes, and a run that is already saved is loaded instead of fitted, so a killed run resumes where it
 stopped. A loaded original run hands its best hyperparameters to its variants as a fitted one does. The store
-compares the fingerprint of the run's :class:`~drevalpy._run_settings.RunSettings` with the settings the
-directory was started with.
+compares the :func:`_settings` of the run with those the directory was started with; the dataset is identified
+by its name and measure only, not by its content.
 """
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from functools import partial
@@ -22,16 +23,16 @@ from typing import TYPE_CHECKING, Any, Literal, Protocol, TypeVar
 
 from rich.markup import escape
 
-from drevalpy._run_settings import RunSettings
 from drevalpy._single import _fit_fold
 from drevalpy._utils.n_jobs import check_n_jobs
-from drevalpy.data import split
+from drevalpy.data import CurveQuality, split
 from drevalpy.data._resolve import resolve_dataset
 from drevalpy.errors import InvalidInputError, OriginalRunFailedError
 from drevalpy.experiment._execution import check_mode_supported
 from drevalpy.experiment._randomization import randomization
 from drevalpy.experiment._robustness import robustness
 from drevalpy.log import get_logger
+from drevalpy.models.config.immutable import thaw_value
 from drevalpy.models.spec import ModelSpec
 from drevalpy.registry.splitter import canonical
 from drevalpy.types import Dataset, Fold
@@ -42,7 +43,6 @@ from drevalpy.types.results._store import RunStore
 from drevalpy.types.results.failure import ExperimentFailedError, RunFailure
 
 if TYPE_CHECKING:
-    from drevalpy.data import CurveQuality
     from drevalpy.models.response_transformation import ResponseTransformer
 
 logger = get_logger(__name__)
@@ -156,14 +156,14 @@ class _Outcomes:
     def result(self) -> ExperimentResult:
         """Return the experiment of the finished runs, after recording the failures in the store.
 
-        :returns: The runs and failures as one experiment, with the settings of the store.
+        :returns: The runs and failures as one experiment.
         :raises ExperimentFailedError: If there are failures and no run finished.
         """
         if self.store is not None:
             self.store.finish(self.failures)
         if self.failures and not self.runs:
             raise ExperimentFailedError(self.failures)
-        return ExperimentResult(self.runs, self.failures, settings=None if self.store is None else self.store.settings)
+        return ExperimentResult(self.runs, self.failures)
 
     def identity(self, model_name: str, fold: Fold, randomized: tuple[str, str] | None) -> RunIdentity:
         """Return the identity of *model_name*'s run on *fold*, before it is fitted (so without provenance)."""
@@ -190,6 +190,45 @@ class _Outcomes:
         failure = RunFailure.from_exception(error, self.identity(model_name, fold, randomized))
         logger.warning("Run failed, continuing: %s", escape(str(failure)))
         self.failures.append(failure)
+
+
+def _settings(
+    models: Sequence[ModelSpec],
+    dataset: Dataset,
+    response_transformation: ResponseTransformer | None,
+    quality: CurveQuality,
+    **arguments: Any,
+) -> dict[str, Any]:
+    r"""Return the arguments of ``run`` that decide its results, as the JSON that ``metadata.json`` records.
+
+    :param models: The models, recorded by name, configuration and hyperparameters.
+    :param dataset: The dataset, recorded by its name and measure only.
+    :param response_transformation: Recorded by its class name and ``get_params``.
+    :param quality: Recorded by ``to_metadata``.
+    :param \**arguments: The other result-deciding arguments of ``run``, with their defaults resolved.
+    :returns: Plain JSON values; a value without a JSON form is recorded as its ``str``.
+    """
+    transformation = None
+    if response_transformation is not None:
+        transformation = {
+            "class": type(response_transformation).__name__,
+            "params": response_transformation.get_params(deep=False),
+        }
+    settings = {
+        "models": [
+            {
+                "name": model.name,
+                "config": model.config.model_dump(mode="json"),
+                "hyperparameters": thaw_value(model.hyperparameters),
+            }
+            for model in models
+        ],
+        "dataset": {"name": dataset.name, "measure": dataset.measure},
+        "response_transformation": transformation,
+        "quality": quality.to_metadata(),
+        **arguments,
+    }
+    return json.loads(json.dumps(settings, default=str))
 
 
 def run(
@@ -249,7 +288,7 @@ def run(
         tuning scores on and models that stop early watch; such a model needs at least two validation groups.
     :param output_dir: Directory to save the results in, laid out as :doc:`/reference/results` describes. Each run
         is saved as soon as it finishes, and a run that is already saved there by a run with the same settings (every
-        argument that can change a result, the content of the dataset included) is loaded instead of fitted, so a
+        argument that can change a result; the dataset by its name and measure) is loaded instead of fitted, so a
         killed run resumes. Failures are saved only at the end, and a resumed run retries them. ``None`` saves
         nothing. A directory that holds files but no drevalpy experiment raises ``OutputDirectoryConflictError``.
     :param overwrite: Delete the experiment in *output_dir* first (its ``metadata.json``, ``failures.json`` and model
@@ -259,9 +298,7 @@ def run(
         and no run produced a result, ``ExperimentFailedError`` is raised instead.
     :raises InvalidInputError: If ``on_error`` is neither ``"record"`` nor ``"raise"``, or ``n_jobs`` is neither
         positive nor ``-1``. A model that *split_mode* cannot score, such as a single-drug model under LDO, raises
-        ``InvalidInputError`` from ``check_mode_supported`` before the dataset is loaded. With an *output_dir*, a
-        model hyperparameter or response-transformation parameter that is not a JSON value raises
-        ``InvalidInputError``, since the settings could not be recorded.
+        ``InvalidInputError`` from ``check_mode_supported`` before the dataset is loaded.
     """
     check_n_jobs(n_jobs)
     if on_error not in ("record", "raise"):
@@ -272,32 +309,34 @@ def run(
     ds = resolve_dataset(dataset)
     if measure is not None:
         ds = ds.with_measure(measure)
-    settings = RunSettings.resolve(
-        models=models,
-        dataset=ds,
-        split_mode=split_mode,
-        n_splits=n_splits,
-        validation_ratio=validation_ratio,
-        randomization_modes=randomization_modes,
-        randomization_type=randomization_type,
-        randomization_random_state=randomization_random_state,
-        robustness_repeats=robustness_repeats,
-        hyperparameter_tuning=hyperparameter_tuning,
-        hpo_metric=hpo_metric,
-        hpo_num_trials=hpo_num_trials,
-        hpo_random_state=hpo_random_state,
-        seed=seed,
-        response_transformation=response_transformation,
-        quality=quality,
-    )
-    store = None if output_dir is None else RunStore.open(output_dir, settings.fingerprint(), overwrite=overwrite)
+    split_mode = canonical(split_mode)
+    quality = quality or CurveQuality.default()
+    randomization_modes = randomization_modes or []
+    hpo_random_state = seed if hpo_random_state is None else hpo_random_state
+    randomization_random_state = seed if randomization_random_state is None else randomization_random_state
+    store = None
+    if output_dir is not None:
+        settings = _settings(
+            models,
+            ds,
+            response_transformation,
+            quality,
+            split_mode=split_mode,
+            n_splits=n_splits,
+            validation_ratio=validation_ratio,
+            randomization_modes=randomization_modes,
+            randomization_type=randomization_type,
+            randomization_random_state=randomization_random_state,
+            robustness_repeats=robustness_repeats,
+            hyperparameter_tuning=hyperparameter_tuning,
+            hpo_metric=hpo_metric,
+            hpo_num_trials=hpo_num_trials,
+            hpo_random_state=hpo_random_state,
+            seed=seed,
+        )
+        store = RunStore.open(output_dir, settings, overwrite=overwrite)
     folds = split(
-        ds,
-        settings.split_mode,
-        n_splits=n_splits,
-        validation_ratio=validation_ratio,
-        random_state=seed,
-        quality=settings.quality,
+        ds, split_mode, n_splits=n_splits, validation_ratio=validation_ratio, random_state=seed, quality=quality
     )
 
     if robustness_repeats > 0:
@@ -310,7 +349,7 @@ def run(
         hyperparameter_tuning=hyperparameter_tuning,
         hpo_metric=hpo_metric,
         hpo_num_trials=hpo_num_trials,
-        hpo_random_state=settings.hpo_random_state,
+        hpo_random_state=hpo_random_state,
         seed=seed,
         wandb_project=wandb_project,
         n_jobs=n_jobs,
@@ -321,9 +360,9 @@ def run(
             randomization,
             model,
             ds,
-            list(settings.randomization_modes),
+            randomization_modes,
             randomization_type=randomization_type,
-            random_state=settings.randomization_random_state,
+            random_state=randomization_random_state,
         )
         randomized = outcomes.attempt(build, model_name=model.name, folds=folds) or []
         outcomes.fit_folds(

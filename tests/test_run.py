@@ -14,8 +14,6 @@ import json
 from collections.abc import Callable
 from typing import Any
 
-import anndata as ad
-import mudata as md
 import numpy as np
 import pytest
 
@@ -39,8 +37,6 @@ class _FakeDataset:
         self.tag = tag
         self.randomization: tuple[str, str] | None = None
         self.measure = "pEC50"
-        with md.set_options(pull_on_update=False):
-            self.mdata = md.MuData({"response": ad.AnnData(np.arange(12, dtype=np.float32).reshape(4, 3))})
 
 
 def _stub_model(name: str) -> type:
@@ -750,21 +746,14 @@ class TestResume:
         assert len(recorder.calls) == len(result.models[0].runs)
         assert len(list(tmp_path.rglob("*.npz"))) == len(result.models[0].runs)
 
-    @pytest.mark.parametrize("change", ["responses", "features"])
-    def test_other_data_under_the_same_name_or_another_model_raise(
-        self, recorder, dataset, tmp_path, change: str
-    ) -> None:
+    def test_another_dataset_name_measure_or_model_raises(self, recorder, dataset, tmp_path) -> None:
         _run("A", dataset, output_dir=str(tmp_path))
-        other = _FakeDataset()
-        if change == "responses":
-            other.mdata.mod["response"].X = np.ones((4, 3), dtype=np.float32)
-        else:
-            other.mdata.mod["response"].obsm["pathways"] = np.ones((4, 2), dtype=np.float32)
+        other_measure = _FakeDataset()
+        other_measure.measure = "AUC"
 
-        with pytest.raises(OutputDirectoryConflictError):
-            _run("A", other, output_dir=str(tmp_path))
-        with pytest.raises(OutputDirectoryConflictError):
-            _run("B", dataset, output_dir=str(tmp_path))
+        for model, data in [("A", _FakeDataset(name="other")), ("A", other_measure), ("B", dataset)]:
+            with pytest.raises(OutputDirectoryConflictError, match="other settings"):
+                _run(model, data, output_dir=str(tmp_path))
 
     def test_a_run_that_crashed_before_any_run_finished_is_started_again(
         self, recorder, dataset, monkeypatch, tmp_path
@@ -781,8 +770,7 @@ class TestResume:
         result = _run("A", dataset, n_splits=2, output_dir=str(tmp_path))
 
         assert len(result.models[0].runs) == 2
-        assert result.settings is not None
-        assert result.settings["n_splits"] == 2
+        assert json.loads((tmp_path / "metadata.json").read_text(encoding="utf-8"))["settings"]["n_splits"] == 2
 
     def test_a_run_whose_every_run_failed_saves_the_failures_and_is_started_again(
         self, recorder, dataset, tmp_path
@@ -807,26 +795,6 @@ class TestResume:
 
         assert recorder.calls == []
         assert sorted(entry.name for entry in tmp_path.iterdir()) == ["notes.txt"]
-
-    def test_saving_the_result_into_its_directory_keeps_it_resumable(self, recorder, dataset, tmp_path) -> None:
-        result = _run("A", dataset, output_dir=str(tmp_path / "run"))
-        result.save(tmp_path / "run")
-        result.save(tmp_path / "copy")
-        recorder.calls.clear()
-
-        again = _run("A", dataset, output_dir=str(tmp_path / "run"))
-
-        assert recorder.calls == []
-        assert ExperimentResult.load(tmp_path / "copy").settings == result.settings == again.settings
-
-    def test_settings_that_cannot_be_recorded_are_rejected(self, recorder, dataset, tmp_path) -> None:
-        class Opaque:
-            def get_params(self, deep: bool = False) -> dict[str, Any]:
-                return {"state": object()}
-
-        with pytest.raises(InvalidInputError, match="cannot be recorded"):
-            _run("A", dataset, response_transformation=Opaque(), output_dir=str(tmp_path))
-        assert recorder.calls == []
 
     @pytest.mark.slow
     def test_end_to_end_a_rerun_loads_every_run(self, synthetic_dataset, monkeypatch, tmp_path) -> None:
