@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from drevalpy.data.splitters._folds import observed_mask, pair_masks, validation_split
+from drevalpy.data.splitters._folds import group_out_folds
 from drevalpy.registry.splitter import register
 from drevalpy.types import Dataset, Fold
 
@@ -26,8 +26,9 @@ def leave_study_out(
     """Generate LStO folds: one fold per study, tested on that study and trained on the others.
 
     ``n_splits`` is ignored; the fold metadata records the real number of folds. The
-    validation set is a random ``validation_ratio`` share of the other studies' pairs, so
-    unlike LTO a test sample or drug may also occur in training under another study.
+    validation set is a random ``validation_ratio`` share of the other studies' (source sample,
+    drug) pairs, so unlike LTO a test sample or drug may also occur in training under another
+    study.
 
     :param dataset: Dataset to read the response matrix and ``study`` sample column from.
     :param n_splits: Ignored; there is always one fold per study.
@@ -46,15 +47,7 @@ def leave_study_out(
     if len(unique_studies) < 2:
         raise ValueError(f"LStO needs at least two studies, found {len(unique_studies)}.")
 
-    observed = observed_mask(dataset, quality)
-    rows, columns = np.where(observed)
-    in_study = studies[rows][:, None] == unique_studies[None, :]
-    folds = []
-    for index, study in enumerate(unique_studies):
-        test = np.flatnonzero(in_study[:, index])
-        rest = np.flatnonzero(~in_study[:, index])
-        train, validation = validation_split(rest, validation_ratio, random_state)
-        fold = pair_masks(observed.shape, rows, columns, train=train, validation=validation, test=test)
+    folds = group_out_folds(dataset, quality, mode="LStO", validation_ratio=validation_ratio, random_state=random_state)
+    for fold, study in zip(folds, unique_studies, strict=True):
         fold.metadata.update(n_splits=len(unique_studies), test_study=str(study))
-        folds.append(fold)
     return folds
