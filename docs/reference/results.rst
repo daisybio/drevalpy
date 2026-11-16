@@ -119,22 +119,20 @@ Resumed runs
 
 ``drevalpy run`` and ``drevalpy.run(..., output_dir=...)`` write ``metadata.json`` before the first
 fit, with ``settings``: every argument that decides the results, that is the models (name,
-configuration and hyperparameters), the dataset (name, measure and a SHA-256 digest of its whole
-content: every modality's matrices, layers, annotations and ``uns``, the sample table and the
-dataset's ``uns``), the split mode and number of folds, the curve-quality rule, the response
-transformation, the tuning, randomization and robustness settings, and the seeds, with every
-default filled in. Each run file is written as soon as the run finishes.
-``ExperimentResult.load`` keeps the ``settings`` as ``ExperimentResult.settings``, and
-``ExperimentResult.save`` writes them back.
+configuration and hyperparameters), the dataset (its name and measure, not its content), the
+split mode, number of folds and validation ratio, the curve-quality rule, the response
+transformation (class name and parameters), the tuning, randomization and robustness settings, and
+the seeds, with every default filled in. Each run file is written as soon as the run finishes.
+``ExperimentResult.save`` writes no ``settings``.
 
 A later run with equal ``settings`` loads the run files it finds instead of fitting those runs
 again, and fits the rest. A directory that holds only ``metadata.json`` and ``failures.json`` holds
 no runs, and a run starts it again with its own ``settings``. A directory with runs is refused
-with ``OutputDirectoryConflictError`` when its ``settings`` differ, when it has none, or when it
-is normalized, unless ``--overwrite`` (``overwrite=True``) deletes the experiment first.
+with ``OutputDirectoryConflictError`` when its ``settings`` differ or it has none, as after
+``ExperimentResult.save``, unless ``--overwrite`` (``overwrite=True``) deletes the experiment first.
 ``--overwrite`` deletes ``metadata.json``, ``failures.json`` and the directories of the models in
 ``models``, and leaves other files alone. A directory that holds files but no readable
-``metadata.json`` with ``normalized_by`` and ``models`` is always refused. ``failures.json`` is
+``metadata.json`` with a ``models`` list is always refused. ``failures.json`` is
 written at the end of a run, also when every run failed, and a resumed run retries the runs that
 failed.
 
