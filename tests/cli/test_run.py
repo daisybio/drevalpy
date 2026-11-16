@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from types import SimpleNamespace
 from typing import Any
 
@@ -22,12 +23,8 @@ runner = make_runner()
 
 class StubExperiment:
     def __init__(self, failures: tuple[RunFailure, ...] = ()) -> None:
-        """Record saved paths."""
-        self.saved: list[str] = []
+        """Hold the failures the command reports."""
         self.failures = failures
-
-    def save(self, path: str) -> None:
-        self.saved.append(path)
 
     def __repr__(self) -> str:
         """Return a marker the output test can look for."""
@@ -59,6 +56,7 @@ def _invoke(tmp_path: UPath, *extra: str) -> Any:
 
 def test_a_minimal_invocation_forwards_the_documented_defaults(worker: Recorder, tmp_path: UPath) -> None:
     result = _invoke(tmp_path)
+    output_dir = str(tmp_path / "results")
 
     assert result.exit_code == 0, result.output
     assert [spec.name for spec in worker.kwargs["models"]] == ["ElasticNet"]
@@ -80,6 +78,8 @@ def test_a_minimal_invocation_forwards_the_documented_defaults(worker: Recorder,
         "quality": CurveQuality.default(),
         "measure": None,
         "wandb_project": None,
+        "output_dir": output_dir,
+        "overwrite": False,
     }
 
 
@@ -112,6 +112,7 @@ def test_a_minimal_invocation_forwards_the_documented_defaults(worker: Recorder,
         pytest.param(["--wandb-project", "drevalpy"], {"wandb_project": "drevalpy"}, id="wandb"),
         pytest.param(["--no-quality-filter"], {"quality": CurveQuality.off()}, id="no-quality-filter"),
         pytest.param(["--measure", "LN_IC50"], {"measure": "LN_IC50"}, id="measure"),
+        pytest.param(["--overwrite"], {"overwrite": True}, id="overwrite"),
     ],
 )
 def test_option_forwarding(worker: Recorder, tmp_path: UPath, args: list[str], expected: dict[str, Any]) -> None:
@@ -200,20 +201,37 @@ class TestGroupBy:
 
 
 class TestOutput:
-    def test_creates_parents_saves_and_reports(self, worker: Recorder, tmp_path: UPath) -> None:
+    def test_run_writes_the_output_directory_and_the_command_reports_it(
+        self, worker: Recorder, tmp_path: UPath
+    ) -> None:
         out_dir = tmp_path / "nested" / "results"
 
         result = runner.invoke(app, ["run", "ElasticNet", "--dataset", "TOYv1", "--output-dir", str(out_dir)])
 
-        assert out_dir.is_dir()
-        assert worker.return_value.saved == [str(out_dir)]
+        assert worker.kwargs["output_dir"] == str(out_dir)
         assert f"Wrote experiment results to {out_dir}" in plain(result.output)
         assert "STUB-EXPERIMENT-REPR" in plain(result.output)
 
-    def test_tolerates_a_pre_existing_output_directory(self, worker: Recorder, tmp_path: UPath) -> None:
-        (tmp_path / "results").mkdir()
+    @pytest.mark.slow
+    def test_end_to_end_a_rerun_resumes_and_other_settings_need_overwrite(self, tmp_path: UPath) -> None:
+        dataset, out_dir = tmp_path / "toy.h5mu", tmp_path / "results"
+        assert runner.invoke(app, ["data", "synthetic", "--output", str(dataset)]).exit_code == 0
+        command = ["run", "NaiveMeanEffectsPredictor", "-d", str(dataset), "-n", "2", "--no-hpo", "-o", str(out_dir)]
 
-        assert _invoke(tmp_path).exit_code == 0
+        assert runner.invoke(app, command).exit_code == 0
+        written = {path.name: path.stat().st_mtime_ns for path in out_dir.rglob("*.npz")}
+        assert runner.invoke(app, command).exit_code == 0
+        assert {path.name: path.stat().st_mtime_ns for path in out_dir.rglob("*.npz")} == written
+        assert len(written) == 2
+
+        conflict = runner.invoke(app, [*command, "--seed", "7"])
+        assert conflict.exit_code == 1
+        assert "--overwrite" in plain(conflict.output)
+        assert "Traceback" not in conflict.output
+
+        assert runner.invoke(app, [*command, "--seed", "7", "--overwrite"]).exit_code == 0
+        meta = json.loads((out_dir / "metadata.json").read_text(encoding="utf-8"))
+        assert meta["settings"]["seed"] == 7
 
     def test_an_unknown_model_is_reported_without_a_traceback_and_nothing_runs(
         self, worker: Recorder, monkeypatch: pytest.MonkeyPatch, tmp_path: UPath
@@ -324,7 +342,8 @@ class TestFailures:
         assert result.exit_code == 1
         assert "1 run(s) failed" in plain(result.output)
         assert "ElasticNet fold 1: RuntimeError: boom" in plain(result.output)
-        assert experiment.saved == [str(tmp_path / "results")]
+        assert f"Wrote experiment results to {tmp_path / 'results'}" in plain(result.output)
+        assert repr(experiment) in plain(result.output)
 
     def test_every_run_failing_lists_the_failures_and_exits_1(
         self, worker: Recorder, tmp_path: UPath, monkeypatch: pytest.MonkeyPatch
