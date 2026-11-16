@@ -139,6 +139,16 @@ These affect only code, configurations and datasets written for an unreleased 2.
 - **The normalization reference is never transformed.** ``NaiveMeanEffectsPredictor`` trains on
   the untransformed response in ``drevalpy.single`` and ``drevalpy single`` too, as it already did
   in ``run``, so split + ``single`` + ``aggregate`` gives the same normalized metrics as ``run``.
+- **A run saves each result as it finishes and resumes from its output directory.** With
+  ``output_dir`` (``--output-dir``), ``run`` writes each run as soon as it is fitted, and a later
+  ``run`` with the same settings loads the runs on disk instead of fitting them again; failed runs
+  are retried. The settings include a digest of the dataset's whole content. A directory holding
+  runs of other settings raises ``OutputDirectoryConflictError`` unless ``overwrite=True``
+  (``--overwrite``) deletes them first; ``overwrite`` deletes only the files drevalpy wrote, and a
+  directory of other files is refused. ``ExperimentResult`` keeps the settings it was loaded or run
+  with, and ``save`` writes them back.
+  Run files are named after their fold and stress test instead of ``fold_<i>.npz``. See
+  :ref:`how-to/run_experiment:Resume a killed run`.
 
 Samples instead of cell lines
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -198,8 +208,9 @@ Defaults and results that changed
 - The standard deviation of a metric across folds is the sample standard deviation (``ddof=1``), and
   ``0`` for a single fold.
 - **Saved results store each value once.** The ``metadata.json`` of an experiment directory holds only
-  ``normalized_by`` and ``models``, a model directory has no ``metadata.json``, and the dataset name, the
-  split mode and the model name are read from the ``fold_<i>.npz`` files, which load in numeric order. The
+  ``normalized_by``, ``models`` and the ``settings`` of the run, a model directory has no ``metadata.json``,
+  and the dataset name, the split mode and the model name are read from the run files, which load in fold
+  order. The
   split mode is always stored under ``split_mode``. :doc:`/reference/results` has the layout.
 - **Models use the 1.6.x gene lists.** The sklearn models, ``SimpleNeuralNetwork``, ``DrugGNN``,
   ``PharmaFormer``, ``DIPK``, ``EnsembleMF`` and ``SingleDrugKNN`` read the 867 landmark genes, ``PaccMann``

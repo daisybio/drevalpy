@@ -16,8 +16,9 @@ Experiment directory
      metadata.json
      failures.json       (only when a run failed)
      <model dir>/
-       fold_0.npz
-       fold_1.npz
+       fold-0_<digest>.npz
+       fold-0_SVRC_gene_expression_<digest>.npz
+       fold-0_repeat-0_<digest>.npz
        ...
 
 .. list-table::
@@ -28,16 +29,19 @@ Experiment directory
      - Content
    * - ``<output dir>/metadata.json``
      - ``normalized_by`` (``null`` unless normalized) and ``models``, the list of model names in
-       the order they were written
+       the order they were written. A directory that ``drevalpy run`` wrote also has ``settings``;
+       see `Resumed runs`_
    * - ``<output dir>/failures.json``
      - Written only when at least one run failed; see `Recorded failures`_
-   * - ``<model dir>/fold_<i>.npz``
-     - One run; see below
+   * - ``<model dir>/<run>.npz``
+     - One run; see `Run file`_
 
 Nothing is stored twice. The dataset name, the split mode and the model name are those of the
-runs, and the runs of a model are its ``fold_<i>.npz`` files, read in the numeric order of ``<i>``
-(``fold_10`` follows ``fold_2``). The mean and sample standard deviation of each metric across folds are
-computed when a result is read.
+runs, and the runs of a model are the ``.npz`` files of its directory. They are read in the order
+``drevalpy run`` makes them: by fold, the original split before its robustness variants, and the
+original dataset before the randomized ones. The mean and sample standard deviation of each metric
+across folds are computed when a result is read. A model in ``models`` that has no run file, because
+all its runs failed, is left out.
 
 An experiment holds one dataset name and one split mode; ``ExperimentResult`` rejects runs
 that disagree. A model that comes from a grid or a recipe is named by its recipe, such as
@@ -85,19 +89,19 @@ JSON list; each entry has the keys ``oneHot``, ``error_type`` and ``message``.
    * - ``message``
      - ``str(exception)``
 
-A failed run writes no ``fold_<i>.npz`` file. The runs of the other models and folds are saved
+A failed run writes no run file. The runs of the other models and folds are saved
 as usual. ``drevalpy run`` exits with status 1 when ``failures`` is not empty, and
 ``drevalpy.run(..., on_error="raise")`` raises the first error instead of recording it; see
 :doc:`/how-to/evaluate_component_grids`.
 
-Which run is ``fold_<i>``
-~~~~~~~~~~~~~~~~~~~~~~~~~
+Run file names
+~~~~~~~~~~~~~~
 
-The number ``<i>`` counts the runs of a model in the order they were written. It is not the
-fold index; the fold index of a run is in its ``_metadata``. ``drevalpy run`` writes, for each
-fold in turn, the original split first and then each robustness variant of it. For every one
-of these splits it writes the run on the original dataset, followed by one run per randomized
-dataset.
+A run file is named after the run: ``fold-<fold index>``, then the randomization ``<mode>_<view>``
+of a randomized dataset and ``repeat-<i>`` of a robustness variant, then a digest of the run's
+model, dataset, measure, split mode, fold, randomization and robustness repeat. The name does not
+depend on the order the runs finished in, and saving a result again writes the same files.
+``ExperimentResult.save`` also removes the run files of runs that the result no longer holds.
 
 For example, take two models, five folds, ``--robustness-repeats 1`` and ``--randomization-mode SVRC --randomization-mode SVCC``.
 A model with one sample view gets 5 folds x 2 splits x 2 datasets = 20 files: the original
@@ -107,8 +111,32 @@ so it is skipped with a warning and gives no dataset. A model with two sample vi
 no randomized datasets and 5 x 2 = 10 files.
 
 ``drevalpy aggregate RESULTS... -o DIR`` loads run ``.npz`` files and writes the same layout.
-Its output directory defaults to ``experiment_results`` and the file numbers follow the
-order of the inputs.
+Its output directory defaults to ``experiment_results``. Two input runs of the same model, fold
+and stress test are an error.
+
+Resumed runs
+~~~~~~~~~~~~
+
+``drevalpy run`` and ``drevalpy.run(..., output_dir=...)`` write ``metadata.json`` before the first
+fit, with ``settings``: every argument that decides the results, that is the models (name,
+configuration and hyperparameters), the dataset (name, measure and a SHA-256 digest of its whole
+content: every modality's matrices, layers, annotations and ``uns``, the sample table and the
+dataset's ``uns``), the split mode and number of folds, the curve-quality rule, the response
+transformation, the tuning, randomization and robustness settings, and the seeds, with every
+default filled in. Each run file is written as soon as the run finishes.
+``ExperimentResult.load`` keeps the ``settings`` as ``ExperimentResult.settings``, and
+``ExperimentResult.save`` writes them back.
+
+A later run with equal ``settings`` loads the run files it finds instead of fitting those runs
+again, and fits the rest. A directory that holds only ``metadata.json`` and ``failures.json`` holds
+no runs, and a run starts it again with its own ``settings``. A directory with runs is refused
+with ``OutputDirectoryConflictError`` when its ``settings`` differ, when it has none, or when it
+is normalized, unless ``--overwrite`` (``overwrite=True``) deletes the experiment first.
+``--overwrite`` deletes ``metadata.json``, ``failures.json`` and the directories of the models in
+``models``, and leaves other files alone. A directory that holds files but no readable
+``metadata.json`` with ``normalized_by`` and ``models`` is always refused. ``failures.json`` is
+written at the end of a run, also when every run failed, and a resumed run retries the runs that
+failed.
 
 Run file
 --------
