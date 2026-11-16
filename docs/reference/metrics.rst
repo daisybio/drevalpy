@@ -107,6 +107,13 @@ DrEvalPy 1.x: a pooled ``R^2`` on a constant response is ``NaN`` (scikit-learn r
 ``0.0`` or ``1.0``), and a pooled correlation with both sides constant is ``NaN`` (1.x
 returned ``0.0``).
 
+A run's final test scoring does not drop NaN predictions silently. Among the test pairs with
+a finite response, a run with any NaN prediction logs a warning that gives their number, and a
+run with more than 20 % (``MAX_NAN_PREDICTION_SHARE``) raises ``NaNPredictionError`` from
+``drevalpy.errors`` instead of being scored on the rest; ``run(on_error="record")`` records it
+as a failure. Tuning trials are scored without this check. ``RunResult.n_scored`` is the number
+of pairs a run's scores use.
+
 Pooled and per-group scores
 ---------------------------
 
