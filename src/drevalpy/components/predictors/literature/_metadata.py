@@ -4,16 +4,6 @@ from __future__ import annotations
 
 from drevalpy.registry._component import LiteratureReference
 
-DRUGGNN_REFERENCE = LiteratureReference(
-    repo_url="https://github.com/hauldhut/GraphDRP",
-    citation_doi="10.1109/TCBB.2021.3060430",
-    citation_text="DrugGNN-style GCN on molecular graphs with dense sample features (GraphDRP codebase).",
-    deviations=(
-        "GraphDRP GCN variant: retain its three graph convolutions; use mean pooling, a dense sample "
-        "branch and an unbounded regression head instead of max pooling, Conv1d and sigmoid."
-    ),
-)
-
 PRECILY_REFERENCE = LiteratureReference(
     repo_url="https://github.com/SmritiChawla/Precily",
     citation_doi="10.1038/s41467-022-33291-z",
