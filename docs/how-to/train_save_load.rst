@@ -128,8 +128,8 @@ component has raises ``ValueError``.
 
 Predictors that stop training early, such as the neural networks, also need an
 ``early_stopping_scope`` that does not overlap the training scope. ``spec.requires_early_stopping``
-says whether a model does, and ``fold.early_stopping_mask()`` splits one off the validation
-pairs.
+says whether a model does. ``drevalpy.single`` and ``drevalpy.train`` cut it themselves, from
+whole groups of the validation set along the split mode (whole tissues under LTO, for example).
 
 Score the predictions
 ---------------------
