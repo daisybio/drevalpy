@@ -10,6 +10,7 @@ import pytest
 from upath import UPath
 
 from drevalpy.errors import InvalidInputError
+from drevalpy.types.results._store import run_filename
 from drevalpy.types.results.experiment import ExperimentResult, _run_array_bytes
 from drevalpy.types.results.run import _intern_ids
 from drevalpy.types.results.trial import TrialResult
@@ -74,11 +75,12 @@ class TestPersistence:
     def test_save_writes_one_directory_per_model_and_only_the_metadata_the_runs_cannot_give(self, tmp_path) -> None:
         directory = UPath(tmp_path) / "experiment"
 
-        make_experiment_result(n_models=2, n_folds=1, split_mode="LDO").save(directory)
+        experiment = make_experiment_result(n_models=2, n_folds=1, split_mode="LDO")
+        experiment.save(directory)
         meta = json.loads((directory / "metadata.json").read_text(encoding="utf-8"))
 
-        assert (directory / REFERENCE_MODEL / "fold_0.npz").is_file()
-        assert (directory / "ElasticNet" / "fold_0.npz").is_file()
+        for model in experiment.models:
+            assert (directory / model.model_name / run_filename(model.runs[0].identity)).is_file()
         assert not (directory / "ElasticNet" / "metadata.json").exists()
         assert meta == {"normalized_by": None, "models": [REFERENCE_MODEL, "ElasticNet"]}
 
@@ -103,6 +105,52 @@ class TestPersistence:
 
         assert sorted(path.name for path in directory.iterdir() if path.is_dir()) == [names[1], f"{names[1]}-2"]
         assert ExperimentResult.load(directory).model_names == names
+
+    def test_round_trip_keeps_every_stress_test_run_in_run_order(self, tmp_path) -> None:
+        directory = UPath(tmp_path) / "experiment"
+        runs = [
+            make_run_result(
+                model_name=name,
+                fold_index=fold_index,
+                seed=len(name) + fold_index,
+                fold_metadata={"fold_index": fold_index, **({} if repeat is None else {"robustness_repeat": repeat})},
+                randomization=randomization,
+            )
+            for name in ["A", "B"]
+            for fold_index in range(2)
+            for repeat in [None, 0]
+            for randomization in [None, ("SVRC", "gene_expression")]
+        ]
+        experiment = ExperimentResult(runs)
+
+        experiment.save(directory)
+        loaded = ExperimentResult.load(directory)
+
+        assert len(list(directory.rglob("*.npz"))) == len(runs)
+        for saved, read in zip(experiment.models, loaded.models, strict=True):
+            assert [run.run_key for run in read.runs] == [run.run_key for run in saved.runs]
+            for saved_run, read_run in zip(saved.runs, read.runs, strict=True):
+                np.testing.assert_array_equal(read_run.predictions, saved_run.predictions)
+
+    def test_saving_again_rewrites_the_same_files(self, tmp_path) -> None:
+        directory = UPath(tmp_path) / "experiment"
+        experiment = make_experiment_result(n_models=1, n_folds=2)
+
+        experiment.save(directory)
+        before = sorted(path.name for path in directory.rglob("*.npz"))
+        experiment.save(directory)
+
+        assert sorted(path.name for path in directory.rglob("*.npz")) == before
+        assert len(before) == 2
+
+    def test_a_listed_model_without_runs_on_disk_is_left_out(self, tmp_path) -> None:
+        directory = UPath(tmp_path) / "experiment"
+        make_experiment_result(n_models=2, n_folds=1).save(directory)
+        meta = json.loads((directory / "metadata.json").read_text(encoding="utf-8"))
+        meta["models"].append("NeverFinished")
+        (directory / "metadata.json").write_text(json.dumps(meta), encoding="utf-8")
+
+        assert ExperimentResult.load(directory).model_names == [REFERENCE_MODEL, "ElasticNet"]
 
     def test_the_dataset_and_split_mode_are_those_of_the_loaded_runs(self, tmp_path) -> None:
         directory = UPath(tmp_path) / "experiment"
@@ -137,6 +185,15 @@ class TestFailures:
         experiment = make_experiment_result(n_models=2, n_folds=1)
         experiment.failures = self.FAILURES
         assert experiment.normalize().failures == self.FAILURES
+
+    def test_saving_without_failures_removes_a_stale_failures_file(self, tmp_path) -> None:
+        directory = UPath(tmp_path) / "experiment"
+        ExperimentResult([make_run_result()], self.FAILURES).save(directory)
+
+        ExperimentResult([make_run_result()]).save(directory)
+
+        assert not (directory / "failures.json").exists()
+        assert ExperimentResult.load(directory).failures == ()
 
 
 class TestTrialSkipping:
