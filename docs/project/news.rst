@@ -109,6 +109,36 @@ These affect only code, configurations and datasets written for an unreleased 2.
 - **A saved model records its response measure.** The model archive is format version 3, so
   models saved by an earlier 2.0 build must be retrained. ``RunResult.fold_key`` includes the
   measure.
+- **Splits of concatenated datasets group by source sample.** Under LSO a fold keeps all rows
+  with one ``source_sample_id`` together, and under LPO all pairs of one (source sample, drug), so
+  a sample measured in two studies is never in both training and test. The split validators check
+  the same groups. Folds of a dataset that is not concatenated do not change.
+- **The early-stopping set is cut along the split mode.** A model that stops early watches a
+  seeded 25 % of the validation groups of the split mode (samples under LSO, drugs under LDO,
+  tissues under LTO, (sample, drug) pairs under LPO and LStO) instead of the first 25 % of the
+  validation pairs. These groups are left out of the rest of the validation set and of the final
+  training set, and the split validators check all four parts. A validation set with fewer than
+  two groups raises ``InvalidInputError``, which asks for a larger ``validation_ratio``. Scores of
+  the models that stop early can change, and ``Fold.early_stopping_mask`` is removed. See
+  :doc:`/explanation/training_lifecycle`.
+- **Single-drug models are rejected under LDO.** They fit one model per drug and cannot predict
+  a held-out drug, so ``run`` and ``single`` raise ``InvalidInputError`` before any fit.
+- **Importing drevalpy leaves the thread settings alone outside macOS.** ``OMP_NUM_THREADS``,
+  ``OPENBLAS_NUM_THREADS``, ``MKL_NUM_THREADS`` and ``VECLIB_MAXIMUM_THREADS`` default to 1 only on
+  macOS, where XGBoost can crash without them. Elsewhere torch and the other native libraries are
+  no longer made single-threaded.
+- **NaN test predictions are reported.** A run that predicts NaN for some test pairs logs a
+  warning with their number, and a run with NaN for more than 20 % of the test pairs with a finite
+  response raises ``NaNPredictionError`` from ``drevalpy.errors`` instead of being scored on the
+  rest; ``run`` records it as a failure. ``RunResult.n_scored`` is the number of pairs the scores
+  use. See :ref:`reference/metrics:Missing and degenerate input`.
+- **Stress tests reuse the tuned hyperparameters.** Randomization and robustness runs no longer
+  tune: each is fitted with the best hyperparameters of the original run on the same fold, so the
+  search runs once per fold and the stress-test runs have no trials. When the original run fails,
+  its stress-test runs are recorded as failures. See :doc:`/how-to/run_stress_tests`.
+- **The normalization reference is never transformed.** ``NaiveMeanEffectsPredictor`` trains on
+  the untransformed response in ``drevalpy.single`` and ``drevalpy single`` too, as it already did
+  in ``run``, so split + ``single`` + ``aggregate`` gives the same normalized metrics as ``run``.
 
 Samples instead of cell lines
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
