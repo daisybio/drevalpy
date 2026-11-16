@@ -80,7 +80,7 @@ original and two repeats) × 2 datasets (the original and the permuted one) = 30
              Normalized by: None
              Models: 2
                  NaiveMeanEffectsPredictor (5 folds): MSE=0.8399, RMSE=0.9144, MAE=0.7218, R^2=0.6851, Pearson=0.8298, Spearman=0.8409, Kendall=0.6466
-                 ElasticNet (5 folds): MSE=0.5495, RMSE=0.7407, MAE=0.5832, R^2=0.7939, Pearson=0.8935, Spearman=0.9024, Kendall=0.7275
+                 ElasticNet (5 folds): MSE=0.5524, RMSE=0.7428, MAE=0.5827, R^2=0.7925, Pearson=0.8927, Spearman=0.8974, Kendall=0.7195
 
    .. tab-item:: Python
       :sync: python
@@ -111,17 +111,20 @@ original and two repeats) × 2 datasets (the original and the permuted one) = 30
              Normalized by: None
              Models: 2
                  NaiveMeanEffectsPredictor (5 folds): MSE=0.8399, RMSE=0.9144, MAE=0.7218, R^2=0.6851, Pearson=0.8298, Spearman=0.8409, Kendall=0.6466
-                 ElasticNet (5 folds): MSE=0.5495, RMSE=0.7407, MAE=0.5832, R^2=0.7939, Pearson=0.8935, Spearman=0.9024, Kendall=0.7275
+                 ElasticNet (5 folds): MSE=0.5524, RMSE=0.7428, MAE=0.5827, R^2=0.7925, Pearson=0.8927, Spearman=0.8974, Kendall=0.7195
 
-The summary has the same numbers as in the first tutorial. It averages only the ordinary runs, the
-ones on the original data in the original pair order, so the stress tests do not change it.
+The summary is the one the same command prints without the two stress-test options. It averages
+only the ordinary runs, the ones on the original data in the original pair order, so the stress
+tests do not change it.
 The stress-test runs are in the saved results, and no command prints them. The next two sections
 read them in Python.
 
 Read the tuning
 ---------------
 
-Every run keeps the trials of its tuning. Look at fold 0 of ``ElasticNet``.
+Only the ordinary runs tune, and each keeps the trials of its tuning. The stress-test runs of a
+fold reuse the best hyperparameters of its ordinary run and have no trials; see
+:doc:`/how-to/run_stress_tests`. Look at fold 0 of ``ElasticNet``.
 
 .. tab-set::
    :sync-group: interface
@@ -162,18 +165,18 @@ Both print the same lines:
 
 .. code-block:: text
 
-   0 0.637 0.0002
-   1 0.636 0.0008
-   2 0.634 0.0029
-   3 0.623 0.1091
+   0 0.727 0.0002
+   1 0.727 0.0008
+   2 0.723 0.0029
+   3 0.664 0.1091
    best: {'alpha': 0.1091, 'l1_ratio': 0.1705}
 
 Each line is one trial: its number, its validation RMSE (the tuning metric, lower is better) and
 the penalty strength ``alpha`` it tried. Trial 3 had the lowest RMSE, so the final model of fold 0
 uses ``alpha`` = 0.1091. Each fold tunes on its own validation pairs, so other folds can pick other
-configurations. The scores differ little between these four trials, but a strong penalty can
-ruin the model: a search with 8 trials also tries ``alpha`` = 1.39 in this fold, and its RMSE is
-1.14. The default ``alpha`` is 0.1, close to the winner here, so tuning refines a usable preset
+configurations. The three trials with a weak penalty score about the same, and the stronger
+penalty of trial 3 lowers the RMSE by 0.06. Too strong a penalty ruins the model, though: a search
+with 8 trials also tries ``alpha`` = 1.39 in this fold, and its RMSE is 1.14. The default ``alpha`` is 0.1, close to the winner here, so tuning refines a usable preset
 rather than rescuing it. See
 :doc:`/how-to/tune_hyperparameters` for the metric, the number of trials and the search spaces, and
 :doc:`/reference/hyperparameters` for the keys.
@@ -248,21 +251,21 @@ Both print:
 .. code-block:: text
 
                              all pairs  within drug
-   ordinary                      0.893        0.513
-   gene_expression permuted      0.844        0.152
-   robustness repeat 0           0.893        0.513
-   robustness repeat 1           0.893        0.513
+   ordinary                      0.893        0.518
+   gene_expression permuted      0.886        0.468
+   robustness repeat 0           0.893        0.518
+   robustness repeat 1           0.893        0.518
 
 Two things stand out.
 
 **The randomization test.** Permuting ``gene_expression`` across the samples removes what the
-features say about each sample, and the within-drug score falls from 0.51 to 0.15. The score over
-all pairs falls only from 0.89 to 0.84: the drug fingerprints still tell the model which drug it is
-predicting, and that carries the pooled score. This is the pattern of the first tutorial again.
+features say about each sample, and the within-drug score falls from 0.52 to 0.47. The score over
+all pairs falls only from 0.893 to 0.886: the drug fingerprints still tell the model which drug it
+is predicting, and that carries the pooled score. This is the pattern of the first tutorial again.
 The test shows that ``ElasticNet`` uses its gene expression, and that the within-drug score is the
-one that registers it. Some within-drug score remains. A likely reason is that leave-pair-out leaves
-every test sample in the training set, where its permuted features still work as an identifier of
-that sample.
+one that registers it. Most of the within-drug score remains. A likely reason is that leave-pair-out
+leaves every test sample in the training set, where its permuted features still work as an
+identifier of that sample.
 
 **The robustness test.** Both repeats score the same as the ordinary runs to three decimals.
 ``ElasticNet`` is deterministic once its hyperparameters are fixed, and the order of the pairs
@@ -277,8 +280,8 @@ modes. :doc:`/explanation/reproducibility` explains how the seeds are derived.
 What you learned
 ----------------
 
-- ``--hpo-trials`` sets the number of tuning trials. Every run keeps its trials, so you can see
-  what the search tried.
+- ``--hpo-trials`` sets the number of tuning trials. Every tuned run keeps its trials, so you can
+  see what the search tried.
 - A randomization test retrains on a permuted view and shows how much a model relies on it. Read
   it within drugs.
 - A robustness test repeats a fold with new seeds and shows how much a score depends on chance.
