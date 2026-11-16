@@ -9,6 +9,7 @@ import numpy as np
 import pytest
 
 from drevalpy._utils.seed import seed_everything
+from drevalpy.data.splitters._early_stopping import early_stopping_split
 from drevalpy.models import DRPModel, ModelSpec
 from drevalpy.models.config import FeaturizerConfig, ModelConfig, from_recipe
 from drevalpy.models.zoo import get_zoo_config
@@ -125,16 +126,18 @@ def _first_lto_fold(dataset: Dataset) -> Fold:
     from drevalpy.data import CurveQuality
     from drevalpy.registry.splitter import get as get_splitter
 
-    return get_splitter("LTO")(dataset, n_splits=2, validation_ratio=0.4, quality=CurveQuality.off())[0]
+    return get_splitter("LTO")(dataset, n_splits=2, validation_ratio=0.7, quality=CurveQuality.off())[0]
 
 
 def _train(model: DRPModel, dataset: Dataset, fold: Fold) -> None:
-    """Train *model* on the fold's training scope, early-stopping on its validation pairs when supported."""
+    """Train *model* on the fold's training scope, early-stopping on whole validation tissues when supported."""
     with tempfile.TemporaryDirectory() as checkpoint_dir:
         model.train(
             dataset,
             fold.train,
-            early_stopping_scope=fold.early_stopping_mask()[0] if model.spec.supports_early_stopping else None,
+            early_stopping_scope=early_stopping_split(dataset, fold, "LTO")[0]
+            if model.spec.supports_early_stopping
+            else None,
             model_checkpoint_dir=checkpoint_dir,
         )
 
@@ -282,7 +285,9 @@ def test_n_jobs_changes_the_speed_not_the_model(synthetic_dataset: Dataset, mode
         model.train(
             synthetic_dataset,
             fold.train,
-            early_stopping_scope=fold.early_stopping_mask()[0] if spec.supports_early_stopping else None,
+            early_stopping_scope=early_stopping_split(synthetic_dataset, fold, "LTO")[0]
+            if spec.supports_early_stopping
+            else None,
             model_checkpoint_dir=tmp_path / f"checkpoints_{n_jobs}",
             n_jobs=n_jobs,
         )
@@ -328,7 +333,7 @@ class TestDIPKArtifactIntegration:
             model.train(
                 dataset,
                 fold.train,
-                early_stopping_scope=fold.early_stopping_mask()[0],
+                early_stopping_scope=early_stopping_split(dataset, fold, "LTO")[0],
                 model_checkpoint_dir=str(tmp_path),
             )
             predictions = model.predict(dataset, fold.test)

@@ -4,9 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import numpy as np
-
-from drevalpy.data.splitters._folds import entity_masks, group_folds, observed_mask, rows_with_labels
+from drevalpy.data.splitters._folds import grouped_folds
 from drevalpy.registry.splitter import register
 from drevalpy.types import Dataset, Fold
 
@@ -27,22 +25,6 @@ def leave_tissue_out(
 
     Every pair with a finite response that passes *quality* is used.
     """
-    observed = observed_mask(dataset, quality)
-    tissues = dataset.get_tissue(dataset.sample_ids)
-    unique_tissues = np.unique(tissues)
-    folds = group_folds(
-        len(unique_tissues),
-        n_splits=n_splits,
-        validation_ratio=validation_ratio,
-        random_state=random_state,
+    return grouped_folds(
+        dataset, quality, mode="LTO", n_splits=n_splits, validation_ratio=validation_ratio, random_state=random_state
     )
-    return [
-        entity_masks(
-            observed,
-            train=rows_with_labels(tissues, unique_tissues[train]),
-            validation=rows_with_labels(tissues, unique_tissues[validation]),
-            test=rows_with_labels(tissues, unique_tissues[test]),
-            axis=0,
-        )
-        for train, validation, test in folds
-    ]

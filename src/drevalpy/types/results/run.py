@@ -88,6 +88,11 @@ class RunResult:
         return self.identity.measure
 
     @property
+    def n_scored(self) -> int:
+        """Number of pairs that scoring uses: those whose prediction and ground truth are both finite."""
+        return int(np.sum(np.isfinite(self.predictions) & np.isfinite(self.ground_truth)))
+
+    @property
     def identity(self) -> RunIdentity:
         """Immutable identity shared with experiment execution."""
         return RunIdentity.from_metadata(
@@ -126,6 +131,7 @@ class RunResult:
             *_indented_items(self._unique_fold_metadata()),
             f"    Predictions: {len(self.predictions)} pairs",
             f"    Ground truth: {int(np.sum(~np.isnan(self.ground_truth)))} non-NaN values",
+            f"    Scored: {self.n_scored} pairs",
             *_section("    Hyperparameters:", self.best_hyperparameters),
             *_section("    Metrics:", self.metrics, format_value="{:.4f}".format),
         ]
