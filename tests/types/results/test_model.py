@@ -7,6 +7,7 @@ import pytest
 from upath import UPath
 
 from drevalpy.errors import InvalidInputError
+from drevalpy.types.results._store import run_filename
 from drevalpy.types.results.model import ModelResult
 from drevalpy.types.results.trial import TrialResult
 from tests.synthetic import make_model_result, make_run_result
@@ -96,7 +97,8 @@ class TestPersistence:
 
         result.save(directory)
 
-        assert sorted(p.name for p in directory.glob("fold_*.npz")) == ["fold_0.npz", "fold_1.npz", "fold_2.npz"]
+        assert sorted(p.name for p in directory.glob("*.npz")) == sorted(run_filename(r.identity) for r in result.runs)
+        assert [p.name.split("_")[0] for p in sorted(directory.glob("*.npz"))] == ["fold-0", "fold-1", "fold-2"]
         assert not (directory / "metadata.json").exists()
 
     def test_round_trip_preserves_identity_and_fold_order(self, tmp_path) -> None:
@@ -121,12 +123,18 @@ class TestPersistence:
     def test_a_directory_without_runs_is_rejected_and_a_string_directory_is_accepted(self, tmp_path) -> None:
         empty = UPath(tmp_path) / "empty"
         ModelResult("ElasticNet", "SyntheticDataset").save(empty)
-        with pytest.raises(InvalidInputError, match="holds no fold_<i>.npz file"):
+        with pytest.raises(InvalidInputError, match="holds no run .npz file"):
             ModelResult.load(empty)
 
         directory = str(UPath(tmp_path) / "ElasticNet")
         make_model_result(n_folds=1).save(directory)
         assert ModelResult.load(directory).n_folds == 1
+
+    def test_two_runs_of_the_same_fold_are_rejected(self, tmp_path) -> None:
+        result = ModelResult("ElasticNet", "SyntheticDataset", [make_run_result(), make_run_result()])
+
+        with pytest.raises(InvalidInputError, match="same fold and stress test"):
+            result.save(UPath(tmp_path))
 
     def test_trials_are_forwarded_to_every_fold(self, tmp_path) -> None:
         directory = UPath(tmp_path) / "ElasticNet"

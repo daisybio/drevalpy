@@ -179,13 +179,3 @@ class TestFold:
             tmp_path / "legacy.npz", **{n: np.zeros((2, 2), dtype=bool) for n in ("train", "test", "val")}
         )
         assert _seeds(Fold.load(tmp_path / "legacy.npz")) == [None, None, None]
-
-    def test_early_stopping_masks_keep_the_validation_seed(self):
-        fold = Fold(train=_empty((2, 2)), test=_empty((2, 2)), val=PairMask(np.ones((2, 2), dtype=bool)).shuffled(5))
-
-        early_stopping, remaining = fold.early_stopping_mask()
-
-        assert early_stopping.pair_seed == remaining.pair_seed == 5
-        assert len(early_stopping) == 1
-        assert not (early_stopping.mask & remaining.mask).any()
-        assert (early_stopping | remaining) == fold.val

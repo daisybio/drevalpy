@@ -1,12 +1,14 @@
 """Shared fold construction for the built-in splitters.
 
-The modes differ only in *what* they hold out - rows, columns, tissues, studies or
-individual pairs - so the observation mask, the k-fold train/validation/test
-partition, the validation draw and the mask assembly all live here. Keeping the
-validation draw in :func:`validation_split` also keeps the folds reproducible
-across modes: the validation slice is drawn with a generator seeded from
-``random_state`` on every fold, which is a property of this module rather than of
-any one splitter.
+The modes differ only in *what* they hold out - the leakage groups of
+:func:`~drevalpy.registry.splitter._groups.pair_groups`: source samples, drugs, tissues,
+studies or (source sample, drug) pairs - so the observation mask, the train/validation/test
+partition over the groups (k-fold in :func:`grouped_folds`, one test group per fold in
+:func:`group_out_folds`), the validation draw and the mask assembly all live here. Keeping the
+validation draw in :func:`validation_split` also keeps the folds
+reproducible across modes: the validation slice is drawn with a generator seeded from
+``random_state`` on every fold, which is a property of this module rather than of any one
+splitter.
 """
 
 from __future__ import annotations
@@ -16,12 +18,14 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from drevalpy.errors import UnknownNameError
+from drevalpy.registry.splitter._groups import MODES, in_groups, pair_groups
 from drevalpy.types import Fold, PairMask
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
     from drevalpy.data.quality import CurveQuality
+    from drevalpy.registry.splitter import Validation
     from drevalpy.types import Dataset
 
 
@@ -86,97 +90,68 @@ def group_folds(
         yield train, validation, test
 
 
-def entity_folds(
+def grouped_folds(
     dataset: Dataset,
     quality: CurveQuality,
     *,
-    axis: int,
+    mode: Validation,
     n_splits: int,
     validation_ratio: float,
     random_state: int,
 ) -> list[Fold]:
-    """Build the folds of LSO (*axis* 0, samples) or LDO (*axis* 1, drugs): each entity is in one test set.
+    """Build the folds of *mode* by assigning whole leakage groups (:func:`pair_groups`) to the parts.
+
+    The groups that have an observed pair are distributed over *n_splits* test sets with
+    :func:`group_folds`.
 
     :param dataset: Dataset to split.
     :param quality: Curve-quality rule a pair must pass, see :func:`observed_mask`.
-    :param axis: 0 to hold out samples, 1 to hold out drugs.
+    :param mode: Leakage constraint whose groups are held out.
     :param n_splits: Number of folds.
-    :param validation_ratio: Fraction of the non-test entities held out for validation.
+    :param validation_ratio: Fraction of the non-test groups held out for validation.
     :param random_state: Seed of the folds and the validation draw.
     :returns: One ``Fold`` per fold.
     """
     observed = observed_mask(dataset, quality)
-    folds = group_folds(
-        observed.shape[axis], n_splits=n_splits, validation_ratio=validation_ratio, random_state=random_state
-    )
+    groups = pair_groups(dataset, mode)
+    present = np.unique(groups[observed])
     return [
-        entity_masks(observed, train=train, validation=validation, test=test, axis=axis)
-        for train, validation, test in folds
+        Fold(
+            train=PairMask(observed & in_groups(groups, present[train])),
+            test=PairMask(observed & in_groups(groups, present[test])),
+            val=PairMask(observed & in_groups(groups, present[validation])),
+        )
+        for train, validation, test in group_folds(
+            len(present), n_splits=n_splits, validation_ratio=validation_ratio, random_state=random_state
+        )
     ]
 
 
-def entity_masks(
-    observed: np.ndarray,
-    *,
-    train: np.ndarray,
-    validation: np.ndarray,
-    test: np.ndarray,
-    axis: int,
-) -> Fold:
-    """Assemble one fold that holds out whole rows (*axis* 0) or columns (*axis* 1).
+def group_out_folds(
+    dataset: Dataset, quality: CurveQuality, *, mode: Validation, validation_ratio: float, random_state: int
+) -> list[Fold]:
+    """Test on each group of *mode* in turn, and draw validation from the other groups by the mode's cut.
 
-    :param observed: Mask of usable pairs, as returned by :func:`observed_mask`.
-    :param train: Indices along *axis* assigned to training.
-    :param validation: Indices along *axis* assigned to validation.
-    :param test: Indices along *axis* assigned to testing.
-    :param axis: 0 to split samples, 1 to split drugs.
-    :returns: The three masks of one fold.
+    The validation share of the other groups' pairs is drawn by the groups of
+    :attr:`~drevalpy.registry.splitter._groups.LeakageGroups.cut` (for LStO: by (source sample,
+    drug)), so a sample measured in two of the training studies is never in both training and
+    validation.
+
+    :param dataset: Dataset to split.
+    :param quality: Curve-quality rule a pair must pass, see :func:`observed_mask`.
+    :param mode: Leakage constraint whose groups are tested on, one per fold in group-ID order.
+    :param validation_ratio: Fraction of the other groups' cut groups held out for validation.
+    :param random_state: Seed of the validation draw.
+    :returns: One ``Fold`` per group.
     """
-
-    def mask(indices: np.ndarray) -> PairMask:
-        selected = np.zeros_like(observed)
-        if axis == 0:
-            selected[indices, :] = observed[indices, :]
-        else:
-            selected[:, indices] = observed[:, indices]
-        return PairMask(selected)
-
-    return Fold(train=mask(train), test=mask(test), val=mask(validation))
-
-
-def pair_masks(
-    shape: tuple[int, ...],
-    rows: np.ndarray,
-    columns: np.ndarray,
-    *,
-    train: np.ndarray,
-    validation: np.ndarray,
-    test: np.ndarray,
-) -> Fold:
-    """Assemble one fold that holds out individual observed pairs.
-
-    :param shape: Shape of the response matrix.
-    :param rows: Row coordinate of every observed pair.
-    :param columns: Column coordinate of every observed pair, aligned with *rows*.
-    :param train: Positions into *rows* / *columns* assigned to training.
-    :param validation: Positions assigned to validation.
-    :param test: Positions assigned to testing.
-    :returns: The three masks of one fold.
-    """
-
-    def mask(positions: np.ndarray) -> PairMask:
-        selected = np.zeros(shape, dtype=bool)
-        selected[rows[positions], columns[positions]] = True
-        return PairMask(selected)
-
-    return Fold(train=mask(train), test=mask(test), val=mask(validation))
-
-
-def rows_with_labels(labels: np.ndarray, selected: np.ndarray) -> np.ndarray:
-    """Return the row indices whose label is one of *selected*.
-
-    :param labels: One label per row of the response matrix.
-    :param selected: Labels belonging to this side of the split.
-    :returns: Matching row indices.
-    """
-    return np.where(np.isin(labels, selected))[0]
+    observed = observed_mask(dataset, quality)
+    tested = pair_groups(dataset, mode)
+    cut = pair_groups(dataset, MODES[mode].cut)
+    folds = []
+    for group in range(tested.max() + 1):
+        in_group = tested == group
+        rest = observed & ~in_group
+        _, validation = validation_split(np.unique(cut[rest]), validation_ratio, random_state)
+        val = rest & in_groups(cut, validation)
+        folds.append(Fold(train=PairMask(rest & ~val), test=PairMask(observed & in_group), val=PairMask(val)))
+    return folds

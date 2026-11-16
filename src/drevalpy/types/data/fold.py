@@ -35,20 +35,6 @@ class Fold:
         """Merged train | val mask for final retraining."""
         return self.train | self.val
 
-    def early_stopping_mask(self, fraction: float = 0.25) -> tuple[PairMask, PairMask]:
-        """Split the val mask into early-stopping and remaining validation.
-
-        :param fraction: Fraction of val pairs to reserve for early stopping.
-        :returns: Tuple of (early_stopping_mask, remaining_val_mask).
-        """
-        val_pairs = self.val.pairs
-        n_es = max(1, int(len(val_pairs) * fraction))
-        seed = self.val.pair_seed
-        return (
-            PairMask.from_pairs(val_pairs[:n_es], self.shape, seed),
-            PairMask.from_pairs(val_pairs[n_es:], self.shape, seed),
-        )
-
     def save(self, path: str | Path) -> None:
         """Save to a .npz file (compressed bool arrays + JSON-encoded metadata).
 
