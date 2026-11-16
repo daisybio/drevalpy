@@ -1,12 +1,20 @@
-"""Single model + single fold execution unit."""
+"""Single model + single fold execution unit.
+
+:func:`_fit_fold` is the one path from a model, a dataset and a fold to a ``RunResult``:
+``drevalpy.run``, ``drevalpy.single`` and ``drevalpy single`` all go through it, so the
+normalization reference is exempt from the response transformation everywhere, and split +
+``single`` + aggregate normalizes like ``run``.
+"""
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, Any
 
 from drevalpy._utils.n_jobs import check_n_jobs
 from drevalpy.experiment._execution import build_execution
 from drevalpy.experiment._fit import fit
+from drevalpy.log import get_logger
 from drevalpy.models.spec import ModelSpec
 from drevalpy.types import Fold
 from drevalpy.types.data.dataset import Dataset
@@ -14,6 +22,12 @@ from drevalpy.types.results.run import RunResult
 
 if TYPE_CHECKING:
     from drevalpy.models.response_transformation import ResponseTransformer
+
+logger = get_logger(__name__)
+
+#: The model every normalized metric is measured against (``ExperimentResult.normalize``). It always trains
+#: on the original response scale, so a response transformation cannot move the ruler along with the models.
+NORMALIZATION_REFERENCE = "NaiveMeanEffectsPredictor"
 
 
 def single(
@@ -38,7 +52,9 @@ def single(
     :param fold: The fold to train, tune and test on.
     :param hyperparameter_tuning: Whether to run HPO.
     :param response_transformation: Optional unfitted response transformation prototype (any sklearn-compatible
-        transformer); a clone is fitted per scope and the caller's instance is left untouched.
+        transformer); a clone is fitted per scope and the caller's instance is left untouched. The normalization
+        reference ``NaiveMeanEffectsPredictor`` is always fitted on the untransformed response, as in
+        :func:`drevalpy.run`.
     :param hpo_metric: Metric to optimize during HPO.
     :param hpo_num_trials: Number of HPO trials.
     :param hpo_random_state: Random seed for the HPO sampler; defaults to ``seed``.
@@ -82,22 +98,29 @@ def _fit_fold(
     seed: int,
     wandb_project: str | None,
     n_jobs: int,
+    hyperparameters: Mapping[str, Any] | None = None,
 ) -> RunResult:
     """Run :func:`single` without checking *n_jobs*, for callers that checked it once up front.
 
     :param model_spec: Named, unfitted model recipe.
     :param dataset: Full dataset with all features.
     :param fold: The fold to train, tune and test on.
-    :param hyperparameter_tuning: Whether to run HPO.
-    :param response_transformation: Optional unfitted response transformation prototype.
+    :param hyperparameter_tuning: Whether to run HPO; ignored when *hyperparameters* is given.
+    :param response_transformation: Optional unfitted response transformation prototype; the normalization
+        reference trains without it.
     :param hpo_metric: Metric to optimize during HPO.
     :param hpo_num_trials: Number of HPO trials.
     :param hpo_random_state: Random seed for the HPO sampler; defaults to ``seed``.
     :param seed: Root seed of the HPO runs and the final fit.
     :param wandb_project: Weights & Biases project; ``None`` disables tracking.
     :param n_jobs: Worker processes a single-drug model fits its per-drug models in.
+    :param hyperparameters: Values to fit with instead of tuning, such as the ``best_hyperparameters`` of an
+        earlier run on the same fold; they are not checked against the search space.
     :returns: RunResult with predictions, ground truth, and metrics.
     """
+    if hyperparameters is not None:
+        model_spec = model_spec.with_hyperparameters(hyperparameters, check_values=False)
+        hyperparameter_tuning = False
     execution = build_execution(
         model_spec,
         dataset,
@@ -110,7 +133,11 @@ def _fit_fold(
     )
     identity = execution.identity
     final = fit(
-        execution, dataset, response_transformation=response_transformation, wandb_project=wandb_project, n_jobs=n_jobs
+        execution,
+        dataset,
+        response_transformation=_transformation_for(model_spec, response_transformation),
+        wandb_project=wandb_project,
+        n_jobs=n_jobs,
     )
     return RunResult(
         model_name=identity.model_name,
@@ -128,3 +155,13 @@ def _fit_fold(
         trials=final.trials or None,
         randomization=dataset.randomization,
     )
+
+
+def _transformation_for(
+    model: ModelSpec, response_transformation: ResponseTransformer | None
+) -> ResponseTransformer | None:
+    """Return the transformation *model* trains with: none for the normalization reference."""
+    if model.name == NORMALIZATION_REFERENCE and response_transformation is not None:
+        logger.info("%s trains on the untransformed response: it is the normalization reference", model.name)
+        return None
+    return response_transformation

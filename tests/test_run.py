@@ -1,7 +1,9 @@
 """Tests for the top-level ``run`` orchestrator.
 
-``single`` is replaced with a recorder, so these assert the fan-out arithmetic and the kwargs
-forwarded to it without training a model. ``robustness`` is not stubbed.
+``_fit_fold`` is replaced with a recorder, so these assert the fan-out arithmetic and the kwargs
+forwarded to it without training a model. ``robustness`` is not stubbed. The recorder's run on an
+original fold reports ``{"alpha": <fold index>}`` as its best hyperparameters, so a test can tell
+which run a stress-test run took its values from.
 """
 
 from __future__ import annotations
@@ -14,10 +16,10 @@ from typing import Any
 import numpy as np
 import pytest
 
-from drevalpy import run, synthetic
+from drevalpy import run, single, split, synthetic
 from drevalpy.errors import InvalidInputError
 from drevalpy.models import ModelSpec
-from drevalpy.models.response_transformation import GroupMeanCenterer, get_response_transformation
+from drevalpy.models.response_transformation import get_response_transformation
 from drevalpy.types import Fold, PairMask
 from drevalpy.types.results import ExperimentResult
 from drevalpy.types.results.failure import ExperimentFailedError
@@ -66,12 +68,16 @@ class _SingleRecorder:
         self.calls.append(((model_class, dataset, fold), kwargs))
         if self.fail_when(model_class, dataset, fold):
             raise self.error
+        hyperparameters = kwargs.get("hyperparameters")
         return make_run_result(
             model_name=model_class.name,
             dataset_name=dataset.name,
             fold_index=fold.metadata["fold_index"],
             fold_metadata=dict(fold.metadata),
             randomization=dataset.randomization,
+            best_hyperparameters=(
+                {"alpha": fold.metadata["fold_index"]} if hyperparameters is None else dict(hyperparameters)
+            ),
         )
 
     @property
@@ -282,18 +288,6 @@ class TestRobustness:
 
 
 class TestNormalizationReference:
-    def test_the_reference_is_exempt_and_the_other_models_are_not(self, recorder, dataset, monkeypatch) -> None:
-        _set_folds(monkeypatch, 3)
-        transformer = GroupMeanCenterer()
-
-        _run([_stub_model("NaiveMeanEffectsPredictor"), _stub_model("A")], dataset, response_transformation=transformer)
-
-        by_model = {name: [] for name in recorder.model_names}
-        for args, kwargs in recorder.calls:
-            by_model[args[0].name].append(kwargs["response_transformation"])
-        assert by_model["NaiveMeanEffectsPredictor"] == [None] * 3
-        assert all(seen is transformer for seen in by_model["A"])
-
     @pytest.mark.slow
     @pytest.mark.parametrize("name", ["drug_mean", "drug_tissue_mean", "standard"])
     def test_end_to_end_the_reference_ignores_the_transformation_while_others_move(
@@ -316,6 +310,22 @@ class TestNormalizationReference:
         if name == "drug_mean":
             assert not np.allclose(transformed["NaivePredictor"], reference["NaivePredictor"])
 
+    @pytest.mark.slow
+    def test_run_and_split_single_aggregate_give_the_same_normalized_metrics(self, synthetic_dataset) -> None:
+        models = [ModelSpec.from_name("NaiveMeanEffectsPredictor"), ModelSpec.from_name("NaivePredictor")]
+        settings = {"hyperparameter_tuning": False, "response_transformation": get_response_transformation("drug_mean")}
+
+        whole = run(models, synthetic_dataset, "LSO", n_splits=3, **settings)
+        folds = split(synthetic_dataset, "LSO", n_splits=3, random_state=42)
+        parts = ExperimentResult(
+            [single(model, synthetic_dataset, fold, **settings) for model in models for fold in folds]
+        )
+
+        def normalized(result: ExperimentResult) -> list[dict[str, float]]:
+            return [run.metrics for model in result.normalize().models for run in model.runs]
+
+        assert normalized(parts) == normalized(whole)
+
 
 class TestForwardedArguments:
     def test_hpo_settings_reach_single(self, recorder, dataset, monkeypatch) -> None:
@@ -333,6 +343,7 @@ class TestForwardedArguments:
             "response_transformation": None,
             "wandb_project": None,
             "n_jobs": 1,
+            "hyperparameters": None,
         }
 
     def test_wandb_project_and_n_jobs_reach_every_single_call(self, recorder, dataset, monkeypatch) -> None:
@@ -414,6 +425,110 @@ class TestForwardedArguments:
             _run("A", dataset, n_jobs=n_jobs)
 
         assert recorder.calls == []
+
+
+class TestModeSupport:
+    def test_a_single_drug_model_under_ldo_is_rejected_before_the_dataset_is_split(
+        self, recorder, dataset, monkeypatch
+    ) -> None:
+        monkeypatch.setattr(RUN_MODULE, "split", lambda *args, **kwargs: pytest.fail("split must not be called"))
+        models = [_stub_model("A"), ModelSpec.from_name("SingleDrugElasticNet")]
+
+        with pytest.raises(InvalidInputError, match="single-drug model"):
+            _run(models, dataset, mode="LDO", on_error="record")
+
+        assert recorder.calls == []
+
+
+class TestStressTestHyperparameters:
+    def test_original_runs_tune_and_every_stress_test_run_reuses_its_folds_values(
+        self, recorder, dataset, monkeypatch
+    ) -> None:
+        _set_folds(monkeypatch, 2)
+        _set_randomizations(monkeypatch, 1)
+
+        result = _run("A", dataset, hyperparameter_tuning=True, randomization_modes=["SVRC"], robustness_repeats=1)
+
+        seen = [
+            (fold.metadata["fold_index"], fold.metadata.get("robustness_repeat"), ds.tag, kwargs["hyperparameters"])
+            for (_, ds, fold), kwargs in recorder.calls
+        ]
+        assert seen == [
+            (0, None, "original", None),
+            (0, None, "random_0", {"alpha": 0}),
+            (0, 0, "original", {"alpha": 0}),
+            (0, 0, "random_0", {"alpha": 0}),
+            (1, None, "original", None),
+            (1, None, "random_0", {"alpha": 1}),
+            (1, 0, "original", {"alpha": 1}),
+            (1, 0, "random_0", {"alpha": 1}),
+        ]
+        assert [run.best_hyperparameters for run in result.models[0].runs] == [
+            {"alpha": index} for index in [0] * 4 + [1] * 4
+        ]
+
+    def test_the_stress_test_runs_of_a_failed_original_run_are_failures(self, recorder, dataset, monkeypatch) -> None:
+        _set_folds(monkeypatch, 2)
+        _set_randomizations(monkeypatch, 1)
+        recorder.fail_when = lambda model, ds, fold: fold.metadata["fold_index"] == 0
+
+        result = _run("A", dataset, randomization_modes=["SVRC"], robustness_repeats=1)
+
+        assert [fold.metadata["fold_index"] for fold in recorder.folds] == [0, 1, 1, 1, 1]
+        failures = [
+            (f.identity.fold_index, f.identity.randomization, f.identity.robustness_repeat, f.error_type)
+            for f in result.failures
+        ]
+        view = ("SVRC", "view_0")
+        assert failures == [
+            (0, None, None, "RuntimeError"),
+            (0, view, None, "OriginalRunFailedError"),
+            (0, None, 0, "OriginalRunFailedError"),
+            (0, view, 0, "OriginalRunFailedError"),
+        ]
+        assert "original run of fold 0 failed" in result.failures[1].message
+        assert len(result.models[0].runs) == 4
+
+    @pytest.mark.slow
+    def test_end_to_end_only_the_original_runs_tune(self, synthetic_dataset, monkeypatch) -> None:
+        fit_module = importlib.import_module("drevalpy.experiment._fit")
+        real_tune = fit_module.hpam_tune
+        tuned: list[tuple[int, Any, Any]] = []
+
+        def counting_tune(execution, dataset, **kwargs):
+            if execution.hyperparameter_tuning:
+                tuned.append(
+                    (
+                        execution.identity.fold_index,
+                        execution.identity.randomization,
+                        execution.identity.robustness_repeat,
+                    )
+                )
+            return real_tune(execution, dataset, **kwargs)
+
+        monkeypatch.setattr(fit_module, "hpam_tune", counting_tune)
+
+        result = run(
+            [ModelSpec.from_name("Ridge")],
+            synthetic_dataset,
+            "LSO",
+            n_splits=2,
+            hpo_num_trials=2,
+            randomization_modes=["SVRC"],
+            robustness_repeats=1,
+        )
+
+        assert tuned == [(0, None, None), (1, None, None)]
+        runs = result.models[0].runs
+        assert len(runs) == 8
+        for run_result in runs:
+            original = next(
+                r
+                for r in runs
+                if r.fold_index == run_result.fold_index and r.randomization is None and r.robustness_repeat is None
+            )
+            assert run_result.best_hyperparameters == original.best_hyperparameters
+            assert (run_result.trials is None) == (run_result is not original)
 
 
 class TestFailures:

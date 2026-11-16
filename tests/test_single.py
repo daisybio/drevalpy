@@ -12,11 +12,13 @@ import torch
 from sklearn.preprocessing import StandardScaler
 
 from drevalpy import single
+from drevalpy._single import _fit_fold
 from drevalpy.data import split
 from drevalpy.data.splitters._early_stopping import early_stopping_split
 from drevalpy.errors import InvalidInputError, NaNPredictionError
 from drevalpy.evaluation import Metric
 from drevalpy.models import DRPModel, ModelSpec
+from drevalpy.models.response_transformation import get_response_transformation
 from drevalpy.registry.splitter import SplitValidationError
 from drevalpy.types import Fold, PairMask
 from drevalpy.types.results.run import RunResult
@@ -258,6 +260,20 @@ class TestResponseTransformation:
         assert stub_model.instances[0].train_calls[0]["response_transformation"] is None
         np.testing.assert_array_equal(result.predictions, np.arange(len(folds[0].test.pairs), dtype=float))
 
+    @pytest.mark.slow
+    def test_the_normalization_reference_trains_on_the_untransformed_response(self, synthetic_dataset, folds) -> None:
+        def predictions(name: str, transformation: Any) -> np.ndarray:
+            spec = ModelSpec.from_name(name)
+            return single(
+                spec, synthetic_dataset, folds[0], hyperparameter_tuning=False, response_transformation=transformation
+            ).predictions
+
+        drug_mean = get_response_transformation("drug_mean")
+        np.testing.assert_array_equal(
+            predictions("NaiveMeanEffectsPredictor", drug_mean), predictions("NaiveMeanEffectsPredictor", None)
+        )
+        assert not np.allclose(predictions("NaivePredictor", drug_mean), predictions("NaivePredictor", None))
+
 
 class TestHyperparameterTuning:
     def test_trials_and_the_tuner_inputs(self, synthetic_dataset, folds, stub_model, monkeypatch) -> None:
@@ -293,6 +309,52 @@ class TestHyperparameterTuning:
         np.testing.assert_array_equal(execution.scopes.validation.mask, folds[0].val.mask)
         assert (execution.hyperparameter_tuning, execution.hpo_num_trials, execution.hpo_metric) == (True, 3, "RMSE")
         assert execution.hpo_random_state == 11
+
+    def test_given_hyperparameters_are_fitted_without_tuning(self, synthetic_dataset, folds, stub_model, tuner) -> None:
+        result = _fit_fold(
+            stub_model.recipe,
+            synthetic_dataset,
+            folds[0],
+            hyperparameter_tuning=True,
+            response_transformation=None,
+            hpo_metric="RMSE",
+            hpo_num_trials=3,
+            hpo_random_state=None,
+            seed=42,
+            wandb_project=None,
+            n_jobs=1,
+            hyperparameters={"alpha": 7.5},
+        )
+
+        execution = tuner["execution"]
+        assert execution.hyperparameter_tuning is False
+        assert execution.model.hyperparameters["predictor.elasticNet.alpha"] == 7.5
+        assert result.fold_metadata["execution"]["hpo"]["enabled"] is False
+
+    @pytest.mark.slow
+    def test_the_best_hyperparameters_of_a_tuned_run_refit_the_same_model(self, synthetic_dataset, folds) -> None:
+        spec = ModelSpec.from_name("ElasticNet")
+        tuned = single(spec, synthetic_dataset, folds[0], hpo_num_trials=3)
+        assert tuned.best_hyperparameters != dict(spec.hyperparameters)
+
+        refit = _fit_fold(
+            spec,
+            synthetic_dataset,
+            folds[0],
+            hyperparameter_tuning=True,
+            response_transformation=None,
+            hpo_metric="RMSE",
+            hpo_num_trials=3,
+            hpo_random_state=None,
+            seed=42,
+            wandb_project=None,
+            n_jobs=1,
+            hyperparameters=tuned.best_hyperparameters,
+        )
+
+        assert refit.trials is None
+        assert refit.best_hyperparameters == tuned.best_hyperparameters
+        np.testing.assert_array_equal(refit.predictions, tuned.predictions)
 
     def test_early_stopping_narrows_the_validation_scope_handed_to_the_tuner(
         self, synthetic_dataset, stub_model, tuner
