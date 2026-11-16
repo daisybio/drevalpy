@@ -48,8 +48,10 @@ What changed in how a run behaves:
 
 - ``run`` always makes five folds. 1.x made ``--n_cv_splits`` folds, seven by
   default.
-- ``run`` does not check whether the output directory already holds results, so
-  there is no ``--overwrite``. Use a new directory for each run.
+- ``run`` saves each run as it finishes and resumes a killed run when you run the
+  same command again. An output directory written with other settings is refused;
+  ``--overwrite`` deletes it and starts again. See
+  :ref:`how-to/run_experiment:Resume a killed run`.
 - v2 does not add ``NaiveMeanEffectsPredictor`` for you, and the response
   transformation applies to every model you list.
 - ``--no-hpo`` trains each model with its default hyperparameters. 1.x used the
@@ -110,7 +112,10 @@ Map the ``drevalpy`` flags
        ``--measure LN_IC50`` for the 1.x target. See
        :ref:`how-to/run_experiment:Choose the response measure`.
    * - ``--overwrite``
-     - Removed. See above.
+     - ``--overwrite``. It deletes the experiment in the output directory first (its
+       ``metadata.json``, ``failures.json`` and model directories, nothing else) and
+       refuses a directory of other files. Without it, ``run`` resumes a directory of the
+       same run and refuses one of another run. See above.
    * - ``--optim_metric``
      - ``--hpo-metric``, default ``RMSE``.
    * - ``--wandb_project``

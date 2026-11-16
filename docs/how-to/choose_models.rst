@@ -54,7 +54,7 @@ same holds for ``NaiveSampleMeanPredictor`` in ``LSO`` and ``NaiveTissueMeanPred
 
          drevalpy data synthetic --output toy.h5mu
          drevalpy run NaivePredictor NaiveDrugMeanPredictor \
-             --dataset toy.h5mu --split-mode LDO --no-hpo
+             --dataset toy.h5mu --split-mode LDO --no-hpo --output-dir results_baselines
 
       The summary at the end shows identical scores:
 
@@ -182,7 +182,7 @@ PCA of the ``gene_expression`` view, Morgan fingerprints of the drugs, and a rid
       .. code-block:: bash
 
          drevalpy run NaivePredictor "pca[gene_expression]:fingerprints:ridge" \
-             --dataset toy.h5mu --split-mode LDO --no-hpo
+             --dataset toy.h5mu --split-mode LDO --no-hpo --output-dir results_recipe
 
       .. code-block:: text
 

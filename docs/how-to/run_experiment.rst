@@ -61,8 +61,8 @@ fold. ``--n-splits`` (``-n``, ``n_splits=`` in Python) sets the number of folds.
          results = drevalpy.run(models, dataset, "LPO", hyperparameter_tuning=False)
          print(results)
 
-      ``run`` returns an ``ExperimentResult`` and does not write anything to disk. The
-      ``print`` shows the same summary as the command:
+      ``run`` returns an ``ExperimentResult``, and writes nothing to disk unless you pass
+      ``output_dir``; see `Resume a killed run`_. The ``print`` shows the same summary as the command:
 
       .. code-block:: text
 
@@ -383,12 +383,66 @@ notebook these messages stay hidden until you ask for them. The command line doe
 
          setup_logging()
 
+Resume a killed run
+-------------------
+
+``drevalpy run`` saves each run in the output directory as soon as it finishes, so a run that is
+killed, for example at the time limit of a cluster job, keeps the runs it finished. Run the same
+command again to resume it: the runs that are already saved are loaded, not fitted again, and only
+the missing ones are fitted. The runs that failed are retried. In Python, pass ``output_dir`` to
+``run`` for the same behaviour.
+
+A run resumes only a directory written with the same settings: the same models, dataset content,
+split mode, number of folds, quality rule, measure, response transformation, tuning, stress tests
+and seeds. ``--n-jobs``, ``--wandb-project`` and ``on_error`` may differ. A directory with runs of
+other settings is refused with an error; use another directory, or add ``--overwrite``
+(``overwrite=True``) to delete the experiment in it and start again. ``--overwrite`` deletes only
+``metadata.json``, ``failures.json`` and the model directories, and a directory that holds other
+files but no drevalpy experiment is always refused. A directory of a run that crashed before any
+run finished holds no runs, so the next run starts it again with its own settings.
+
+.. tab-set::
+   :sync-group: interface
+
+   .. tab-item:: CLI
+      :sync: cli
+
+      .. code-block:: bash
+
+         drevalpy run NaiveDrugMeanPredictor NaiveMeanEffectsPredictor \
+             --dataset toy.h5mu --split-mode LSO --no-hpo --output-dir results_resumed
+         drevalpy run NaiveDrugMeanPredictor NaiveMeanEffectsPredictor \
+             --dataset toy.h5mu --split-mode LSO --no-hpo --output-dir results_resumed
+         drevalpy run NaiveDrugMeanPredictor NaiveMeanEffectsPredictor \
+             --dataset toy.h5mu --split-mode LSO --no-hpo --seed 7 --output-dir results_resumed --overwrite
+
+      The second command loads all ten runs and fits nothing. The third has another seed, so it
+      needs ``--overwrite``.
+
+   .. tab-item:: Python
+      :sync: python
+
+      .. code-block:: python
+
+         resumed = drevalpy.run(models, dataset, "LSO", hyperparameter_tuning=False, output_dir="results_resumed_py")
+         again = drevalpy.run(models, dataset, "LSO", hyperparameter_tuning=False, output_dir="results_resumed_py")
+         print(again.summary_table().equals(resumed.summary_table()))
+         reseeded = drevalpy.run(
+             models, dataset, "LSO", hyperparameter_tuning=False, seed=7, output_dir="results_resumed_py", overwrite=True
+         )
+
+      .. code-block:: text
+
+         True
+
+      Without ``overwrite=True`` the last call raises ``OutputDirectoryConflictError``.
+
 Read the results
 ----------------
 
-The command line saves the results for you. In Python, save them yourself with
-``results.save(directory)``. Both write the layout in :doc:`/reference/results`: one
-subdirectory per model with one ``.npz`` file per run. Load a directory back into an
+The command line saves the results for you, and so does ``run`` with ``output_dir``. Otherwise
+save them yourself with ``results.save(directory)``. All write the layout in
+:doc:`/reference/results`: one subdirectory per model with one ``.npz`` file per run. Load a directory back into an
 ``ExperimentResult`` to recompute tables or build a report, even in a later session:
 
 .. tab-set::

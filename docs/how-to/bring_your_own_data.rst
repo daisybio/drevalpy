@@ -418,7 +418,7 @@ Load the file by path to check it, and pass the path wherever a command asks for
       .. code-block:: bash
 
          drevalpy run NaiveDrugMeanPredictor NaiveMeanEffectsPredictor \
-             --dataset my_screen.h5mu --split-mode LPO --no-hpo
+             --dataset my_screen.h5mu --split-mode LPO --no-hpo --output-dir results_my_screen
 
       The command ends with:
 
@@ -547,7 +547,7 @@ selection, and the error names the list, the view and the number of missing gene
 
       .. code-block:: bash
 
-         drevalpy run Ridge --dataset my_screen_expression.h5mu --split-mode LPO --no-hpo
+         drevalpy run Ridge --dataset my_screen_expression.h5mu --split-mode LPO --no-hpo --output-dir results_expression
 
       .. code-block:: text
 
@@ -559,7 +559,7 @@ selection, and the error names the list, the view and the number of missing gene
       .. code-block:: bash
 
          drevalpy run "scaledGeneExpression:fingerprints:ridge" \
-             --dataset my_screen_expression.h5mu --split-mode LPO --no-hpo
+             --dataset my_screen_expression.h5mu --split-mode LPO --no-hpo --output-dir results_expression
 
    .. tab-item:: Python
       :sync: python
