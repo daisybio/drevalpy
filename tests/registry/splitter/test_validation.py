@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from drevalpy.registry.splitter._validation import _VALIDATORS, SplitValidationError, validate_folds
+from drevalpy.registry.splitter._validation import SplitValidationError, validate_folds, validate_parts
 from drevalpy.types.data.fold import Fold
 from drevalpy.types.data.pair_mask import PairMask
 
@@ -15,9 +15,15 @@ _SHAPE = (4, 3)
 class _FakeMuDataset:
     """Minimal ``Dataset`` stand-in supplying sample ids and tissues."""
 
-    def __init__(self, tissues: tuple[str, ...], studies: tuple[str, ...] | None = None) -> None:
+    def __init__(
+        self,
+        tissues: tuple[str, ...],
+        studies: tuple[str, ...] | None = None,
+        source_samples: tuple[str, ...] | None = None,
+    ) -> None:
         self._tissues = np.array(tissues)
         self._studies = None if studies is None else np.array(studies)
+        self._source_samples = None if source_samples is None else np.array(source_samples)
 
     @property
     def sample_ids(self) -> np.ndarray:
@@ -37,6 +43,8 @@ class _FakeMuDataset:
     def sample_column(self, column: str, ids: np.ndarray) -> np.ndarray:
         if column == "study" and self._studies is not None:
             return self._studies
+        if column == "source_sample_id" and self._source_samples is not None:
+            return self._source_samples
         if column != "tissue":
             raise KeyError(f"Sample column '{column}' not found. Available: ['tissue']")
         return self.get_tissue(ids)
@@ -71,9 +79,18 @@ def studies() -> _FakeMuDataset:
     return _FakeMuDataset(("lung",) * 4, studies=("GDSC2", "GDSC2", "CTRPv2", "CTRPv2"))
 
 
-def test_validators_cover_every_declared_mode_and_errors_are_value_errors() -> None:
+@pytest.fixture
+def concatenated() -> _FakeMuDataset:
+    """Rows 0 and 2 are one source sample measured in two studies."""
+    return _FakeMuDataset(
+        ("lung", "lung", "skin", "skin"),
+        studies=("GDSC2", "GDSC2", "CTRPv2", "CTRPv2"),
+        source_samples=("S0", "S1", "S0", "S2"),
+    )
+
+
+def test_errors_are_value_errors() -> None:
     assert issubclass(SplitValidationError, ValueError)
-    assert set(_VALIDATORS) == {"LSO", "LDO", "LPO", "LTO", "LStO"}
 
 
 def test_lsto_accepts_a_test_study_absent_from_train_and_validation_even_when_train_and_validation_share_one(
@@ -98,10 +115,7 @@ def test_lsto_rejects_a_study_shared_with_test(studies: _FakeMuDataset, train, t
         validate_folds([_fold(train, test, val)], "LStO", studies)  # type: ignore[arg-type]
 
 
-def test_unknown_validation_mode_is_rejected_and_no_folds_is_vacuously_valid(dataset: _FakeMuDataset) -> None:
-    with pytest.raises(KeyError):
-        validate_folds([_fold(_mask((0,), (0,)), _mask((1,), (0,)))], "NOPE", dataset)  # type: ignore[arg-type]
-
+def test_no_folds_is_vacuously_valid(dataset: _FakeMuDataset) -> None:
     validate_folds([], "LPO", dataset)  # type: ignore[arg-type]
 
 
@@ -169,3 +183,56 @@ def test_the_failing_fold_index_is_reported(dataset: _FakeMuDataset) -> None:
 
     with pytest.raises(SplitValidationError, match=r"fold 1"):
         validate_folds([valid, leaking], "LPO", dataset)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    ("mode", "train", "test", "match"),
+    [
+        pytest.param("LSO", _mask((0,), (0,)), _mask((2,), (1,)), r"1 samples .*\['S0'\]", id="lso-source-sample"),
+        pytest.param("LPO", _mask((0,), (1,)), _mask((2,), (1,)), r"\['\(S0, D_1\)'\]", id="lpo-source-pair"),
+    ],
+)
+def test_a_source_sample_measured_in_two_studies_may_not_straddle_two_parts(
+    concatenated: _FakeMuDataset, mode: str, train: PairMask, test: PairMask, match: str
+) -> None:
+    with pytest.raises(SplitValidationError, match=match):
+        validate_folds([_fold(train, test)], mode, concatenated)  # type: ignore[arg-type]
+
+
+def test_other_source_samples_and_drugs_of_a_concatenated_dataset_pass(concatenated: _FakeMuDataset) -> None:
+    validate_folds([_fold(_mask((0, 1), (0,)), _mask((2,), (1,)))], "LPO", concatenated)  # type: ignore[arg-type]
+    validate_folds([_fold(_mask((0, 2), (0,)), _mask((1, 3), (1,)))], "LSO", concatenated)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    ("mode", "stopping", "match"),
+    [
+        pytest.param("LDO", _mask((0,), (1,)), r"drugs appear in both stopping and validation: \['D_1'\]", id="ldo"),
+        pytest.param("LTO", _mask((2,), (0,)), r"tissues appear in both stopping and validation: \['skin'\]", id="lto"),
+    ],
+)
+def test_validate_parts_rejects_a_stopping_part_that_shares_a_group_with_validation(
+    dataset: _FakeMuDataset, mode: str, stopping: PairMask, match: str
+) -> None:
+    parts = {
+        "train": _mask((0,), (0,)) if mode == "LDO" else _mask((0, 1), (0, 1, 2)),
+        "stopping": stopping,
+        "validation": _mask((1,), (1,)) if mode == "LDO" else _mask((3,), (0,)),
+        "test": _mask((0,), (2,)) if mode == "LDO" else PairMask(np.zeros(_SHAPE, dtype=bool)),
+    }
+
+    with pytest.raises(SplitValidationError, match=r"\(early stopping\).*" + match):
+        validate_parts(parts, mode, dataset, context="early stopping")  # type: ignore[arg-type]
+
+
+def test_validate_parts_accepts_lsto_parts_that_share_samples_outside_the_test_study(
+    studies: _FakeMuDataset,
+) -> None:
+    parts = {
+        "train": _mask((0,), (0,)),
+        "stopping": _mask((0,), (1,)),
+        "validation": _mask((0, 1), (2,)),
+        "test": _mask((2, 3), (0, 1, 2)),
+    }
+
+    validate_parts(parts, "LStO", studies, context="early stopping")  # type: ignore[arg-type]

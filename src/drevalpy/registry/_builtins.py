@@ -61,7 +61,7 @@ BUILTIN_MODULES: tuple[str, ...] = (
     f"{_PREDICTORS}.sklearn_models",
     f"{_PREDICTORS}.xgboost_pred",
     f"{_PREDICTORS}.literature.dipk.predictor",
-    f"{_PREDICTORS}.literature.druggnn.predictor",
+    f"{_PREDICTORS}.druggnn.predictor",
     f"{_PREDICTORS}.literature.ensemblemf.predictor",
     f"{_PREDICTORS}.literature.molir.predictor",
     f"{_PREDICTORS}.literature.morgoth.predictor",

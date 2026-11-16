@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import sys
 from collections.abc import Sequence
 from typing import TYPE_CHECKING
@@ -12,8 +11,9 @@ from upath import UPath as Path
 from drevalpy._utils.filenames import unique_safe_filenames
 from drevalpy.errors import InvalidInputError
 from drevalpy.log import get_logger
-from drevalpy.types.results._normalize import normalize_run, reference_summary
-from drevalpy.types.results.failure import RunFailure, read_failures, write_failures
+from drevalpy.types.results._normalize import NORMALIZATION_REFERENCE, normalize_run, reference_summary
+from drevalpy.types.results._store import load_runs, read_metadata, write_metadata
+from drevalpy.types.results.failure import RunFailure, read_failures
 from drevalpy.types.results.model import ModelResult
 from drevalpy.types.results.run import RunResult
 
@@ -92,7 +92,7 @@ class ExperimentResult:
         """Maximum number of folds across models."""
         return max((m.n_folds for m in self.models), default=0)
 
-    def normalize(self, reference_model: str = "NaiveMeanEffectsPredictor") -> ExperimentResult:
+    def normalize(self, reference_model: str = NORMALIZATION_REFERENCE) -> ExperimentResult:
         """Return a new ExperimentResult with metrics normalized against a reference model.
 
         :param reference_model: Name of the model to normalize against.
@@ -183,43 +183,41 @@ class ExperimentResult:
         return pd.DataFrame.from_dict(rows, orient="index", dtype=float)
 
     def save(self, directory: str | Path) -> None:
-        """Save to a directory tree.
+        """Save to a directory tree, in the layout :doc:`/reference/results` describes.
 
-        ``metadata.json`` holds only what the runs cannot give back: the model order and ``normalized_by``. The
-        dataset and split names are those of the runs, and each model's directory is
-        :func:`~drevalpy._utils.filenames.unique_safe_filenames` of the model order.
+        ``metadata.json`` holds only what the runs cannot give back: the model order and ``normalized_by``. It has
+        no run settings, so ``drevalpy.run`` does not resume a directory saved here. The dataset and split names
+        are those of the runs, and each model's directory is
+        :func:`~drevalpy._utils.filenames.unique_safe_filenames` of the model order. Each model directory is written
+        by :meth:`ModelResult.save`.
 
-        :param directory: Root output directory. ``failures.json`` is written only when there are failures.
+        :param directory: Root output directory. ``failures.json`` is written only when there are failures, and an
+            earlier one is removed otherwise.
         """
         out = Path(directory)
         out.mkdir(parents=True, exist_ok=True)
-
-        meta = {"normalized_by": self.normalized_by, "models": self.model_names}
-        (out / "metadata.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
-
-        write_failures(out, self.failures)
-
         directories = unique_safe_filenames(self.model_names)
         for model_result in self.models:
             model_result.save(out / directories[model_result.model_name])
+        write_metadata(out, models=self.model_names, normalized_by=self.normalized_by, failures=self.failures)
 
     @classmethod
     def load(cls, directory: str | Path, *, with_trials: bool = True) -> ExperimentResult:
-        """Load from a directory tree saved by ``save()``.
+        """Load from a directory tree saved by ``save()`` or written by ``drevalpy.run``.
+
+        A model of ``metadata.json`` without any run on disk, such as one whose every run failed, is left out.
 
         :param directory: Root experiment directory.
-        :param with_trials: Forwarded to :meth:`ModelResult.load`; pass ``False`` to skip
+        :param with_trials: Forwarded to :meth:`RunResult.load`; pass ``False`` to skip
             reading the HPO trial predictions, which no visualization consumes.
         :returns: Reconstructed ExperimentResult.
         """
         path = Path(directory)
-        meta = json.loads((path / "metadata.json").read_text(encoding="utf-8"))
+        meta = read_metadata(path)
 
         directories = unique_safe_filenames(meta["models"])
         all_runs = [
-            run
-            for name in meta["models"]
-            for run in ModelResult.load(path / directories[name], with_trials=with_trials).runs
+            run for name in meta["models"] for run in load_runs(path / directories[name], with_trials=with_trials)
         ]
         experiment = cls(all_runs, read_failures(path))
         experiment.normalized_by = meta["normalized_by"]

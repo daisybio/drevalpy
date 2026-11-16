@@ -109,6 +109,11 @@ def test_re_registering_is_rejected_unless_replaced(register: Callable) -> None:
     assert get("MY_LSO") is second
 
 
+def test_an_unknown_validation_is_rejected_at_registration() -> None:
+    with pytest.raises(InvalidInputError, match="validation='NOPE'; expected one of LSO, LDO, LTO, LStO, LPO"):
+        register_splitter("MY_MODE", "bad", validation="NOPE")  # type: ignore[arg-type]
+
+
 def test_quality_parameter_is_required_unless_kwargs() -> None:
     def old_style(dataset, n_splits=5, validation_ratio=0.1, random_state=42):
         return [_fold()]
