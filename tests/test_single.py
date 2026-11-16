@@ -14,7 +14,7 @@ from sklearn.preprocessing import StandardScaler
 from drevalpy import single
 from drevalpy.data import split
 from drevalpy.data.splitters._early_stopping import early_stopping_split
-from drevalpy.errors import InvalidInputError
+from drevalpy.errors import InvalidInputError, NaNPredictionError
 from drevalpy.evaluation import Metric
 from drevalpy.models import DRPModel, ModelSpec
 from drevalpy.registry.splitter import SplitValidationError
@@ -184,12 +184,11 @@ class TestTraining:
         assert model.hyperparameters == dict(stub_model.recipe.hyperparameters)
         assert model.train_calls[0]["model_checkpoint_dir"]
 
-    def test_metrics_are_empty_when_no_prediction_is_valid(self, synthetic_dataset, folds, stub_model) -> None:
+    def test_a_run_without_a_valid_prediction_raises(self, synthetic_dataset, folds, stub_model) -> None:
         stub_model.prediction_value = float("nan")
 
-        result = single(stub_model.recipe, synthetic_dataset, folds[0], hyperparameter_tuning=False)
-
-        assert result.metrics == {}
+        with pytest.raises(NaNPredictionError, match="test predictions are NaN"):
+            single(stub_model.recipe, synthetic_dataset, folds[0], hyperparameter_tuning=False)
 
     @pytest.mark.parametrize(
         ("early_stopping", "n_val", "expects_scope"),
