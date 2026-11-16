@@ -30,7 +30,6 @@ _OPTIONAL = {
 
 _CODE_LICENSES = {
     ("predictor", "dipk"): "NOASSERTION",
-    ("predictor", "drugGNN"): "Apache-2.0",
     ("predictor", "ensembleMF"): "MIT",
     ("predictor", "molir"): "GPL-3.0-only",
     ("predictor", "paccMann"): "MIT",
