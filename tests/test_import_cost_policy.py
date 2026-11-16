@@ -38,7 +38,7 @@ FORBIDDEN_STARTUP_IMPORTS = (
 
 DEFERRED_TRAINING_SYMBOLS = (
     ("drevalpy.components.predictors.neural_network.network", "FeedForwardNetwork"),
-    ("drevalpy.components.predictors.literature.druggnn.algorithm", "DrugGNNModule"),
+    ("drevalpy.components.predictors.druggnn.algorithm", "DrugGNNModule"),
     ("drevalpy.components.predictors.literature.molir.utils", "MOLIModel"),
     ("drevalpy.components.predictors.literature.superfeltr.utils", "SuperFELTEncoder"),
     ("drevalpy.components.predictors.literature.superfeltr.utils", "SuperFELTRegressor"),
