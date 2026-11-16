@@ -6,18 +6,11 @@ import numpy as np
 import pytest
 
 from drevalpy.data.quality import CurveQuality
-from drevalpy.data.splitters._folds import (
-    entity_masks,
-    group_folds,
-    observed_mask,
-    pair_masks,
-    rows_with_labels,
-)
+from drevalpy.data.splitters._folds import group_folds, group_out_folds, grouped_folds, observed_mask
 from drevalpy.errors import UnknownNameError
 from tests.data.splitters._helpers import MockDataset, first_measured_pairs
 
 FOLD_KWARGS = {"n_splits": 5, "validation_ratio": 0.1, "random_state": 42}
-NO_INDICES = np.array([], dtype=int)
 
 
 @pytest.fixture(scope="module")
@@ -103,61 +96,80 @@ class TestGroupFolds:
             list(group_folds(3, n_splits=5, validation_ratio=0.1, random_state=42))
 
 
-class TestEntityMasks:
-    def test_rows_land_in_the_mask_of_their_own_side_and_foreign_rows_stay_empty(self, observed):
-        fold = entity_masks(observed, train=np.array([0, 1]), validation=np.array([2]), test=np.array([3]), axis=0)
+class SourceSampleDataset(MockDataset):
+    """A mock whose rows 2k and 2k+1 are one source sample measured in two studies, as after ``concat``."""
 
-        np.testing.assert_array_equal(fold.train.mask[[0, 1], :], observed[[0, 1], :])
-        np.testing.assert_array_equal(fold.val.mask[2, :], observed[2, :])
-        np.testing.assert_array_equal(fold.test.mask[3, :], observed[3, :])
-        assert not fold.train.mask[2:, :].any()
+    def __init__(self, studies: tuple[str, ...] = ("A", "B")) -> None:
+        """Build the 12x8 mock with six source samples on two rows each; the rows cycle through *studies*."""
+        super().__init__(n_cl=12)
+        self._columns = {
+            "source_sample_id": np.array([f"S{i // 2}" for i in range(len(self._cl_ids))]),
+            "study": np.array([studies[i % len(studies)] for i in range(len(self._cl_ids))]),
+        }
 
-    def test_a_column_split_holds_out_drugs(self, observed):
-        fold = entity_masks(observed, train=np.array([0, 1]), validation=np.array([2]), test=np.array([3]), axis=1)
-
-        np.testing.assert_array_equal(fold.test.mask[:, 3], observed[:, 3])
-        assert not fold.test.mask[:, [0, 1, 2]].any()
-
-    def test_unobserved_pairs_are_never_selected_and_an_empty_index_set_yields_an_empty_mask(self, observed):
-        rows = np.arange(observed.shape[0])
-
-        fold = entity_masks(observed, train=rows, validation=NO_INDICES, test=rows, axis=0)
-
-        assert not (fold.train.mask & ~observed).any()
-        assert not fold.val.mask.any()
+    def sample_column(self, column: str, ids: np.ndarray) -> np.ndarray:
+        """Serve the source sample and study columns on top of the tissue column."""
+        if column in self._columns:
+            return self._columns[column]
+        return super().sample_column(column, ids)
 
 
-class TestPairMasks:
-    def test_selects_exactly_the_requested_positions_without_overlap(self, observed):
-        rows, columns = np.where(observed)
+def _parts(fold) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    return fold.train.mask, fold.val.mask, fold.test.mask
 
-        fold = pair_masks(
-            observed.shape, rows, columns, train=np.arange(5), validation=np.arange(5, 7), test=np.arange(7, 10)
+
+class TestGroupedFolds:
+    @pytest.mark.parametrize("mode", ["LSO", "LDO", "LTO", "LPO"])
+    def test_the_parts_partition_the_observed_pairs_and_each_pair_is_tested_once(self, dataset, observed, mode):
+        folds = grouped_folds(
+            dataset, CurveQuality.default(), mode=mode, n_splits=3, validation_ratio=0.3, random_state=0
         )
 
-        assert fold.train.mask.shape == observed.shape
-        assert fold.train.mask.sum() == 5
-        assert fold.val.mask[rows[5], columns[5]]
-        assert fold.test.mask[rows[7], columns[7]]
-        assert not (fold.train.mask & fold.test.mask).any()
-        assert not (fold.train.mask & fold.val.mask).any()
+        tested = np.zeros_like(observed, dtype=int)
+        for fold in folds:
+            train, val, test = _parts(fold)
+            np.testing.assert_array_equal(train | val | test, observed)
+            assert not (train & val).any() and not (train & test).any() and not (val & test).any()
+            tested += test
+        np.testing.assert_array_equal(tested, observed.astype(int))
 
-    def test_an_empty_position_set_yields_an_empty_mask(self, observed):
-        rows, columns = np.where(observed)
+    def test_lso_holds_the_rows_of_one_source_sample_out_together(self):
+        dataset = SourceSampleDataset()
 
-        fold = pair_masks(
-            observed.shape, rows, columns, train=np.arange(3), validation=NO_INDICES, test=np.arange(3, 5)
-        )
+        for fold in grouped_folds(dataset, CurveQuality.off(), mode="LSO", **FOLD_KWARGS):
+            parts_of_sample = [
+                {
+                    name
+                    for name, part in zip(("train", "val", "test"), _parts(fold), strict=True)
+                    if part[2 * k : 2 * k + 2].any()
+                }
+                for k in range(6)
+            ]
+            assert all(len(parts) == 1 for parts in parts_of_sample)
 
-        assert not fold.val.mask.any()
+    def test_lpo_holds_one_source_sample_and_drug_out_together(self):
+        dataset = SourceSampleDataset()
+        observed = observed_mask(dataset, CurveQuality.off())
+        both = observed[0::2] & observed[1::2]
 
+        for fold in grouped_folds(dataset, CurveQuality.off(), mode="LPO", **FOLD_KWARGS):
+            for part in _parts(fold):
+                np.testing.assert_array_equal(part[0::2] & both, part[1::2] & both)
 
-@pytest.mark.parametrize(
-    ("selected", "expected"),
-    [(["a"], [0, 2]), (["b", "c"], [1, 3]), ([], []), (["z"], [])],
-    ids=["one", "several", "none", "unknown"],
-)
-def test_rows_with_labels(selected, expected):
-    labels = np.array(["a", "b", "a", "c"])
+    def test_lsto_tests_on_one_study_and_draws_validation_by_source_sample_and_drug(self):
+        dataset = SourceSampleDataset(studies=("A", "B", "C"))
+        observed = observed_mask(dataset, CurveQuality.off())
+        studies = np.array(["A", "B", "C"] * 4)
 
-    np.testing.assert_array_equal(rows_with_labels(labels, np.array(selected, dtype=labels.dtype)), expected)
+        folds = group_out_folds(dataset, CurveQuality.off(), mode="LStO", validation_ratio=0.5, random_state=0)
+
+        assert len(folds) == 3
+        for study, fold in zip("ABC", folds, strict=True):
+            train, val, test = _parts(fold)
+            in_study = (studies == study)[:, None]
+            np.testing.assert_array_equal(test, observed & in_study)
+            np.testing.assert_array_equal(train | val, observed & ~in_study)
+            rest = observed & ~in_study
+            both = rest[0::2] & rest[1::2]
+            assert both.any()
+            np.testing.assert_array_equal(val[0::2] & both, val[1::2] & both)

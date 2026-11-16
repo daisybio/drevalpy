@@ -12,6 +12,7 @@ from drevalpy.errors import InvalidInputError
 from drevalpy.evaluation import Metric, evaluate_per_group
 from drevalpy.evaluation._grouping import group_labeller
 from drevalpy.evaluation._scoring import mean_of_defined
+from drevalpy.types.results._store import load_runs, save_runs
 from drevalpy.types.results.run import RunResult
 
 if TYPE_CHECKING:
@@ -105,19 +106,16 @@ class ModelResult:
         }
 
     def save(self, directory: str | Path) -> None:
-        """Save to a directory with one .npz per run, named ``fold_<i>.npz`` in run order.
+        """Save to a directory with one .npz per run, as :doc:`/reference/results` describes.
 
-        The ``fold_<i>.npz`` files of an earlier save to the same directory are removed first, since
-        :meth:`load` reads every one it finds.
+        A run's file is named after its fold and stress test, so saving again overwrites the same files. Run files
+        an earlier save left there for other runs are removed, since :meth:`load` reads every one it finds.
+
+        Two runs with the same fold and stress test raise ``InvalidInputError``.
 
         :param directory: Output directory path.
         """
-        out = Path(directory)
-        out.mkdir(parents=True, exist_ok=True)
-        for stale in out.glob("fold_*.npz"):
-            stale.unlink()
-        for i, run in enumerate(self.runs):
-            run.save(out / f"fold_{i}.npz")
+        save_runs(Path(directory), self.runs)
 
     @classmethod
     def load(cls, directory: str | Path, *, with_trials: bool = True) -> ModelResult:
@@ -126,14 +124,13 @@ class ModelResult:
         :param directory: Path to the model result directory.
         :param with_trials: Forwarded to :meth:`RunResult.load`; pass ``False`` to skip
             reading the HPO trial predictions.
-        :returns: Reconstructed ModelResult.
-        :raises InvalidInputError: If the directory holds no ``fold_<i>.npz`` file.
+        :returns: Reconstructed ModelResult, its runs ordered by fold, robustness repeat and randomization.
+        :raises InvalidInputError: If the directory holds no run file.
         """
         path = Path(directory)
-        fold_files = sorted(path.glob("fold_*.npz"), key=lambda file: int(file.stem.removeprefix("fold_")))
-        if not fold_files:
-            raise InvalidInputError(f"{path} holds no fold_<i>.npz file")
-        runs = [RunResult.load(file, with_trials=with_trials) for file in fold_files]
+        runs = load_runs(path, with_trials=with_trials)
+        if not runs:
+            raise InvalidInputError(f"{path} holds no run .npz file")
         return cls(model_name=runs[0].model_name, dataset_name=runs[0].dataset_name, runs=runs)
 
     def __repr__(self) -> str:

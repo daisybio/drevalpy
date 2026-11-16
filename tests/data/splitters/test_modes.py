@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import hashlib
+
 import numpy as np
 import pytest
 
+import drevalpy
 from drevalpy.data.quality import CurveQuality
 from drevalpy.registry.splitter import get as get_splitter
 from drevalpy.registry.splitter import register as register_splitter
@@ -205,3 +208,40 @@ class TestLeaveStudyOut:
         for row, column in failing:
             assert not covered[row, column]
             assert uncovered[row, column]
+
+
+#: sha256 prefixes of the train, validation and test masks of every fold, recorded with the per-mode
+#: splitters before the grouping moved to ``pair_groups``: on data that is not concatenated, the folds stay the same.
+RECORDED_FOLDS = {
+    "synthetic-LSO": ["5e53bd0f98398b2d", "dd095171bfaffef3", "286b4bdaf616528c"],
+    "synthetic-LDO": ["cb9946b821d6116d", "5deb32ab0cba0413", "3f95a610acbc5e93"],
+    "synthetic-LTO": ["a5c07f5705df2d68", "7fe50eb397a98e2e", "6715b0954385e77c"],
+    "synthetic-LPO": ["41b532197cc6909b", "fe55abcec9945c35", "c656048f6cb72acb"],
+    "mock-LSO": ["07f4f1f96e127101", "541a2c6262f3f349", "34046aef609cba28"],
+    "mock-LDO": ["286376c250c5ecd2", "915c07b94a08d43a", "b0b9dd14f991017d"],
+    "mock-LTO": ["99de79022c1aa1fd", "9a5899b6189e1009", "bc0790f42d0c9c5a"],
+    "mock-LPO": ["80ecb985377af4fa", "e01a49e62049734f", "81e513b9f2e7c2db"],
+    "mock-LStO": ["8cf661e1e736226d", "e996bb9e983bc2d9", "7bbbef9ed52278f3"],
+}
+
+
+def _digest(fold) -> str:
+    sha = hashlib.sha256()
+    for name in ("train", "val", "test"):
+        sha.update(np.ascontiguousarray(getattr(fold, name).mask).tobytes())
+    return sha.hexdigest()[:16]
+
+
+@pytest.mark.parametrize(
+    "key",
+    [pytest.param(key, marks=pytest.mark.slow) if key.startswith("synthetic") else key for key in RECORDED_FOLDS],
+)
+def test_folds_of_a_dataset_that_is_not_concatenated_are_the_recorded_ones(key: str) -> None:
+    source, mode = key.split("-")
+    datasets = {
+        "synthetic": lambda: drevalpy.synthetic(low_quality_fraction=0.1),
+        "mock": StudyMuDataset if mode == "LStO" else MockDataset,
+    }
+    folds = get_splitter(mode)(datasets[source](), n_splits=3, validation_ratio=0.3, random_state=7, quality=QUALITY)
+
+    assert [_digest(fold) for fold in folds] == RECORDED_FOLDS[key]

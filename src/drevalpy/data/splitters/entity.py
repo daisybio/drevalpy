@@ -1,10 +1,10 @@
-"""Leave-Drug-Out and Leave-Sample-Out splitting functions, built on :func:`~._folds.entity_folds`."""
+"""Leave-Drug-Out and Leave-Sample-Out splitting functions, built on :func:`~._folds.grouped_folds`."""
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from drevalpy.data.splitters._folds import entity_folds
+from drevalpy.data.splitters._folds import grouped_folds
 from drevalpy.registry.splitter import register
 from drevalpy.types import Dataset, Fold
 
@@ -25,8 +25,8 @@ def leave_drug_out(
 
     Every pair with a finite response that passes *quality* is used.
     """
-    return entity_folds(
-        dataset, quality, axis=1, n_splits=n_splits, validation_ratio=validation_ratio, random_state=random_state
+    return grouped_folds(
+        dataset, quality, mode="LDO", n_splits=n_splits, validation_ratio=validation_ratio, random_state=random_state
     )
 
 
@@ -39,10 +39,11 @@ def leave_sample_out(
     *,
     quality: CurveQuality,
 ) -> list[Fold]:
-    """Generate LSO folds where each sample appears in exactly one test set.
+    """Generate LSO folds where each source sample appears in exactly one test set.
 
-    Every pair with a finite response that passes *quality* is used.
+    Every pair with a finite response that passes *quality* is used. The rows of one source
+    sample in a concatenated dataset (``source_sample_id``) are held out together.
     """
-    return entity_folds(
-        dataset, quality, axis=0, n_splits=n_splits, validation_ratio=validation_ratio, random_state=random_state
+    return grouped_folds(
+        dataset, quality, mode="LSO", n_splits=n_splits, validation_ratio=validation_ratio, random_state=random_state
     )
