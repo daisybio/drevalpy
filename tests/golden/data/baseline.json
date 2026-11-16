@@ -19,7 +19,7 @@
     "seed": 0,
     "uns_payloads": ["drug_graphs", "pathways_gmt", "sparsego", "bpe_codes"]
   },
-  "drevalpy_commit": "332072e5c0ad4f7b6f96ffa35ccb7e76d479bd01",
+  "drevalpy_commit": "037e6e1e21d30fa2c8b7557ca0e4be63d9ac73b4",
   "hpo": {
     "metric": "RMSE",
     "model": "ElasticNet",
@@ -88,20 +88,20 @@
         "[256, 128, 64, 32, 16, 1]"
       ],
       "best_hyperparameters_at_record": {
-        "aggregation": "'mean'",
-        "batch_size": "64",
-        "batch_size_autoencoder": "1024",
-        "dropout_rate": "0.3",
-        "epochs": "3",
-        "epochs_autoencoder": "10",
-        "fc_layer_dim": "[256, 128, 64, 32, 16, 1]",
-        "fc_layer_num": "3",
-        "gene_add_num": "256",
-        "heads": "2",
-        "lr": "0.0001",
-        "lr_autoencoder": "0.0001",
-        "patience": "10",
-        "patience_autoencoder": "3"
+        "predictor.dipk.batch_size": "64",
+        "predictor.dipk.dropout_rate": "0.3",
+        "predictor.dipk.epochs": "3",
+        "predictor.dipk.fc_layer_dim": "[256, 128, 64, 32, 16, 1]",
+        "predictor.dipk.fc_layer_num": "3",
+        "predictor.dipk.heads": "2",
+        "predictor.dipk.lr": "0.0001",
+        "predictor.dipk.patience": "10",
+        "sample_featurizer.bionic.aggregation": "'mean'",
+        "sample_featurizer.bionic.gene_add_num": "256",
+        "sample_featurizer.dipkGeneExpression.batch_size_autoencoder": "1024",
+        "sample_featurizer.dipkGeneExpression.epochs_autoencoder": "10",
+        "sample_featurizer.dipkGeneExpression.lr_autoencoder": "0.0001",
+        "sample_featurizer.dipkGeneExpression.patience_autoencoder": "3"
       },
       "deterministic": true,
       "hyperparameter_overrides": {
@@ -110,17 +110,17 @@
       },
       "hyperparameter_tuning": false,
       "metrics": {
-        "Kendall": 0.021500238891543236,
-        "MAE": 1.806874795695362,
-        "MSE": 4.629922729754161,
-        "Pearson": 0.07019088615182296,
-        "RMSE": 2.1517255237957653,
-        "R^2": -0.9090025890931506,
-        "Spearman": 0.02453647334432748
+        "Kendall": 0.0965121834687052,
+        "MAE": 1.2909755663865286,
+        "MSE": 2.530439834208506,
+        "Pearson": 0.18255016384702616,
+        "RMSE": 1.5907356267489914,
+        "R^2": -0.04334704421837654,
+        "Spearman": 0.15060955874420107
       },
       "model": "DIPK",
       "round_trip_exact": true,
-      "seconds": 34.8
+      "seconds": 46.1
     },
     "DrugGNN": {
       "artifacts": [],
@@ -137,32 +137,32 @@
         "False"
       ],
       "best_hyperparameters_at_record": {
-        "add_hydrogens": "False",
-        "batch_size": "1024",
-        "dropout": "0.2",
-        "epochs": "100",
-        "hidden_dim": "64",
-        "learning_rate": "0.001",
-        "log_every_n_steps": "50",
-        "minmax_scale": "False",
-        "precision": "32",
-        "standardize": "False"
+        "drug_featurizer.drugGraph.add_hydrogens": "False",
+        "predictor.drugGNN.batch_size": "1024",
+        "predictor.drugGNN.dropout": "0.2",
+        "predictor.drugGNN.epochs": "100",
+        "predictor.drugGNN.hidden_dim": "64",
+        "predictor.drugGNN.learning_rate": "0.001",
+        "predictor.drugGNN.log_every_n_steps": "50",
+        "predictor.drugGNN.precision": "32",
+        "sample_featurizer.landmarkGenes.minmax_scale": "False",
+        "sample_featurizer.landmarkGenes.standardize": "False"
       },
       "deterministic": true,
       "hyperparameter_overrides": {},
       "hyperparameter_tuning": false,
       "metrics": {
-        "Kendall": -0.08886765408504538,
-        "MAE": 1.3364447416008816,
-        "MSE": 2.6994180963815713,
-        "Pearson": -0.06904251889295171,
-        "RMSE": 1.6429905953417905,
-        "R^2": -0.11301990029344333,
-        "Spearman": -0.12428525191498543
+        "Kendall": 0.26325848064978496,
+        "MAE": 1.271595446554863,
+        "MSE": 2.421853604571993,
+        "Pearson": 0.4128955878884287,
+        "RMSE": 1.5562305756448795,
+        "R^2": 0.0014250622757147058,
+        "Spearman": 0.40668588073917666
       },
       "model": "DrugGNN",
       "round_trip_exact": true,
-      "seconds": 4.4
+      "seconds": 5.6
     },
     "ElasticNet": {
       "artifacts": [],
@@ -255,24 +255,24 @@
         "True"
       ],
       "best_hyperparameters_at_record": {
-        "batch_size": "2048",
-        "dropout": "0.2",
-        "emb_dim": "128",
-        "hidden_dim": "256",
-        "learning_rate": "0.0003",
-        "max_epochs": "30",
-        "mlp_hidden": "256",
-        "n_bits": "256",
-        "n_ensemble": "3",
-        "n_layers": "1",
-        "patience": "25",
-        "radius": "2",
-        "seed": "0",
-        "use_chirality": "False",
-        "use_counts": "False",
-        "use_drug_id_embedding": "True",
-        "use_mlp_head": "True",
-        "weight_decay": "1e-05"
+        "drug_featurizer.fingerprints.n_bits": "256",
+        "drug_featurizer.fingerprints.radius": "2",
+        "drug_featurizer.fingerprints.use_chirality": "False",
+        "drug_featurizer.fingerprints.use_counts": "False",
+        "predictor.ensembleMF.batch_size": "2048",
+        "predictor.ensembleMF.dropout": "0.2",
+        "predictor.ensembleMF.emb_dim": "128",
+        "predictor.ensembleMF.hidden_dim": "256",
+        "predictor.ensembleMF.learning_rate": "0.0003",
+        "predictor.ensembleMF.max_epochs": "30",
+        "predictor.ensembleMF.mlp_hidden": "256",
+        "predictor.ensembleMF.n_ensemble": "3",
+        "predictor.ensembleMF.n_layers": "1",
+        "predictor.ensembleMF.patience": "25",
+        "predictor.ensembleMF.seed": "0",
+        "predictor.ensembleMF.use_drug_id_embedding": "True",
+        "predictor.ensembleMF.use_mlp_head": "True",
+        "predictor.ensembleMF.weight_decay": "1e-05"
       },
       "deterministic": true,
       "hyperparameter_overrides": {
@@ -281,13 +281,13 @@
       },
       "hyperparameter_tuning": false,
       "metrics": {
-        "Kendall": 0.6803631151457238,
-        "MAE": 0.65613361314425,
-        "MSE": 0.6844991761077439,
-        "Pearson": 0.8632830099615902,
-        "RMSE": 0.8273446537615046,
-        "R^2": 0.717768356904912,
-        "Spearman": 0.8673150131775658
+        "Kendall": 0.7118967988533205,
+        "MAE": 0.5815990775337686,
+        "MSE": 0.6062466720084726,
+        "Pearson": 0.8835513134969998,
+        "RMSE": 0.7786184380095764,
+        "R^2": 0.7500333085354252,
+        "Spearman": 0.8859639659078649
       },
       "model": "EnsembleMF",
       "round_trip_exact": true,
@@ -405,33 +405,33 @@
         "64"
       ],
       "best_hyperparameters_at_record": {
-        "dropout_rate": "0.5",
-        "epochs": "30",
-        "gamma": "0.5",
-        "h_dim1": "64",
-        "h_dim2": "64",
-        "h_dim3": "64",
-        "learning_rate": "0.01",
-        "margin": "1.5",
-        "mini_batch": "32",
-        "n_gene_expression_features": "1000",
-        "weight_decay": "0.0001"
+        "predictor.molir.dropout_rate": "0.5",
+        "predictor.molir.epochs": "30",
+        "predictor.molir.gamma": "0.5",
+        "predictor.molir.h_dim1": "64",
+        "predictor.molir.h_dim2": "64",
+        "predictor.molir.h_dim3": "64",
+        "predictor.molir.learning_rate": "0.01",
+        "predictor.molir.margin": "1.5",
+        "predictor.molir.mini_batch": "32",
+        "predictor.molir.weight_decay": "0.0001",
+        "sample_featurizer.molirOmics.n_gene_expression_features": "1000"
       },
       "deterministic": true,
       "hyperparameter_overrides": {},
       "hyperparameter_tuning": false,
       "metrics": {
-        "Kendall": 0.33540372670807456,
-        "MAE": 2.302605788020984,
-        "MSE": 6.889716869201382,
-        "Pearson": 0.4772043211321918,
-        "RMSE": 2.624827017005384,
-        "R^2": -1.8407574184553535,
-        "Spearman": 0.4905599309526378
+        "Kendall": 0.36311514572384135,
+        "MAE": 2.194275068503845,
+        "MSE": 6.337055637313625,
+        "Pearson": 0.47896209692087366,
+        "RMSE": 2.5173509166013437,
+        "R^2": -1.6128849928995264,
+        "Spearman": 0.5199821216651511
       },
       "model": "MOLIR",
       "round_trip_exact": true,
-      "seconds": 2.5
+      "seconds": 2.6
     },
     "MultiViewLightGBM": {
       "artifacts": [],
@@ -482,7 +482,6 @@
     "MultiViewNeuralNetwork": {
       "artifacts": [],
       "best_hyperparameter_values": [
-        "(16, 8, 4)",
         "0.3",
         "100",
         "16",
@@ -490,34 +489,35 @@
         "2048",
         "5",
         "False",
-        "False"
+        "False",
+        "[16, 8, 4]"
       ],
       "best_hyperparameters_at_record": {
-        "batch_size": "16",
-        "dropout_prob": "0.3",
-        "max_epochs": "100",
-        "n_bits": "2048",
-        "patience": "5",
-        "radius": "2",
-        "units_per_layer": "(16, 8, 4)",
-        "use_chirality": "False",
-        "use_counts": "False"
+        "drug_featurizer.fingerprints.n_bits": "2048",
+        "drug_featurizer.fingerprints.radius": "2",
+        "drug_featurizer.fingerprints.use_chirality": "False",
+        "drug_featurizer.fingerprints.use_counts": "False",
+        "predictor.neuralNetwork.batch_size": "16",
+        "predictor.neuralNetwork.dropout_prob": "0.3",
+        "predictor.neuralNetwork.max_epochs": "100",
+        "predictor.neuralNetwork.patience": "5",
+        "predictor.neuralNetwork.units_per_layer": "[16, 8, 4]"
       },
       "deterministic": true,
       "hyperparameter_overrides": {},
       "hyperparameter_tuning": false,
       "metrics": {
-        "Kendall": 0.6913521261347347,
-        "MAE": 0.8007378839766202,
-        "MSE": 1.0040509867032537,
-        "Pearson": 0.7894100141323276,
-        "RMSE": 1.0020234461843962,
-        "R^2": 0.586011247902658,
-        "Spearman": 0.8721390811152381
+        "Kendall": 0.7037744863831821,
+        "MAE": 0.666670963411098,
+        "MSE": 0.7778436407115842,
+        "Pearson": 0.8328704923319281,
+        "RMSE": 0.881954443671318,
+        "R^2": 0.6792807114284385,
+        "Spearman": 0.8851625233111908
       },
       "model": "MultiViewNeuralNetwork",
       "round_trip_exact": true,
-      "seconds": 3.1
+      "seconds": 4.4
     },
     "MultiViewRandomForest": {
       "artifacts": [],
@@ -742,24 +742,24 @@
         "[512, 256]"
       ],
       "best_hyperparameters_at_record": {
-        "batch_norm": "True",
-        "batch_size": "64",
-        "dropout": "0.5",
-        "epochs": "1",
-        "filters": "[16, 16, 16]",
-        "gene_attention_size": "1",
-        "gene_heads": "[2, 2, 2, 2]",
-        "gene_temperature": "1.0",
-        "learning_rate": "0.001",
-        "minmax_scale": "False",
-        "molecule_heads": "[2, 2, 2, 2]",
-        "molecule_temperature": "1.0",
-        "patience": "10",
-        "smiles_attention_size": "64",
-        "smiles_embedding_size": "8",
-        "stacked_dense_hidden_sizes": "[512, 256]",
-        "standardize": "True",
-        "weight_decay": "0.0"
+        "predictor.paccMann.batch_norm": "True",
+        "predictor.paccMann.batch_size": "64",
+        "predictor.paccMann.dropout": "0.5",
+        "predictor.paccMann.epochs": "1",
+        "predictor.paccMann.filters": "[16, 16, 16]",
+        "predictor.paccMann.gene_attention_size": "1",
+        "predictor.paccMann.gene_heads": "[2, 2, 2, 2]",
+        "predictor.paccMann.gene_temperature": "1.0",
+        "predictor.paccMann.learning_rate": "0.001",
+        "predictor.paccMann.molecule_heads": "[2, 2, 2, 2]",
+        "predictor.paccMann.molecule_temperature": "1.0",
+        "predictor.paccMann.patience": "10",
+        "predictor.paccMann.smiles_attention_size": "64",
+        "predictor.paccMann.smiles_embedding_size": "8",
+        "predictor.paccMann.stacked_dense_hidden_sizes": "[512, 256]",
+        "predictor.paccMann.weight_decay": "0.0",
+        "sample_featurizer.landmarkGenes.minmax_scale": "False",
+        "sample_featurizer.landmarkGenes.standardize": "True"
       },
       "deterministic": true,
       "hyperparameter_overrides": {
@@ -767,17 +767,17 @@
       },
       "hyperparameter_tuning": false,
       "metrics": {
-        "Kendall": 0.3005255613951266,
-        "MAE": 2.105015607226802,
-        "MSE": 5.97747404023495,
-        "Pearson": 0.4403983341771086,
-        "RMSE": 2.4448873266952305,
-        "R^2": -1.4646228641598769,
-        "Spearman": 0.4460952791948584
+        "Kendall": 0.29240324892498804,
+        "MAE": 2.106856730726102,
+        "MSE": 5.985962871397675,
+        "Pearson": 0.37950090167075656,
+        "RMSE": 2.4466227480749203,
+        "R^2": -1.468122965914032,
+        "Spearman": 0.4417952314165497
       },
       "model": "PaccMann",
       "round_trip_exact": true,
-      "seconds": 52.9
+      "seconds": 53.5
     },
     "PharmaFormer": {
       "artifacts": [],
@@ -797,19 +797,19 @@
         "8192"
       ],
       "best_hyperparameters_at_record": {
-        "batch_size": "128",
-        "dim_feedforward": "2048",
-        "dropout": "0.1",
-        "drug_hidden_size": "256",
-        "epochs": "2",
-        "feature_dim": "128",
-        "gene_hidden_size": "8192",
-        "lr": "1e-05",
-        "max_length": "128",
-        "nhead": "8",
-        "num_layers": "3",
-        "num_symbols": "10000",
-        "patience": "10"
+        "drug_featurizer.bpePharmaformer.max_length": "128",
+        "drug_featurizer.bpePharmaformer.num_symbols": "10000",
+        "predictor.pharmaFormer.batch_size": "128",
+        "predictor.pharmaFormer.dim_feedforward": "2048",
+        "predictor.pharmaFormer.dropout": "0.1",
+        "predictor.pharmaFormer.drug_hidden_size": "256",
+        "predictor.pharmaFormer.epochs": "2",
+        "predictor.pharmaFormer.feature_dim": "128",
+        "predictor.pharmaFormer.gene_hidden_size": "8192",
+        "predictor.pharmaFormer.lr": "1e-05",
+        "predictor.pharmaFormer.nhead": "8",
+        "predictor.pharmaFormer.num_layers": "3",
+        "predictor.pharmaFormer.patience": "10"
       },
       "deterministic": true,
       "hyperparameter_overrides": {
@@ -817,17 +817,17 @@
       },
       "hyperparameter_tuning": false,
       "metrics": {
-        "Kendall": 0.4648829431438127,
-        "MAE": 1.2397801107524529,
-        "MSE": 2.30529231786456,
-        "Pearson": 0.711070988280216,
-        "RMSE": 1.5183189117786027,
-        "R^2": 0.04948543198394384,
-        "Spearman": 0.6477505664041427
+        "Kendall": 0.46201624462494023,
+        "MAE": 1.2370771904192541,
+        "MSE": 2.296475306713156,
+        "Pearson": 0.7078577295689681,
+        "RMSE": 1.5154125862989114,
+        "R^2": 0.05312084840416298,
+        "Spearman": 0.6484595348550468
       },
       "model": "PharmaFormer",
       "round_trip_exact": true,
-      "seconds": 55.9
+      "seconds": 60.1
     },
     "Precily": {
       "artifacts": [],
@@ -905,14 +905,14 @@
         "50"
       ],
       "best_hyperparameters_at_record": {
-        "batch_size_autoencoder": "1024",
-        "epochs_autoencoder": "10",
-        "lr_autoencoder": "0.0001",
-        "max_depth": "5",
-        "max_samples": "0.2",
-        "n_estimators": "100",
-        "patience_autoencoder": "50",
-        "pooling": "'mean_max'"
+        "drug_featurizer.molgnetPooled.pooling": "'mean_max'",
+        "predictor.randomForest.max_depth": "5",
+        "predictor.randomForest.max_samples": "0.2",
+        "predictor.randomForest.n_estimators": "100",
+        "sample_featurizer.aeGeneExpression.batch_size_autoencoder": "1024",
+        "sample_featurizer.aeGeneExpression.epochs_autoencoder": "10",
+        "sample_featurizer.aeGeneExpression.lr_autoencoder": "0.0001",
+        "sample_featurizer.aeGeneExpression.patience_autoencoder": "50"
       },
       "deterministic": false,
       "hyperparameter_overrides": {
@@ -920,17 +920,17 @@
       },
       "hyperparameter_tuning": false,
       "metrics": {
-        "Kendall": 0.6755852842809364,
-        "MAE": 0.6547714018197385,
-        "MSE": 0.7621835800706857,
-        "Pearson": 0.8286548498889648,
-        "RMSE": 0.8730312595037395,
-        "R^2": 0.6857376434451891,
-        "Spearman": 0.8571890942157421
+        "Kendall": 0.6817964644051601,
+        "MAE": 0.6549358460284219,
+        "MSE": 0.7111243179778329,
+        "Pearson": 0.841440608475674,
+        "RMSE": 0.8432818733838839,
+        "R^2": 0.7067903195311283,
+        "Spearman": 0.8637701709230461
       },
       "model": "RandomForestAEMolGNet",
       "round_trip_exact": false,
-      "seconds": 24.9
+      "seconds": 37.9
     },
     "Ridge": {
       "artifacts": [],
@@ -1041,7 +1041,6 @@
     "SimpleNeuralNetwork": {
       "artifacts": [],
       "best_hyperparameter_values": [
-        "(32, 16, 8, 4)",
         "0.3",
         "100",
         "16",
@@ -1049,34 +1048,35 @@
         "2048",
         "5",
         "False",
-        "False"
+        "False",
+        "[32, 16, 8, 4]"
       ],
       "best_hyperparameters_at_record": {
-        "batch_size": "16",
-        "dropout_prob": "0.3",
-        "max_epochs": "100",
-        "n_bits": "2048",
-        "patience": "5",
-        "radius": "2",
-        "units_per_layer": "(32, 16, 8, 4)",
-        "use_chirality": "False",
-        "use_counts": "False"
+        "drug_featurizer.fingerprints.n_bits": "2048",
+        "drug_featurizer.fingerprints.radius": "2",
+        "drug_featurizer.fingerprints.use_chirality": "False",
+        "drug_featurizer.fingerprints.use_counts": "False",
+        "predictor.neuralNetwork.batch_size": "16",
+        "predictor.neuralNetwork.dropout_prob": "0.3",
+        "predictor.neuralNetwork.max_epochs": "100",
+        "predictor.neuralNetwork.patience": "5",
+        "predictor.neuralNetwork.units_per_layer": "[32, 16, 8, 4]"
       },
       "deterministic": true,
       "hyperparameter_overrides": {},
       "hyperparameter_tuning": false,
       "metrics": {
-        "Kendall": 0.6880076445293836,
-        "MAE": 0.7004608666605275,
-        "MSE": 0.8592570011333156,
-        "Pearson": 0.822403333011863,
-        "RMSE": 0.9269611648463573,
-        "R^2": 0.6457124804009389,
-        "Spearman": 0.8668064053758304
+        "Kendall": 0.6932632584806497,
+        "MAE": 0.7684482843817576,
+        "MSE": 0.9367389498702295,
+        "Pearson": 0.8294581855309985,
+        "RMSE": 0.9678527521633803,
+        "R^2": 0.6137652429673229,
+        "Spearman": 0.8826040719448852
       },
       "model": "SimpleNeuralNetwork",
       "round_trip_exact": true,
-      "seconds": 5.4
+      "seconds": 4.8
     },
     "SingleDrugElasticNet": {
       "artifacts": [],
