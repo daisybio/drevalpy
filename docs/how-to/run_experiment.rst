@@ -20,7 +20,10 @@ Give ``run`` the models, a dataset and a split mode. The models are zoo names or
 cross-study evaluation (see :doc:`/how-to/run_cross_study`). The split mode is ``LPO``, ``LSO``,
 ``LDO``, ``LTO`` or ``LStO``; the default on the command line is ``LPO``. ``run`` splits into 5
 folds by default, except ``LStO`` which makes one fold per study, and trains every model on every
-fold. ``--n-splits`` (``-n``, ``n_splits=`` in Python) sets the number of folds.
+fold. ``--n-splits`` (``-n``, ``n_splits=`` in Python) sets the number of folds, and
+``--validation-ratio`` (``validation_ratio=``, 0.1 by default) the share of each fold's training
+groups held out for validation, which tuning scores on and models that stop early watch. A model
+that stops early needs at least two validation groups, so raise it when a small dataset has fewer.
 
 .. tab-set::
    :sync-group: interface

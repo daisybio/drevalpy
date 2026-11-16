@@ -160,8 +160,7 @@ Map the ``drug_response_experiment`` parameters
    * - ``n_trials_robustness``
      - ``robustness_repeats``
    * - ``n_cv_splits``
-     - Removed. ``run`` makes five folds. Use ``drevalpy.split`` with
-       ``n_splits`` and ``drevalpy.single`` for other counts.
+     - ``n_splits``, default 5 instead of 7.
    * - ``path_out``, ``overwrite``
      - ``output_dir`` and ``overwrite``. ``run`` saves each run in ``output_dir`` as it
        finishes and resumes a killed run; ``overwrite`` deletes the experiment there
@@ -192,7 +191,8 @@ Map the ``drug_response_experiment`` parameters
        (:doc:`/how-to/extend/write_splitter`).
 
 New parameters that 1.x did not have: ``seed`` (default ``42``),
-``hpo_num_trials``, ``hpo_random_state`` and ``randomization_random_state``.
+``hpo_num_trials``, ``hpo_random_state``, ``randomization_random_state`` and
+``validation_ratio`` (default ``0.1``, the share 1.x held out for validation).
 
 Save and read the results
 -------------------------
