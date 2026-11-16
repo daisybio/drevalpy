@@ -18,16 +18,13 @@ from drevalpy.log import get_logger
 from drevalpy.models.spec import ModelSpec
 from drevalpy.types import Fold
 from drevalpy.types.data.dataset import Dataset
+from drevalpy.types.results._normalize import NORMALIZATION_REFERENCE
 from drevalpy.types.results.run import RunResult
 
 if TYPE_CHECKING:
     from drevalpy.models.response_transformation import ResponseTransformer
 
 logger = get_logger(__name__)
-
-#: The model every normalized metric is measured against (``ExperimentResult.normalize``). It always trains
-#: on the original response scale, so a response transformation cannot move the ruler along with the models.
-NORMALIZATION_REFERENCE = "NaiveMeanEffectsPredictor"
 
 
 def single(

@@ -10,14 +10,17 @@ from __future__ import annotations
 
 import importlib
 import inspect
+import json
 from collections.abc import Callable
 from typing import Any
 
+import anndata as ad
+import mudata as md
 import numpy as np
 import pytest
 
 from drevalpy import run, single, split, synthetic
-from drevalpy.errors import InvalidInputError
+from drevalpy.errors import InvalidInputError, OutputDirectoryConflictError
 from drevalpy.models import ModelSpec
 from drevalpy.models.response_transformation import get_response_transformation
 from drevalpy.types import Fold, PairMask
@@ -35,6 +38,9 @@ class _FakeDataset:
         self.name = name
         self.tag = tag
         self.randomization: tuple[str, str] | None = None
+        self.measure = "pEC50"
+        with md.set_options(pull_on_update=False):
+            self.mdata = md.MuData({"response": ad.AnnData(np.arange(12, dtype=np.float32).reshape(4, 3))})
 
 
 def _stub_model(name: str) -> type:
@@ -73,6 +79,7 @@ class _SingleRecorder:
             model_name=model_class.name,
             dataset_name=dataset.name,
             fold_index=fold.metadata["fold_index"],
+            split_mode=fold.metadata["split_mode"],
             fold_metadata=dict(fold.metadata),
             randomization=dataset.randomization,
             best_hyperparameters=(
@@ -417,7 +424,7 @@ class TestForwardedArguments:
         assert [entry["random_state"] for entry in seen] == [5, 0]
         _, kwargs = recorder.calls[0]
         assert kwargs["seed"] == 5
-        assert kwargs["hpo_random_state"] is None
+        assert kwargs["hpo_random_state"] == 5
 
     @pytest.mark.parametrize("n_jobs", [0, -3])
     def test_an_unusable_n_jobs_is_rejected_before_anything_runs(self, recorder, dataset, n_jobs) -> None:
@@ -628,3 +635,205 @@ class TestFailures:
 
         assert (tmp_path / "failures.json").exists()
         assert ExperimentResult.load(tmp_path).failures == result.failures
+
+
+class TestResume:
+    """With ``output_dir`` every run is saved when it finishes, and a rerun loads it instead of fitting it."""
+
+    @staticmethod
+    def _stress_run(data: Any, directory: Any, **kwargs: Any) -> ExperimentResult:
+        return _run(
+            "A",
+            data,
+            hyperparameter_tuning=True,
+            randomization_modes=["SVRC"],
+            robustness_repeats=1,
+            output_dir=str(directory),
+            **kwargs,
+        )
+
+    def test_a_second_run_with_the_same_settings_fits_nothing(self, recorder, dataset, monkeypatch, tmp_path) -> None:
+        _set_randomizations(monkeypatch, 1)
+        first = self._stress_run(dataset, tmp_path)
+        recorder.calls.clear()
+
+        second = self._stress_run(dataset, tmp_path, n_jobs=4, wandb_project="other", on_error="raise")
+
+        assert recorder.calls == []
+        assert [r.run_key for r in second.models[0].runs] == [r.run_key for r in first.models[0].runs]
+        assert [r.best_hyperparameters for r in second.models[0].runs] == [
+            r.best_hyperparameters for r in first.models[0].runs
+        ]
+        assert ExperimentResult.load(tmp_path).models[0].n_folds == 2
+
+    @pytest.mark.parametrize("error", [KeyboardInterrupt(), ValueError("killed")], ids=["interrupt", "raise"])
+    def test_after_a_kill_a_rerun_fits_only_the_missing_runs(
+        self, recorder, dataset, monkeypatch, tmp_path, error: BaseException
+    ) -> None:
+        _set_randomizations(monkeypatch, 1)
+        recorder.fail_when = lambda model, ds, fold: len(recorder.calls) == 3
+        recorder.error = error
+        with pytest.raises(type(error)):
+            self._stress_run(dataset, tmp_path, on_error="raise")
+        recorder.calls.clear()
+        recorder.fail_when = lambda model, ds, fold: False
+
+        result = self._stress_run(dataset, tmp_path)
+
+        seen = [
+            (fold.metadata["fold_index"], fold.metadata.get("robustness_repeat"), ds.tag, kwargs["hyperparameters"])
+            for (_, ds, fold), kwargs in recorder.calls
+        ]
+        assert seen == [
+            (0, 0, "original", {"alpha": 0}),
+            (0, 0, "random_0", {"alpha": 0}),
+            (1, None, "original", None),
+            (1, None, "random_0", {"alpha": 1}),
+            (1, 0, "original", {"alpha": 1}),
+            (1, 0, "random_0", {"alpha": 1}),
+        ]
+        assert len(result.models[0].runs) == 8
+
+    def test_failures_are_not_saved_so_a_rerun_retries_them(self, recorder, dataset, tmp_path) -> None:
+        recorder.fail_when = lambda model, ds, fold: fold.metadata["fold_index"] == 1
+        _run("A", dataset, output_dir=str(tmp_path))
+        assert (tmp_path / "failures.json").exists()
+        recorder.calls.clear()
+        recorder.fail_when = lambda model, ds, fold: False
+
+        result = _run("A", dataset, output_dir=str(tmp_path))
+
+        assert [fold.metadata["fold_index"] for fold in recorder.folds] == [1]
+        assert result.failures == ()
+        assert not (tmp_path / "failures.json").exists()
+
+    @pytest.mark.parametrize(
+        "change",
+        [
+            pytest.param({"seed": 7}, id="seed"),
+            pytest.param({"mode": "LPO"}, id="split-mode"),
+            pytest.param({"hyperparameter_tuning": True}, id="tuning"),
+            pytest.param({"robustness_repeats": 1}, id="robustness"),
+            pytest.param({"response_transformation": get_response_transformation("standard")}, id="transformation"),
+        ],
+    )
+    def test_other_settings_raise_and_overwrite_deletes_and_reruns(
+        self, recorder, dataset, tmp_path, change: dict[str, Any]
+    ) -> None:
+        _run("A", dataset, output_dir=str(tmp_path))
+        recorder.calls.clear()
+
+        with pytest.raises(OutputDirectoryConflictError, match="--overwrite"):
+            _run("A", dataset, output_dir=str(tmp_path), **change)
+        assert recorder.calls == []
+
+        result = _run("A", dataset, output_dir=str(tmp_path), overwrite=True, **change)
+
+        assert len(recorder.calls) == len(result.models[0].runs)
+        assert len(list(tmp_path.rglob("*.npz"))) == len(result.models[0].runs)
+
+    @pytest.mark.parametrize("change", ["responses", "features"])
+    def test_other_data_under_the_same_name_or_another_model_raise(
+        self, recorder, dataset, tmp_path, change: str
+    ) -> None:
+        _run("A", dataset, output_dir=str(tmp_path))
+        other = _FakeDataset()
+        if change == "responses":
+            other.mdata.mod["response"].X = np.ones((4, 3), dtype=np.float32)
+        else:
+            other.mdata.mod["response"].obsm["pathways"] = np.ones((4, 2), dtype=np.float32)
+
+        with pytest.raises(OutputDirectoryConflictError):
+            _run("A", other, output_dir=str(tmp_path))
+        with pytest.raises(OutputDirectoryConflictError):
+            _run("B", dataset, output_dir=str(tmp_path))
+
+    def test_a_run_that_crashed_before_any_run_finished_is_started_again(
+        self, recorder, dataset, monkeypatch, tmp_path
+    ) -> None:
+        def broken_split(*args: Any, **kwargs: Any) -> list[Fold]:
+            raise ValueError("n_splits=2 or more")
+
+        real_split = RUN_MODULE.split
+        monkeypatch.setattr(RUN_MODULE, "split", broken_split)
+        with pytest.raises(ValueError, match="n_splits"):
+            _run("A", dataset, n_splits=1, output_dir=str(tmp_path))
+        monkeypatch.setattr(RUN_MODULE, "split", real_split)
+
+        result = _run("A", dataset, n_splits=2, output_dir=str(tmp_path))
+
+        assert len(result.models[0].runs) == 2
+        assert result.settings is not None
+        assert result.settings["n_splits"] == 2
+
+    def test_a_run_whose_every_run_failed_saves_the_failures_and_is_started_again(
+        self, recorder, dataset, tmp_path
+    ) -> None:
+        recorder.fail_when = lambda model, ds, fold: True
+        with pytest.raises(ExperimentFailedError):
+            _run("A", dataset, output_dir=str(tmp_path))
+        assert len(json.loads((tmp_path / "failures.json").read_text(encoding="utf-8"))) == 2
+        recorder.fail_when = lambda model, ds, fold: False
+
+        result = _run("A", dataset, seed=7, output_dir=str(tmp_path))
+
+        assert len(result.models[0].runs) == 2
+        assert not (tmp_path / "failures.json").exists()
+
+    @pytest.mark.parametrize("overwrite", [False, True])
+    def test_a_directory_of_other_files_is_refused_and_kept(self, recorder, dataset, tmp_path, overwrite) -> None:
+        (tmp_path / "notes.txt").write_text("mine", encoding="utf-8")
+
+        with pytest.raises(OutputDirectoryConflictError, match="empty or new directory"):
+            _run("A", dataset, output_dir=str(tmp_path), overwrite=overwrite)
+
+        assert recorder.calls == []
+        assert sorted(entry.name for entry in tmp_path.iterdir()) == ["notes.txt"]
+
+    def test_saving_the_result_into_its_directory_keeps_it_resumable(self, recorder, dataset, tmp_path) -> None:
+        result = _run("A", dataset, output_dir=str(tmp_path / "run"))
+        result.save(tmp_path / "run")
+        result.save(tmp_path / "copy")
+        recorder.calls.clear()
+
+        again = _run("A", dataset, output_dir=str(tmp_path / "run"))
+
+        assert recorder.calls == []
+        assert ExperimentResult.load(tmp_path / "copy").settings == result.settings == again.settings
+
+    def test_settings_that_cannot_be_recorded_are_rejected(self, recorder, dataset, tmp_path) -> None:
+        class Opaque:
+            def get_params(self, deep: bool = False) -> dict[str, Any]:
+                return {"state": object()}
+
+        with pytest.raises(InvalidInputError, match="cannot be recorded"):
+            _run("A", dataset, response_transformation=Opaque(), output_dir=str(tmp_path))
+        assert recorder.calls == []
+
+    @pytest.mark.slow
+    def test_end_to_end_a_rerun_loads_every_run(self, synthetic_dataset, monkeypatch, tmp_path) -> None:
+        fits: list[Any] = []
+        real_fit = RUN_MODULE._fit_fold
+        monkeypatch.setattr(
+            RUN_MODULE, "_fit_fold", lambda *args, **kwargs: fits.append(args) or real_fit(*args, **kwargs)
+        )
+
+        def experiment() -> ExperimentResult:
+            return run(
+                [ModelSpec.from_name("Ridge")],
+                synthetic_dataset,
+                "LSO",
+                n_splits=2,
+                hpo_num_trials=2,
+                randomization_modes=["SVRC"],
+                robustness_repeats=1,
+                output_dir=str(tmp_path),
+            )
+
+        first = experiment()
+        n_fits = len(fits)
+        second = experiment()
+
+        assert n_fits == len(first.models[0].runs) == 8
+        assert len(fits) == n_fits
+        assert [r.metrics for r in second.models[0].runs] == [r.metrics for r in first.models[0].runs]
