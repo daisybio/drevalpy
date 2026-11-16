@@ -84,6 +84,14 @@ NJobs = Annotated[
     ),
 ]
 NSplits = Annotated[int, typer.Option("--n-splits", "-n", help="Number of CV folds.")]
+ValidationRatio = Annotated[
+    float,
+    typer.Option(
+        "--validation-ratio",
+        help="Fraction of the training data held out for validation; models that stop early need at least two "
+        "validation groups.",
+    ),
+]
 GroupByOption = Annotated[
     str | None,
     typer.Option(

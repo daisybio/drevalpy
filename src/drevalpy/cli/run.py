@@ -29,6 +29,7 @@ from ._options import (
     ResponseTransformation,
     ResponseTransformationOption,
     SampleFeaturizerOption,
+    ValidationRatio,
     WandbProject,
     quality_from_cli,
     resolve_model_specs,
@@ -47,6 +48,7 @@ def run_cmd(
         str, typer.Option("--split-mode", "-s", help="Split mode: LPO, LSO, LDO, LTO, LStO.")
     ] = "LPO",
     n_splits: NSplits = 5,
+    validation_ratio: ValidationRatio = 0.1,
     output_dir: Annotated[
         str,
         typer.Option(
@@ -112,6 +114,7 @@ def run_cmd(
         dataset=dataset if group_dataset is None else group_dataset,
         split_mode=split_mode,
         n_splits=n_splits,
+        validation_ratio=validation_ratio,
         randomization_modes=[mode.value for mode in randomization_mode] if randomization_mode else None,
         randomization_type=randomization_type,
         seed=seed,
