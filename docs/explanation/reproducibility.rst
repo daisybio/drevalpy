@@ -72,8 +72,9 @@ A robustness test repeats the ordinary evaluation several times, and the repeats
 differ in the order of the pairs within the training, validation and test sets.
 The repeat number is part of the fit's identity. That has a consequence worth
 stating plainly: the root seed does not change between repeats, but the seed
-derived for the fit does, and so does the 25% of the validation pairs that is
-reserved for early stopping, because it is taken from the shuffled order. A
+derived for the fit does, and so does the 25% of the validation groups (whole
+samples, drugs or tissues, by split mode) reserved for early stopping, because
+the repeat's seed draws them. A
 robustness test therefore measures sensitivity to pair order together with the
 training randomness that comes with it, not pair order alone. The spread of the
 scores across repeats indicates how much a single reported score can be trusted.

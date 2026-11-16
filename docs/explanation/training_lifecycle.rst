@@ -20,8 +20,10 @@ serve two jobs without one contaminating the other:
    learned from A.
 
 **E (early stopping)**
-   The first 25% of the validation pairs, with at least one pair. Training loops
-   that stop when a score stops improving watch E.
+   A seeded 25% of the validation set, at least one, drawn in whole units of the
+   split mode: samples under leave-sample-out, drugs under leave-drug-out, tissues
+   under leave-tissue-out, and (sample, drug) pairs under leave-pair-out and
+   leave-study-out. Training loops that stop when a score stops improving watch E.
 
 **V (validation)**
    The rest of the validation pairs. During hyperparameter tuning, V is the set
@@ -37,7 +39,7 @@ shaped. Splitting validation into E and V keeps those two uses apart.
        fold[one fold] --> train[train pairs]
        fold --> val[validation pairs]
        fold --> test[test pairs]
-       val --> E[E: first 25 percent]
+       val --> E[E: 25 percent of the units]
        val --> V[V: remaining pairs]
        train --> A[A: fit]
 
@@ -53,10 +55,14 @@ Hyperparameter tuning and the final fit use the scopes differently:
   E.
 - *Evaluation* uses the test pairs, which are disjoint from A, E and V.
 
-E and V only need to be disjoint as sets of pairs. They may share samples or
-drugs, because both come from the same validation split. The split-mode checks
-(for example, that a leave-sample-out test set shares no sample with training) run
-on the original masks before E and V are derived.
+E and V are disjoint along the split mode, like train, validation and test: under
+leave-drug-out no drug of E is in V or in A, so the final fit, which trains on A
+and V, never sees a stopping drug. In a dataset concatenated from several studies
+a sample measured in two of them counts as one sample. The split-mode checks (for
+example, that a leave-sample-out test set shares no sample with training) run on
+the original masks, and again on A, E, V and the test set once E is cut. Under
+leave-study-out only the test study must stay apart, and E is cut by (sample,
+drug) pairs, the units the validation set was drawn in.
 
 The scopes, their counts and checksums are recorded with every fold's metadata,
 so a result file records which pairs were used for fitting, stopping, validation
@@ -66,9 +72,11 @@ Early stopping is a model property
 ----------------------------------
 
 Not every model has a training loop that can stop early. Each model configuration
-declares whether it supports early stopping. When it does and the validation set
-has more than one pair, E and V are derived as above. Otherwise the whole
-validation set is V and nothing is held out for stopping.
+declares whether it supports early stopping. When it does, E and V are derived
+as above, and a validation set with fewer than two units of the split mode (for
+example, a single tissue under leave-tissue-out) raises an error that asks for a
+larger ``validation_ratio``. Otherwise the whole validation set is V and nothing is
+held out for stopping.
 
 Some models go further and *require* an early-stopping set. DIPK and
 PharmaFormer, and the featurizer that DIPK ships with, select a checkpoint from
