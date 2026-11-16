@@ -395,11 +395,13 @@ command again to resume it: the runs that are already saved are loaded, not fitt
 the missing ones are fitted. The runs that failed are retried. In Python, pass ``output_dir`` to
 ``run`` for the same behaviour.
 
-A run resumes only a directory written with the same settings: the same models, dataset content,
-split mode, number of folds, quality rule, measure, response transformation, tuning, stress tests
-and seeds. ``--n-jobs``, ``--wandb-project`` and ``on_error`` may differ. A directory with runs of
-other settings is refused with an error; use another directory, or add ``--overwrite``
-(``overwrite=True``) to delete the experiment in it and start again. ``--overwrite`` deletes only
+A run resumes only a directory written with the same settings: the same models, dataset name,
+measure, split mode, number of folds, validation ratio, quality rule, response transformation,
+tuning, stress tests and seeds. ``--n-jobs``, ``--wandb-project`` and ``on_error`` may differ. The
+dataset is identified by its name and measure only: if you change its content under the same name,
+pass ``--overwrite``. A directory with runs of other settings is refused with an error; use another
+directory, or add ``--overwrite`` (``overwrite=True``) to delete the experiment in it and start
+again. ``--overwrite`` deletes only
 ``metadata.json``, ``failures.json`` and the model directories, and a directory that holds other
 files but no drevalpy experiment is always refused. A directory of a run that crashed before any
 run finished holds no runs, so the next run starts it again with its own settings.
