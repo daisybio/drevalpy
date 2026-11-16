@@ -36,6 +36,13 @@ from typing import Any, Final
 import numpy as np
 from upath import UPath
 
+# The baseline was recorded with the native thread pools drevalpy configured on every platform until
+# the XGBoost thread defaults became macOS-only: OpenMP (torch, scikit-learn) single-threaded, and
+# numpy's BLAS with its own threads because numpy was loaded first. Setting the variables after
+# ``import numpy`` keeps that configuration, so the exact comparisons stay bit for bit.
+for _name in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "VECLIB_MAXIMUM_THREADS"):
+    os.environ.setdefault(_name, "1")
+
 #: Directory holding the baseline: ``predictions.npz`` and ``baseline.json``.
 DATA_DIR: Final = UPath(__file__).resolve().parent / "data"
 PREDICTIONS_FILE: Final = DATA_DIR / "predictions.npz"
