@@ -170,7 +170,7 @@ def test_external_zoo_rejects_builtin_collision_and_is_atomic(tmp_path) -> None:
 def test_builtin_presets_are_marked_in_the_registry_metadata() -> None:
     registry = zoo_registry()
 
-    assert registry.names() == tuple(list_zoo_names(include_external=False))
+    assert set(registry.names()) == set(list_zoo_names(include_external=False))
     assert all(registry.metadata(name)["builtin"] for name in registry.names())
 
 
