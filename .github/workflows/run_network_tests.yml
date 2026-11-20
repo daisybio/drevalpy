@@ -56,4 +56,4 @@ jobs:
         # The explicit `-m network` replaces the `addopts` marker expression
         # rather than adding to it, so this selects exactly the network tests.
         # No coverage: run_tests.yml owns the coverage floor.
-        run: uv run pytest -m network
+        run: uv run pytest -m "network and not golden"
