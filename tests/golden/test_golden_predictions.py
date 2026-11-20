@@ -21,7 +21,7 @@ from tests.golden._record import (
     train_and_predict,
 )
 
-pytestmark = pytest.mark.slow
+pytestmark = [pytest.mark.slow, pytest.mark.golden]
 
 
 def _params() -> list:

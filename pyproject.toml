@@ -193,6 +193,7 @@ addopts = ["--import-mode=importlib", "-m", "not slow and not network"]
 markers = [
     "network: requires downloading pretrained weights or remote annotations",
     "slow: extended tier - spawns interpreters, fits curves, or trains models; CI only",
+    "golden: bit-for-bit baselines that reproduce only on the recording machine; never in CI",
 ]
 
 [tool.coverage.run]
