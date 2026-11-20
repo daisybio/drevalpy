@@ -49,7 +49,7 @@ and the Freie Universität Berlin (FU, Germany).
 
 > **Coming from DrEvalPy 1.x?** v2 is a rewrite and nothing that 1.x wrote loads in it. Read the
 > [migration guides](https://drevalpy.readthedocs.io/en/latest/how-to/migrate/index.html) first.
-> Until v2 is released, `pip install drevalpy` installs 1.6.0; install v2 from source as shown below.
+> Until v2 is released, `pip install drevalpy` installs 1.7.0; install v2 from source as shown below.
 
 ## Installation
 
