@@ -9,7 +9,7 @@ goes wrong, open an issue on `GitHub <https://github.com/daisybio/drevalpy/issue
 
 .. note::
 
-   DrEvalPy v2 is not released yet. Until it is, ``pip install drevalpy`` installs version 1.6.0,
+   DrEvalPy v2 is not released yet. Until it is, ``pip install drevalpy`` installs version 1.7.0,
    which has a different API; see :doc:`/how-to/migrate/index`. Install v2 from source as shown
    below. The pip, conda, venv and Docker instructions apply once v2 is released.
 
