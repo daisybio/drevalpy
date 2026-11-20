@@ -83,8 +83,9 @@ membership against the values.
   `empty_component_registries()` or `restore_builtin_components()` from
   `tests/registry/_helpers.py`.
 - `tests/golden/` compares the predictions and metrics of every zoo model with a recorded
-  baseline. Run it with `pytest -m slow tests/golden` (`-m "slow and not network"` offline)
-  after a change that may move numbers. Re-record with `python -m tests.golden._record [keys]`
+  baseline. Run it with `pytest -m golden` (`-m "golden and not network"` offline) after a
+  change that may move numbers. CI skips it: the comparison is bit for bit, and other CPUs and
+  BLAS builds differ in the last bits. Re-record with `python -m tests.golden._record [keys]`
   only on a commit whose numerics are the reference, never to make a refactor pass.
 - Shared test code is a `_`-prefixed module beside the tests it serves (`tests/_import_shims.py`,
   `tests/models/synthetic_fixtures.py`, the `_helpers.py` files); look for one before writing a
