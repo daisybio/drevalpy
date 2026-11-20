@@ -4,10 +4,22 @@ News
 .. role:: date
     :class: date
 
+🍫 First model wins the chocolate challenge! :date:`2026-11-03`
+-----------------------------------------------------------------
+Congratulations to `@jfrog64 <https://github.com/jfrog64>`__, who contributed ``RandomForestAEMolGNet``. It
+significantly outperforms the random forest under LCO and performs on par with our best model, EnsembleMF.
+The chocolate challenge is therefore updated:
+
+| 1. Add your model to DrEvalPy; see :doc:`/tutorials/own_predictor`.
+| 2. Run it on the splits of the leaderboard, with the standalone package or the Nextflow pipeline.
+| 3. Let us know your results!
+|    3.1. 🎊 If you significantly outperform EnsembleMF under LCO, we will personally send you chocolate 🍫.
+|    3.2. 🥺 If you perform significantly worse than the NaiveDrugMeanPredictor, you will have to send us chocolate.
+
 🧬 DrEvalPy 2.0.0 :date:`2026-10-22`
 --------------------------------------------------------------
 v2 is a rewrite of the interface, not an upgrade in place. It is not released yet:
-``pip install drevalpy`` still installs 1.6.0. :doc:`/how-to/migrate/index` maps every 1.x
+``pip install drevalpy`` still installs 1.7.0. :doc:`/how-to/migrate/index` maps every 1.x
 option, function and model to its v2 counterpart. This entry lists what changed for users.
 
 Breaking changes from 1.6.0
