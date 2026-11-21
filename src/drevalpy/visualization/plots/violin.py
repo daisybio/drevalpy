@@ -20,18 +20,6 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-def _is_finite(value: float) -> bool:
-    """Whether *value* is a real number MultiQC can plot.
-
-    :param value: Metric value, possibly NaN or non-numeric.
-    :returns: True if the value is finite.
-    """
-    try:
-        return math.isfinite(float(value))
-    except (TypeError, ValueError):
-        return False
-
-
 def _run_metrics(result: ExperimentResult) -> dict[str, dict[str, float]]:
     """Collect the metrics of every non-randomized run, keyed by run identity.
 
@@ -55,8 +43,7 @@ class ViolinPlot(Plot):
         """
         import plotly.graph_objects as go
 
-        df = runs_frame(result).sort_index()
-        df["box"] = df["algorithm"] + "_" + df["rand_setting"] + "_" + df["test_mode"]
+        df = runs_frame(result)
         df = df.dropna(axis=1, how="all")
 
         metrics = [m.value for m in Metric if m in df.columns]
@@ -65,9 +52,8 @@ class ViolinPlot(Plot):
 
         fig = go.Figure()
         for metric in metrics:
-            for box in df["box"].unique():
-                tmp_df = df[df["box"] == box]
-                label = box.split("_")[0] + ": " + metric
+            for _, tmp_df in df.groupby(["algorithm", "rand_setting", "test_mode"], sort=False):
+                label = f"{tmp_df['algorithm'].iloc[0]}: {metric}"
                 fig.add_trace(
                     go.Violin(
                         y=tmp_df[metric],
@@ -90,7 +76,7 @@ class ViolinPlot(Plot):
         from multiqc.plots import violin as mqc_violin
 
         data = _run_metrics(result)
-        metric_names = sorted({m for metrics in data.values() for m in metrics if _is_finite(metrics[m])})
+        metric_names = sorted({m for metrics in data.values() for m in metrics if math.isfinite(metrics[m])})
         if not metric_names:
             logger.warning("violin: no metric has a finite value in any fold; skipping the section")
             return []

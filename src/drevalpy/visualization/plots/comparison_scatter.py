@@ -37,8 +37,13 @@ _AXIS_RANGE = (-1.05, 1.05)
 _POINTS_TRACE = 0
 
 
-def _axis_title(grouping: str, model_name: str) -> str:
-    return f"{model_name} (per-{grouping} Pearson)"
+#: The two dropdowns: the axis each one drives and its horizontal position in paper coordinates.
+_DROPDOWNS = (("x", 0.0), ("y", 0.5))
+
+
+def _correlations(row: np.ndarray) -> np.ndarray:
+    """One model's correlations as plotted: ``float`` with the undefined ones drawn at 0."""
+    return np.nan_to_num(row, nan=0.0).astype(float)
 
 
 def _axis_layout(grouping: str, model_name: str) -> dict:
@@ -51,7 +56,7 @@ def _axis_layout(grouping: str, model_name: str) -> dict:
     :param model_name: Model shown on this axis.
     :returns: A layout fragment carrying the title and the fixed range.
     """
-    return {"title": {"text": _axis_title(grouping, model_name)}, "range": list(_AXIS_RANGE)}
+    return {"title": {"text": f"{model_name} (per-{grouping} Pearson)"}, "range": list(_AXIS_RANGE)}
 
 
 def _dropdown_buttons(matrix: GroupCorrelationMatrix, axis: str) -> list[dict]:
@@ -69,38 +74,30 @@ def _dropdown_buttons(matrix: GroupCorrelationMatrix, axis: str) -> list[dict]:
     :param axis: ``"x"`` or ``"y"``.
     :returns: One Plotly ``updatemenu`` button per model.
     """
-    key = "xaxis" if axis == "x" else "yaxis"
-    buttons = []
-    for index, model_name in enumerate(matrix.model_names):
-        values = np.nan_to_num(matrix.values[index], nan=0.0).astype(float).tolist()
-        buttons.append(
-            {
-                "label": model_name,
-                "method": "update",
-                "args": [
-                    {axis: [values]},
-                    {key: _axis_layout(matrix.grouping, model_name)},
-                    [_POINTS_TRACE],
-                ],
-            }
-        )
-    return buttons
+    return [
+        {
+            "label": model_name,
+            "method": "update",
+            "args": [
+                {axis: [_correlations(matrix.values[index]).tolist()]},
+                {f"{axis}axis": _axis_layout(matrix.grouping, model_name)},
+                [_POINTS_TRACE],
+            ],
+        }
+        for index, model_name in enumerate(matrix.model_names)
+    ]
 
 
 def _build_figure(matrix: GroupCorrelationMatrix) -> go.Figure:
     """Build the two-dropdown comparison figure for one grouping.
 
-    :param matrix: Correlations to plot. May be empty, in which case an empty
-        figure is returned.
+    :param matrix: Correlations to plot, with at least one model and one group.
     :returns: A Plotly figure with one scatter trace and two ``updatemenus``.
     """
     import plotly.graph_objects as go
 
     fig = go.Figure()
-    if matrix.is_empty:
-        return fig
-
-    first = np.nan_to_num(matrix.values[0], nan=0.0).astype(float)
+    first = _correlations(matrix.values[0])
     fig.add_trace(
         go.Scatter(
             x=first,
@@ -125,58 +122,40 @@ def _build_figure(matrix: GroupCorrelationMatrix) -> go.Figure:
         )
     )
 
-    label = matrix.grouping
-    first_model = matrix.model_names[0]
+    first_axis = _axis_layout(matrix.grouping, matrix.model_names[0])
     fig.update_layout(
         title={
-            "text": f"Per-{label} Pearson correlation, model against model",
+            "text": f"Per-{matrix.grouping} Pearson correlation, model against model",
             "y": 0.99,
             "yanchor": "top",
         },
         showlegend=False,
-        xaxis=_axis_layout(matrix.grouping, first_model),
-        yaxis=_axis_layout(matrix.grouping, first_model),
+        xaxis=first_axis,
+        yaxis=first_axis,
         annotations=[
             {
-                "text": "x-axis model:",
+                "text": f"{axis}-axis model:",
                 "showarrow": False,
-                "x": 0,
+                "x": x,
                 "xref": "paper",
                 "xanchor": "left",
                 "y": 1.12,
                 "yref": "paper",
                 "yanchor": "bottom",
-            },
-            {
-                "text": "y-axis model:",
-                "showarrow": False,
-                "x": 0.5,
-                "xref": "paper",
-                "xanchor": "left",
-                "y": 1.12,
-                "yref": "paper",
-                "yanchor": "bottom",
-            },
+            }
+            for axis, x in _DROPDOWNS
         ],
         updatemenus=[
             {
-                "buttons": _dropdown_buttons(matrix, "x"),
+                "buttons": _dropdown_buttons(matrix, axis),
                 "direction": "down",
                 "showactive": True,
-                "x": 0.0,
+                "x": x,
                 "xanchor": "left",
                 "y": 1.12,
                 "yanchor": "top",
-            },
-            {
-                "buttons": _dropdown_buttons(matrix, "y"),
-                "direction": "down",
-                "showactive": True,
-                "x": 0.5,
-                "xanchor": "left",
-                "y": 1.12,
-                "yanchor": "top",
-            },
+            }
+            for axis, x in _DROPDOWNS
         ],
         margin={"t": 130},
         plot_bgcolor="#e5ecf6",
@@ -230,7 +209,7 @@ def _matrices(result: ExperimentResult) -> dict[str, GroupCorrelationMatrix]:
     """
     matrices = {}
     for grouping in GROUPINGS:
-        matrix = model_group_correlations(result, grouping).drop_all_nan_models()
+        matrix = model_group_correlations(result, grouping)
         if matrix.n_models >= 2 and matrix.n_groups > 0:
             matrices[grouping] = matrix
     return matrices

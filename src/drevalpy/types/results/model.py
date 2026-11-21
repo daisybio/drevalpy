@@ -31,7 +31,7 @@ class ModelResult:
     @property
     def n_folds(self) -> int:
         """Number of distinct folds, independent of stress-test variants."""
-        return len({run.fold_key for run in self.runs})
+        return len({run.identity.fold_key for run in self.runs})
 
     def select_runs(
         self,

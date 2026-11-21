@@ -1,12 +1,16 @@
-"""Checkpointed early-stopping loop shared by the hand-rolled torch training loops.
+"""Training scaffolding shared by the literature predictors that run their own torch code.
 
-``pharmaformer`` and ``dipk`` do not use Lightning; both ran the same skeleton
-around their epoch functions - track the best validation loss, write the best
-weights to a freshly randomised checkpoint file, stop after *patience* epochs
-without improvement, then reload the best weights. Only the per-epoch work and
-whether progress is logged differed.
+* :func:`run_epoch` runs one training or evaluation epoch over a loader;
+* :func:`train_with_early_stopping` is the checkpointed early-stopping loop around two epoch
+  functions: track the best validation loss, write the best weights to a freshly randomised
+  checkpoint file, stop after *patience* epochs without improvement, then reload the best weights;
+* :class:`DevicePicklingMixin` selects the predictor's torch device and keeps it out of the pickle
+  (see :func:`drevalpy._utils.accelerator.select_device`).
 
-``torch`` is imported inside the entry point: both callers live in a ``predictor.py``
+``pharmaformer``, ``paccmann`` and ``dipk`` use the early-stopping loop and none of them use Lightning;
+``precily`` and ``sparsego`` run only :func:`run_epoch`.
+
+``torch`` is imported inside the entry points: every caller lives in a ``predictor.py``
 that ``drevalpy.registry`` imports on ``import drevalpy``. See
 ``tests/test_import_cost_policy.py``.
 """
@@ -14,14 +18,15 @@ that ``drevalpy.registry`` imports on ``import drevalpy``. See
 from __future__ import annotations
 
 import logging
-import secrets
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from upath import UPath
 
+from drevalpy._utils.accelerator import select_device
 from drevalpy._utils.filenames import safe_filename
 from drevalpy._utils.torch_io import load_state_dict, save_torch_payload
+from drevalpy.components.predictors._lightning_training import _versioned_name
 from drevalpy.experiment._tracking import log_metrics
 
 if TYPE_CHECKING:
@@ -132,8 +137,7 @@ def _prepare_checkpoint_path(run: EarlyStoppingRun) -> UPath:
     """
     directory = UPath(run.checkpoint_dir)
     directory.mkdir(parents=True, exist_ok=True)
-    version = "version-" + "".join(secrets.choice("0123456789abcdef") for _ in range(20))
-    return directory / f"{version}_best_{safe_filename(run.model_name)}_model.pth"
+    return directory / f"{_versioned_name()}_best_{safe_filename(run.model_name)}_model.pth"
 
 
 def _log(run: EarlyStoppingRun, message: str) -> None:
@@ -144,3 +148,51 @@ def _log(run: EarlyStoppingRun, message: str) -> None:
     """
     if run.verbose:
         logger.info(message)
+
+
+class DevicePicklingMixin:
+    """Select a torch device for a predictor, and pickle it without the device.
+
+    The device is selected on construction. A fitted model trained on an accelerator must still
+    load on a machine without one, so the device
+    is not part of the pickle. After loading, the modules named in :attr:`device_modules`
+    are moved to the device :func:`select_device` picks there; an attribute may hold one
+    module, a list of modules, or ``None``.
+    """
+
+    #: Attributes holding the torch modules to move to the re-selected device.
+    device_modules: ClassVar[tuple[str, ...]] = ("_model",)
+
+    _device: Any
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        r"""Initialize the predictor, then select its device.
+
+        :param \*args: Positional arguments of the predictor's ``__init__``.
+        :param \**kwargs: Keyword arguments of the predictor's ``__init__``.
+        """
+        super().__init__(*args, **kwargs)
+        self._device = select_device()
+
+    def __getstate__(self) -> dict[str, Any]:
+        """Return the pickled state, without the device.
+
+        :returns: Instance attributes minus ``_device``.
+        """
+        state = dict(self.__dict__)
+        state.pop("_device", None)
+        return state
+
+    def __setstate__(self, state: dict[str, Any]) -> None:
+        """Restore the attributes, select a device and move the modules there.
+
+        :param state: Mapping returned by :meth:`__getstate__`.
+        """
+        self.__dict__.update(state)
+        self._device = select_device()
+        for name in self.device_modules:
+            value = getattr(self, name, None)
+            modules = value if isinstance(value, list) else [value]
+            for module in modules:
+                if module is not None:
+                    module.to(self._device)

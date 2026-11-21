@@ -13,9 +13,8 @@ import torch
 from torch import nn
 from upath import UPath as Path
 
-from drevalpy._utils.torch_io import load_state_dict
-from drevalpy.components.predictors._lightning_training import LossSteps
-from drevalpy.components.predictors.literature._omics_loaders import OmicsSplit, fit_omics_model
+from drevalpy.components.predictors._lightning_training import LossSteps, reload_best_weights
+from drevalpy.components.predictors.literature._omics import OmicsSplit, fit_omics_model
 
 
 def generate_triplets_indices(
@@ -268,7 +267,7 @@ class MOLIModel(LossSteps, OmicsRegressionModule):
             save_weights_only=True,
             enable_model_summary=False,
         )
-        self.load_state_dict(load_state_dict(self.checkpoint_callback.best_model_path)["state_dict"])
+        reload_best_weights(self, self.checkpoint_callback)
 
     def _encode_and_concatenate(
         self, gene_expression: torch.Tensor, mutations: torch.Tensor, copy_number: torch.Tensor

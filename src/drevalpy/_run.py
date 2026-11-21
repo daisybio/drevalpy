@@ -36,7 +36,7 @@ from drevalpy.models.config.immutable import thaw_value
 from drevalpy.models.spec import ModelSpec
 from drevalpy.registry.splitter import canonical
 from drevalpy.types import Dataset, Fold
-from drevalpy.types.enums.randomization import RandomizationType
+from drevalpy.types.enums import RandomizationType
 from drevalpy.types.results import ExperimentResult, RunResult
 from drevalpy.types.results._identity import RunIdentity
 from drevalpy.types.results._store import RunStore
@@ -61,11 +61,6 @@ class _FitRun(Protocol):
     """``_fit_fold`` bound to one model and the run settings."""
 
     def __call__(self, dataset: Dataset, fold: Fold, *, hyperparameters: Mapping[str, Any] | None) -> RunResult: ...
-
-
-def _is_robustness_fold(fold: Fold) -> bool:
-    """Whether *fold* is a robustness copy of an original fold, made by ``robustness``."""
-    return "robustness_repeat" in fold.metadata
 
 
 @dataclass
@@ -101,24 +96,26 @@ class _Outcomes:
                 self.record(error, model_name=model_name, fold=fold, randomized=randomized)
             return None
 
-    def fit_folds(self, fit: _FitRun, model: ModelSpec, datasets: Sequence[Dataset], folds: Sequence[Fold]) -> None:
-        """Fit *model* on every fold of every dataset (original first, then its randomizations).
+    def fit_folds(self, fit: _FitRun, model_name: str, datasets: Sequence[Dataset], folds: Sequence[Fold]) -> None:
+        """Fit *model_name* on every fold of every dataset (original first, then its randomizations).
 
-        The original dataset on an original fold is tuned; every other run reuses its best hyperparameters.
-
-        :param fit: The fit of *model*.
-        :param model: Model being fitted, for the failure records.
+        :param fit: The fit of the model.
+        :param model_name: Name of the model, for the failure records.
         :param datasets: The original dataset, then its randomized copies.
         :param folds: Original folds, each followed by its robustness copies.
         """
         for fold in folds:
             for run_ds in datasets:
-                self._fit_run(fit, model.name, run_ds, fold)
+                self.fit_run(fit, model_name, run_ds, fold)
 
-    def _fit_run(self, fit: _FitRun, model_name: str, run_ds: Dataset, fold: Fold) -> None:
-        """Load or fit one run: tune an original run and keep its values, or reuse them for a stress-test run."""
+    def fit_run(self, fit: _FitRun, model_name: str, run_ds: Dataset, fold: Fold) -> None:
+        """Load or fit one run: tune an original run and keep its values, or reuse them for a stress-test run.
+
+        The original dataset on an original fold is tuned; every other run (a randomized dataset, or a robustness
+        copy of a fold) reuses the best hyperparameters of the original run of its fold.
+        """
         identity = self.identity(model_name, fold, run_ds.randomization)
-        original = run_ds.randomization is None and not _is_robustness_fold(fold)
+        original = run_ds.randomization is None and "robustness_repeat" not in fold.metadata
         key = (model_name, identity.fold_index)
         result = self.store.load(identity) if self.store is not None else None
         if result is None and not original and key not in self.best_hyperparameters:
@@ -167,15 +164,8 @@ class _Outcomes:
 
     def identity(self, model_name: str, fold: Fold, randomized: tuple[str, str] | None) -> RunIdentity:
         """Return the identity of *model_name*'s run on *fold*, before it is fitted (so without provenance)."""
-        metadata = fold.metadata
-        return RunIdentity.from_metadata(
-            model_name,
-            self.dataset_name,
-            canonical(metadata.get("split_mode", "")),
-            metadata.get("fold_index", 0),
-            metadata.get("fold_id", ""),
-            randomized,
-            metadata,
+        return RunIdentity.from_fold(
+            model_name, self.dataset_name, canonical(fold.metadata.get("split_mode", "")), fold.metadata, randomized
         )
 
     def record(
@@ -365,8 +355,7 @@ def run(
             random_state=randomization_random_state,
         )
         randomized = outcomes.attempt(build, model_name=model.name, folds=folds) or []
-        outcomes.fit_folds(
-            partial(fit, model, response_transformation=response_transformation), model, [ds, *randomized], folds
-        )
+        fit_model = partial(fit, model, response_transformation=response_transformation)
+        outcomes.fit_folds(fit_model, model.name, [ds, *randomized], folds)
 
     return outcomes.result()

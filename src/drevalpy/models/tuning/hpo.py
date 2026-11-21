@@ -26,7 +26,7 @@ from drevalpy.models.spec import ModelSpec
 from drevalpy.models.tuning.search_space import draw
 from drevalpy.types.data.dataset import Dataset
 from drevalpy.types.data.response_table import ResponseTable
-from drevalpy.types.results.trial import TrialResult
+from drevalpy.types.results.run import TrialResult
 
 if TYPE_CHECKING:
     import optuna

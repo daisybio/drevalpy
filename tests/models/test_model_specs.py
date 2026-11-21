@@ -19,7 +19,7 @@ from drevalpy.registry.featurizer import register as register_featurizer
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.registry.predictor import register as register_predictor
 from drevalpy.types.data.feature_source import Side
-from drevalpy.types.enums.accelerator import Accelerator
+from drevalpy.types.enums import Accelerator
 
 
 def test_from_name_returns_reusable_named_recipe() -> None:
@@ -88,10 +88,10 @@ def test_check_values_false_takes_values_outside_the_space_but_not_unknown_keys(
 
 
 def test_model_id_is_the_recipe_of_the_components() -> None:
-    assert ModelSpec.from_name("pca[gene_expression]:fingerprints:elasticNet").model_id == (
+    assert ModelSpec.from_name("pca[gene_expression]:fingerprints:elasticNet").config.model_id == (
         "pca[gene_expression]:fingerprints:elasticNet"
     )
-    assert ModelSpec.from_name("NaivePredictor").model_id == "naiveMean"
+    assert ModelSpec.from_name("NaivePredictor").config.model_id == "naiveMean"
 
 
 def test_spec_shares_its_deep_frozen_model_config() -> None:

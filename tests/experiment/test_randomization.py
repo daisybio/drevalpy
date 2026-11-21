@@ -9,11 +9,7 @@ from typing import Any
 import pytest
 
 from drevalpy.data import synthetic
-from drevalpy.experiment._randomization import (
-    _complement_view_tests,
-    _single_view_tests,
-    randomization,
-)
+from drevalpy.experiment._randomization import randomization
 from drevalpy.models import ModelSpec
 
 
@@ -22,11 +18,11 @@ class _StubConfig:
     samples: list[str] = field(default_factory=list)
     drugs: list[str] = field(default_factory=list)
 
-    def sample_views(self) -> list[str]:
-        return list(self.samples)
-
-    def drug_views(self) -> list[str]:
-        return list(self.drugs)
+    def featurizers(self) -> dict[str, SimpleNamespace]:
+        return {
+            "sample": SimpleNamespace(views=lambda: list(self.samples)),
+            "drug": SimpleNamespace(views=lambda: list(self.drugs)),
+        }
 
 
 class _StubDataset:
@@ -52,22 +48,12 @@ def _stub_model(*, samples: list[str] | None = None, drugs: list[str] | None = N
     return SimpleNamespace(config=_StubConfig(samples=samples or [], drugs=drugs or []))
 
 
-def test_view_test_builders() -> None:
-    assert _single_view_tests(["a", "b"], "SVRC") == {("SVRC", "a"): ["a"], ("SVRC", "b"): ["b"]}
-    assert _single_view_tests([], "SVRC") == {}
-    assert _complement_view_tests(["a", "b", "c"], "SVCC") == {
-        ("SVCC", "a"): ["b", "c"],
-        ("SVCC", "b"): ["a", "c"],
-        ("SVCC", "c"): ["a", "b"],
-    }
-    assert _complement_view_tests(["a"], "SVCC") == {("SVCC", "a"): []}
-
-
 @pytest.mark.parametrize(
     ("mode", "model_kwargs", "expected"),
     [
         ("SVRC", {"samples": ["expr", "mut"]}, [["expr"], ["mut"]]),
         ("SVCC", {"samples": ["expr", "mut"]}, [["mut"], ["expr"]]),
+        ("SVCC", {"samples": ["a", "b", "c"]}, [["b", "c"], ["a", "c"], ["a", "b"]]),
         ("SVRD", {"drugs": ["fp", "smiles"]}, [["fp"], ["smiles"]]),
         ("SVCD", {"drugs": ["fp", "smiles"]}, [["smiles"], ["fp"]]),
         ("NOPE", {"samples": ["expr"]}, []),

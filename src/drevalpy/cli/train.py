@@ -9,6 +9,7 @@ import typer
 from upath import UPath
 
 from drevalpy.evaluation import Metric
+from drevalpy.models.response_transformation import ResponseTransformation, get_response_transformation
 
 from ._options import (
     Hpo,
@@ -20,10 +21,8 @@ from ._options import (
     MinRelevanceScore,
     NJobs,
     NoQualityFilter,
-    ResponseTransformation,
     ResponseTransformationOption,
     quality_from_cli,
-    resolve_response_transformation,
 )
 
 #: File of the model directory that holds the checkpoint.
@@ -61,7 +60,7 @@ def train_cmd(
     from drevalpy.models import ModelSpec
 
     spec = ModelSpec.from_name(model)
-    transformer = resolve_response_transformation(response_transformation)
+    transformer = get_response_transformation(response_transformation.value)
     quality = quality_from_cli(no_quality_filter, min_relevance_score, min_abs_fold_change)
     data = load(dataset)
     fitted = train(

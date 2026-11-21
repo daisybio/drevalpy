@@ -45,9 +45,6 @@ if TYPE_CHECKING:
 #: ``R^2`` and the correlations are undefined below this many pairs.
 MIN_GROUP_SIZE: Final[int] = 2
 
-#: Whether lower (``"min"``) or higher (``"max"``) values of a metric are better.
-Direction = Literal["min", "max"]
-
 
 class MetricKind(Enum):
     """What a metric measures. The kind decides when the data supports a score and which way is better."""
@@ -72,11 +69,6 @@ class LibraryFunction:
     module: Literal["scipy.stats", "sklearn.metrics"]
     #: Name of the function in :attr:`module`.
     name: str
-
-    @property
-    def path(self) -> str:
-        """Return the dotted path, for example ``"sklearn.metrics.r2_score"``."""
-        return f"{self.module}.{self.name}"
 
     def __call__(self, y_pred: np.ndarray, y_true: np.ndarray) -> float:
         """Score one group's pairs.
@@ -136,7 +128,7 @@ class Metric(StrEnum):
         raise ValueError(f"Unknown metric {value!r}. Available: {', '.join(cls)}")
 
     @property
-    def direction(self) -> Direction:
+    def direction(self) -> Literal["min", "max"]:
         """Whether lower or higher is better: ``"min"`` for an error, ``"max"`` for ``R^2`` and the correlations."""
         return "min" if self.kind is MetricKind.ERROR else "max"
 

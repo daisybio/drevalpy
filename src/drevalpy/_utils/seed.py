@@ -30,6 +30,16 @@ def seed_everything(seed: int = 42) -> None:
         torch.cuda.manual_seed_all(seed)
 
 
+def _digest32(parts: list) -> int:
+    """Hash JSON-serialisable *parts* to a 32-bit unsigned integer, stable across processes and platforms.
+
+    :param parts: Values that identify what is seeded.
+    :returns: The first four bytes of the SHA-256 of their compact JSON, big-endian.
+    """
+    key = json.dumps(parts, separators=(",", ":"))
+    return int.from_bytes(hashlib.sha256(key.encode()).digest()[:4], "big")
+
+
 def fit_seed(root_seed: int, identity: RunIdentity) -> int:
     """Derive the stable RNG seed of one fit from a root seed and its run identity.
 
@@ -40,7 +50,7 @@ def fit_seed(root_seed: int, identity: RunIdentity) -> int:
     :param identity: Identity of the run about to be fitted.
     :returns: Deterministic 32-bit unsigned integer, usable with every RNG backend.
     """
-    key = json.dumps(
+    return _digest32(
         [
             root_seed,
             identity.model_name,
@@ -50,10 +60,8 @@ def fit_seed(root_seed: int, identity: RunIdentity) -> int:
             identity.fold_id,
             list(identity.randomization) if identity.randomization else None,
             identity.robustness_repeat,
-        ],
-        separators=(",", ":"),
+        ]
     )
-    return int.from_bytes(hashlib.sha256(key.encode()).digest()[:4], "big")
 
 
 def drug_seed(root_seed: int, drug_id: str) -> int:
@@ -67,5 +75,4 @@ def drug_seed(root_seed: int, drug_id: str) -> int:
     :param drug_id: Identifier of the drug.
     :returns: Deterministic 32-bit unsigned integer, usable with every RNG backend.
     """
-    key = json.dumps([root_seed, drug_id], separators=(",", ":"))
-    return int.from_bytes(hashlib.sha256(key.encode()).digest()[:4], "big")
+    return _digest32([root_seed, drug_id])

@@ -29,7 +29,7 @@ from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.types.data.feature_block import FeaturizerOutput
 from drevalpy.types.data.predictor_input import PredictorInput
-from drevalpy.types.enums.model_scope import ModelScope
+from drevalpy.types.enums import ModelScope
 
 
 class SingleDrugPredictor(Predictor):

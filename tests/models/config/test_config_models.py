@@ -10,8 +10,7 @@ from pydantic import ValidationError
 from drevalpy.models.config import FeaturizerConfig, ModelConfig, PredictorConfig, from_recipe
 from drevalpy.models.zoo import get_zoo_config
 from drevalpy.registry.predictor import get as get_predictor
-from drevalpy.types.enums.model_scope import ModelScope
-from drevalpy.types.enums.prediction_mode import PredictionMode
+from drevalpy.types.enums import ModelScope, PredictionMode
 
 SAMPLE = FeaturizerConfig(name="scaledGeneExpression", side="sample")
 
@@ -378,8 +377,7 @@ def test_id_only_featurizers_resolve_to_empty_views(name: str) -> None:
         sample_featurizer=FeaturizerConfig.parse(name, "sample"),
         drug_featurizer=FeaturizerConfig.parse(name, "drug"),
     )
-    assert config.sample_views() == []
-    assert config.drug_views() == []
+    assert {side: root.views() for side, root in config.featurizers().items()} == {"sample": [], "drug": []}
 
 
 @pytest.mark.parametrize(
@@ -420,17 +418,26 @@ def test_id_only_featurizers_resolve_to_empty_views(name: str) -> None:
     ],
 )
 def test_sample_views(featurizer, views) -> None:
-    assert _model_config(sample_featurizer=featurizer).sample_views() == views
+    assert _model_config(sample_featurizer=featurizer).featurizers()["sample"].views() == views
 
 
 def test_drug_views() -> None:
     config = _model_config()
-    assert config.drug_views() == ["morgan_fingerprint"]
+    assert config.featurizers()["drug"].views() == ["morgan_fingerprint"]
 
     view = _model_config(
         drug_featurizer=FeaturizerConfig(name="view", side="drug", options={"view": "drug_chemberta_embeddings"})
     )
-    assert view.drug_views() == ["drug_chemberta_embeddings"]
+    assert view.featurizers()["drug"].views() == ["drug_chemberta_embeddings"]
+
+
+def test_featurizers_holds_the_slots_that_are_set() -> None:
+    config = _model_config()
+    assert list(config.featurizers()) == ["sample", "drug"]
+    assert config.featurizers()["sample"] is config.sample_featurizer
+    assert list(
+        _model_config(drug_featurizer=None, predictor=PredictorConfig(name="singleDrugElasticNet")).featurizers()
+    ) == ["sample"]
 
 
 def test_feature_based_predictor_requires_a_drug_featurizer() -> None:

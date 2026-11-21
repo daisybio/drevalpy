@@ -60,9 +60,10 @@ def test_builtin_names_follow_the_order_of_builtin_modules() -> None:
 
 
 def test_builtin_names_leave_out_other_registrations() -> None:
-    @predictor_registry.decorator("notBuiltin")
     class NotBuiltin:
         pass
+
+    predictor_registry.register("notBuiltin", NotBuiltin)
 
     assert "notBuiltin" in predictor_registry
     assert "notBuiltin" not in builtin_names(predictor_registry)
@@ -102,10 +103,10 @@ def test_bpe_pharmaformer_has_literature_reference() -> None:
 @pytest.mark.slow
 def test_fresh_process_registers_all_builtins() -> None:
     script = """
-from drevalpy.registry.featurizer import names_for_side
+from drevalpy.registry.featurizer import featurizer_registry
 from drevalpy.registry.predictor import predictor_registry
-assert len(names_for_side("sample")) == 18
-assert len(names_for_side("drug")) == 12
+assert len(featurizer_registry("sample").names()) == 18
+assert len(featurizer_registry("drug").names()) == 12
 assert len(predictor_registry) == 31
 print("ok")
 """

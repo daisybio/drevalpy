@@ -11,9 +11,9 @@ from typing import Any, ClassVar
 
 import numpy as np
 
-from drevalpy.components.predictors.literature._metadata import MORGOTH_REFERENCE
 from drevalpy.components.predictors.single_drug_sklearn import SingleDrugSklearnPredictor, _sample_matrix
 from drevalpy.log import get_logger
+from drevalpy.registry._component import LiteratureReference
 from drevalpy.registry.predictor import register
 from drevalpy.types.data.predictor_input import PredictorInput
 
@@ -38,11 +38,25 @@ _FOREST_PARAMETERS = (
     "fast_split",
 )
 
+_REFERENCE = LiteratureReference(
+    repo_url="https://github.com/volkamerlab/MORGOTH",
+    citation_doi="10.1039/D5DD00284B",
+    citation_text=(
+        "Rolli et al., Increasing trustworthiness of machine learning-based drug sensitivity prediction with a "
+        "multivariate random forest approach, Digital Discovery 2026."
+    ),
+    deviations=(
+        "Port of the DrEvalPy 1.6.1 SingleDrugMorgoth wrapper around the morgoth package, with its threshold rule, "
+        "pool handling and vectorized split search. The expression scaler is fitted on all training samples rather "
+        "than per drug, and the class comes from the regulation layer coded -1/0/1 instead of strings."
+    ),
+)
+
 
 @register(
     "singleDrugMorgoth",
     description="MORGOTH multivariate random forest fitted per drug on mRMR-selected sample features.",
-    reference=MORGOTH_REFERENCE,
+    reference=_REFERENCE,
     license="MIT",
 )
 class SingleDrugMorgothPredictor(SingleDrugSklearnPredictor):

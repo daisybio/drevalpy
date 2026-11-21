@@ -84,7 +84,7 @@ def in_groups(groups: np.ndarray, ids: np.ndarray) -> np.ndarray:
     return selected[groups]
 
 
-def source_samples(dataset: Dataset) -> np.ndarray:
+def _source_samples(dataset: Dataset) -> np.ndarray:
     """Return the source sample of every row, or the row ID without a ``source_sample_id`` column.
 
     :param dataset: Dataset whose rows are resolved.
@@ -123,7 +123,7 @@ def _by_sorted_label(rows_of: Callable[[Dataset], np.ndarray]) -> Callable[[Data
 
 
 def _sample_groups(dataset: Dataset) -> np.ndarray:
-    return _per_row(dataset, _first_appearance(source_samples(dataset)))
+    return _per_row(dataset, _first_appearance(_source_samples(dataset)))
 
 
 def _drug_groups(dataset: Dataset) -> np.ndarray:
@@ -133,7 +133,7 @@ def _drug_groups(dataset: Dataset) -> np.ndarray:
 
 def _sample_drug_groups(dataset: Dataset) -> np.ndarray:
     n_samples, n_drugs = dataset.response_matrix.shape
-    samples = _first_appearance(source_samples(dataset))
+    samples = _first_appearance(_source_samples(dataset))
     return _first_appearance((samples[:, None] * n_drugs + np.arange(n_drugs)).ravel()).reshape(n_samples, n_drugs)
 
 
@@ -147,12 +147,12 @@ def _drug_labels(dataset: Dataset, _rows: np.ndarray, columns: np.ndarray) -> li
 
 
 def _sample_drug_labels(dataset: Dataset, rows: np.ndarray, columns: np.ndarray) -> list[str]:
-    samples, drugs = source_samples(dataset)[rows], np.asarray(dataset.drug_ids)[columns]
+    samples, drugs = _source_samples(dataset)[rows], np.asarray(dataset.drug_ids)[columns]
     return [f"({sample}, {drug})" for sample, drug in zip(samples, drugs, strict=True)]
 
 
 MODES: dict[Validation, LeakageGroups] = {
-    "LSO": LeakageGroups("samples", _sample_groups, _row_labels(source_samples), cut="LSO"),
+    "LSO": LeakageGroups("samples", _sample_groups, _row_labels(_source_samples), cut="LSO"),
     "LDO": LeakageGroups("drugs", _drug_groups, _drug_labels, cut="LDO"),
     "LTO": LeakageGroups("tissues", _by_sorted_label(_tissues), _row_labels(_tissues), cut="LTO"),
     # A study holds many samples and drugs, so validation and early stopping are cut by

@@ -12,42 +12,24 @@ from plotly.basedatatypes import BaseFigure
 
 from drevalpy.types.results.experiment import ExperimentResult
 from drevalpy.visualization.base import show
-from drevalpy.visualization.plots._utils import compute_ssmd, runs_frame
+from drevalpy.visualization.plots._utils import placeholder_figure, runs_frame
 from drevalpy.visualization.plots.heatmap import (
     HeatmapPlot,
     _columns_for_setting,
-    _setting_groups,
     _ssmd_matrix,
+    compute_ssmd,
 )
 from drevalpy.visualization.plots.violin import ViolinPlot, _run_metrics
 from tests.synthetic import REFERENCE_MODEL, make_experiment_result, make_run_result
 
 
 def _ssmd_frame() -> pd.DataFrame:
-    return pd.DataFrame(
-        {"MSE": [1.0, 2.0, 5.0, 6.0]},
-        index=[
-            "A_predictions_LPO_split_0",
-            "A_predictions_LPO_split_1",
-            "B_predictions_LPO_split_0",
-            "B_predictions_LPO_split_1",
-        ],
-    )
+    return pd.DataFrame({"algorithm": ["A", "A", "B", "B"], "MSE": [1.0, 2.0, 5.0, 6.0]})
 
 
 @pytest.fixture(scope="module")
 def heatmap(experiment) -> BaseFigure:
     return HeatmapPlot().figure(experiment)
-
-
-class TestSettingGroups:
-    def test_keeps_the_first_three_index_tokens_aligned_with_the_frame(self):
-        df = _ssmd_frame()
-
-        groups = _setting_groups(df)
-
-        assert sorted(groups.unique()) == ["A_predictions_LPO", "B_predictions_LPO"]
-        assert list(groups.index) == list(df.index)
 
 
 class TestSsmdMatrix:
@@ -63,10 +45,7 @@ class TestSsmdMatrix:
         assert matrix.loc["A", "B"] < 0
 
     def test_ignores_nan_folds(self):
-        df = pd.DataFrame(
-            {"MSE": [np.nan, 2.0, 4.0, 5.0, 6.0, 7.0]},
-            index=[f"{model}_predictions_LPO_split_{i}" for model in "AB" for i in range(3)],
-        )
+        df = pd.DataFrame({"algorithm": list("AAABBB"), "MSE": [np.nan, 2.0, 4.0, 5.0, 6.0, 7.0]})
 
         assert _ssmd_matrix(df, "MSE").loc["A", "B"] == pytest.approx(compute_ssmd([2.0, 4.0], [5.0, 6.0, 7.0]))
 
@@ -119,6 +98,19 @@ class TestHeatmapFigure:
         assert panels[0] == ["MSE"]
         assert sorted(panels[1]) == ["A", "B"]
         assert len(panels) == 2
+
+    def test_model_names_with_underscores_stay_whole(self):
+        result = ExperimentResult(
+            [
+                make_run_result(model_name=name, fold_index=i, metrics={"MSE": 0.4 + i + offset})
+                for offset, name in enumerate(["Elastic_Net", "Random_Forest"])
+                for i in range(2)
+            ]
+        )
+        fig = HeatmapPlot().figure(result)
+
+        assert sorted(fig.data[1].y) == ["Elastic_Net", "Random_Forest"]
+        assert sorted(fig.data[1].x) == ["Elastic_Net", "Random_Forest"]
 
     def test_a_normalized_experiment_populates_every_panel(self):
         fig = HeatmapPlot().figure(make_experiment_result(n_models=3, n_folds=2).normalize(REFERENCE_MODEL))
@@ -180,6 +172,17 @@ class TestViolinFigure:
 
         assert set(data) == expected
         assert data[run.run_id] == run.metrics
+
+    def test_model_names_with_underscores_stay_whole(self):
+        result = ExperimentResult(
+            [
+                make_run_result(model_name=name, fold_index=i, metrics={"MSE": 0.4 + i})
+                for name in ("Elastic_Net",)
+                for i in range(2)
+            ]
+        )
+
+        assert [trace.name for trace in ViolinPlot().figure(result).data] == ["Elastic_Net: MSE"]
 
     def test_metrics_absent_from_the_result_are_dropped(self):
         result = ExperimentResult(
@@ -243,6 +246,15 @@ class TestComputeSsmd:
         assert math.isnan(compute_ssmd([2.0, 2.0], [1.0, 1.0]))
 
 
+class TestPlaceholderFigure:
+    def test_holds_only_the_message_on_an_axis_free_canvas(self):
+        fig = placeholder_figure("Nothing here", (4, 3))
+
+        assert tuple(fig.get_size_inches()) == (4, 3)
+        assert [text.get_text() for text in fig.axes[0].texts] == ["Nothing here"]
+        assert not fig.axes[0].axison
+
+
 class TestRunsFrame:
     def test_one_row_per_run_with_identity_columns_and_every_metric(self, experiment):
         df = runs_frame(experiment)
@@ -254,19 +266,12 @@ class TestRunsFrame:
         assert set(df["rand_setting"]) == {"predictions"}
         assert list(df.index) == list(range(len(df)))
 
-    def test_randomized_runs_get_a_composite_setting_label_also_in_the_index(self):
+    def test_randomized_runs_get_a_composite_setting_label(self):
         result = ExperimentResult([make_run_result(randomization=("gene_expression", "permutation"))])
 
-        df = runs_frame(result, indexed=True, randomization="all")
+        df = runs_frame(result, randomization="all")
 
         assert df["rand_setting"].tolist() == ["gene_expression_permutation"]
-        assert "gene_expression_permutation" in df.index[0]
-
-    def test_indexed_encodes_model_setting_mode_and_split_without_changing_the_rows(self, experiment):
-        indexed = runs_frame(experiment, indexed=True)
-
-        assert indexed.index[0] == f"{experiment.model_names[0]}_predictions_LPO_split_0"
-        assert runs_frame(experiment).to_numpy().tolist() == indexed.to_numpy().tolist()
 
     def test_default_selection_excludes_randomized_and_robustness_variants(self):
         result = ExperimentResult(

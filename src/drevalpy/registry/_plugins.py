@@ -58,6 +58,16 @@ def get_failed_plugins() -> dict[str, str]:
     return dict(_FAILED_PLUGINS)
 
 
+def declared_entry_points() -> dict[str, importlib.metadata.EntryPoint]:
+    """Return the ``drevalpy.plugins`` entry points declared in this environment.
+
+    :returns: Mapping of entry-point name to the entry point. Includes entry points that
+        fail to load, which is why it is read from ``importlib.metadata`` rather than
+        from the loaded-plugins ledger.
+    """
+    return {ep.name: ep for ep in importlib.metadata.entry_points(group=ENTRY_POINT_GROUP)}
+
+
 def _load_entry_point(ep: importlib.metadata.EntryPoint) -> None:
     """Import one entry point, recording success or failure.
 
@@ -107,5 +117,5 @@ def discover_plugins() -> None:
         return
     _discovered = True
     logger.debug("Discovering plugins")
-    for ep in importlib.metadata.entry_points(group=ENTRY_POINT_GROUP):
+    for ep in declared_entry_points().values():
         _load_entry_point(ep)

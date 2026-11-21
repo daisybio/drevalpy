@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 from scipy.stats import pearsonr
 
-from drevalpy.evaluation._correlation_matrix import GroupCorrelationMatrix, model_group_correlations
+from drevalpy.evaluation._correlation_matrix import model_group_correlations
 from drevalpy.evaluation._grouping import group_labeller
 from drevalpy.evaluation._scoring import evaluate_per_group
 from drevalpy.types.results.experiment import ExperimentResult
@@ -87,11 +87,10 @@ class TestModelGroupCorrelations:
 
         matrix = model_group_correlations(result, "drug")
 
-        assert matrix.is_empty
+        assert matrix.n_models == matrix.n_groups == 0
         assert matrix.values.shape == (0, 0)
 
-    def test_min_count_is_forwarded_and_unknown_groupings_are_rejected(self, experiment):
-        assert np.isnan(model_group_correlations(experiment, "drug", min_count=1000).values).all()
+    def test_unknown_groupings_are_rejected(self, experiment):
         with pytest.raises(ValueError, match="Unknown grouping"):
             model_group_correlations(experiment, "tissue")
 
@@ -136,13 +135,15 @@ class TestModelGroupCorrelations:
         assert np.isnan(matrix.values[:, column]).all()
         assert np.isfinite(np.delete(matrix.values, column, axis=1)).all()
 
-    def test_min_count_masks_small_groups_only(self):
-        result = ExperimentResult([make_run_result(model_name="A", n_pairs=20, n_drugs=4)])
-        counts = np.unique(result.models[0].select_runs()[0].drug_ids, return_counts=True)[1]
+    def test_a_model_with_no_defined_correlation_is_left_out(self):
+        undefined = make_run_result(model_name="Undefined", n_pairs=20, n_drugs=4)
+        undefined.ground_truth[:] = 1.0
+        good = make_run_result(model_name="Good", n_pairs=20, n_drugs=4)
 
-        matrix = model_group_correlations(result, "drug", min_count=int(counts.max()))
+        matrix = model_group_correlations(ExperimentResult([undefined, good]), "drug")
 
-        np.testing.assert_array_equal(np.isfinite(matrix.values[0]), counts >= counts.max())
+        assert matrix.model_names == ("Good",)
+        assert matrix.values.shape == (1, 4)
 
 
 class TestGroupCorrelationMatrix:
@@ -150,27 +151,3 @@ class TestGroupCorrelationMatrix:
         matrix = model_group_correlations(experiment, "drug")
 
         assert (matrix.n_models, matrix.n_groups) == (N_MODELS, N_DRUGS)
-        assert matrix.is_empty is False
-
-    def test_a_matrix_with_no_groups_is_empty(self):
-        assert GroupCorrelationMatrix("drug", ("A",), (), np.empty((1, 0), dtype=np.float32)).is_empty
-
-    def test_drop_all_nan_models_removes_only_fully_undefined_models(self):
-        matrix = GroupCorrelationMatrix(
-            "drug",
-            ("Good", "Partial", "Undefined"),
-            ("D_0", "D_1"),
-            np.array([[0.5, 0.4], [np.nan, 0.4], [np.nan, np.nan]], dtype=np.float32),
-        )
-
-        filtered = matrix.drop_all_nan_models()
-
-        assert filtered.model_names == ("Good", "Partial")
-        assert filtered.values.shape == (2, 2)
-
-    def test_drop_all_nan_models_returns_self_when_nothing_is_dropped(self):
-        full = GroupCorrelationMatrix("drug", ("A",), ("D_0",), np.array([[0.3]], dtype=np.float32))
-        empty = GroupCorrelationMatrix("drug", (), (), np.empty((0, 0), dtype=np.float32))
-
-        assert full.drop_all_nan_models() is full
-        assert empty.drop_all_nan_models() is empty

@@ -8,7 +8,7 @@ from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
 
 from drevalpy.errors import UnknownNameError
 from drevalpy.models import get_response_transformation
-from drevalpy.models.response_transformation import GroupMeanCenterer
+from drevalpy.models.response_transformation import GroupMeanCenterer, ResponseTransformation
 
 
 @pytest.mark.parametrize("option", ["None", "none", "NONE", None])
@@ -26,6 +26,11 @@ def test_known_options_return_a_fresh_unfitted_scaler(option: str, expected: typ
     assert not hasattr(first, "mean_")
     scaled = get_response_transformation("minmax").fit_transform(np.array([[0.0], [5.0], [10.0]]))
     np.testing.assert_allclose(scaled.ravel(), [0.0, 0.5, 1.0])
+
+
+def test_every_enum_member_is_a_known_option() -> None:
+    for member in ResponseTransformation:
+        get_response_transformation(member.value)
 
 
 def test_unknown_option_is_rejected_with_the_valid_options() -> None:

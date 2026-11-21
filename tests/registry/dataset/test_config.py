@@ -92,26 +92,30 @@ def config_dir(tmp_path, monkeypatch: pytest.MonkeyPatch) -> UPath:
     return UPath(tmp_path)
 
 
+def _lock_path() -> UPath:
+    return _io.get_config_path().with_suffix(".lock")
+
+
 def test_config_and_lock_paths_live_in_the_config_dir(config_dir: UPath) -> None:
     assert _io.get_config_path() == config_dir / "datasets.json"
-    assert _io._lock_path() == config_dir / "datasets.lock"
+    assert _lock_path() == config_dir / "datasets.lock"
 
 
 class TestConfigLock:
     def test_creates_the_lock_file_and_releases_on_exit(self, config_dir: UPath) -> None:
         with _io.config_lock():
-            assert _io._lock_path().is_file()
+            assert _lock_path().is_file()
         with _io.config_lock():
-            assert _io._lock_path().is_file()
+            assert _lock_path().is_file()
 
     def test_is_exclusive_while_held(self, config_dir: UPath) -> None:
-        contender = FileLock(_io._lock_path(), timeout=0)
+        contender = FileLock(_lock_path(), timeout=0)
 
         with _io.config_lock(), pytest.raises(Timeout):
             contender.acquire()
 
     def test_is_reentrant_and_stays_held_until_the_outermost_block_exits(self, config_dir: UPath) -> None:
-        contender = FileLock(_io._lock_path(), timeout=0)
+        contender = FileLock(_lock_path(), timeout=0)
 
         with _io.config_lock():
             with _io.config_lock():

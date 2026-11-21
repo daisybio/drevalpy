@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 from upath import UPath as Path
 
 from drevalpy.errors import DrEvalError
-from drevalpy.types.enums.randomization import randomization_label
+from drevalpy.types.enums import randomization_label
 from drevalpy.types.results._identity import RunIdentity
 
 if TYPE_CHECKING:

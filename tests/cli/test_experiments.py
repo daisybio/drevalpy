@@ -6,9 +6,7 @@ import numpy as np
 import pytest
 from upath import UPath
 
-from drevalpy.cli.experiments import experiments_app
-from drevalpy.cli.experiments.randomization import randomization_cmd
-from drevalpy.cli.experiments.robustness import robustness_cmd
+from drevalpy.cli.experiments import experiments_app, randomization_cmd, robustness_cmd
 from drevalpy.cli.main import app
 from drevalpy.types import Fold, SelectionMask
 from tests.cli._helpers import (

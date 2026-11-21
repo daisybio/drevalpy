@@ -35,7 +35,7 @@ from drevalpy.types.data.dataset import Dataset
 from drevalpy.types.data.feature_block import FeaturizerOutput
 from drevalpy.types.data.feature_source import FeatureSource, Side
 from drevalpy.types.data.predictor_input import PredictorInput
-from drevalpy.types.enums.model_scope import ModelScope
+from drevalpy.types.enums import ModelScope
 
 from .inputs import build_synthetic_input
 

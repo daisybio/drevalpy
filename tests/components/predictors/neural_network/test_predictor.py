@@ -94,19 +94,6 @@ def _network(input_dim: int = 6, **overrides: object) -> FeedForwardNetwork:
     return network
 
 
-@pytest.mark.parametrize(
-    ("hyperparameters", "message"),
-    [
-        ({"units_per_layer": 8, "dropout_prob": 0.1}, "units_per_layer must be a list of integers"),
-        ({"units_per_layer": [8, 4.5], "dropout_prob": 0.1}, "units_per_layer must be a list of integers"),
-        ({"units_per_layer": [8, 4], "dropout_prob": 0}, "dropout_prob must be a float"),
-    ],
-)
-def test_network_rejects_invalid_hyperparameters(hyperparameters: dict, message: str) -> None:
-    with pytest.raises(TypeError, match=message):
-        FeedForwardNetwork(hyperparameters, 4)
-
-
 def test_network_chains_the_requested_layer_widths_and_predicts_one_scalar_per_row() -> None:
     network = _network(input_dim=6, dropout_prob=0.35)
 

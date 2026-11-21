@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from drevalpy.data._replicate_fits import DRUG_COLUMN, SAMPLE_COLUMN, stack
+from drevalpy.data._replicate_fits import SAMPLE_COLUMN, stack
 from tests.data._replicate_fits_table import fits_table
 
 
@@ -22,7 +22,7 @@ class TestStack:
         assert list(stacked.columns) == [*first.columns, "plate"]
         assert list(stacked[SAMPLE_COLUMN][:2]) == ["FIRST::S1", "FIRST::S1"]
         assert stacked[SAMPLE_COLUMN].iloc[-1] == "SECOND::S2"
-        assert list(stacked[DRUG_COLUMN].unique()) == ["D1", "D2"]
+        assert list(stacked["pubchem_id"].unique()) == ["D1", "D2"]
         assert stacked["cell_batch"][len(first) :].isna().all()
         assert stacked["plate"][: len(first)].isna().all()
         assert first[SAMPLE_COLUMN].iloc[0] == "S1"
@@ -34,9 +34,9 @@ class TestStack:
         stacked = stack([first, second], ["FIRST", "SECOND"])
 
         assert stacked is not None
-        for column in (SAMPLE_COLUMN, DRUG_COLUMN, "status", "cell_batch"):
+        for column in (SAMPLE_COLUMN, "pubchem_id", "status", "cell_batch"):
             assert isinstance(stacked[column].dtype, pd.CategoricalDtype), column
-        assert list(stacked[DRUG_COLUMN].cat.categories) == ["D1", "D2"]
+        assert list(stacked["pubchem_id"].cat.categories) == ["D1", "D2"]
         assert list(stacked[SAMPLE_COLUMN].cat.categories) == ["FIRST::S1", "SECOND::S2"]
         assert list(stacked["status"].cat.categories) == ["fitted", "fit_failed", "too_few_doses"]
         assert stacked["replicate"].dtype == np.int32

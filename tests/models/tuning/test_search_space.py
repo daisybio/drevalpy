@@ -71,7 +71,6 @@ class TestDraw:
                 id="categorical",
             ),
             pytest.param({"type": "pow2", "low": 3, "high": 5, "default": 16}, lambda v: v in {8, 16, 32}, id="pow2"),
-            pytest.param(42, lambda v: v == 42, id="non-mapping-is-passed-through"),
         ],
     )
     def test_each_spec_kind_draws_inside_its_own_domain(self, spec, is_in_range) -> None:

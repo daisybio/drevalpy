@@ -18,9 +18,8 @@ from drevalpy.data.datasets import _load as load_module
 from drevalpy.data.datasets._cache import load_cached
 from drevalpy.data.datasets._load import load
 from drevalpy.errors import InputNotFoundError, InvalidInputError
-from drevalpy.registry.dataset import DatasetRegistry as Registry
-from drevalpy.registry.dataset import DrevalConfig, SourceEntry, get_config_path
 from drevalpy.registry.dataset import dataset_registry as registry
+from drevalpy.registry.dataset._registry import DatasetRegistry as Registry
 from drevalpy.types.data.dataset import Dataset
 
 _CORE_DATASETS = [
@@ -78,80 +77,6 @@ class TestBuiltinRegistry:
             assert entry.source == "orakl"
             assert entry.sha256 is not None
             assert len(entry.sha256) == 64
-
-
-class TestRegistration:
-    @pytest.fixture(autouse=True)
-    def _use_tmp_config(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setenv("DREVALPY_CONFIG_DIR", str(tmp_path))
-        self.reg = Registry()
-
-    def test_register(self) -> None:
-        self.reg.register_source("src", "https://example.com/data")
-        self.reg.register_source("s3_src", "s3://bucket/path", storage_options={"profile": "dev"})
-        self.reg.register("MyData", source="src", file="MyData.h5mu")
-
-        assert self.reg.sources["src"].url == "https://example.com/data"
-        assert self.reg.sources["s3_src"].storage_options == {"profile": "dev"}
-        assert self.reg.datasets["MyData"].file == "MyData.h5mu"
-        assert self.reg.metadata("MyData")["origin"] == "custom"
-
-    def test_registration_errors(self) -> None:
-        self.reg.register_source("src", "https://example.com")
-        self.reg.register("MyData", source="src", file="x.h5mu")
-
-        with pytest.raises(KeyError, match="not registered"):
-            self.reg.register("Other", source="nonexistent", file="x.h5mu")
-
-    def test_custom_overrides_builtin(self) -> None:
-        self.reg.register_source("orakl", "s3://my-mirror/data", replace=True)
-
-        assert self.reg.sources["orakl"].url == "s3://my-mirror/data"
-
-    def test_registration_persists_to_disk_and_reload_picks_up_external_changes(self) -> None:
-        self.reg.register_source("persisted", "https://example.com")
-        self.reg.register_source("second", "https://second.com")
-        config_path = get_config_path()
-        assert "persisted" in json.loads(config_path.read_text())["sources"]
-        assert {"persisted", "second"} <= set(self.reg.sources)
-
-        config_path.write_text(
-            json.dumps(
-                {
-                    "sources": {"external": "https://external.org"},
-                    "datasets": {"ExtData": {"source": "external", "file": "ext.h5mu"}},
-                }
-            )
-        )
-        self.reg.reload()
-
-        assert "ExtData" in self.reg
-        assert "external" in self.reg.sources
-
-
-class TestModels:
-    def test_source_entry_round_trips(self) -> None:
-        assert SourceEntry.from_raw("https://example.com").url == "https://example.com"
-        assert SourceEntry.from_raw("https://example.com").storage_options == {}
-        entry = SourceEntry.from_raw({"url": "s3://bucket", "storage_options": {"anon": True}})
-        assert (entry.url, entry.storage_options) == ("s3://bucket", {"anon": True})
-        assert SourceEntry(url="https://example.com").to_raw() == "https://example.com"
-        assert SourceEntry(url="s3://bucket", storage_options={"profile": "dev"}).to_raw() == {
-            "url": "s3://bucket",
-            "storage_options": {"profile": "dev"},
-        }
-
-    def test_dreval_config_roundtrip_and_forbids_extra_keys(self) -> None:
-        from pydantic import ValidationError
-
-        raw = {
-            "sources": {"lab": "https://lab.org/data"},
-            "datasets": {"Study1": {"source": "lab", "file": "Study1.h5mu"}},
-        }
-
-        assert DrevalConfig.from_raw(raw).to_raw() == raw
-        with pytest.raises(ValidationError):
-            DrevalConfig(sources={}, datasets={}, unknown="bad")
 
 
 def _stale_dataset():

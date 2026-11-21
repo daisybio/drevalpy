@@ -1,7 +1,7 @@
 """The per-replicate curve fits stored in ``response.uns["replicate_fits"]``.
 
 The curation pipeline writes one row per replicate dose series of a (sample, drug)
-pair: the canonical IDs in :data:`SAMPLE_COLUMN` and :data:`DRUG_COLUMN`, the fit
+pair: the canonical IDs in :data:`SAMPLE_COLUMN` and ``pubchem_id``, the fit
 status and metrics, and dataset-specific metadata. Text columns are categoricals.
 This module is the one place that knows that format; :func:`drevalpy.data.concat`
 goes through it.
@@ -22,8 +22,6 @@ if TYPE_CHECKING:
 KEY = "replicate_fits"
 #: Column holding the canonical sample ID (a ``response.obs_names`` entry).
 SAMPLE_COLUMN = "sample_id"
-#: Column holding the canonical drug ID (a ``response.var_names`` entry).
-DRUG_COLUMN = "pubchem_id"
 
 
 def _with_prefixed_samples(table: pd.DataFrame, study: str) -> pd.DataFrame:

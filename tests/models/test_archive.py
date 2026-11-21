@@ -21,8 +21,8 @@ from drevalpy.models._archive import (
     CorruptedCheckpointError,
     ModelCheckpointError,
     UnsupportedCheckpointFormatError,
+    _archive_path,
     load_archive,
-    resolve_checkpoint_path,
 )
 from drevalpy.models.config import from_recipe
 from tests.models.synthetic_fixtures import (
@@ -67,7 +67,7 @@ def elastic_net_payload(components: Any, *, spec: Any = None) -> dict[str, Any]:
     }
 
 
-class TestResolveCheckpointPath:
+class TestArchivePath:
     @pytest.mark.parametrize(
         ("given", "expected"),
         [
@@ -78,11 +78,11 @@ class TestResolveCheckpointPath:
         ],
     )
     def test_resolves_to_an_archive_path(self, given: str, expected: str) -> None:
-        assert resolve_checkpoint_path(given) == UPath(expected)
+        assert _archive_path(given) == UPath(expected)
 
     def test_rejects_a_directory_style_path(self) -> None:
         with pytest.raises(ValueError, match="not a directory"):
-            resolve_checkpoint_path("checkpoints/")
+            _archive_path("checkpoints/")
 
 
 class TestSaveModel:
@@ -159,9 +159,6 @@ class TestLoadArchive:
                 elastic_net_payload("bad"), CorruptedCheckpointError, "components are not a mapping", id="components"
             ),
             pytest.param(
-                elastic_net_payload({}, spec="bad"), CorruptedCheckpointError, "spec is not a mapping", id="spec"
-            ),
-            pytest.param(
                 {**elastic_net_payload({}), "measure": None},
                 CorruptedCheckpointError,
                 "has no response measure",
@@ -205,6 +202,7 @@ class TestLoadArchive:
         ("payload", "match"),
         [
             pytest.param(elastic_net_payload({}, spec={"name": "ElasticNet"}), "spec is invalid", id="bad-spec"),
+            pytest.param(elastic_net_payload({}, spec="bad"), "spec is invalid", id="spec-not-a-mapping"),
             pytest.param(elastic_net_payload({"predictor": None}), "no fitted predictor", id="no-predictor"),
         ],
     )

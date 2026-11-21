@@ -30,7 +30,7 @@ if TYPE_CHECKING:
     from drevalpy.experiment._execution import ExecutionSpec
     from drevalpy.models.response_transformation import ResponseTransformer
     from drevalpy.types.data.dataset import Dataset
-    from drevalpy.types.results.trial import TrialResult
+    from drevalpy.types.results.run import TrialResult
 
 logger = get_logger(__name__)
 

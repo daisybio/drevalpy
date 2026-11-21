@@ -113,19 +113,20 @@ class ExperimentResult:
                 other_runs.extend(model.runs)
                 continue
             for run in model.select_runs():
-                if run.fold_key in ref_runs_by_fold:
-                    raise ValueError(f"Duplicate ordinary reference run for fold {run.fold_key!r}")
-                ref_runs_by_fold[run.fold_key] = run
+                fold_key = run.identity.fold_key
+                if fold_key in ref_runs_by_fold:
+                    raise ValueError(f"Duplicate ordinary reference run for fold {fold_key!r}")
+                ref_runs_by_fold[fold_key] = run
 
         if not ref_runs_by_fold:
             raise ValueError(f"Reference model {reference_model!r} not found. Available: {self.model_names}")
 
         normalized_runs: list[RunResult] = []
         for run in other_runs:
-            if run.fold_key not in ref_runs_by_fold:
-                raise ValueError(f"No reference run found for fold {run.fold_key!r}")
-            ref_run = ref_runs_by_fold[run.fold_key]
-            normalized_runs.append(normalize_run(run, ref_run))
+            fold_key = run.identity.fold_key
+            if fold_key not in ref_runs_by_fold:
+                raise ValueError(f"No reference run found for fold {fold_key!r}")
+            normalized_runs.append(normalize_run(run, ref_runs_by_fold[fold_key]))
 
         result = ExperimentResult(normalized_runs, self.failures)
         result.normalized_by = reference_model
@@ -241,10 +242,7 @@ class ExperimentResult:
 
 
 def _run_array_bytes(run: RunResult) -> int:
-    """Approximate the heap cost of one run's arrays.
-
-    Object-dtype id arrays only report their pointer table via ``nbytes``, so the shared
-    strings behind them are added once each - which is the whole point of interning them.
+    """Approximate the heap cost of one run's arrays, counting each shared ID string once.
 
     :param run: Run to measure.
     :returns: Approximate number of bytes retained by the run's arrays.

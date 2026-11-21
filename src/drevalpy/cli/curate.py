@@ -22,8 +22,6 @@ from drevalpy.curation import DEFAULT_FIT_SPEED, FIT_SPEEDS
 if TYPE_CHECKING:
     import pandas as pd
 
-_TABLE_SUFFIXES = (".parquet", ".pq")
-
 FitSpeed = StrEnum("FitSpeed", {speed.upper(): speed for speed in FIT_SPEEDS}, module=__name__)
 FitSpeed.__doc__ = "Values of ``--fit-speed``, one per level in :data:`drevalpy.curation.FIT_SPEEDS`."
 _DEFAULT_FIT_SPEED = FitSpeed(DEFAULT_FIT_SPEED)
@@ -66,7 +64,7 @@ def _read_frame(input_path: str) -> pd.DataFrame:
     suffix = path.suffix.lower()
     if suffix == ".csv":
         return pd.read_csv(path)
-    if suffix in _TABLE_SUFFIXES:
+    if suffix in (".parquet", ".pq"):
         return pd.read_parquet(path)
     msg = f"Unsupported file format: {suffix}. Use .csv or .parquet."
     raise typer.BadParameter(msg)

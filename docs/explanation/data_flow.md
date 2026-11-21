@@ -290,8 +290,9 @@ Subclasses then consume `data` in one of three patterns:
   blocks `data.sample.blocks[name].values` / `data.drug.blocks[name].values` together with
   `data.sample_pair_idx` and `data.drug_pair_idx`. PyTorch predictors wrap these arrays in a
   lazy pair `DataLoader` so full pair-level feature matrices are never materialized in memory;
-  early-stopping pairs are indexed into the same entity tables via
-  `data.early_stopping_sample_idx` and `data.early_stopping_drug_idx`.
+  `data.stopping` holds the early-stopping pairs as a `PredictorInput` over the same entity
+  tables, so a predictor builds its validation loader from it as it builds the training one
+  from `data`.
 
 ```{code-cell} ipython3
 from drevalpy.components.predictors.sklearn_models import ElasticNetPredictor

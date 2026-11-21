@@ -8,7 +8,7 @@ from sklearn.base import clone
 
 from drevalpy._utils.accelerator import select_device
 from drevalpy.components.predictors._mrmr import MRMRSelector, NeighborCappedKNN
-from drevalpy.components.predictors.literature._torch_utils import DevicePicklingMixin
+from drevalpy.components.predictors.literature._torch_training import DevicePicklingMixin
 from tests.components.predictors._helpers import pickle_round_trip
 
 

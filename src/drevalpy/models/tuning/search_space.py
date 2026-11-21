@@ -11,7 +11,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any
 
-from drevalpy.models.hyperparameters import FEATURIZER_SLOTS, PREDICTOR_SLOT, key
+from drevalpy.models.hyperparameters import PREDICTOR_SLOT, key
 from drevalpy.registry.predictor import get as get_predictor
 
 if TYPE_CHECKING:
@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 
 def _effective_space(declared: Mapping[str, Any] | None, cls: type[Any]) -> dict[str, Any]:
     if declared is not None:
-        return {name: dict(spec) if isinstance(spec, Mapping) else spec for name, spec in declared.items()}
+        return {name: dict(spec) for name, spec in declared.items()}
     return dict(cls.get_hyperparameter_space())
 
 
@@ -31,12 +31,10 @@ def space(config: ModelConfig) -> dict[str, Any]:
     :returns: Every component's space entries under their qualified keys.
     """
     merged: dict[str, Any] = {}
-    for side, root in (("sample", config.sample_featurizer), ("drug", config.drug_featurizer)):
-        if root is None:
-            continue
+    for side, root in config.featurizers().items():
         for leaf in root.leaves():
             leaf_space = _effective_space(leaf.hyperparameter_space, leaf.featurizer_class)
-            merged.update({key(FEATURIZER_SLOTS[side], leaf.selector, name): spec for name, spec in leaf_space.items()})
+            merged.update({key(f"{side}_featurizer", leaf.selector, name): spec for name, spec in leaf_space.items()})
     predictor = config.predictor
     predictor_space = _effective_space(predictor.hyperparameter_space, get_predictor(predictor.name))
     merged.update({key(PREDICTOR_SLOT, predictor.name, name): spec for name, spec in predictor_space.items()})
@@ -62,10 +60,9 @@ def _suggest_categorical(trial: Any, name: str, choices: list[Any]) -> Any:
 def draw(trial: Any, space: Mapping[str, Any]) -> dict[str, Any]:
     """Draw one value per entry of *space* from an Optuna trial.
 
-    A ``fixed`` entry keeps its ``default``, and a non-mapping entry is taken as the value, without
-    asking the trial. A ``pow2`` entry is
-    sampled as an integer exponent and returned as the power of two, so replaying a trial's
-    ``params`` through this function (``optuna.trial.FixedTrial``) gives the values it trained with.
+    A ``fixed`` entry keeps its ``default`` without asking the trial. A ``pow2`` entry is sampled as
+    an integer exponent and returned as the power of two, so replaying a trial's ``params`` through
+    this function (``optuna.trial.FixedTrial``) gives the values it trained with.
 
     :param trial: An ``optuna.Trial`` instance.
     :param space: Search space such as
@@ -75,9 +72,6 @@ def draw(trial: Any, space: Mapping[str, Any]) -> dict[str, Any]:
     """
     result: dict[str, Any] = {}
     for name, spec in space.items():
-        if not isinstance(spec, Mapping):
-            result[name] = spec
-            continue
         kind = spec.get("type", "categorical")
         if kind == "fixed":
             result[name] = spec["default"]
@@ -94,27 +88,3 @@ def draw(trial: Any, space: Mapping[str, Any]) -> dict[str, Any]:
         else:
             raise ValueError(f"Unknown hyperparameter type {kind!r} for parameter {name!r}")
     return result
-
-
-def sample_configurations(space: Mapping[str, Any], n: int, seed: int = 0) -> list[dict[str, Any]]:
-    """Draw ``n`` hyperparameter configurations from a search space with a seeded Optuna sampler.
-
-    Each draw respects the declared distribution (log-uniform, integer, categorical, ...).
-
-    :param space: The search space, as ``get_hyperparameter_space`` returns it.
-    :param n: Number of configurations.
-    :param seed: Seed of the sampler, so the same call draws the same configurations.
-    :returns: ``n`` configurations; ``n`` empty dicts for an empty space.
-    """
-    import optuna
-
-    if not space:
-        return [{} for _ in range(n)]
-    optuna.logging.set_verbosity(optuna.logging.WARNING)
-    study = optuna.create_study(sampler=optuna.samplers.RandomSampler(seed=seed))
-    configs: list[dict[str, Any]] = []
-    for _ in range(n):
-        trial = study.ask()
-        configs.append(draw(trial, space))
-        study.tell(trial, 0.0)
-    return configs

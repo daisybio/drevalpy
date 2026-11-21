@@ -32,15 +32,10 @@ class PredictorConfig(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def _normalize_recipe_input(cls, data: object) -> object:
-        """Rewrite the various ways of writing a predictor into this model's own fields.
+        """Accept a recipe string or a ``defaults`` mapping in place of the canonical fields.
 
-        The featurizer counterpart of this hook, for the predictor slot: accepts a bare
-        recipe string such as ``"elasticNet"`` or a mapping like
-        ``{"name": "randomForest", "defaults": {"n_estimators": 10}}``, and reduces each to
-        ``name`` plus ``hyperparameter_space``.
-
-        :param data: A recipe string or a mapping of fields.
-        :returns: Canonical field mapping, or *data* unchanged if it is already canonical.
+        :param data: A recipe string such as ``"elasticNet"`` or a mapping of fields.
+        :returns: Canonical field mapping, or *data* unchanged for any other type.
         """
         if isinstance(data, (str, dict)):
             return normalize_predictor(data)

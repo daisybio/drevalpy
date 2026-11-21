@@ -87,8 +87,6 @@ class XGBoostPredictor(BoostedTreesPredictor):
 
         :returns: Unfitted ``XGBRegressor`` configured from hyperparameters.
         """
-        _set_xgboost_thread_defaults()
-
         from xgboost import XGBRegressor
 
         return XGBRegressor(**self._estimator_params(), n_jobs=-1)

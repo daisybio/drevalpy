@@ -9,7 +9,7 @@ runs of each model, scores them on one shared, sorted group axis with
 The undefined-score rule is the one shared with every other per-group score (see
 :mod:`drevalpy.evaluation._metrics`): a group with fewer than two pairs or a constant response is
 ``NaN`` for every model, and a constant predictor scores ``0.0`` within a group and is drawn.
-Groups with fewer than ``min_count`` pairs are additionally masked to ``NaN``.
+A model whose correlations are all ``NaN`` is left out of the matrix.
 """
 
 from __future__ import annotations
@@ -20,11 +20,13 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from ._grouping import defined_labels, group_labeller
-from ._metrics import MIN_GROUP_SIZE, Metric
+from ._metrics import Metric
 from ._scoring import evaluate_per_group
 
 if TYPE_CHECKING:
-    from drevalpy.types.results import ExperimentResult
+    from collections.abc import Callable
+
+    from drevalpy.types.results import ExperimentResult, RunResult
 
 
 @dataclass(frozen=True)
@@ -51,36 +53,9 @@ class GroupCorrelationMatrix:
         """Number of drugs, samples or studies on the column axis."""
         return len(self.group_names)
 
-    @property
-    def is_empty(self) -> bool:
-        """Whether the matrix has no models or no groups."""
-        return self.n_models == 0 or self.n_groups == 0
 
-    def drop_all_nan_models(self) -> GroupCorrelationMatrix:
-        """Return a copy without models whose correlations are all NaN.
-
-        A model has no defined correlation anywhere only when no group can support one
-        (for example a constant response everywhere or every group below ``min_count``);
-        a constant predictor scores ``0.0`` within a group and is kept.
-
-        :returns: ``self`` when nothing is dropped, otherwise a filtered copy.
-        """
-        if self.is_empty:
-            return self
-        keep = np.isfinite(self.values).any(axis=1)
-        if keep.all():
-            return self
-        return GroupCorrelationMatrix(
-            grouping=self.grouping,
-            model_names=tuple(np.asarray(self.model_names)[keep].tolist()),
-            group_names=self.group_names,
-            values=self.values[keep],
-        )
-
-
-def _shared_group_axis(result: ExperimentResult, grouping: str) -> np.ndarray:
-    """Return the sorted union of group labels over every scoring run."""
-    labels_of = group_labeller(grouping)
+def _shared_group_axis(result: ExperimentResult, labels_of: Callable[[RunResult], np.ndarray]) -> np.ndarray:
+    """Return the sorted union of the labels ``labels_of`` gives over every scoring run."""
     seen: list[np.ndarray] = []
     for model in result.models:
         for run in model.select_runs():
@@ -91,25 +66,21 @@ def _shared_group_axis(result: ExperimentResult, grouping: str) -> np.ndarray:
     return np.unique(np.concatenate(seen))
 
 
-def model_group_correlations(
-    result: ExperimentResult,
-    grouping: str,
-    *,
-    min_count: int = MIN_GROUP_SIZE,
-) -> GroupCorrelationMatrix:
+def model_group_correlations(result: ExperimentResult, grouping: str) -> GroupCorrelationMatrix:
     """Correlate predictions against ground truth per model and per group.
 
     The non-randomized runs of each model are concatenated and scored once on the shared
-    group axis, so a group's value pools all folds of that model.
+    group axis, so a group's value pools all folds of that model. A model with no defined
+    correlation in any group (no group can support one) is left out; a constant predictor
+    scores ``0.0`` within a group and is kept.
 
     :param result: Experiment whose models to summarise. Randomized runs are
         skipped.
-    :param grouping: One of :data:`GROUPINGS`.
-    :param min_count: Minimum observations a group needs for a finite value.
-    :returns: A :class:`GroupCorrelationMatrix` over every model in ``result``.
+    :param grouping: One of :data:`~drevalpy.evaluation._grouping.GROUPINGS`.
+    :returns: A :class:`GroupCorrelationMatrix` over the models of ``result`` with a defined correlation.
     """
-    groups = _shared_group_axis(result, grouping)
     labels_of = group_labeller(grouping)
+    groups = _shared_group_axis(result, labels_of)
 
     model_names: list[str] = []
     rows: list[np.ndarray] = []
@@ -124,9 +95,10 @@ def model_group_correlations(
             labels=np.concatenate([labels_of(run) for run in runs]),
             groups=groups,
         )
-        row = np.where(scores.n_pairs < min_count, np.nan, scores.values[Metric.PEARSON])
-        rows.append(row.astype(np.float32))
-        model_names.append(model.model_name)
+        row = scores.values[Metric.PEARSON].astype(np.float32)
+        if np.isfinite(row).any():
+            rows.append(row)
+            model_names.append(model.model_name)
 
     values = np.stack(rows) if rows else np.empty((0, len(groups)), dtype=np.float32)
     return GroupCorrelationMatrix(

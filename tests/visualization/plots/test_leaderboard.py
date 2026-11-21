@@ -48,7 +48,7 @@ def _visible_axes(fig) -> list:
 
 class TestFigureGeometry:
     def test_a_small_experiment_keeps_the_original_canvas(self):
-        height, font_adder, _ = _figure_geometry(12)
+        height, font_adder = _figure_geometry(12)
 
         assert (height, font_adder) == (12.0, 6)
 

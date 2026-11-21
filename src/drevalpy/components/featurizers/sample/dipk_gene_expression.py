@@ -34,7 +34,7 @@ from drevalpy.errors import InvalidInputError
 from drevalpy.registry.featurizer import register
 from drevalpy.types.data.feature_block import FeaturizerOutput
 from drevalpy.types.data.feature_source import FeatureSource, Side
-from drevalpy.types.enums.accelerator import Accelerator
+from drevalpy.types.enums import Accelerator
 
 if TYPE_CHECKING:
     from drevalpy.components.predictors.literature.dipk.gene_expression_encoder import GeneExpressionEncoder
@@ -167,7 +167,6 @@ class DIPKGeneExpressionFeaturizer(Featurizer):
         :returns: This featurizer, fitted.
         :raises InvalidInputError: If no training or early-stopping sample is given.
         """
-        from drevalpy.components.predictors.literature.dipk._autoencoder_batches import avoid_singleton_batch
         from drevalpy.components.predictors.literature.dipk.gene_expression_encoder import (
             train_gene_expession_autoencoder,
         )
@@ -179,7 +178,6 @@ class DIPKGeneExpressionFeaturizer(Featurizer):
         self._names = view_genes(source, _VIEW, self._gene_list)
         train = dipk_preprocess(source, view_matrix(source, _VIEW, np.unique(train_ids), self._names))
         validation = dipk_preprocess(source, view_matrix(source, _VIEW, np.unique(es_pair_ids), self._names))
-        train, validation = avoid_singleton_batch(train, validation, self._batch_size)
         self._encoder = train_gene_expession_autoencoder(
             train,
             validation,

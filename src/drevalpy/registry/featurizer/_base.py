@@ -16,9 +16,8 @@ from drevalpy.components.contracts.hyperparameter_space import validate_componen
 from drevalpy.errors import UnknownNameError
 from drevalpy.registry._component import LiteratureReference, component_decorator
 from drevalpy.registry._registry import Registry
-from drevalpy.registry.featurizer._validate import validate_featurizer_declarations
 from drevalpy.types.data.feature_source import Side
-from drevalpy.types.enums.accelerator import Accelerator
+from drevalpy.types.enums import Accelerator
 
 C = TypeVar("C", bound=type[Any])
 
@@ -41,6 +40,39 @@ def _side(side: Side | str) -> Side:
         available = ", ".join(sorted(s.value for s in Side))
         msg = f"Unknown featurizer side {side!r}. Available: {available}"
         raise ValueError(msg) from None
+
+
+def _validate_views(name: str, cls: type[Any], attr: str) -> None:
+    """Raise ``TypeError`` when the view declaration *attr* is not a tuple of names.
+
+    :param name: Registry name under which *cls* is being registered.
+    :param cls: Featurizer class being registered.
+    :param attr: ``input_views`` or ``source_views``.
+    :raises TypeError: If the declaration is not a tuple of non-empty strings.
+    """
+    views = getattr(cls, attr)
+    if not isinstance(views, tuple) or not all(isinstance(view, str) and view for view in views):
+        msg = f"featurizer '{name}' ({cls.__name__}): {attr} must be a tuple of view names, got {views!r}"
+        raise TypeError(msg)
+
+
+def _validate_declarations(name: str, cls: type[Any]) -> None:
+    """Check the class-body declarations of a featurizer being registered.
+
+    A featurizer must derive from :class:`~drevalpy.components.featurizers.featurizer.Featurizer`
+    and declare its views as tuples of names. Its side comes from the decorator, not the class.
+
+    :param name: Registry name under which *cls* is being registered.
+    :param cls: Featurizer class being registered.
+    :raises TypeError: If *cls* is not a featurizer class or a view declaration is malformed.
+    """
+    from drevalpy.components.featurizers.featurizer import Featurizer
+
+    if not (isinstance(cls, type) and issubclass(cls, Featurizer)):
+        msg = f"featurizer '{name}' must be a subclass of drevalpy.components.featurizers.featurizer.Featurizer"
+        raise TypeError(msg)
+    _validate_views(name, cls, "input_views")
+    _validate_views(name, cls, "source_views")
 
 
 def register(
@@ -76,7 +108,7 @@ def register(
 
     def validate(registered_name: str, cls: type[Any]) -> None:
         validate_component_hyperparameter_space(registered_name, cls)
-        validate_featurizer_declarations(registered_name, cls)
+        _validate_declarations(registered_name, cls)
 
     register_class = component_decorator(
         featurizer_registries[resolved],
@@ -127,12 +159,3 @@ def get_featurizer(name: str, side: Side | str) -> type[Any]:
             msg = f"{name!r} is a {other} featurizer and cannot be used on the {resolved} side"
             raise UnknownNameError(msg)
     return registry.get(name)
-
-
-def names_for_side(side: Side | str) -> tuple[str, ...]:
-    """Return the names of the featurizers registered on *side*.
-
-    :param side: ``Side.SAMPLE`` or ``Side.DRUG``.
-    :returns: Names in registration order.
-    """
-    return featurizer_registry(side).names()

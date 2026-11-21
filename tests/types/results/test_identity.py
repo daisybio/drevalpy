@@ -35,14 +35,20 @@ def test_an_index_cannot_collide_with_a_string_fold_id():
 
 
 def test_the_fold_key_prefers_the_stable_fold_id_else_the_index() -> None:
-    assert make_run_result(fold_index=7, fold_id="stable").fold_key == (
+    assert make_run_result(fold_index=7, fold_id="stable").identity.fold_key == (
         "SyntheticDataset",
         "pEC50",
         "LPO",
         "id",
         "stable",
     )
-    assert make_run_result(fold_index=7, fold_id="").fold_key == ("SyntheticDataset", "pEC50", "LPO", "index", 7)
+    assert make_run_result(fold_index=7, fold_id="").identity.fold_key == (
+        "SyntheticDataset",
+        "pEC50",
+        "LPO",
+        "index",
+        7,
+    )
 
 
 def test_run_id_distinguishes_stress_tests() -> None:
@@ -52,3 +58,11 @@ def test_run_id_distinguishes_stress_tests() -> None:
 
     assert ordinary.run_id != randomized.run_id
     assert ordinary.run_id != robustness.run_id
+
+
+def test_from_fold_reads_the_index_and_id_of_the_fold_with_defaults():
+    named = RunIdentity.from_fold("model", "data", "LPO", {"fold_index": 2, "fold_id": "fold"}, None)
+    bare = RunIdentity.from_fold("model", "data", "LPO", {}, ("SVRC", "gene_expression"))
+
+    assert named == _identity()
+    assert (bare.fold_index, bare.fold_id, bare.randomization) == (0, "", ("SVRC", "gene_expression"))

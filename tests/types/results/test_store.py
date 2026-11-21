@@ -36,7 +36,7 @@ class TestRunFilename:
         bare = make_run_result()
         fitted = make_run_result(fold_metadata={"execution": {"seed": 7}})
 
-        assert bare.run_key != fitted.run_key
+        assert bare.identity.run_key != fitted.identity.run_key
         assert run_filename(bare.identity) == run_filename(fitted.identity)
 
 
@@ -138,9 +138,9 @@ class TestRuns:
         assert (directory / "ElasticNet" / run_filename(runs[0].identity)).is_file()
         assert not list(directory.rglob("*.partial"))
         experiment = ExperimentResult.load(directory)
-        assert [[r.run_key for r in m.runs] for m in experiment.models] == [
-            [r.run_key for r in runs[:2]],
-            [runs[2].run_key],
+        assert [[r.identity.run_key for r in m.runs] for m in experiment.models] == [
+            [r.identity.run_key for r in runs[:2]],
+            [runs[2].identity.run_key],
         ]
         assert experiment.failures == (failure,)
 

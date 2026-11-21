@@ -19,10 +19,9 @@ from drevalpy.visualization.plots import critical_difference
 from drevalpy.visualization.plots.critical_difference import (
     CriticalDifferencePlot,
     _build_cd_df,
-    _crossbar_sets_from_adjacency,
+    _crossbar_sets,
     _draw_crossbars,
     _generate_discrete_palette,
-    _nonsignificant_adjacency,
 )
 from tests._trusted_subprocess import run_trusted_python
 from tests.synthetic import REFERENCE_MODEL, make_experiment_result, make_run_result
@@ -101,20 +100,7 @@ class TestGenerateDiscretePalette:
         assert all(c.startswith("#") and len(c) == 7 for c in colors)
 
 
-class TestAdjacencyAndCrossbars:
-    def test_adjacency_marks_non_significant_pairs_and_the_diagonal_without_mutating(self):
-        sig = _sig_matrix(a_vs_b=0.9, a_vs_c=0.001, b_vs_c=0.001)
-        before = sig.copy()
-
-        adjacency = _nonsignificant_adjacency(sig)
-
-        assert bool(adjacency.loc["A", "B"]) is True
-        assert bool(adjacency.loc["A", "C"]) is False
-        assert adjacency.to_numpy().diagonal().all()
-        assert list(adjacency.index) == list(adjacency.columns) == MODELS
-        assert adjacency.dtypes.eq(bool).all()
-        pd.testing.assert_frame_equal(sig, before)
-
+class TestCrossbars:
     @pytest.mark.parametrize(
         "p_values, expected",
         [
@@ -123,20 +109,22 @@ class TestAdjacencyAndCrossbars:
             ((0.9, 0.9, 0.9), dict.fromkeys(MODELS, set(MODELS))),
         ],
     )
-    def test_each_model_is_grouped_with_its_non_different_peers(self, p_values, expected):
-        adjacency = _nonsignificant_adjacency(_sig_matrix(*p_values))
+    def test_each_model_is_grouped_with_its_non_different_peers_without_mutating_the_matrix(self, p_values, expected):
+        sig = _sig_matrix(*p_values)
+        before = sig.copy()
 
-        assert _crossbar_sets_from_adjacency(adjacency) == expected
+        assert _crossbar_sets(sig) == expected
+        pd.testing.assert_frame_equal(sig, before)
 
     def test_singleton_groups_draw_nothing_and_each_group_draws_one_line_in_the_model_color(self):
         ranks = pd.Series({"A": 1.0, "B": 2.0, "C": 3.0})
         colors = {"A": "#ff0000", "B": "#00ff00", "C": "#0000ff"}
         _, ax = plt.subplots()
 
-        assert _draw_crossbars(ax, ranks, {name: {name} for name in MODELS}, colors, {}) == -0.5
+        assert _draw_crossbars(ax, ranks, {name: {name} for name in MODELS}, colors) == -0.5
         assert len(ax.lines) == 0
 
-        ypos = _draw_crossbars(ax, ranks, {"A": {"A", "B"}, "B": {"A", "B"}, "C": {"C"}}, colors, {})
+        ypos = _draw_crossbars(ax, ranks, {"A": {"A", "B"}, "B": {"A", "B"}, "C": {"C"}}, colors)
 
         assert ypos == -1.5
         assert len(ax.lines) == 2

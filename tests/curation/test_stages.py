@@ -7,13 +7,8 @@ import pandas as pd
 import pytest
 
 from drevalpy.curation._anndata import _LAYER_METRICS, X_MEASURE, build_anndata
-from drevalpy.curation._fit import _build_config, _build_work_items
-from drevalpy.curation._normalize import (
-    PRE_NORM_SIGNAL_QUALITY,
-    _column_names,
-    normalize_group,
-    restore_signal_quality,
-)
+from drevalpy.curation._fit import FitOptions, fit_config, split
+from drevalpy.curation._normalize import PRE_NORM_SIGNAL_QUALITY, normalize_group, restore_signal_quality
 from drevalpy.curation._postprocess import _COLUMN_RENAME, DERIVED_METRICS, postprocess
 from drevalpy.curation._preprocess import preprocess
 
@@ -33,20 +28,6 @@ def test_returns_groups_of_a_wide_frame_and_group_info(dose_response_df: pd.Data
 
 def test_replicates_are_counted(dose_response_df_with_replicates: pd.DataFrame) -> None:
     assert preprocess(dose_response_df_with_replicates)[0][1]["n_replicates"] == 2
-
-
-def test_missing_columns_raise() -> None:
-    with pytest.raises(ValueError, match="Missing required columns"):
-        preprocess(pd.DataFrame({"drug": ["A"], "sample": ["B"]}))
-
-
-def test_duplicate_measurements_are_averaged_with_a_warning(dose_response_df: pd.DataFrame) -> None:
-    duplicated = pd.concat([dose_response_df, dose_response_df.head(1)], ignore_index=True)
-
-    with pytest.warns(UserWarning, match="Duplicate entries found"):
-        groups = preprocess(duplicated)
-
-    assert len(groups[0][0]) == 6
 
 
 _CONCENTRATIONS = (0.001, 0.01, 0.1, 1.0, 10.0)
@@ -84,19 +65,11 @@ def groups() -> list[tuple[pd.DataFrame, dict]]:
 @pytest.fixture()
 def group_and_config(groups: list[tuple[pd.DataFrame, dict]]) -> tuple[pd.DataFrame, dict]:
     df, info = groups[0]
-    config = _build_config(info["n_experiments"], info["doses"], info["n_replicates"], normalize=True, fit_speed="fast")
-    return df, config
+    return df, fit_config(info, FitOptions(fit_speed="fast"), normalize=True)
 
 
-def test_column_names_line_up_with_run_pipeline(group_and_config: tuple[pd.DataFrame, dict]) -> None:
-    df, config = group_and_config
-
-    raw, normalized, dosed, controls = _column_names(config)
-
-    assert [name.replace("Raw", "Normalized") for name in raw] == list(normalized)
-    assert set(raw) <= set(df.columns)
-    assert len(dosed) == len(raw) - 1
-    assert list(controls) == ["Raw 0"]
+def _raw_columns(df: pd.DataFrame) -> list[str]:
+    return [column for column in df.columns if str(column).startswith("Raw")]
 
 
 class TestNormalizeGroup:
@@ -104,7 +77,7 @@ class TestNormalizeGroup:
         self, group_and_config: tuple[pd.DataFrame, dict]
     ) -> None:
         df, config = group_and_config
-        raw, _, _, _ = _column_names(config)
+        raw = _raw_columns(df)
         before = df[raw].to_numpy(copy=True)
 
         result = normalize_group(df, config)
@@ -123,7 +96,7 @@ class TestNormalizeGroup:
 
     def test_factors_depend_on_the_rows_but_not_their_order(self, group_and_config: tuple[pd.DataFrame, dict]) -> None:
         df, config = group_and_config
-        raw, _, _, _ = _column_names(config)
+        raw = _raw_columns(df)
 
         whole = normalize_group(df, config).set_index("Name")[raw]
         shuffled = normalize_group(df.iloc[::-1].reset_index(drop=True), config).set_index("Name")[raw]
@@ -148,20 +121,15 @@ class TestRestoreSignalQuality:
         assert restore_signal_quality(fitted) is fitted
 
 
-class TestWorkItemWiring:
-    def test_chunks_are_prenormalized_with_the_request_recorded_on_the_group_configs(
-        self, groups: list[tuple[pd.DataFrame, dict]]
-    ) -> None:
-        work_items, configs = _build_work_items(
-            groups, max_chunk_size=2, normalize=True, fit_type="OLS", fit_speed="fast"
-        )
-        plain, _ = _build_work_items(groups, max_chunk_size=2, normalize=False, fit_type="OLS", fit_speed="fast")
+class TestSplitNormalization:
+    def test_chunks_are_prenormalized_when_the_group_is_normalized(self) -> None:
+        options = FitOptions(normalize=True, fit_speed="fast", max_chunk_size=2)
+        chunks, _ = split(build_normalizable_df(), options)
+        plain, _ = split(build_normalizable_df(), FitOptions(fit_speed="fast", max_chunk_size=2))
 
-        assert all(config["Processing"]["normalization"] is False for _, config, _ in work_items)
-        assert all(config["Processing"]["normalization"] is True for config in configs)
-        assert all(PRE_NORM_SIGNAL_QUALITY in chunk.columns for chunk, _, _ in work_items)
-        assert all(PRE_NORM_SIGNAL_QUALITY not in chunk.columns for chunk, _, _ in plain)
-        assert [len(chunk) for chunk, _, _ in work_items] == [len(chunk) for chunk, _, _ in plain]
+        assert all(PRE_NORM_SIGNAL_QUALITY in chunk.columns for chunk, _ in chunks)
+        assert all(PRE_NORM_SIGNAL_QUALITY not in chunk.columns for chunk, _ in plain)
+        assert [len(chunk) for chunk, _ in chunks] == [len(chunk) for chunk, _ in plain]
 
 
 def _make_mock_fitted_df() -> pd.DataFrame:
@@ -200,7 +168,7 @@ def fitted_df() -> pd.DataFrame:
 
 @pytest.fixture()
 def metrics(fitted_df: pd.DataFrame) -> pd.DataFrame:
-    return postprocess([(fitted_df, {})])
+    return postprocess([fitted_df])
 
 
 class TestColumns:
@@ -225,7 +193,7 @@ class TestColumns:
 
     def test_a_missing_error_column_is_an_error_not_a_silent_drop(self, fitted_df: pd.DataFrame) -> None:
         with pytest.raises(KeyError, match="pEC50 Error"):
-            postprocess([(fitted_df.drop(columns=["pEC50 Error"]), {})])
+            postprocess([fitted_df.drop(columns=["pEC50 Error"])])
 
 
 class TestDerivedMetrics:
@@ -246,7 +214,7 @@ class TestLabels:
         native = _make_mock_fitted_df()
         native["Name"] = ["ACH-000001|DRUG_1047", "SIDM00400|DRUG_1047", "ACH-000001|BRD-K02251932"]
 
-        result = postprocess([(native, {})])
+        result = postprocess([native])
 
         assert result["sample"].tolist() == ["ACH-000001", "SIDM00400", "ACH-000001"]
         assert result["drug"].tolist() == ["DRUG_1047", "DRUG_1047", "BRD-K02251932"]
@@ -260,7 +228,7 @@ class TestMultipleGroups:
         other["Name"] = ["CL_A|DrugZ", "CL_B|DrugZ", "CL_C|DrugZ"]
         before = fitted_df.columns.tolist()
 
-        result = postprocess([(fitted_df, {}), (other, {})])
+        result = postprocess([fitted_df, other])
 
         assert len(result) == 2 * len(fitted_df)
         assert result.index.tolist() == list(range(len(result)))

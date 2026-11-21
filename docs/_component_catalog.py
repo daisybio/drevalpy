@@ -6,7 +6,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
-from _generated_io import write_text_if_changed
+from _generated_io import list_table, registry_description, write_text_if_changed
 
 from drevalpy.components.predictors.inputs import Inputs, predictor_inputs
 from drevalpy.models.config.featurizer import requires_explicit_view
@@ -16,7 +16,7 @@ from drevalpy.registry._component import component_license
 from drevalpy.registry.featurizer import featurizer_registries
 from drevalpy.registry.predictor import predictor_registry
 from drevalpy.types.data.feature_source import Side
-from drevalpy.types.enums.accelerator import Accelerator
+from drevalpy.types.enums import Accelerator
 
 DOCS_DIR = Path(__file__).resolve().parent
 GENERATED_CATALOGS = {
@@ -30,13 +30,6 @@ EXPECTED_PREDICTOR_INPUT_COUNTS = {"none": 1, "matrix": 15, "blocks": 15}
 
 #: View a featurizer that requires an explicit view is built with to read its declarations.
 _PLACEHOLDER_VIEW = "gene_expression"
-
-
-def _description(name: str, metadata: Any) -> str:
-    description = " ".join((metadata.get("description") or "").split())
-    if not description:
-        raise RuntimeError(f"Component {name!r} is missing a description")
-    return description
 
 
 def _featurizer_config(name: str, cls: type[Any]) -> dict[str, Any]:
@@ -69,31 +62,22 @@ def _output_formats(cls: type[Any], config: dict[str, Any]) -> str:
 
 
 def _render_featurizers(side: Side, rows: list[tuple[str, type[Any]]]) -> str:
-    lines = [
-        ".. list-table::",
-        "   :header-rows: 1",
-        "   :widths: 20 14 12 10 14 30",
-        "",
-        "   * - Name",
-        "     - Output format",
-        "     - Precomputable",
-        "     - Accelerator",
-        "     - License",
-        "     - Description",
-    ]
-    for name, cls in rows:
-        config = _featurizer_config(name, cls)
-        lines.extend(
-            [
-                f"   * - ``{name}``",
-                f"     - {_output_formats(cls, config)}",
-                f"     - {chr(0x2705) if issubclass(cls, PrecomputableFeaturizer) else chr(0x274C)}",
-                f"     - {_accelerator_cell(cls)}",
-                f"     - {_license_cell(cls)}",
-                f"     - {_description(name, featurizer_registries[side].metadata(name))}",
-            ]
-        )
-    return "\n".join([*lines, ""])
+    table = list_table(
+        (20, 14, 12, 10, 14, 30),
+        ("Name", "Output format", "Precomputable", "Accelerator", "License", "Description"),
+        (
+            (
+                f"``{name}``",
+                _output_formats(cls, _featurizer_config(name, cls)),
+                chr(0x2705) if issubclass(cls, PrecomputableFeaturizer) else chr(0x274C),
+                _accelerator_cell(cls),
+                _license_cell(cls),
+                registry_description(featurizer_registries[side], name),
+            )
+            for name, cls in rows
+        ),
+    )
+    return "\n".join([*table, ""])
 
 
 def _inputs_cell(inputs: Inputs) -> str:
@@ -115,30 +99,22 @@ def _input_kind(cls: type[Any]) -> str:
 
 
 def _render_predictors(rows: list[tuple[str, type[Any]]]) -> str:
-    lines = [
-        ".. list-table::",
-        "   :header-rows: 1",
-        "   :widths: 16 17 17 10 14 26",
-        "",
-        "   * - Name",
-        "     - Sample inputs",
-        "     - Drug inputs",
-        "     - Accelerator",
-        "     - License",
-        "     - Description",
-    ]
-    for name, cls in rows:
-        lines.extend(
-            [
-                f"   * - ``{name}``",
-                f"     - {_inputs_cell(predictor_inputs(cls, 'sample'))}",
-                f"     - {_inputs_cell(predictor_inputs(cls, 'drug'))}",
-                f"     - {_accelerator_cell(cls)}",
-                f"     - {_license_cell(cls)}",
-                f"     - {_description(name, predictor_registry.metadata(name))}",
-            ]
-        )
-    return "\n".join([*lines, ""])
+    table = list_table(
+        (16, 17, 17, 10, 14, 26),
+        ("Name", "Sample inputs", "Drug inputs", "Accelerator", "License", "Description"),
+        (
+            (
+                f"``{name}``",
+                _inputs_cell(predictor_inputs(cls, "sample")),
+                _inputs_cell(predictor_inputs(cls, "drug")),
+                _accelerator_cell(cls),
+                _license_cell(cls),
+                registry_description(predictor_registry, name),
+            )
+            for name, cls in rows
+        ),
+    )
+    return "\n".join([*table, ""])
 
 
 def _skipped_module_report() -> str:

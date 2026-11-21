@@ -2,20 +2,20 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import numpy as np
 
-from drevalpy.components.contracts.hyperparameter_space import fixed_entries
-from drevalpy.components.predictors.literature._metadata import MOLIR_REFERENCE
-from drevalpy.components.predictors.literature._omic_helpers import (
+from drevalpy.components.predictors.literature._omics import (
+    OmicsSplit,
+    SingleDrugOmicsPredictor,
     omic_matrices,
     validation_split,
 )
-from drevalpy.components.predictors.literature._single_drug_omics import SingleDrugOmicsPredictor
+from drevalpy.registry._component import LiteratureReference
 from drevalpy.registry.predictor import register
 from drevalpy.types.data.predictor_input import PredictorInput
-from drevalpy.types.enums.accelerator import Accelerator
+from drevalpy.types.enums import Accelerator
 
 # MOLIModel lives in .utils, which imports pytorch_lightning at module scope. This
 # module is imported eagerly by register_builtins(), so the import is
@@ -24,11 +24,26 @@ from drevalpy.types.enums.accelerator import Accelerator
 if TYPE_CHECKING:
     from drevalpy.components.predictors.literature.molir.utils import MOLIModel
 
+_REFERENCE = LiteratureReference(
+    repo_url="https://github.com/kramerlab/Multi-Omics_analysis",
+    citation_doi="10.1186/s12859-023-05166-7",
+    citation_text=(
+        "MOLIR is a regression adaptation of MOLI (Sharifi-Noghabi et al., Bioinformatics 2019, "
+        "doi:10.1093/bioinformatics/btz318); the DOI above is the Hauptmann and Kramer benchmark that "
+        "compares MOLI and Super.FELT."
+    ),
+    deviations=(
+        "Regression adaptation of kramerlab Multi-Omics_analysis MOLI: preserve encoders and late "
+        "integration, replace classification sigmoid/BCE with continuous outputs/MSE and response-based "
+        "triplet sampling."
+    ),
+)
+
 
 @register(
     "molir",
     description="MOLIR single-drug multi-omics model.",
-    reference=MOLIR_REFERENCE,
+    reference=_REFERENCE,
     license="GPL-3.0-only",
     accelerator=Accelerator.OPTIONAL,
 )
@@ -36,6 +51,19 @@ class MOLIRPredictor(SingleDrugOmicsPredictor):
     """MOLIR predictor: per-drug multi-omics late integration model."""
 
     _models: dict[str, MOLIModel]
+
+    fixed_hyperparameters = {
+        "mini_batch": 32,
+        "h_dim1": 64,
+        "h_dim2": 64,
+        "h_dim3": 64,
+        "learning_rate": 0.01,
+        "dropout_rate": 0.5,
+        "weight_decay": 0.0001,
+        "gamma": 0.5,
+        "epochs": 30,
+        "margin": 1.5,
+    }
 
     def _fit_drug(self, drug_id: str, data: PredictorInput) -> MOLIModel:
         """Fit a single-drug MOLIR model.
@@ -45,18 +73,22 @@ class MOLIRPredictor(SingleDrugOmicsPredictor):
         :returns: The model; left untrained when the drug has fewer pairs than one mini-batch.
         """
         matrices = omic_matrices(data)
-        model = self._build_model(matrices.widths())
+        model = self._build_model(tuple(matrix.shape[1] for matrix in matrices))
 
         if len(data) >= self._hyperparameters["mini_batch"]:
             model.fit(
-                train=matrices.split(data.sample_pair_idx, np.asarray(data.response, dtype=np.float32)),
+                train=OmicsSplit(
+                    *matrices,
+                    response=np.asarray(data.response, dtype=np.float32),
+                    pair_idx=data.sample_pair_idx,
+                ),
                 val=validation_split(matrices, data),
                 model_checkpoint_dir=str(data.training_context.checkpoint_dir),
             )
 
         return model
 
-    def _build_model(self, widths: tuple[int, int, int]) -> MOLIModel:
+    def _build_model(self, widths: tuple[int, ...]) -> MOLIModel:
         """Construct an untrained MOLIR model sized to the three omic views.
 
         :param widths: Feature widths of the expression, mutation and CNV views.
@@ -69,25 +101,4 @@ class MOLIRPredictor(SingleDrugOmicsPredictor):
             input_dim_expr=widths[0],
             input_dim_mut=widths[1],
             input_dim_cnv=widths[2],
-        )
-
-    @classmethod
-    def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
-        """Return the hyperparameter space; MOLIR tunes nothing.
-
-        :returns: Fixed specs for every MOLIR hyperparameter.
-        """
-        return fixed_entries(
-            {
-                "mini_batch": 32,
-                "h_dim1": 64,
-                "h_dim2": 64,
-                "h_dim3": 64,
-                "learning_rate": 0.01,
-                "dropout_rate": 0.5,
-                "weight_decay": 0.0001,
-                "gamma": 0.5,
-                "epochs": 30,
-                "margin": 1.5,
-            }
         )

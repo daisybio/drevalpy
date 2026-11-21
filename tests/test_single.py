@@ -21,8 +21,7 @@ from drevalpy.models import DRPModel, ModelSpec
 from drevalpy.models.response_transformation import get_response_transformation
 from drevalpy.registry.splitter import SplitValidationError
 from drevalpy.types import Fold, SelectionMask
-from drevalpy.types.results.run import RunResult
-from drevalpy.types.results.trial import TrialResult
+from drevalpy.types.results.run import RunResult, TrialResult
 from tests._fake_wandb import FakeWandb, install_fake_wandb
 
 FIT_MODULE = importlib.import_module("drevalpy.experiment._fit")

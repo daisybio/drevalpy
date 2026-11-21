@@ -8,19 +8,37 @@ import json
 from drevalpy.log import get_logger
 from drevalpy.models.spec import ModelSpec
 from drevalpy.types.data.dataset import Dataset
-from drevalpy.types.enums.randomization import RandomizationType
+from drevalpy.types.data.feature_source import Side
+from drevalpy.types.enums import RandomizationType
 
 logger = get_logger(__name__)
 
 
-def _single_view_tests(views: list[str], prefix: str) -> dict[tuple[str, str], list[str]]:
-    """One test per view: randomize that view only."""
-    return {(prefix, view): [view] for view in views}
+#: Mode code -> (the views it ranges over, whether each test randomizes that view alone or all the others).
+_MODES: dict[str, tuple[Side, str]] = {
+    "SVRC": (Side.SAMPLE, "single"),
+    "SVCC": (Side.SAMPLE, "complement"),
+    "SVRD": (Side.DRUG, "single"),
+    "SVCD": (Side.DRUG, "complement"),
+}
 
 
-def _complement_view_tests(views: list[str], prefix: str) -> dict[tuple[str, str], list[str]]:
-    """One test per view: randomize all views except that one."""
-    return {(prefix, view): [v for v in views if v != view] for view in views}
+def _planned_tests(model_spec: ModelSpec, modes: list[str]) -> dict[tuple[str, str], list[str]]:
+    """Return the views each ``(mode, view)`` randomization test replaces; unknown mode codes are ignored.
+
+    :param model_spec: Model whose featurizers define the available views.
+    :param modes: Mode codes.
+    :returns: Views to randomize, by ``(mode, view)``.
+    """
+    views_of = {side: root.views() for side, root in model_spec.config.featurizers().items()}
+    tests: dict[tuple[str, str], list[str]] = {}
+    for mode in modes:
+        if mode not in _MODES:
+            continue
+        side, scope = _MODES[mode]
+        for view in views_of.get(side, []):
+            tests[(mode, view)] = [view] if scope == "single" else [v for v in views_of[side] if v != view]
+    return tests
 
 
 def randomization(
@@ -47,21 +65,7 @@ def randomization(
     :param random_state: Seed for reproducibility.
     :returns: List of randomized datasets.
     """
-    config = model_spec.config
-    sample_views = config.sample_views()
-    drug_views = config.drug_views()
-
-    builders = {
-        "SVRC": lambda: _single_view_tests(sample_views, "SVRC"),
-        "SVCC": lambda: _complement_view_tests(sample_views, "SVCC"),
-        "SVRD": lambda: _single_view_tests(drug_views, "SVRD"),
-        "SVCD": lambda: _complement_view_tests(drug_views, "SVCD"),
-    }
-
-    tests: dict[tuple[str, str], list[str]] = {}
-    for mode in randomization_mode:
-        if mode in builders:
-            tests.update(builders[mode]())
+    tests = _planned_tests(model_spec, randomization_mode)
 
     results: list[Dataset] = []
     for (mode, view), views in tests.items():

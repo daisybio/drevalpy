@@ -189,3 +189,22 @@ def test_only_pair_order_changes_and_trial_index_seeds_the_shuffle(fold: Fold) -
         np.testing.assert_array_equal(getattr(third, name).pairs, getattr(fold, name).shuffled(seed=2).pairs)
     assert not np.array_equal(third.train.pairs, fold.train.pairs)
     assert not np.array_equal(first.train.pairs, third.train.pairs)
+
+
+def test_the_sampler_seed_defaults_to_the_root_seed(monkeypatch):
+    execution, fold, dataset = _execution(monkeypatch)
+    spec = ModelSpec.from_name("NaivePredictor")
+    unset = build_execution(
+        spec,
+        dataset,
+        fold,
+        hyperparameter_tuning=False,
+        hpo_metric="RMSE",
+        hpo_num_trials=2,
+        hpo_random_state=None,
+        seed=5,
+    )
+
+    assert unset.hpo_random_state == 5
+    assert unset.metadata["execution"]["hpo"]["random_state"] == 5
+    assert execution.hpo_random_state == 9

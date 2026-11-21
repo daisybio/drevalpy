@@ -19,8 +19,7 @@ from drevalpy.models.zoo import (
     zoo_registry,
 )
 from drevalpy.registry.predictor import get as get_predictor
-from drevalpy.types.enums.model_scope import ModelScope
-from drevalpy.types.enums.prediction_mode import PredictionMode
+from drevalpy.types.enums import ModelScope, PredictionMode
 
 LITERATURE_ZOO_NAMES = [
     "DrugGNN",

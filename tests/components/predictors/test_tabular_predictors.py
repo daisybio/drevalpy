@@ -36,8 +36,7 @@ from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
 from drevalpy.types.data.predictor_input import PredictorInput
 from drevalpy.types.data.response_table import ResponseTable
-from drevalpy.types.enums.model_scope import ModelScope
-from drevalpy.types.enums.prediction_mode import PredictionMode
+from drevalpy.types.enums import ModelScope, PredictionMode
 from tests.components.predictors._helpers import neural_batch, pickle_round_trip
 
 TINY_LIGHTGBM = {"n_estimators": 3, "max_depth": 2, "num_leaves": 3, "n_jobs": 1}

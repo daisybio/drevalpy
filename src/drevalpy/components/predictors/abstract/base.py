@@ -11,9 +11,7 @@ import numpy as np
 from drevalpy.components.contracts.hyperparameter_space import TunableComponent
 from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.log import get_logger
-from drevalpy.types.enums.accelerator import Accelerator
-from drevalpy.types.enums.model_scope import ModelScope
-from drevalpy.types.enums.prediction_mode import PredictionMode
+from drevalpy.types.enums import Accelerator, ModelScope, PredictionMode
 
 if TYPE_CHECKING:
     from drevalpy.types.data.predictor_input import PredictorInput

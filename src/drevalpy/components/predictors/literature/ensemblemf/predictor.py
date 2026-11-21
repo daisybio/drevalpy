@@ -15,14 +15,13 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import numpy as np
 
 from drevalpy.components.contracts.feature_format import BlockSpec
-from drevalpy.components.contracts.hyperparameter_space import fixed_entries
 from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.components.predictors.inputs import Inputs
-from drevalpy.components.predictors.literature._metadata import ENSEMBLEMF_REFERENCE
-from drevalpy.components.predictors.literature._torch_utils import DevicePicklingMixin
+from drevalpy.components.predictors.literature._torch_training import DevicePicklingMixin
+from drevalpy.registry._component import LiteratureReference
 from drevalpy.registry.predictor import register
 from drevalpy.types.data.predictor_input import PredictorInput
-from drevalpy.types.enums.accelerator import Accelerator
+from drevalpy.types.enums import Accelerator
 
 if TYPE_CHECKING:
     import torch
@@ -30,11 +29,27 @@ if TYPE_CHECKING:
     from .network import MFNet
     from .training import PairTensors
 
+_REFERENCE = LiteratureReference(
+    repo_url="https://github.com/daisybio/drevalpy",
+    citation_doi="10.1038/s41467-026-72903-w",
+    citation_text=(
+        "EnsembleMF was contributed to DrEvalPy 1.6.1 (pull request 458) and has no publication of its own; "
+        "the DOI above is the DrEval paper (Bernett et al., Nature Communications 2026) that describes the "
+        "framework."
+    ),
+    deviations=(
+        "Port of the DrEvalPy 1.6.1 model with the same network and ensemble training. Features are float32 "
+        "from the dataset featurizers, ids without a feature row are not scored here but get NaN like every "
+        "predictor, and the 10% early-stopping fallback split uses a generator seeded from the seed "
+        "hyperparameter."
+    ),
+)
+
 
 @register(
     "ensembleMF",
     description="EnsembleMF: ensembled two-tower matrix factorization over expression and fingerprints.",
-    reference=ENSEMBLEMF_REFERENCE,
+    reference=_REFERENCE,
     license="MIT",
     accelerator=Accelerator.OPTIONAL,
 )
@@ -46,6 +61,23 @@ class EnsembleMFPredictor(DevicePicklingMixin, Predictor):
     drug_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("fingerprints"))
     supports_early_stopping: ClassVar[bool] = True
 
+    fixed_hyperparameters = {
+        "hidden_dim": 256,
+        "emb_dim": 128,
+        "n_layers": 1,
+        "dropout": 0.2,
+        "use_mlp_head": True,
+        "mlp_hidden": 256,
+        "use_drug_id_embedding": True,
+        "n_ensemble": 20,
+        "learning_rate": 3e-4,
+        "weight_decay": 1e-5,
+        "batch_size": 2048,
+        "max_epochs": 300,
+        "patience": 25,
+        "seed": 0,
+    }
+
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
         """Initialize the EnsembleMF predictor.
 
@@ -56,31 +88,6 @@ class EnsembleMFPredictor(DevicePicklingMixin, Predictor):
         self._drug_ids = np.empty(0, dtype=str)
         self._drug_seen = np.empty(0, dtype=bool)
         self._input_dims = (0, 0)
-
-    @classmethod
-    def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
-        """Return the hyperparameter space; EnsembleMF tunes nothing.
-
-        :returns: Fixed specs for every EnsembleMF hyperparameter.
-        """
-        return fixed_entries(
-            {
-                "hidden_dim": 256,
-                "emb_dim": 128,
-                "n_layers": 1,
-                "dropout": 0.2,
-                "use_mlp_head": True,
-                "mlp_hidden": 256,
-                "use_drug_id_embedding": True,
-                "n_ensemble": 20,
-                "learning_rate": 3e-4,
-                "weight_decay": 1e-5,
-                "batch_size": 2048,
-                "max_epochs": 300,
-                "patience": 25,
-                "seed": 0,
-            }
-        )
 
     def _build_net(self, n_drugs: int) -> MFNet:
         """Construct one ensemble member on the target device.
@@ -140,11 +147,10 @@ class EnsembleMFPredictor(DevicePicklingMixin, Predictor):
             sample_pos[data.sample_pair_idx], drug_pos[np.asarray(data.drug_pair_idx)], np.asarray(data.response)
         )
         validation = None
-        if data.early_stopping is not None:
-            stop = data.early_stopping
-            stop_sample, stop_drug = data.early_stopping_sample_idx, data.early_stopping_drug_idx
+        stop = data.stopping
+        if stop is not None:
             validation = self._pairs(
-                sample_pos[stop_sample], drug_pos[np.asarray(stop_drug)], np.asarray(stop.response)
+                sample_pos[stop.sample_pair_idx], drug_pos[np.asarray(stop.drug_pair_idx)], np.asarray(stop.response)
             )
         train, validation = split_pairs(train, validation, int(hp["seed"]))
 

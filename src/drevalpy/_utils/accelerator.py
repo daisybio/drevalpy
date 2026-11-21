@@ -13,7 +13,7 @@ import os
 from typing import TYPE_CHECKING
 
 from drevalpy.errors import DrEvalError
-from drevalpy.types.enums.accelerator import Accelerator
+from drevalpy.types.enums import Accelerator
 
 if TYPE_CHECKING:
     import torch

@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 import torch
 
-from drevalpy.components.contracts.hyperparameter_space import tunable_entries
+from drevalpy.components.contracts.hyperparameter_space import is_fixed
 from drevalpy.components.predictors.literature.sparsego.algorithm import SparseLinearNew
 from drevalpy.components.predictors.literature.sparsego.predictor import SparseGOPredictor, _resolve_active_view
 from drevalpy.components.predictors.literature.sparsego.utils import load_ontology, resolve_ontology_metadata
@@ -41,7 +41,7 @@ def test_registry_name_defaults_and_no_tunable_hyperparameters() -> None:
     assert get_predictor("sparsego") is SparseGOPredictor
     defaults = SparseGOPredictor.default_hyperparameters()
     assert {"num_neurons_per_GO", "num_neurons_drug", "drug_dim", "epochs"} <= set(defaults)
-    assert tunable_entries(SparseGOPredictor.get_hyperparameter_space()) == {}
+    assert all(is_fixed(spec) for spec in SparseGOPredictor.get_hyperparameter_space().values())
 
 
 class TestFrozenSparseGONumericalReference:

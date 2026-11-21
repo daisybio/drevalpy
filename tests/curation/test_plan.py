@@ -10,8 +10,8 @@ import pytest
 from upath import UPath
 
 from drevalpy.curation import _plan_curation
+from drevalpy.curation._fit import Source
 from drevalpy.curation._plan import (
-    Fit,
     assemble,
     read_chunk,
     read_fitted,
@@ -34,15 +34,15 @@ class TestPlan:
     def test_the_replicate_fit_has_its_own_chunks(self) -> None:
         work = _plan(max_chunk_size=1)
 
-        assert {chunk.fit for chunk in work.chunks} == {Fit.POOLED, Fit.REPLICATE}
+        assert {chunk.fit for chunk in work.chunks} == {Source.POOLED, Source.REPLICATE}
         assert all(len(chunk.frame) == 1 for chunk in work.chunks)
         assert len({chunk.name for chunk in work.chunks}) == len(work.chunks)
 
     def test_without_replicate_fits_there_is_only_the_pooled_fit(self) -> None:
         work = _plan_curation(build_dose_response_df(), fit_speed="fast")
 
-        assert set(work.infos) == {Fit.POOLED}
-        assert {chunk.fit for chunk in work.chunks} == {Fit.POOLED}
+        assert set(work.infos) == {Source.POOLED}
+        assert {chunk.fit for chunk in work.chunks} == {Source.POOLED}
 
     def test_a_missing_fit_is_named(self) -> None:
         work = _plan()

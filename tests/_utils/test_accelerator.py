@@ -13,7 +13,7 @@ from drevalpy._utils.accelerator import (
     select_device,
 )
 from drevalpy.errors import DrEvalError
-from drevalpy.types.enums.accelerator import Accelerator
+from drevalpy.types.enums import Accelerator
 
 torch = pytest.importorskip("torch")
 

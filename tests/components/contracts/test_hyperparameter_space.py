@@ -11,7 +11,6 @@ from drevalpy.components.contracts.hyperparameter_space import (
     default_values,
     fixed_entries,
     is_fixed,
-    tunable_entries,
     validate_component_hyperparameter_space,
     validate_hyperparameter_space,
 )
@@ -135,6 +134,24 @@ def test_defaults_are_read_off_the_declared_space_and_validated() -> None:
         Incomplete.default_hyperparameters()
 
 
+def test_fixed_hyperparameters_are_the_default_space_and_a_component_may_still_override_it() -> None:
+    class Fixed(TunableComponent):
+        fixed_hyperparameters = {"epochs": 3, "layers": [8, 4]}
+
+    class Overriding(Fixed):
+        @classmethod
+        def get_hyperparameter_space(cls) -> dict[str, dict[str, object]]:
+            return {"alpha": {"type": "float", "default": 0.5}, **super().get_hyperparameter_space()}
+
+    assert Fixed.get_hyperparameter_space() == fixed_entries({"epochs": 3, "layers": [8, 4]})
+    assert Fixed.default_hyperparameters() == {"epochs": 3, "layers": [8, 4]}
+    assert Overriding.default_hyperparameters() == {"alpha": 0.5, "epochs": 3, "layers": [8, 4]}
+    assert TunableComponent.get_hyperparameter_space() == {}
+
+    Fixed.get_hyperparameter_space()["layers"]["default"].append(2)
+    assert Fixed.fixed_hyperparameters["layers"] == [8, 4]
+
+
 def test_fixed_entries_need_a_default_and_carry_no_search_keys() -> None:
     validate_hyperparameter_space({"seed": {"type": "fixed", "default": 0}}, context="unit-test")
     with pytest.raises(ValueError, match="missing 'default' for 'seed'"):
@@ -151,7 +168,6 @@ def test_fixed_entries_have_defaults_but_are_not_tunable() -> None:
 
     assert space["seed"] == {"type": "fixed", "default": 0}
     assert [name for name, spec in space.items() if is_fixed(spec)] == ["seed", "solver"]
-    assert tunable_entries(space) == {"alpha": space["alpha"]}
     assert default_values(space, context="unit-test") == {"alpha": 0.5, "seed": 0, "solver": None}
 
 

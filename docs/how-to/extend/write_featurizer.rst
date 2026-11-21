@@ -164,10 +164,10 @@ side, as a subclass each. The two registrations may share the name. The built-in
 
 .. code-block:: python
 
-   from drevalpy.registry.featurizer import names_for_side
+   from drevalpy.registry.featurizer import featurizer_registry
 
-   assert "myOnes" in names_for_side("sample")
-   assert "myOnes" in names_for_side("drug")
+   assert "myOnes" in featurizer_registry("sample")
+   assert "myOnes" in featurizer_registry("drug")
 
 .. _write-featurizer-stored:
 

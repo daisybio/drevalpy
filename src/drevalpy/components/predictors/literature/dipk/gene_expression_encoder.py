@@ -11,7 +11,6 @@ from torch.nn import functional
 from torch.utils.data import DataLoader
 
 from drevalpy._utils.accelerator import select_device
-from drevalpy.components.predictors.literature.dipk._autoencoder_batches import validation_loss
 from drevalpy.experiment._tracking import log_metrics
 
 logger = logging.getLogger(__name__)
@@ -110,6 +109,39 @@ class GeneExpressionDecoder(nn.Module):
         return output
 
 
+def validation_loss(
+    encoder: GeneExpressionEncoder,
+    decoder: GeneExpressionDecoder,
+    gene_expression_val_tensor: torch.Tensor,
+    batch_size: int,
+    device: torch.device,
+) -> float:
+    """Compute the reconstruction MSE of the validation matrix in chunks.
+
+    The sum of squared errors and the element count are accumulated exactly, so the result equals
+    ``nn.MSELoss()`` over the whole matrix while only one chunk lives on the device.
+
+    :param encoder: Encoder in eval mode.
+    :param decoder: Decoder in eval mode.
+    :param gene_expression_val_tensor: Validation matrix, kept on the host.
+    :param batch_size: Number of rows moved to the device at a time.
+    :param device: Device the models live on.
+    :returns: Mean squared reconstruction error, ``nan`` for an empty validation matrix.
+    """
+    squared_error = 0.0
+    elements = 0
+    with torch.no_grad():
+        for start in range(0, len(gene_expression_val_tensor), batch_size):
+            stop = start + batch_size
+            val_batch = gene_expression_val_tensor[start:stop].to(device)
+            val_output = decoder(encoder(val_batch))
+            squared_error += float(((val_output - val_batch) ** 2).sum().item())
+            elements += val_batch.numel()
+    if elements == 0:
+        return float("nan")
+    return squared_error / elements
+
+
 def train_gene_expession_autoencoder(
     gene_expression_input: np.ndarray,
     gene_expression_input_early_stopping: np.ndarray,
@@ -125,6 +157,11 @@ def train_gene_expession_autoencoder(
     on unique samples (a few hundred rows) need a smaller *batch_size* than the default 1024, which
     suits the response-row matrix, to get a comparable number of gradient steps.
 
+    The encoder uses ``BatchNorm1d``, which cannot normalise a single row while training, so a
+    trailing mini-batch of exactly one row would abort the fit. Training on unique samples makes
+    that case reachable: when ``len(gene_expression_input) % batch_size == 1`` (and there is more
+    than one row), the last training row moves to the early-stopping rows.
+
     :param gene_expression_input: Training gene expression, one row per sample.
     :param gene_expression_input_early_stopping: Held-out gene expression used to monitor the reconstruction loss.
     :param epochs_autoencoder: Maximum number of epochs.
@@ -134,20 +171,24 @@ def train_gene_expession_autoencoder(
     :returns: The trained encoder in eval mode.
     """
     device = select_device()
+    train = np.asarray(gene_expression_input, dtype=np.float32)
+    validation = np.asarray(gene_expression_input_early_stopping, dtype=np.float32)
+    if len(train) > 1 and len(train) % batch_size == 1:
+        train, validation = train[:-1], np.concatenate([validation, train[-1:]])
 
     # create model
-    encoder = GeneExpressionEncoder(len(gene_expression_input[0])).to(device)
-    decoder = GeneExpressionDecoder(len(gene_expression_input[0])).to(device)
+    encoder = GeneExpressionEncoder(train.shape[1]).to(device)
+    decoder = GeneExpressionDecoder(train.shape[1]).to(device)
     loss_func = nn.MSELoss()
     params = [{"params": encoder.parameters()}, {"params": decoder.parameters()}]
     optimizer = optim.Adam(params, lr=lr)
 
     # load data: the full matrices stay on the host, the loop below moves each mini-batch
-    gene_expression_tensor = torch.from_numpy(np.asarray(gene_expression_input, dtype=np.float32))
+    gene_expression_tensor = torch.from_numpy(train)
     train_loader = DataLoader(gene_expression_tensor, batch_size=batch_size, shuffle=True)
 
     # prepare early stopping validation data (kept on the host, evaluated in chunks)
-    gene_expression_val_tensor = torch.from_numpy(np.asarray(gene_expression_input_early_stopping, dtype=np.float32))
+    gene_expression_val_tensor = torch.from_numpy(validation)
 
     # early stopping parameters
     best_val_loss = float("inf")

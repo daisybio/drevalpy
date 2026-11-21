@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 import torch
 
-from drevalpy.components.contracts.hyperparameter_space import tunable_entries
+from drevalpy.components.contracts.hyperparameter_space import is_fixed
 from drevalpy.components.contracts.training_context import TrainingContext
 from drevalpy.components.predictors.literature.paccmann.network import (
     ContextAttentionLayer,
@@ -87,7 +87,7 @@ def test_registry_name_and_published_defaults() -> None:
     assert defaults["molecule_heads"] == [2, 2, 2, 2]
     assert defaults["stacked_dense_hidden_sizes"] == [512, 256]
     assert defaults["batch_norm"] is True
-    assert tunable_entries(PaccMannPredictor.get_hyperparameter_space()) == {}
+    assert all(is_fixed(spec) for spec in PaccMannPredictor.get_hyperparameter_space().values())
 
 
 def test_fit_predict_reads_the_plain_tokens_not_the_variants(tmp_path) -> None:

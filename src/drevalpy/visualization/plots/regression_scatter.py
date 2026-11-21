@@ -16,6 +16,7 @@ import numpy as np
 from drevalpy.registry.visualization import register
 from drevalpy.types.results import ModelResult
 from drevalpy.visualization.base import Plot, Section, embedded_png_html
+from drevalpy.visualization.plots._utils import placeholder_figure
 
 if TYPE_CHECKING:
     from matplotlib.figure import Figure
@@ -76,13 +77,10 @@ class RegressionScatterPlot(Plot):
         from matplotlib.figure import Figure
 
         ground_truth, predictions = _pooled_predictions(result)
+        if ground_truth.size == 0:
+            return placeholder_figure("No data available", (7, 6.5))
         fig = Figure(figsize=(7, 6.5), layout="constrained")
         ax = fig.add_subplot()
-
-        if ground_truth.size == 0:
-            ax.text(0.5, 0.5, "No data available", ha="center", va="center")
-            ax.set_axis_off()
-            return fig
 
         low = float(min(ground_truth.min(), predictions.min()))
         high = float(max(ground_truth.max(), predictions.max()))

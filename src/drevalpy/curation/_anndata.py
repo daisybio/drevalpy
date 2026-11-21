@@ -6,7 +6,7 @@ import anndata
 import numpy as np
 import pandas as pd
 
-_REGULATION_ENCODING = {"up": 1, "down": -1, "not": 0}
+REGULATION_ENCODING = {"up": 1, "down": -1, "not": 0}
 
 #: Measure ``X`` holds. Not duplicated as a layer.
 X_MEASURE = "pEC50"
@@ -57,7 +57,7 @@ def build_anndata(df: pd.DataFrame) -> anndata.AnnData:
     x_matrix = _pivot_metric(df, X_MEASURE, samples, drugs)
 
     work_df = df.copy()
-    work_df["regulation"] = work_df["regulation"].map(_REGULATION_ENCODING).astype(float)
+    work_df["regulation"] = work_df["regulation"].map(REGULATION_ENCODING).astype(float)
 
     layers: dict[str, np.ndarray] = {}
     for metric in _LAYER_METRICS:

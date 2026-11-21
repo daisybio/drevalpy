@@ -28,7 +28,7 @@ from drevalpy.components.contracts.training_context import TrainingContext
 from drevalpy.components.featurizers.featurizer import CONCAT
 from drevalpy.models._feature_preparation import prepare_features, unique_entity_ids, usable_pairs
 from drevalpy.models.config.immutable import thaw_value
-from drevalpy.models.hyperparameters import FEATURIZER_SLOTS, PREDICTOR_SLOT, component_values
+from drevalpy.models.hyperparameters import PREDICTOR_SLOT, component_values
 from drevalpy.models.response_transformation._pipeline_ops import (
     apply_response_transformation,
     fit_response_transformation,
@@ -93,9 +93,10 @@ def _build_components(spec: ModelSpec) -> tuple[Featurizer | None, Featurizer | 
     :returns: Sample featurizer, optional drug featurizer and predictor.
     """
     config, values = spec.config, spec.hyperparameters
+    roots = config.featurizers()
     sample, drug = (
-        _build_featurizer(root, FEATURIZER_SLOTS[side], values) if root is not None else None
-        for side, root in (("sample", config.sample_featurizer), ("drug", config.drug_featurizer))
+        _build_featurizer(roots[side], f"{side}_featurizer", values) if side in roots else None
+        for side in (Side.SAMPLE, Side.DRUG)
     )
     # A plain string: networks pass their hyperparameters to Lightning's ``save_hyperparameters``, and a checkpoint
     # holding the enum cannot be reloaded with ``torch.load(weights_only=True)``.

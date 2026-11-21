@@ -14,26 +14,20 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import numpy as np
 
 from drevalpy.components.contracts.feature_format import BlockSpec
-from drevalpy.components.contracts.hyperparameter_space import fixed_entries
-from drevalpy.components.predictors._pair_loader import make_pair_loader
+from drevalpy.components.predictors._pair_loader import pair_loader, predict_pairs
 from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.components.predictors.inputs import Inputs
-from drevalpy.components.predictors.literature._early_stopping import (
+from drevalpy.components.predictors.literature._torch_training import (
+    DevicePicklingMixin,
     EarlyStoppingRun,
     run_epoch,
     train_with_early_stopping,
 )
-from drevalpy.components.predictors.literature._metadata import PACCMANN_REFERENCE
-from drevalpy.components.predictors.literature._pair_predict import (
-    PairEvalSpec,
-    predict_pairs,
-    require_drug_pair_idx,
-)
-from drevalpy.components.predictors.literature._torch_utils import DevicePicklingMixin
+from drevalpy.registry._component import LiteratureReference
 from drevalpy.registry.predictor import register
 from drevalpy.types.data.feature_block import FeatureBlock
 from drevalpy.types.data.predictor_input import PredictorInput
-from drevalpy.types.enums.accelerator import Accelerator
+from drevalpy.types.enums import Accelerator
 
 if TYPE_CHECKING:
     import torch
@@ -73,10 +67,26 @@ def _build_network(
     return PaccMannNetwork(PaccMannConfig.from_hyperparameters({**hyperparameters, **architecture})).to(device)
 
 
+_REFERENCE = LiteratureReference(
+    repo_url="https://github.com/PaccMann/paccmann_predictor",
+    citation_doi="10.1021/acs.molpharmaceut.9b00520",
+    citation_text=(
+        "Manica et al., Toward Explainable Anticancer Compound Sensitivity Prediction via Multimodal "
+        "Attention-Based Convolutional Encoders, Molecular Pharmaceutics 2019."
+    ),
+    deviations=(
+        "Port of the DrEvalPy 1.6.1 reimplementation of the multimodal attention network, not the upstream "
+        "code. Keeps the pytoda atom tokenizer and draws each row's SMILES from a fixed bank of 20 "
+        "randomized variants per drug in every batch; stops on a disjoint validation set and scales "
+        "expression on the training pairs."
+    ),
+)
+
+
 @register(
     "paccMann",
     description="PaccMann: SMILES convolutions and gene expression linked by context attention.",
-    reference=PACCMANN_REFERENCE,
+    reference=_REFERENCE,
     license="MIT",
     accelerator=Accelerator.OPTIONAL,
 )
@@ -90,6 +100,25 @@ class PaccMannPredictor(DevicePicklingMixin, Predictor):
     )
     supports_early_stopping: ClassVar[bool] = True
 
+    fixed_hyperparameters = {
+        "epochs": 10,
+        "patience": 10,
+        "batch_size": 64,
+        "learning_rate": 0.001,
+        "weight_decay": 0.0,
+        "smiles_embedding_size": 8,
+        "filters": [16, 16, 16],
+        "molecule_heads": [2, 2, 2, 2],
+        "gene_heads": [2, 2, 2, 2],
+        "dropout": 0.5,
+        "batch_norm": True,
+        "smiles_attention_size": 64,
+        "gene_attention_size": 1,
+        "molecule_temperature": 1.0,
+        "gene_temperature": 1.0,
+        "stacked_dense_hidden_sizes": [512, 256],
+    }
+
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
         """Initialize the PaccMann predictor.
 
@@ -98,33 +127,6 @@ class PaccMannPredictor(DevicePicklingMixin, Predictor):
         super().__init__(hyperparameters)
         self._model: PaccMannNetwork | None = None
         self._architecture: dict[str, int] = {}
-
-    @classmethod
-    def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
-        """Return the hyperparameter space; PaccMann tunes nothing.
-
-        :returns: Fixed specs for every PaccMann hyperparameter.
-        """
-        return fixed_entries(
-            {
-                "epochs": 10,
-                "patience": 10,
-                "batch_size": 64,
-                "learning_rate": 0.001,
-                "weight_decay": 0.0,
-                "smiles_embedding_size": 8,
-                "filters": [16, 16, 16],
-                "molecule_heads": [2, 2, 2, 2],
-                "gene_heads": [2, 2, 2, 2],
-                "dropout": 0.5,
-                "batch_norm": True,
-                "smiles_attention_size": 64,
-                "gene_attention_size": 1,
-                "molecule_temperature": 1.0,
-                "gene_temperature": 1.0,
-                "stacked_dense_hidden_sizes": [512, 256],
-            }
-        )
 
     @staticmethod
     def _architecture_from(data: PredictorInput) -> dict[str, int]:
@@ -181,25 +183,13 @@ class PaccMannPredictor(DevicePicklingMixin, Predictor):
         # The batch norm layers cannot process a batch of one sample. Drop a trailing batch of one, and
         # only then, so that training sets smaller than a batch stay usable.
         drop_last = n_pairs > batch_size and n_pairs % batch_size == 1
-        train_loader = make_pair_loader(
-            (gene_entity, data.sample_pair_idx),
-            (variants.values, require_drug_pair_idx(data.drug_pair_idx)),
-            response=np.asarray(data.response, dtype=np.float32),
-            batch_size=batch_size,
-            shuffle=True,
-            drop_last=drop_last,
+        train_loader = pair_loader(
+            data, gene_entity, variants.values, batch_size=batch_size, shuffle=True, drop_last=drop_last
         )
-        stopping = data.early_stopping
+        stopping = data.stopping
         if stopping is None or len(stopping) == 0:
             return train_loader, None
-        stop_sample_idx, stop_drug_idx = data.early_stopping_sample_idx, data.early_stopping_drug_idx
-        val_loader = make_pair_loader(
-            (gene_entity, stop_sample_idx),
-            (tokens.values, require_drug_pair_idx(stop_drug_idx)),
-            response=np.asarray(stopping.response, dtype=np.float32),
-            batch_size=batch_size,
-            shuffle=False,
-        )
+        val_loader = pair_loader(stopping, gene_entity, tokens.values, batch_size=batch_size, shuffle=False)
         return train_loader, val_loader
 
     def _fit(self, data: PredictorInput) -> None:
@@ -252,11 +242,9 @@ class PaccMannPredictor(DevicePicklingMixin, Predictor):
         return predict_pairs(
             model,
             data,
-            PairEvalSpec(
-                sample_blocks=(data.sample.blocks["gene_expression"].values,),
-                drug_blocks=(tokens.values,),
-                batch_size=int(self._hyperparameters["batch_size"]),
-                device=self._device,
-            ),
+            data.sample.blocks["gene_expression"].values,
+            tokens.values,
+            batch_size=int(self._hyperparameters["batch_size"]),
+            device=self._device,
             forward=lambda gene_inputs, drug_inputs: model(drug_inputs.long(), gene_inputs),
         )

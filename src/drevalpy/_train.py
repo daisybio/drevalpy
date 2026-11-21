@@ -27,7 +27,7 @@ logger = get_logger(__name__)
 VALIDATION_RATIO = 0.1
 
 
-def _holdout_folds(dataset: Dataset, quality: CurveQuality | None, seed: int) -> Fold:
+def _holdout_fold(dataset: Dataset, quality: CurveQuality | None, seed: int) -> Fold:
     """Split all usable pairs into a training set and the validation slice a run would set aside.
 
     :param dataset: Dataset whose usable pairs are the final training set.
@@ -97,11 +97,11 @@ def train(
     execution = build_execution(
         spec,
         data,
-        _holdout_folds(data, quality, seed),
+        _holdout_fold(data, quality, seed),
         hyperparameter_tuning=hyperparameter_tuning,
         hpo_metric=hpo_metric,
         hpo_num_trials=hpo_num_trials,
-        hpo_random_state=seed if hpo_random_state is None else hpo_random_state,
+        hpo_random_state=hpo_random_state,
         seed=seed,
     )
     logger.info("Training %s on %d pairs", spec.name, len(execution.scopes.final_training))

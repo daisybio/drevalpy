@@ -12,8 +12,7 @@ from upath import UPath
 from drevalpy.errors import InvalidInputError
 from drevalpy.types.results._store import run_filename
 from drevalpy.types.results.experiment import ExperimentResult, _run_array_bytes
-from drevalpy.types.results.run import _intern_ids
-from drevalpy.types.results.trial import TrialResult
+from drevalpy.types.results.run import TrialResult, _intern_ids
 from tests.synthetic import REFERENCE_MODEL, make_experiment_result, make_run_failure, make_run_result
 
 
@@ -128,7 +127,7 @@ class TestPersistence:
 
         assert len(list(directory.rglob("*.npz"))) == len(runs)
         for saved, read in zip(experiment.models, loaded.models, strict=True):
-            assert [run.run_key for run in read.runs] == [run.run_key for run in saved.runs]
+            assert [run.identity.run_key for run in read.runs] == [run.identity.run_key for run in saved.runs]
             for saved_run, read_run in zip(saved.runs, read.runs, strict=True):
                 np.testing.assert_array_equal(read_run.predictions, saved_run.predictions)
 

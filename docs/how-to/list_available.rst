@@ -98,8 +98,8 @@ syntax.
 
       The registries are in ``drevalpy.registry``. Each has ``names()`` for the names,
       ``to_dataframe()`` for a pandas data frame, and ``metadata(name)`` for one entry. Each
-      side has a featurizer registry of its own, ``featurizer_registry(side)``;
-      ``names_for_side(side)`` lists its names. The zoo is in ``drevalpy.models.zoo``.
+      side has a featurizer registry of its own, ``featurizer_registry(side)``.
+      The zoo is in ``drevalpy.models.zoo``.
 
       .. code-block:: python
 
@@ -108,8 +108,8 @@ syntax.
 
          print(len(zoo.list_zoo_names()), zoo.list_zoo_names()[:4])
          print(registry.predictor.predictor_registry.names()[:4])
-         print(registry.featurizer.names_for_side("sample")[:4])
-         print(registry.featurizer.names_for_side("drug")[:4])
+         print(registry.featurizer.featurizer_registry("sample").names()[:4])
+         print(registry.featurizer.featurizer_registry("drug").names()[:4])
 
       The calls print:
 

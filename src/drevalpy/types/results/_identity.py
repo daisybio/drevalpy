@@ -6,6 +6,8 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
+from drevalpy.types.data.dataset._dataset import DEFAULT_MEASURE
+
 
 @dataclass(frozen=True)
 class RunIdentity:
@@ -20,7 +22,7 @@ class RunIdentity:
     robustness_repeat: int | None = None
     provenance: str = "{}"
     #: The response measure the run was trained and scored on.
-    measure: str = "pEC50"
+    measure: str = DEFAULT_MEASURE
 
     @property
     def fold_key(self) -> tuple[str, str, str, str, str | int]:
@@ -75,5 +77,34 @@ class RunIdentity:
             randomization,
             metadata.get("robustness_repeat"),
             json.dumps(identity, sort_keys=True, separators=(",", ":")),
-            metadata.get("measure", "pEC50"),
+            metadata.get("measure", DEFAULT_MEASURE),
+        )
+
+    @classmethod
+    def from_fold(
+        cls,
+        model_name: str,
+        dataset_name: str,
+        split_mode: str,
+        fold_metadata: dict[str, Any],
+        randomization: tuple[str, str] | None,
+    ) -> RunIdentity:
+        """Build an identity from the metadata of a fold that is about to be run.
+
+        :param model_name: Named recipe.
+        :param dataset_name: Dataset identity.
+        :param split_mode: Canonical split mode of the fold (``types`` cannot resolve aliases itself).
+        :param fold_metadata: Metadata of the fold: ``fold_index`` (0 when absent) and ``fold_id`` (empty when
+            absent) among others.
+        :param randomization: Optional ``(mode, view)`` stress test.
+        :returns: Immutable run identity.
+        """
+        return cls.from_metadata(
+            model_name,
+            dataset_name,
+            split_mode,
+            fold_metadata.get("fold_index", 0),
+            fold_metadata.get("fold_id", ""),
+            randomization,
+            fold_metadata,
         )

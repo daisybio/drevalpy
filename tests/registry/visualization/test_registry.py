@@ -9,7 +9,7 @@ import pytest
 
 from drevalpy.errors import UnknownNameError
 from drevalpy.registry._registry import Snapshot
-from drevalpy.registry.visualization import applicable, get, register, visualization_registry
+from drevalpy.registry.visualization import applicable, register, visualization_registry
 from drevalpy.types.results import ExperimentResult, ModelResult
 from drevalpy.visualization.base import Plot
 from drevalpy.visualization.requirements import PlotRequirement
@@ -41,7 +41,7 @@ class TestRegistration:
 
         assert zebra.name == "zebra"
         assert visualization_registry.names() == ("zebra", "aardvark")
-        assert get("zebra") is zebra
+        assert visualization_registry.get("zebra") is zebra
 
     def test_a_class_that_is_not_a_plot_is_rejected(self, empty: None) -> None:
         with pytest.raises(TypeError, match="'zebra' must be a subclass of"):
@@ -51,7 +51,7 @@ class TestRegistration:
 
     def test_get_rejects_an_unknown_name(self, violin: type[Plot]) -> None:
         with pytest.raises(UnknownNameError, match=r"Unknown visualization 'heatmap'\. Available: violin"):
-            get("heatmap")
+            visualization_registry.get("heatmap")
         with pytest.raises(UnknownNameError, match="Unknown visualization 'heatmap'"):
             visualization_registry.metadata("heatmap")
 
@@ -61,7 +61,7 @@ class TestRegistration:
 
         replacement = register("violin", "replacement", replace=True)(_cls("ReplacementViolin"))
 
-        assert get("violin") is replacement
+        assert visualization_registry.get("violin") is replacement
         assert visualization_registry.metadata("violin")["description"] == "replacement"
 
     def test_applicable_returns_the_classes_whose_requirements_the_experiment_meets(self, violin: type[Plot]) -> None:
@@ -103,7 +103,7 @@ class TestBuiltins:
         names = visualization_registry.names()
 
         assert len(names) == 6
-        assert all(get(name).name == name for name in names)
+        assert all(visualization_registry.get(name).name == name for name in names)
 
     def test_applicable_without_requirements_returns_the_unconditional_builtins(self) -> None:
         unconditional = [cls for _, cls in visualization_registry.items() if not cls.requirements]

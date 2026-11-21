@@ -88,19 +88,19 @@ class TestMetric:
         assert metric.direction == direction
 
     @pytest.mark.parametrize(
-        ("metric", "path"),
+        ("metric", "module", "name"),
         [
-            (Metric.MSE, "sklearn.metrics.mean_squared_error"),
-            (Metric.RMSE, "sklearn.metrics.root_mean_squared_error"),
-            (Metric.MAE, "sklearn.metrics.mean_absolute_error"),
-            (Metric.R2, "sklearn.metrics.r2_score"),
-            (Metric.PEARSON, "scipy.stats.pearsonr"),
-            (Metric.SPEARMAN, "scipy.stats.spearmanr"),
-            (Metric.KENDALL, "scipy.stats.kendalltau"),
+            (Metric.MSE, "sklearn.metrics", "mean_squared_error"),
+            (Metric.RMSE, "sklearn.metrics", "root_mean_squared_error"),
+            (Metric.MAE, "sklearn.metrics", "mean_absolute_error"),
+            (Metric.R2, "sklearn.metrics", "r2_score"),
+            (Metric.PEARSON, "scipy.stats", "pearsonr"),
+            (Metric.SPEARMAN, "scipy.stats", "spearmanr"),
+            (Metric.KENDALL, "scipy.stats", "kendalltau"),
         ],
     )
-    def test_library_function_path(self, metric, path) -> None:
-        assert metric.function.path == path
+    def test_library_function(self, metric, module, name) -> None:
+        assert (metric.function.module, metric.function.name) == (module, name)
 
     def test_a_library_function_takes_predictions_before_response_for_every_library(self) -> None:
         y_pred, y_true = np.array([1.0, 2.0, 4.0]), np.array([1.0, 3.0, 4.0])

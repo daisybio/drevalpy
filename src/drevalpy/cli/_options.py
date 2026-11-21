@@ -9,39 +9,18 @@ The groups: the models (the MODELS argument and the ``-S/-D/-P`` grid), hyperpar
 from __future__ import annotations
 
 from dataclasses import replace
-from enum import StrEnum
 from typing import TYPE_CHECKING, Annotated
 
 import typer
 
 from drevalpy.evaluation import Metric
+from drevalpy.models.response_transformation import ResponseTransformation
 
 from ._summary import normalize_group_by
 
 if TYPE_CHECKING:
     from drevalpy.data.quality import CurveQuality
     from drevalpy.models import ModelSpec
-    from drevalpy.models.response_transformation import ResponseTransformer
-
-
-class ResponseTransformation(StrEnum):
-    """Values of ``--response-transformation``; ``none`` maps to no transformer."""
-
-    NONE = "none"
-    STANDARD = "standard"
-    MINMAX = "minmax"
-    ROBUST = "robust"
-    DRUG_MEAN = "drug_mean"
-    DRUG_TISSUE_MEAN = "drug_tissue_mean"
-
-
-class RandomizationMode(StrEnum):
-    """Randomization modes of ``run --randomization-mode`` and ``experiments randomization --mode``."""
-
-    SVRC = "SVRC"
-    SVCC = "SVCC"
-    SVRD = "SVRD"
-    SVCD = "SVCD"
 
 
 ModelsArgument = Annotated[
@@ -157,17 +136,6 @@ def resolve_model_specs(
     for spec in specs:
         unique.setdefault(spec.name, spec)
     return list(unique.values())
-
-
-def resolve_response_transformation(value: ResponseTransformation) -> ResponseTransformer | None:
-    """Turn the ``--response-transformation`` choice into the response transformation prototype the library takes.
-
-    :param value: The option value.
-    :returns: An unfitted response transformation, or ``None`` for ``none``.
-    """
-    from drevalpy.models.response_transformation import get_response_transformation
-
-    return get_response_transformation(value.value)
 
 
 def quality_from_cli(

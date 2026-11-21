@@ -1,21 +1,18 @@
 """Dose-response curve fitting via curve_curator, returning AnnData.
 
-:func:`curate` is the single entry point. It groups the well-level measurements into
-numbered dose series (:mod:`drevalpy.curation._series`), fits one pooled curve per pair
+:func:`curate` is the single entry point. It groups the well-level measurements into numbered
+dose series (:mod:`drevalpy.curation._series`), fits one pooled curve per pair
 (:mod:`drevalpy.curation._fit`), optionally fits every series on its own
 (:mod:`drevalpy.curation._replicate_fits`), and pivots the metrics into an
-:class:`~anndata.AnnData`. Both fits are split into chunks of curves that are fitted
-independently, in local processes here; ``drevalpy curate plan``, ``fit-chunk`` and
-``collect`` run the same steps as separate jobs (:mod:`drevalpy.curation._plan`), which is how
-a workflow manager fits a large screen on a cluster.
+:class:`~anndata.AnnData`. The fits run in chunks, here in local processes and, through
+``drevalpy curate``, as separate jobs (:mod:`drevalpy.curation._plan`).
 
 Fitting is identifier-agnostic - CurveCurator groups by dose range and treats
 ``sample``/``drug`` purely as labels - and :func:`curate` keys the returned
 ``obs_names``/``var_names`` from whatever those two columns held. A pipeline can
 therefore curate on *native* identifiers, persist the ``.h5ad``, and resolve
 identity (Cellosaurus accessions, PubChem CIDs, duplicate collapse) in a later,
-cheap stage that only renames indices. The ``.h5ad`` is that intermediate, so no
-flat metrics frame needs to escape this package.
+cheap stage that only renames indices.
 """
 
 from __future__ import annotations
@@ -23,8 +20,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from drevalpy.curation._anndata import build_anndata
-from drevalpy.curation._fit import Status
-from drevalpy.curation._replicate_fits import METRICS, Source
+from drevalpy.curation._fit import DEFAULT_FIT_SPEED, FIT_SPEEDS, SUPPORTED_FIT_TYPES, FitOptions, Source, Status
+from drevalpy.curation._replicate_fits import METRICS
 from drevalpy.errors import InvalidInputError
 
 if TYPE_CHECKING:
@@ -34,20 +31,6 @@ if TYPE_CHECKING:
     import pandas as pd
 
     from drevalpy.curation._plan import Plan
-#: Only OLS is usable today. The pinned curve_curator fork raises
-#: ``TypeError: _Model.fit_mle() got an unexpected keyword argument 'weights'``
-#: partway through the fit, so MLE is rejected up front instead of failing
-#: after preprocessing. Re-enable by adding "MLE" back once the fork is fixed.
-SUPPORTED_FIT_TYPES = ("OLS",)
-
-#: Fitting thoroughness levels curve_curator accepts. ``exhaustive`` is the
-#: default and the only one the curation pipeline should use: ``fast`` takes a
-#: single shot from one initial guess, which is what made published pEC50 values
-#: depend on the starting point. The cheaper levels stay reachable because the
-#: test suite fits hundreds of curves whose exact parameters it does not assert.
-FIT_SPEEDS = ("fast", "standard", "exhaustive", "basinhopping")
-
-DEFAULT_FIT_SPEED = "exhaustive"
 
 __all__ = [
     "DEFAULT_FIT_SPEED",
@@ -68,9 +51,9 @@ def curate(
     min_doses: int = 4,
     metadata: Sequence[str] = (),
     normalize: bool = False,
-    fit_type: str = "OLS",
-    fit_speed: str = DEFAULT_FIT_SPEED,
-    max_chunk_size: int = 2000,
+    fit_type: str = FitOptions.fit_type,
+    fit_speed: str = FitOptions.fit_speed,
+    max_chunk_size: int = FitOptions.max_chunk_size,
     max_workers: int = 4,
 ) -> anndata.AnnData:
     """Fit dose-response curves and return an AnnData of curve metrics.
@@ -101,7 +84,7 @@ def curate(
         lowercased. Values that differ within one series are ``;``-joined.
     :param normalize: Whether to apply median-centric normalization before fitting. Factors are
         computed once per dose-range group, not per chunk.
-    :param fit_type: Fitting method. Only "OLS" is currently supported.
+    :param fit_type: Fitting method, one of :data:`SUPPORTED_FIT_TYPES`.
     :param fit_speed: Fitting thoroughness, one of :data:`FIT_SPEEDS`.
     :param max_chunk_size: Maximum number of curves in one chunk, the unit of parallel work.
         The result does not depend on this value.
@@ -136,17 +119,15 @@ def _plan_curation(
     min_doses: int = 4,
     metadata: Sequence[str] = (),
     normalize: bool = False,
-    fit_type: str = "OLS",
-    fit_speed: str = DEFAULT_FIT_SPEED,
-    max_chunk_size: int = 2000,
+    fit_type: str = FitOptions.fit_type,
+    fit_speed: str = FitOptions.fit_speed,
+    max_chunk_size: int = FitOptions.max_chunk_size,
 ) -> Plan:
     """Validate a well table and plan its curation: the first of :func:`curate`'s three steps."""
-    from drevalpy.curation._fit import FitOptions
     from drevalpy.curation._plan import plan
 
-    _validate_fit_options(fit_type=fit_type, fit_speed=fit_speed)
-    _validate_columns(df, metadata)
     options = FitOptions(normalize=normalize, fit_type=fit_type, fit_speed=fit_speed, max_chunk_size=max_chunk_size)
+    _validate_columns(df, metadata)
     return plan(df, replicate_fits=replicate_fits, min_doses=min_doses, metadata=metadata, options=options)
 
 
@@ -176,20 +157,3 @@ def _validate_columns(df: pd.DataFrame, metadata: Sequence[str]) -> None:
             f"Unexpected column(s) {unexpected}; curate reads {sorted(known)}. Pass the ones to keep per series "
             "as metadata=..., or drop them."
         )
-
-
-def _validate_fit_options(*, fit_type: str, fit_speed: str) -> None:
-    """Reject unusable fit options before any preprocessing happens.
-
-    :param fit_type: Requested fitting method.
-    :param fit_speed: Requested fitting thoroughness.
-    :raises InvalidInputError: If either option is not supported.
-    """
-    if fit_type not in SUPPORTED_FIT_TYPES:
-        raise InvalidInputError(
-            f"fit_type={fit_type!r} is not supported; expected one of {list(SUPPORTED_FIT_TYPES)}. "
-            "MLE fitting is unavailable because the pinned curve_curator release rejects the "
-            "'weights' argument that curve fitting passes to _Model.fit_mle()."
-        )
-    if fit_speed not in FIT_SPEEDS:
-        raise InvalidInputError(f"fit_speed={fit_speed!r} is not supported; expected one of {list(FIT_SPEEDS)}.")

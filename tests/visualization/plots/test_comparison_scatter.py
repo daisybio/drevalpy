@@ -109,9 +109,6 @@ class TestBuildFigure:
         assert [a.text for a in fig.layout.annotations] == ["x-axis model:", "y-axis model:"]
         assert fig.layout.showlegend is False
 
-    def test_an_empty_matrix_yields_an_empty_figure(self):
-        assert _build_figure(GroupCorrelationMatrix("drug", (), (), np.empty((0, 0), dtype=np.float32))).data == ()
-
 
 class TestInlinePlotlyHtml:
     def test_emits_a_div_calling_newplot_without_bundling_plotly(self, matrix):

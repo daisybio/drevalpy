@@ -19,24 +19,14 @@ class FeedForwardNetwork(LossSteps, pl.LightningModule):
         """Initialize instance state.
 
         :param hyperparameters: Must contain ``units_per_layer`` (list of ints, the hidden layer widths) and
-            ``dropout_prob`` (float).
+            ``dropout_prob`` (float), as the hyperparameter space of the predictor defines them.
         :param input_dim: Width of the concatenated feature rows.
-        :raises TypeError: If ``units_per_layer`` is not a list of ints or ``dropout_prob`` is not a float.
         """
         super().__init__()
         self.save_hyperparameters()
 
-        units_per_layer = hyperparameters["units_per_layer"]
-        if not isinstance(units_per_layer, list) or not all(isinstance(unit, int) for unit in units_per_layer):
-            msg = "units_per_layer must be a list of integers"
-            raise TypeError(msg)
-        dropout_prob = hyperparameters["dropout_prob"]
-        if not isinstance(dropout_prob, float):
-            msg = "dropout_prob must be a float"
-            raise TypeError(msg)
-
-        self.n_units_per_layer: list[int] = units_per_layer
-        self.dropout_prob: float = dropout_prob
+        self.n_units_per_layer: list[int] = hyperparameters["units_per_layer"]
+        self.dropout_prob: float = hyperparameters["dropout_prob"]
         self.loss = nn.MSELoss()
         self.fully_connected_layers = nn.ModuleList()
         self.batch_norm_layers = nn.ModuleList()

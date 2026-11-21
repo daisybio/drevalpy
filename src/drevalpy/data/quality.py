@@ -120,13 +120,13 @@ class CurveQuality:
                 values = transform(values)
             passed &= comparison(values, threshold) & ~np.isnan(values)
         if self.regulation is not None:
-            from drevalpy.curation._anndata import _REGULATION_ENCODING
+            from drevalpy.curation._anndata import REGULATION_ENCODING
 
-            unknown = sorted(set(self.regulation) - set(_REGULATION_ENCODING))
+            unknown = sorted(set(self.regulation) - set(REGULATION_ENCODING))
             if unknown:
-                raise ValueError(f"Unknown regulation label(s) {unknown}. Valid: {sorted(_REGULATION_ENCODING)}")
+                raise ValueError(f"Unknown regulation label(s) {unknown}. Valid: {sorted(REGULATION_ENCODING)}")
             codes = np.asarray(dataset.get_response_layer(_REGULATION_LAYER), dtype=np.float64)
-            wanted = [_REGULATION_ENCODING[label] for label in self.regulation]
+            wanted = [REGULATION_ENCODING[label] for label in self.regulation]
             passed &= np.isin(codes, wanted)
         return passed
 

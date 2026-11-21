@@ -3,7 +3,7 @@
 Checkpoints are a single ZIP archive written atomically to an archive file path,
 which may be local or a remote ``UPath`` (``s3://``, ``memory://``, ...).
 The payload holds the model spec as plain data and the fitted components as pickled objects.
-Only archives of format version 2 are read.
+Only archives of the current ``FORMAT_VERSION`` are read.
 
 .. warning::
    The payload is deserialized with ``joblib`` (pickle). Loading a checkpoint
@@ -45,39 +45,20 @@ class CorruptedCheckpointError(ModelCheckpointError, ValueError):
     """Raised when checkpoint payload structure or content is invalid."""
 
 
-def _as_path(path: str | Path) -> Path:
-    """Normalize a user path to ``Path``, rejecting trailing separators.
+def _archive_path(path: str | Path) -> Path:
+    """Return the archive file path for a user path, appending ``.zip`` when missing.
 
     :param path: Checkpoint archive path string or ``Path``.
-    :returns: Normalized path without a trailing directory separator.
-    :raises ValueError: If ``path`` ends with a directory separator.
+    :returns: Normalized archive ``Path`` ending in ``.zip``.
+    :raises ValueError: If ``path`` ends with a directory separator or is an existing directory.
     """
-    if isinstance(path, str) and path.endswith(("/", "\\")):
+    target = Path(path)
+    if (isinstance(path, str) and path.endswith(("/", "\\"))) or target.is_dir():
         msg = f"Checkpoint path must be an archive file path, not a directory: {path}"
         raise ValueError(msg)
-    return Path(path)
-
-
-def resolve_checkpoint_path(path: str | Path) -> Path:
-    """Return the archive file path, appending ``.zip`` when missing.
-
-    :param path: Checkpoint archive path; ``.zip`` is appended when missing.
-    :returns: Normalized archive ``Path``.
-    """
-    target = _as_path(path)
     if target.name.lower().endswith(".zip"):
         return target
     return target.with_name(f"{target.name}.zip")
-
-
-def _reject_directory_path(path: Path) -> None:
-    if path.exists() and path.is_dir():
-        msg = f"Checkpoint path must be an archive file path, not a directory: {path}"
-        raise ValueError(msg)
-
-
-def _is_local(path: Path) -> bool:
-    return path.protocol in ("", "file", "local")
 
 
 def _write_archive_atomically(archive_path: Path, payload: dict[str, Any]) -> None:
@@ -90,7 +71,7 @@ def _write_archive_atomically(archive_path: Path, payload: dict[str, Any]) -> No
     :param archive_path: Final archive location.
     :param payload: Checkpoint payload to serialize.
     """
-    local = _is_local(archive_path)
+    local = archive_path.protocol in ("", "file", "local")
     archive_path.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp_name = tempfile.mkstemp(
         prefix=f".{archive_path.name}.", suffix=".tmp", dir=os.fspath(archive_path.parent) if local else None
@@ -190,8 +171,6 @@ def save_archive(path: str | Path, spec: dict[str, Any], components: dict[str, A
     :param components: Fitted component objects by role; torch modules are saved on the CPU.
     :param measure: The response measure the model was trained on.
     """
-    target = _as_path(path)
-    _reject_directory_path(target)
     payload = {
         "format": FORMAT_NAME,
         "version": FORMAT_VERSION,
@@ -200,22 +179,10 @@ def save_archive(path: str | Path, spec: dict[str, Any], components: dict[str, A
         "measure": measure,
     }
     with _modules_on_cpu(components):
-        _write_archive_atomically(resolve_checkpoint_path(target), payload)
+        _write_archive_atomically(_archive_path(path), payload)
 
 
-def _unsupported_format(payload: dict[str, Any]) -> UnsupportedCheckpointFormatError:
-    """Build the error for a checkpoint whose format name or version this release cannot read.
-
-    :param payload: Decoded checkpoint payload.
-    :returns: Error naming the stored format and version, and the version this release writes.
-    """
-    return UnsupportedCheckpointFormatError(
-        f"unsupported checkpoint format/version: {payload.get('format')!r}/{payload.get('version')!r}; "
-        f"this release reads {FORMAT_NAME!r} version {FORMAT_VERSION}; retrain the model and save it again"
-    )
-
-
-def load_archive(path: str | Path) -> tuple[dict[str, Any], dict[str, Any], str]:
+def load_archive(path: str | Path) -> tuple[Any, dict[str, Any], str]:
     """Read a model archive written by :func:`save_archive`.
 
     .. warning::
@@ -223,27 +190,27 @@ def load_archive(path: str | Path) -> tuple[dict[str, Any], dict[str, Any], str]
        trusted sources.
 
     :param path: Archive file path; ``.zip`` is appended when missing.
-    :returns: The plain-data spec, the component objects by role and the response measure.
+    :returns: The plain-data spec as stored (its validity is for the caller to check), the component objects by
+        role and the response measure.
     :raises FileNotFoundError: If the archive does not exist.
     :raises UnsupportedCheckpointFormatError: If the format or version is unsupported.
     :raises CorruptedCheckpointError: If the payload structure is invalid.
     """  # noqa: DOC503
-    target = _as_path(path)
-    _reject_directory_path(target)
-    archive_path = resolve_checkpoint_path(target)
+    archive_path = _archive_path(path)
     if not archive_path.is_file():
         raise FileNotFoundError(f"Missing model checkpoint: {archive_path}")
     payload = _read_payload_from_archive(archive_path)
     if not isinstance(payload, dict):
         raise CorruptedCheckpointError("checkpoint payload is not a mapping")
     if payload.get("format") != FORMAT_NAME or payload.get("version") != FORMAT_VERSION:
-        raise _unsupported_format(payload)
-    spec, components = payload.get("spec"), payload.get("components")
-    if not isinstance(spec, dict):
-        raise CorruptedCheckpointError("checkpoint spec is not a mapping")
+        raise UnsupportedCheckpointFormatError(
+            f"unsupported checkpoint format/version: {payload.get('format')!r}/{payload.get('version')!r}; "
+            f"this release reads {FORMAT_NAME!r} version {FORMAT_VERSION}; retrain the model and save it again"
+        )
+    components = payload.get("components")
     if not isinstance(components, dict):
         raise CorruptedCheckpointError("checkpoint components are not a mapping")
     measure = payload.get("measure")
     if not isinstance(measure, str) or not measure:
         raise CorruptedCheckpointError("checkpoint has no response measure")
-    return spec, components, measure
+    return payload.get("spec"), components, measure

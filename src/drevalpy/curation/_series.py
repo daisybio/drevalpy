@@ -44,8 +44,8 @@ from drevalpy.errors import InvalidInputError
 #: Columns of the viability table :func:`number_series` returns, the input of the pooled fit.
 VIABILITY_COLUMNS = ["drug", "sample", "concentration", "intensity", "replicate"]
 
-#: Columns of the series table before the metadata columns.
-SERIES_COLUMNS = [
+#: Columns that identify a series.
+SERIES_ID_COLUMNS = [
     "native_sample",
     "native_drug",
     "replicate",
@@ -53,9 +53,10 @@ SERIES_COLUMNS = [
     "experiment",
     "biological_replicate",
     "technical_replicate",
-    "n_doses",
-    "eligible",
 ]
+
+#: Columns of the series table before the metadata columns.
+SERIES_COLUMNS = [*SERIES_ID_COLUMNS, "n_doses", "eligible"]
 
 #: Input columns: the required ones, then the optional ones.
 REQUIRED_COLUMNS = ("sample", "drug", "concentration", "intensity")

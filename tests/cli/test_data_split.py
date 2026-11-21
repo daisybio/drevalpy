@@ -1,4 +1,4 @@
-"""Tests for :mod:`drevalpy.cli.data.split`, the ``drevalpy data split`` command."""
+"""Tests for :func:`drevalpy.cli.data.split_dataset`, the ``drevalpy data split`` command."""
 
 from __future__ import annotations
 

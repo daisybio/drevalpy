@@ -1,7 +1,7 @@
 Environment variables
 =====================
 
-DrEvalPy reads eight environment variables. All are optional.
+DrEvalPy reads seven environment variables. All are optional.
 
 .. list-table::
    :header-rows: 1
@@ -31,9 +31,6 @@ DrEvalPy reads eight environment variables. All are optional.
    * - ``DREVALPY_STRICT_PLUGINS``
      - unset
      - Make a failing plugin an error
-   * - ``DREVAL_AE_CACHE``
-     - unset
-     - Directory that caches trained gene autoencoders
 
 ``DREVALPY_ARTIFACTS_URI``
 --------------------------
@@ -106,22 +103,3 @@ exception. Without the variable, the failure is logged as a warning and recorded
 With the variable set, ``drevalpy list plugins`` prints the traceback of the failed import and
 exits with status 1. Without it, the ``--strict`` flag of that command exits with status 1
 when any plugin failed to load.
-
-``DREVAL_AE_CACHE``
--------------------
-
-A directory for the autoencoders that the ``aeGeneExpression`` sample featurizer trains, as in
-the ``RandomForestAEMolGNet`` zoo preset. The ``autoencoder_cache_dir`` option of the
-featurizer takes precedence. Without either, nothing is cached and every fit trains its own
-autoencoder.
-
-- The first fit trains the autoencoder and writes ``gene_ae_<digest>.pt``. A later fit with
-  the same key reads the file instead of training. A file is written to a temporary name first
-  and then renamed, so models that run in parallel never read a half-written file.
-- The ``<digest>`` covers the autoencoder settings (gene list, epochs, batch size, patience,
-  learning rate), the training and early-stopping sample ids, the gene order and the expression
-  values. Another fold, gene list, setting or dataset therefore gets its own file.
-- The cache stores one training run, so two fits that share a file also share its random
-  initialization. Delete the file to train another autoencoder.
-
-The directory is not cleaned up. Remove its files when they are no longer needed.

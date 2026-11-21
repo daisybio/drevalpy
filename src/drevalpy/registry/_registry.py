@@ -20,7 +20,7 @@ from __future__ import annotations
 import difflib
 import threading
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Collection, Mapping
+from collections.abc import Collection, Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Generic, TypeVar
@@ -31,8 +31,6 @@ if TYPE_CHECKING:
     import pandas as pd
 
 T = TypeVar("T")
-
-_EMPTY: Mapping[str, Any] = MappingProxyType({})
 
 
 class TableReprMixin(ABC):
@@ -66,24 +64,6 @@ class Snapshot(Generic[T]):
 
     kind: str
     entries: tuple[tuple[str, T, Mapping[str, Any]], ...]
-
-
-def _frozen_metadata(kind: str, name: str, metadata: Mapping[str, Any] | None) -> Mapping[str, Any]:
-    """Return *metadata* as a read-only copy after checking its keys.
-
-    :param kind: Registry kind, named in the error message.
-    :param name: Entry name, named in the error message.
-    :param metadata: Metadata given at registration, or ``None``.
-    :returns: Read-only mapping, empty when *metadata* is ``None``.
-    :raises TypeError: If a metadata key is not a string.
-    """
-    if not metadata:
-        return _EMPTY
-    bad = [key for key in metadata if not isinstance(key, str)]
-    if bad:
-        msg = f"{kind} {name!r} metadata keys must be strings, got {bad!r}"
-        raise TypeError(msg)
-    return MappingProxyType(dict(metadata))
 
 
 def _suggestion(name: str, names: Collection[str]) -> str:
@@ -149,26 +129,13 @@ class Registry(TableReprMixin, Generic[T]):
         if not isinstance(name, str) or not name.strip():
             msg = f"{self.kind} name must be a non-empty string, got {name!r}"
             raise ValueError(msg)
-        entry = _Entry(obj, _frozen_metadata(self.kind, name, metadata))
+        entry = _Entry(obj, MappingProxyType(dict(metadata or {})))
         with self._lock:
             if name in self._entries and not replace:
                 msg = f"{self.kind} {name!r} already registered"
                 raise ValueError(msg)
             self._entries[name] = entry
         return obj
-
-    def decorator(self, name: str, **metadata: Any) -> Callable[[T], T]:
-        r"""Return a decorator that registers its target under *name*.
-
-        :param name: Unique entry name.
-        :param \**metadata: Metadata stored with the entry.
-        :returns: Decorator that registers and returns the decorated object.
-        """
-
-        def decorate(obj: T) -> T:
-            return self.register(name, obj, metadata=metadata)
-
-        return decorate
 
     def get(self, name: str) -> T:
         """Return the entry registered under *name*.

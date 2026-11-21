@@ -14,7 +14,7 @@ from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.registry.predictor import predictor_registry
 from drevalpy.registry.predictor import register as register_predictor
 from drevalpy.types.data.predictor_input import PredictorInput
-from drevalpy.types.enums.model_scope import ModelScope
+from drevalpy.types.enums import ModelScope
 from tests.registry._helpers import empty_component_registries
 
 

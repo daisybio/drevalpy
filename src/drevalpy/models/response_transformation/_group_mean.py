@@ -21,9 +21,6 @@ from drevalpy.errors import InvalidInputError
 #: tissue names contain it, so the joined keys cannot collide.
 _KEY_SEPARATOR = "\x1f"
 
-#: Group levels a ``GroupMeanCenterer`` can use, in the order the pipeline reads them from the data.
-GROUP_LEVELS = ("drug", "tissue")
-
 
 def _composite_keys(labels: np.ndarray, n_levels: int) -> np.ndarray:
     """Join the first *n_levels* columns of *labels* into one key per value.
@@ -67,8 +64,8 @@ class GroupMeanCenterer(TransformerMixin, BaseEstimator):
     def __init__(self, levels: tuple[str, ...] = ("drug",)) -> None:
         """Store the group levels; state is created in :meth:`fit`.
 
-        :param levels: Group levels from coarse to fine; each is one of :data:`GROUP_LEVELS`. The nested
-            means are estimated for every prefix of this tuple.
+        :param levels: Group levels from coarse to fine, each ``"drug"`` or ``"tissue"`` (the label builder
+            ``group_labels`` rejects any other). The nested means are estimated for every prefix of this tuple.
         """
         self.levels = levels
 
@@ -80,11 +77,8 @@ class GroupMeanCenterer(TransformerMixin, BaseEstimator):
         :param groups: Group label per pair, shape ``(n,)`` or ``(n, n_levels)``. Without it only the
             global mean is estimated and the transformer is plain mean centring.
         :returns: The fitted transformer.
-        :raises InvalidInputError: If a level is unknown, or the labels do not have one column per level.
+        :raises InvalidInputError: If the labels do not have one column per level.
         """
-        unknown = [level for level in self.levels if level not in GROUP_LEVELS]
-        if unknown:
-            raise InvalidInputError(f"Unknown group level {unknown[0]!r}; choose from {list(GROUP_LEVELS)}")
         values = np.asarray(X, dtype=float).reshape(-1)
         self.global_mean_ = float(values.mean()) if values.size else 0.0
         self.level_keys_: list[np.ndarray] = []

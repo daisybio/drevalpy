@@ -11,7 +11,7 @@ import pytest
 from drevalpy.registry._component import component_license
 from drevalpy.registry.featurizer import featurizer_registries
 from drevalpy.registry.predictor import predictor_registry
-from drevalpy.types.enums.accelerator import Accelerator
+from drevalpy.types.enums import Accelerator
 
 _OPTIONAL = {
     ("predictor", "dipk"),

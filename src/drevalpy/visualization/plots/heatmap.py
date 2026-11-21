@@ -4,31 +4,50 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import numpy as np
+
 from drevalpy.evaluation import Metric, MetricKind
 from drevalpy.log import get_logger
 from drevalpy.registry.visualization import register
 from drevalpy.visualization.base import Plot, Section
-from drevalpy.visualization.plots._utils import compute_ssmd, runs_frame
+from drevalpy.visualization.plots._utils import runs_frame
 from drevalpy.visualization.requirements import PlotRequirement
 
 if TYPE_CHECKING:
     import pandas as pd
     import plotly.graph_objects as go
+    from numpy.typing import ArrayLike
 
     from drevalpy.types.results import ExperimentResult
 
 logger = get_logger(__name__)
 
 
-def _setting_groups(df: pd.DataFrame) -> pd.Series:
-    idx_split = df.index.to_series().str.split("_")
-    return idx_split.str[0:3].str.join("_")
+def compute_ssmd(values_a: ArrayLike, values_b: ArrayLike) -> float:
+    """Compute the Strictly Standardized Mean Difference between two arrays.
+
+    SSMD = (mean_a - mean_b) / sqrt(var_a + var_b)
+
+    :param values_a: Metric values for model A (across CV folds).
+    :param values_b: Metric values for model B (across CV folds).
+    :returns: SSMD value, or NaN if either array has fewer than two values or the denominator is zero.
+    """
+    a = np.asarray(values_a, dtype=float)
+    b = np.asarray(values_b, dtype=float)
+    if a.size < 2 or b.size < 2:
+        return float("nan")
+    mu_a, mu_b = a.mean(), b.mean()
+    var_a, var_b = a.var(ddof=1), b.var(ddof=1)
+    denom = var_a + var_b
+    if denom <= 0:
+        return float("nan")
+    return float((mu_a - mu_b) / np.sqrt(denom))
 
 
 def _ssmd_matrix(df: pd.DataFrame, metric: str) -> pd.DataFrame:
     """Build the pairwise SSMD matrix of the models on *metric*.
 
-    :param df: Per-run frame indexed by ``<model>_predictions_...`` labels.
+    :param df: Per-run frame from :func:`~drevalpy.visualization.plots._utils.runs_frame`.
     :param metric: Metric column to compare the models on.
     :returns: Models by models SSMD matrix, or an empty frame if *metric* is not a column.
     """
@@ -37,8 +56,7 @@ def _ssmd_matrix(df: pd.DataFrame, metric: str) -> pd.DataFrame:
     if metric not in df.columns:
         return pd.DataFrame()
 
-    model_names = df.index.to_series().apply(lambda x: x.split("_predictions")[0])
-    values = {model: df.loc[model_names == model, metric].astype(float).dropna() for model in model_names.unique()}
+    values = {model: group.astype(float).dropna() for model, group in df.groupby("algorithm", sort=False)[metric]}
     matrix = pd.DataFrame(index=list(values), columns=list(values), dtype=float)
     for m1, values_m1 in values.items():
         for m2, values_m2 in values.items():
@@ -68,7 +86,7 @@ def _ssmd_trace(df: pd.DataFrame, metric_name: str) -> go.Heatmap | None:
     )
 
 
-def _mean_trace(df_metrics: pd.DataFrame, setting: pd.Series, ps: str, metric_cols: list[str]) -> go.Heatmap | None:
+def _mean_trace(df: pd.DataFrame, ps: str, metric_cols: list[str]) -> go.Heatmap | None:
     import plotly.graph_objects as go
 
     columns = _columns_for_setting(ps, metric_cols)
@@ -77,14 +95,14 @@ def _mean_trace(df_metrics: pd.DataFrame, setting: pd.Series, ps: str, metric_co
     colorscale = {"r2": "Blues", "correlations": "Viridis", "errors": "hot"}[ps]
     ascending = ps != "errors"
 
-    grouped = df_metrics[columns].astype(float).groupby(setting)
+    grouped = df.astype(dict.fromkeys(columns, float)).groupby(["algorithm", "rand_setting", "test_mode"])[columns]
     dt = grouped.mean().sort_values(by=columns[0], ascending=ascending)
     dt_std = grouped.sem().fillna(0.0).loc[dt.index]
     text_labels = dt.round(3).astype(str) + " ± " + dt_std.round(3).astype(str)
     return go.Heatmap(
         z=dt.values,
         x=list(dt.columns),
-        y=[i.split("_")[0] for i in dt.index],
+        y=list(dt.index.get_level_values("algorithm")),
         colorscale=colorscale,
         texttemplate="%{text}",
         text=text_labels.values,
@@ -107,13 +125,10 @@ class HeatmapPlot(Plot):
         """
         from plotly.subplots import make_subplots
 
-        df = runs_frame(result, indexed=True)
+        df = runs_frame(result)
         metric_cols = [m.value for m in Metric if m in df.columns]
         if not metric_cols:
             logger.warning("heatmap: none of the expected metrics are present; the panels will be empty")
-        df_metrics = df[metric_cols]
-
-        setting = _setting_groups(df)
 
         plot_settings = ["r2", "correlations", "errors", "ssmd_R^2", "ssmd_MSE"]
         titles = [
@@ -135,7 +150,7 @@ class HeatmapPlot(Plot):
             if ps.startswith("ssmd_"):
                 trace = _ssmd_trace(df, ps.split("_", 1)[1])
             else:
-                trace = _mean_trace(df_metrics, setting, ps, metric_cols)
+                trace = _mean_trace(df, ps, metric_cols)
             if trace is not None:
                 fig.add_trace(trace, row=idx, col=1)
 

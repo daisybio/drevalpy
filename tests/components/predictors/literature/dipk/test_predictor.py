@@ -11,10 +11,10 @@ import torch
 from torch import nn
 
 from drevalpy.components.contracts.feature_format import FeatureFormat
-from drevalpy.components.predictors.literature.dipk.attention_utils import MultiHeadAttentionLayer
 from drevalpy.components.predictors.literature.dipk.model_utils import (
     AttentionLayer,
     DenseLayers,
+    MultiHeadAttentionLayer,
     Predictor,
     features_dim_bionic,
     features_dim_gene,
@@ -118,15 +118,13 @@ def test_build_pairs_selects_entity_rows_and_adds_the_target_for_a_response() ->
     predictor = DIPKPredictor()
     batch = _dipk_batch()
 
-    pairs = predictor._build_pairs(batch.sample_pair_idx, batch.drug_pair_idx, batch)
+    pairs = predictor._build_pairs(batch)
 
     assert len(pairs) == 4
     assert set(pairs[0]) == {"molgnet_features", "gene_expression", "bionic_features"}
     torch.testing.assert_close(pairs[2]["gene_expression"], torch.tensor([0.3, 0.4]))
     assert pairs[2]["molgnet_features"].shape == (3, 2)
-    with_target = predictor._build_pairs(
-        batch.sample_pair_idx, batch.drug_pair_idx, batch, response=np.array([1.0, 2.0, 3.0, 4.0], dtype=np.float32)
-    )
+    with_target = predictor._build_pairs(batch, response=True)
     assert with_target[3]["ic50"].tolist() == [4.0]
 
 

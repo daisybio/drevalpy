@@ -8,22 +8,21 @@ either component package: ``Featurizer`` and ``Predictor`` are siblings under
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any
+from copy import deepcopy
+from typing import Any, ClassVar
 
 __all__ = [
-    "FIXED",
     "TunableComponent",
     "admits",
     "default_values",
     "fixed_entries",
     "is_fixed",
-    "tunable_entries",
     "validate_component_hyperparameter_space",
     "validate_hyperparameter_space",
 ]
 
 
-FIXED = "fixed"
+_FIXED = "fixed"
 _SEARCH_KEYS = ("low", "high", "choices", "log")
 
 
@@ -33,7 +32,7 @@ def is_fixed(spec: Mapping[str, Any]) -> bool:
     :param spec: One search-space entry.
     :returns: ``True`` for a fixed entry.
     """
-    return spec.get("type") == FIXED
+    return spec.get("type") == _FIXED
 
 
 def fixed_entries(values: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
@@ -42,16 +41,7 @@ def fixed_entries(values: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
     :param values: Parameter names mapped to the value HPO must leave untouched.
     :returns: ``{"type": "fixed", "default": value}`` per name.
     """
-    return {name: {"type": FIXED, "default": value} for name, value in values.items()}
-
-
-def tunable_entries(space: Mapping[str, Any] | None) -> dict[str, Any]:
-    """Return the entries of *space* that HPO draws, dropping fixed ones.
-
-    :param space: Hyperparameter space, or ``None`` / empty.
-    :returns: The non-fixed entries, in declaration order.
-    """
-    return {name: spec for name, spec in (space or {}).items() if not is_fixed(spec)}
+    return {name: {"type": _FIXED, "default": value} for name, value in values.items()}
 
 
 def _plain(value: Any) -> Any:
@@ -206,18 +196,24 @@ class TunableComponent:
     grammar. The default here is the no-op end of the contract: a component with
     nothing to tune returns an empty space.
 
-    Subclasses override ``get_hyperparameter_space`` to declare what is tunable.
+    Subclasses override ``get_hyperparameter_space`` to declare what is tunable. A component
+    that tunes nothing sets :attr:`fixed_hyperparameters` instead.
     ``default_hyperparameters`` is not an override point - it reads whatever the
     space declares, including its ``fixed`` entries.
     """
+
+    #: Parameter names mapped to values HPO never draws; the default space declares exactly these.
+    fixed_hyperparameters: ClassVar[Mapping[str, Any]] = {}
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
         """Return tunable hyperparameter specs for HPO.
 
-        :returns: Mapping of parameter name to search-space spec dicts.
+        :returns: Mapping of parameter name to search-space spec dicts: a ``fixed`` entry per
+            :attr:`fixed_hyperparameters` item, so empty by default. The values are copies, so a
+            caller may mutate a list default without changing the class.
         """
-        return {}
+        return fixed_entries(deepcopy(dict(cls.fixed_hyperparameters)))
 
     @classmethod
     def default_hyperparameters(cls) -> dict[str, object]:

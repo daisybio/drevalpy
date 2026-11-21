@@ -10,6 +10,7 @@ plugin repository's CI.
 from __future__ import annotations
 
 from collections.abc import Mapping
+from enum import StrEnum
 from types import ModuleType
 from typing import TYPE_CHECKING, Annotated
 
@@ -18,15 +19,19 @@ import typer
 if TYPE_CHECKING:  # pragma: no cover - import-time only for type checkers
     from rich.text import Text
 
-STATUS_LOADED = "loaded"
-STATUS_FAILED = "failed"
-STATUS_NOT_LOADED = "not loaded"
 
-_STATUS_STYLES = {
-    STATUS_LOADED: "green",
-    STATUS_FAILED: "bold red",
-    STATUS_NOT_LOADED: "yellow",
-}
+class PluginStatus(StrEnum):
+    """Whether a declared plugin imported, and the style its row is printed in."""
+
+    LOADED = "loaded"
+    FAILED = "failed"
+    NOT_LOADED = "not loaded"
+
+    @property
+    def style(self) -> str:
+        """The ``rich`` style of this status in the plugin table."""
+        return {"loaded": "green", "failed": "bold red", "not loaded": "yellow"}[self.value]
+
 
 _NO_PLUGINS_HINT = (
     "No packages declare a drevalpy.plugins entry point in this environment. "
@@ -62,22 +67,6 @@ def _registry_module() -> ModuleType:
         raise typer.Exit(1) from error
 
 
-def _declared_entry_points() -> dict[str, str]:
-    """Return the ``drevalpy.plugins`` entry points declared in this environment.
-
-    :returns: Mapping of entry-point name to the dotted object it points at. Includes
-        entry points that failed to load, which is why it is read from
-        ``importlib.metadata`` rather than from the loaded-plugins registry.
-    """
-    import importlib.metadata
-
-    # The group name lives with the loader that consumes it; duplicating the
-    # string here would let the two drift apart silently.
-    from drevalpy.registry._plugins import ENTRY_POINT_GROUP
-
-    return {ep.name: ep.value for ep in importlib.metadata.entry_points(group=ENTRY_POINT_GROUP)}
-
-
 def failure_reason(traceback_text: str) -> str:
     """Reduce a formatted traceback to its actionable last line.
 
@@ -88,22 +77,6 @@ def failure_reason(traceback_text: str) -> str:
     """
     lines = [line.strip() for line in traceback_text.strip().splitlines() if line.strip()]
     return lines[-1] if lines else "unknown error"
-
-
-def _status(name: str, loaded: Mapping[str, str], failed: Mapping[str, str]) -> str:
-    """Classify one entry point.
-
-    :param name: Entry-point name.
-    :param loaded: Plugins that imported cleanly.
-    :param failed: Plugins that raised while importing.
-    :returns: One of :data:`STATUS_FAILED`, :data:`STATUS_LOADED` or
-        :data:`STATUS_NOT_LOADED`.
-    """
-    if name in failed:
-        return STATUS_FAILED
-    if name in loaded:
-        return STATUS_LOADED
-    return STATUS_NOT_LOADED
 
 
 def _status_rows(
@@ -122,19 +95,28 @@ def _status_rows(
 
     rows: list[list[str | Text]] = []
     for name in sorted(set(declared) | set(loaded) | set(failed)):
-        status = _status(name, loaded, failed)
+        status = (
+            PluginStatus.FAILED
+            if name in failed
+            else PluginStatus.LOADED
+            if name in loaded
+            else PluginStatus.NOT_LOADED
+        )
         target = declared.get(name) or loaded.get(name) or ""
-        rows.append([name, Text(status, style=_STATUS_STYLES[status]), target])
+        rows.append([name, Text(status, style=status.style), target])
     return rows
 
 
-def _report_failures(failed: Mapping[str, str], *, show_traceback: bool) -> None:
-    """Print the reason each failed plugin failed.
+def _report(items: Mapping[str, str], heading: str, style: str, *, show_traceback: bool | None = None) -> None:
+    """Print a heading and the one-line reason for every recorded failure.
 
-    :param failed: Mapping of plugin name to the recorded traceback.
-    :param show_traceback: Print the whole traceback rather than its last line.
+    :param items: Mapping of name to the recorded traceback; nothing is printed when empty.
+    :param heading: Text after the count in the heading line.
+    :param style: ``rich`` style of the heading and the names.
+    :param show_traceback: Print each whole traceback rather than its last line only;
+        ``None`` for a report that offers no ``--traceback`` option.
     """
-    if not failed:
+    if not items:
         return
     from rich.text import Text
 
@@ -142,42 +124,17 @@ def _report_failures(failed: Mapping[str, str], *, show_traceback: bool) -> None
 
     out = console()
     out.print()
-    out.print(Text(f"{len(failed)} plugin(s) failed to load:", style="bold red"))
-    for name, recorded in sorted(failed.items()):
+    out.print(Text(f"{len(items)} {heading}:", style=style))
+    for name, recorded in sorted(items.items()):
         line = Text("  ")
-        line.append(name, style="bold red")
+        line.append(name, style=style)
         line.append(": ")
         line.append(failure_reason(recorded))
         out.print(line)
         if show_traceback:
             out.print(Text(recorded.rstrip(), style="dim"))
-    if not show_traceback:
+    if show_traceback is False:
         out.print(Text("Re-run with --traceback for the full stack traces.", style="dim"))
-
-
-def _report_skipped_builtins(skipped: Mapping[str, str]) -> None:
-    """Print built-in modules that were skipped during registration.
-
-    Builtins are not plugins, but a missing built-in component looks identical
-    from the outside, so it belongs in the same answer.
-
-    :param skipped: Mapping of module name to the recorded traceback.
-    """
-    if not skipped:
-        return
-    from rich.text import Text
-
-    from ._render import console
-
-    out = console()
-    out.print()
-    out.print(Text(f"{len(skipped)} built-in module(s) were skipped:", style="yellow"))
-    for module_name, recorded in sorted(skipped.items()):
-        line = Text("  ")
-        line.append(module_name, style="yellow")
-        line.append(": ")
-        line.append(failure_reason(recorded))
-        out.print(line)
 
 
 def list_plugins(
@@ -196,19 +153,24 @@ def list_plugins(
     load status. Failures are reported with the exception that caused them; pass
     ``--strict`` to turn any failure into a non-zero exit status for CI.
     """
+    from drevalpy.registry._plugins import declared_entry_points
+
     from ._render import render_rows
 
     registry = _registry_module()
     failed = registry.get_failed_plugins()
 
     render_rows(
-        _status_rows(_declared_entry_points(), registry.get_loaded_plugins(), failed),
+        _status_rows(
+            {name: ep.value for name, ep in declared_entry_points().items()}, registry.get_loaded_plugins(), failed
+        ),
         columns=["Plugin", "Status", "Entry point"],
         title="Plugins",
         empty_hint=_NO_PLUGINS_HINT,
     )
-    _report_failures(failed, show_traceback=show_traceback)
-    _report_skipped_builtins(registry.get_skipped_builtin_modules())
+    _report(failed, "plugin(s) failed to load", "bold red", show_traceback=show_traceback)
+    # Builtins are not plugins, but a missing built-in component looks identical from the outside.
+    _report(registry.get_skipped_builtin_modules(), "built-in module(s) were skipped", "yellow")
 
     if strict and failed:
         raise typer.Exit(1)

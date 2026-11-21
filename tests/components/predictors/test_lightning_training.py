@@ -9,13 +9,14 @@ import pytest
 import pytorch_lightning as pl
 from upath import UPath
 
+from drevalpy._utils.accelerator import lightning_accelerator
 from drevalpy.components.predictors._lightning_training import (
     LightningRun,
     _loggers,
     _versioned_name,
     run_lightning_fit,
 )
-from drevalpy.components.predictors.literature._omics_loaders import OmicsSplit, make_omics_loaders
+from drevalpy.components.predictors.literature._omics import OmicsSplit, make_omics_loaders
 from drevalpy.experiment._tracking import tracking_run
 from tests._fake_wandb import install_fake_wandb
 
@@ -142,14 +143,14 @@ def _spy_trainer(monkeypatch) -> list[dict[str, object]]:
 def test_trainer_settings_follow_the_run(tmp_path, monkeypatch) -> None:
     seen = _spy_trainer(monkeypatch)
     train_loader, val_loader = _loaders(with_validation=True)
-    run = _run(tmp_path, accelerator="cpu", devices=1, precision=32, log_every_n_steps=1, logger=False, patience=7)
+    run = _run(tmp_path, devices=1, precision=32, log_every_n_steps=1, logger=False, patience=7)
 
     run_lightning_fit(_TinyModule(), train_loader, val_loader, run)
     run_lightning_fit(_TinyModule(), train_loader, val_loader, _run(tmp_path, enable_progress_bar=True))
     run_lightning_fit(_TinyModule(), train_loader, val_loader, _run(tmp_path, default_logger=False))
 
     first, progress, no_default_logger = seen
-    assert (first["accelerator"], first["devices"], first["precision"]) == ("cpu", 1, 32)
+    assert (first["accelerator"], first["devices"], first["precision"]) == (lightning_accelerator(), 1, 32)
     assert first["log_every_n_steps"] == 1
     assert first["logger"] is False
     assert first["enable_progress_bar"] is False

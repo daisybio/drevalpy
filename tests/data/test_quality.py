@@ -7,7 +7,7 @@ import dataclasses
 import numpy as np
 import pytest
 
-from drevalpy.curation._anndata import _REGULATION_ENCODING
+from drevalpy.curation._anndata import REGULATION_ENCODING
 from drevalpy.data import synthetic
 from drevalpy.data.quality import _RESPONSE_MATRIX, _RULES, CurveQuality
 
@@ -185,7 +185,7 @@ def test_a_requested_layer_that_is_absent_raises_and_an_unused_one_may_be_absent
 
 class TestRegulation:
     def _dataset(self) -> FakeDataset:
-        up, down, not_ = (_REGULATION_ENCODING[label] for label in ("up", "down", "not"))
+        up, down, not_ = (REGULATION_ENCODING[label] for label in ("up", "down", "not"))
         return _both({"regulation": np.array([[up, down, not_], [np.nan, down, not_]], dtype=float)})
 
     @pytest.mark.parametrize(

@@ -1,4 +1,4 @@
-"""Tests for the autoencoder featurizers (AE and DIPK gene expression) and the AE cache helpers."""
+"""Tests for the autoencoder featurizers (AE and DIPK gene expression)."""
 
 from __future__ import annotations
 
@@ -7,16 +7,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from drevalpy.components.featurizers.sample._ae_cache import (
-    CACHE_ENV_VAR,
-    cache_file,
-    resolve_cache_dir,
-    write_atomically,
-)
-from drevalpy.components.featurizers.sample.ae_gene_expression import (
-    AEGeneExpressionFeaturizer,
-    train_or_load_autoencoder,
-)
+from drevalpy.components.featurizers.sample.ae_gene_expression import AEGeneExpressionFeaturizer
 from drevalpy.components.featurizers.sample.dipk_gene_expression import (
     DIPKGeneExpressionFeaturizer,
     dipk_preprocess,
@@ -79,11 +70,6 @@ def recording_trainer(monkeypatch: pytest.MonkeyPatch) -> dict:
     return seen
 
 
-@pytest.fixture(autouse=True)
-def _no_ambient_cache(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv(CACHE_ENV_VAR, raising=False)
-
-
 _VARIANTS = [
     pytest.param(lambda **kwargs: _ae(**kwargs), lambda matrix: matrix, id="ae"),
     pytest.param(lambda **kwargs: DIPKGeneExpressionFeaturizer(**kwargs), _zscore, id="dipk"),
@@ -135,13 +121,6 @@ def test_dipk_zscores_every_sample_row_and_ae_leaves_the_rows_raw(recording_trai
 
     _fit(_ae(), source)
     assert not np.allclose(recording_trainer["train"].mean(axis=1), 0.0)
-
-
-@pytest.mark.parametrize(("make", "preprocess"), _VARIANTS)
-def test_a_trailing_single_row_moves_to_validation(recording_trainer, make, preprocess) -> None:
-    _fit(make(batch_size_autoencoder=4), _source(n=6), train=("cl0", "cl1", "cl2", "cl3", "cl4"), es=("cl5",))
-
-    assert (recording_trainer["train"].shape[0], recording_trainer["validation"].shape[0]) == (4, 2)
 
 
 @pytest.mark.parametrize(("unit", "log_applied"), [("log2_tpm_plus_1", False), (None, False), ("TPM", True)])
@@ -250,141 +229,3 @@ def test_dipk_gene_list_selects_the_autoencoder_input_and_survives_pickling(
     assert restored._gene_list == "mine"
     ids = np.array(["cl0", "cl1"])
     np.testing.assert_allclose(restored.transform(source, ids).matrix, featurizer.transform(source, ids).matrix)
-
-
-def test_train_or_load_autoencoder_trains_and_caches_by_gene_names(recording_trainer, tmp_path: Path) -> None:
-    train = np.arange(12, dtype=np.float32).reshape(3, 4)
-    validation = np.arange(8, dtype=np.float32).reshape(2, 4)
-    train_ids, validation_ids = np.array(["s0", "s1", "s2"]), np.array(["s3", "s4"])
-    settings = {"epochs": 4, "lr": 1e-3, "patience": 2, "batch_size": 8}
-
-    def run(**kwargs) -> GeneExpressionEncoder:
-        return train_or_load_autoencoder(train, validation, train_ids, validation_ids, **settings, **kwargs)
-
-    encoder = run()
-    assert isinstance(encoder, GeneExpressionEncoder)
-    assert (recording_trainer["epochs"], recording_trainer["lr"], recording_trainer["patience"]) == (4, 1e-3, 2)
-    np.testing.assert_allclose(recording_trainer["train"], train)
-    run()
-    assert recording_trainer["calls"] == 2
-
-    run(cache_dir=str(tmp_path), genes=tuple(_GENES))
-    run(cache_dir=str(tmp_path), genes=tuple(_GENES))
-    assert recording_trainer["calls"] == 3
-    run(cache_dir=str(tmp_path), genes=tuple(_GENES[::-1]))
-    run(cache_dir=str(tmp_path))
-    run(cache_dir=str(tmp_path), gene_list="mine", genes=tuple(_GENES))
-    assert recording_trainer["calls"] == 6
-    assert len(list(tmp_path.glob("gene_ae_*.pt"))) == 4
-
-
-def test_cache_trains_once_and_reuses_the_encoder(recording_trainer, tmp_path: Path) -> None:
-    source = _source(n=8)
-    cache = tmp_path / "ae"
-    ids = np.array(["cl4", "cl5"])
-
-    first = _fit(_ae(autoencoder_cache_dir=str(cache)), source)
-    second = _fit(_ae(autoencoder_cache_dir=str(cache)), source)
-
-    assert recording_trainer["calls"] == 1
-    assert len(list(cache.glob("gene_ae_*.pt"))) == 1
-    np.testing.assert_allclose(second.transform(source, ids).matrix, first.transform(source, ids).matrix)
-
-
-def test_cache_directory_comes_from_the_environment(
-    recording_trainer, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    monkeypatch.setenv(CACHE_ENV_VAR, str(tmp_path / "env"))
-
-    _fit(_ae(), _source())
-    _fit(_ae(), _source())
-
-    assert recording_trainer["calls"] == 1
-    assert len(list((tmp_path / "env").glob("gene_ae_*.pt"))) == 1
-
-
-def test_cache_is_keyed_by_settings_samples_and_gene_order(recording_trainer, tmp_path: Path) -> None:
-    source = _source()
-    reverse = MockFeatureSource(
-        {key: {"gene_expression": value["gene_expression"][::-1]} for key, value in source.features.items()},
-        meta_info={"gene_expression": _GENES[::-1]},
-    )
-
-    def fit(src=source, train=("cl0", "cl1"), es=("cl2",), **kwargs) -> None:
-        _fit(_ae(autoencoder_cache_dir=str(tmp_path), **kwargs), src, train, es)
-
-    variations = [
-        {},
-        {"epochs_autoencoder": 3},
-        {"patience_autoencoder": 3},
-        {"lr_autoencoder": 1e-3},
-        {"train": ("cl0", "cl1", "cl3")},
-        {"es": ("cl4",)},
-        {"src": reverse},
-    ]
-    for variation in variations:
-        fit(**variation)
-    assert recording_trainer["calls"] == len(variations)
-    fit()
-    assert recording_trainer["calls"] == len(variations)
-
-
-_CONFIG = {"gene_list": "mine", "epochs": 5, "batch_size": 8, "patience": 2, "lr": 1e-4}
-_TRAIN = np.arange(12, dtype=np.float32).reshape(3, 4)
-_VALIDATION = np.arange(8, dtype=np.float32).reshape(2, 4)
-
-
-def _cache_path(tmp_path: Path, **overrides) -> Path:
-    arguments = {
-        "config": _CONFIG,
-        "genes": ["a", "b", "c", "d"],
-        "train_ids": np.array(["s0", "s1", "s2"]),
-        "validation_ids": np.array(["s3", "s4"]),
-        "matrices": (_TRAIN, _VALIDATION),
-    }
-    arguments.update(overrides)
-    return cache_file(tmp_path, **arguments)
-
-
-def test_cache_file_is_deterministic_and_named_by_digest(tmp_path: Path) -> None:
-    path = _cache_path(tmp_path)
-
-    assert path == _cache_path(tmp_path)
-    assert path.parent == tmp_path
-    assert path.name.startswith("gene_ae_") and path.suffix == ".pt"
-
-
-@pytest.mark.parametrize(
-    "change",
-    [
-        pytest.param({"config": {**_CONFIG, "epochs": 6}}, id="config"),
-        pytest.param({"genes": ["a", "b", "d", "c"]}, id="gene-order"),
-        pytest.param({"train_ids": np.array(["s0", "s1", "s9"])}, id="train-samples"),
-        pytest.param({"validation_ids": np.array(["s3", "s9"])}, id="validation-samples"),
-        pytest.param({"matrices": (_TRAIN + 1, _VALIDATION)}, id="train-values"),
-        pytest.param({"matrices": (_TRAIN, _VALIDATION[:1])}, id="validation-rows"),
-    ],
-)
-def test_every_defining_input_changes_the_cache_file(tmp_path: Path, change: dict) -> None:
-    assert _cache_path(tmp_path, **change) != _cache_path(tmp_path)
-
-
-def test_resolve_cache_dir_prefers_the_option_over_the_environment(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    monkeypatch.setenv(CACHE_ENV_VAR, str(tmp_path / "env"))
-
-    assert resolve_cache_dir(str(tmp_path / "option")) == tmp_path / "option"
-    assert resolve_cache_dir(None) == tmp_path / "env"
-    monkeypatch.delenv(CACHE_ENV_VAR)
-    assert resolve_cache_dir(None) is None
-    assert resolve_cache_dir("") is None
-
-
-def test_write_atomically_creates_the_directory_and_leaves_no_temporary_file(tmp_path: Path) -> None:
-    target = tmp_path / "nested" / "gene_ae_x.pt"
-
-    write_atomically(target, b"payload")
-
-    assert target.read_bytes() == b"payload"
-    assert [p.name for p in target.parent.iterdir()] == ["gene_ae_x.pt"]

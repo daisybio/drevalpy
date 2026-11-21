@@ -17,7 +17,7 @@ from drevalpy.registry.splitter import Validation, canonical, splitter_registry
 from drevalpy.registry.splitter._groups import MODES
 from drevalpy.registry.splitter._validation import validate_folds
 from drevalpy.types import Dataset, Fold, SelectionMask
-from drevalpy.types.enums.model_scope import ModelScope
+from drevalpy.types.enums import ModelScope
 from drevalpy.types.results._identity import RunIdentity
 
 
@@ -113,7 +113,7 @@ def build_execution(
     hyperparameter_tuning: bool,
     hpo_metric: str,
     hpo_num_trials: int,
-    hpo_random_state: int,
+    hpo_random_state: int | None,
     seed: int,
 ) -> ExecutionSpec:
     """Validate the original fold and reserve stopping data exactly once.
@@ -130,7 +130,7 @@ def build_execution(
     :param hyperparameter_tuning: Whether to search parameters.
     :param hpo_metric: Selection metric.
     :param hpo_num_trials: Number of trials.
-    :param hpo_random_state: Sampler seed.
+    :param hpo_random_state: Sampler seed; defaults to *seed*.
     :param seed: Root seed from which every fit's RNG seed is derived.
     :returns: Immutable execution decisions.
     :raises TypeError: If *model* is not a ``ModelSpec``.
@@ -142,6 +142,7 @@ def build_execution(
     Metric(hpo_metric)
     if hpo_num_trials < 0:
         raise ValueError(f"n_trials must be >= 0 (got {hpo_num_trials}); use 0 for default-only tuning")
+    hpo_random_state = seed if hpo_random_state is None else hpo_random_state
     mode = canonical(fold.metadata.get("split_mode", ""))
     validation = _validation_of(mode)
     check_mode_supported(model, mode)
@@ -174,15 +175,7 @@ def build_execution(
         },
         "seed": seed,
     }
-    identity = RunIdentity.from_metadata(
-        model.name,
-        dataset.name,
-        mode,
-        metadata.get("fold_index", 0),
-        metadata.get("fold_id", ""),
-        dataset.randomization,
-        metadata,
-    )
+    identity = RunIdentity.from_fold(model.name, dataset.name, mode, metadata, dataset.randomization)
     return ExecutionSpec(
         model,
         scopes,

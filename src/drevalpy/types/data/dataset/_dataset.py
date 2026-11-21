@@ -23,10 +23,9 @@ from upath import UPath as Path
 
 from drevalpy.errors import UnknownNameError
 from drevalpy.types.data.views import TISSUE_IDENTIFIER
-from drevalpy.types.enums.randomization import RandomizationType, randomization_label
+from drevalpy.types.enums import RandomizationType, randomization_label
 
-from ._anndata import layer_names, to_dense
-from ._io import plain_value, stored_randomization
+from ._anndata import layer_names, plain_value, stored_randomization, to_dense
 from ._randomization import randomized_mdata
 
 if TYPE_CHECKING:
@@ -60,27 +59,27 @@ class Dataset:
         mdata: md.MuData,
         *,
         name: str,
-        randomization: tuple[str, str] | None = None,
         measure: str | None = None,
     ) -> None:
         """Wrap an existing MuData object.
 
         :param mdata: A MuData object with at least a "response" modality.
         :param name: Human-readable dataset name.
-        :param randomization: Optional (mode, view) tuple describing which
-            randomization was applied.
         :param measure: The response measure to train on, see :meth:`with_measure`; ``None``
             means the measure ``X`` holds.
         :raises KeyError: If the "response" modality is missing.
+        :raises UnknownNameError: If *measure* is neither the measure ``X`` holds nor a response layer.
         """
         if "response" not in mdata.mod:
             raise KeyError("MuData must contain a 'response' modality.")
         self._mdata = mdata
         mdata.uns["dataset_name"] = name
-        self.randomization = randomization
         self._measure = self.x_measure
         if measure is not None:
-            self._measure = self._check_measure(measure)
+            if measure not in self.measures():
+                msg = f"Dataset {self.name!r} has no response measure {measure!r}. Available: {self.measures()}"
+                raise UnknownNameError(msg)
+            self._measure = measure
 
     @classmethod
     def load(cls, path: str | Path) -> Dataset:
@@ -98,7 +97,7 @@ class Dataset:
         stored_name = mdata.uns.get("dataset_name")
         name = stored_name if isinstance(stored_name, str) else resolved.stem
 
-        dataset = cls(mdata, name=name, randomization=stored_randomization(mdata.uns))
+        dataset = cls(mdata, name=name)
         if dataset.randomization_provenance is not None:
             dataset.randomization_provenance = plain_value(dataset.randomization_provenance)
         return dataset
@@ -185,13 +184,7 @@ class Dataset:
         """
         if measure == self._measure:
             return self
-        return Dataset(self._mdata, name=self.name, randomization=self.randomization, measure=measure)
-
-    def _check_measure(self, measure: str) -> str:
-        if measure not in self.measures():
-            msg = f"Dataset {self.name!r} has no response measure {measure!r}. Available: {self.measures()}"
-            raise UnknownNameError(msg)
-        return measure
+        return Dataset(self._mdata, name=self.name, measure=measure)
 
     @property
     def response_matrix(self) -> np.ndarray:
@@ -303,7 +296,9 @@ class Dataset:
         :returns: A new Dataset with the specified views randomized.
         """
         new_mdata = randomized_mdata(self._mdata, views, RandomizationType(randomization_type), random_state)
-        return Dataset(new_mdata, name=self.name, randomization=randomization, measure=self._measure)
+        dataset = Dataset(new_mdata, name=self.name, measure=self._measure)
+        dataset.randomization = randomization
+        return dataset
 
     # ------------------------------------------------------------------
     # Dunder methods

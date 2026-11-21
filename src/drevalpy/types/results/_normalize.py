@@ -30,15 +30,14 @@ def normalize_run(run: RunResult, ref_run: RunResult) -> RunResult:
     )
     ref_predictions = np.asarray(ref_run.predictions)
     if ref_index.has_duplicates:
-        # The dict lookup this replaced let the last occurrence of a pair win.
+        # The last occurrence of a repeated pair wins.
         keep = ~ref_index.duplicated(keep="last")
         ref_index = ref_index[keep]
         ref_predictions = ref_predictions[keep]
     positions = ref_index.get_indexer(
         pd.MultiIndex.from_arrays([np.asarray(run.sample_ids, dtype=object), np.asarray(run.drug_ids, dtype=object)])
     )
-    # get_indexer yields -1 for pairs the reference never predicted; those normalize
-    # against 0.0, matching the dict-lookup default this replaced.
+    # get_indexer yields -1 for pairs the reference never predicted; those normalize against 0.0.
     ref_preds = np.where(positions >= 0, ref_predictions[positions.clip(min=0)], 0.0)
 
     norm_gt = run.ground_truth - ref_preds

@@ -25,7 +25,7 @@ from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.registry.featurizer import register as register_featurizer
 from drevalpy.registry.predictor import register as register_predictor
 from drevalpy.types.data.feature_block import FeaturizerOutput
-from drevalpy.types.enums.prediction_mode import PredictionMode
+from drevalpy.types.enums import PredictionMode
 
 REGRESSION_ONLY = frozenset({PredictionMode.REGRESSION})
 

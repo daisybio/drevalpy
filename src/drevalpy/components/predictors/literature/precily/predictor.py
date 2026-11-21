@@ -13,25 +13,21 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import numpy as np
 
 from drevalpy.components.contracts.feature_format import BlockSpec
-from drevalpy.components.contracts.hyperparameter_space import fixed_entries
-from drevalpy.components.predictors._pair_loader import make_pair_loader
-from drevalpy.components.predictors.abstract.base import Predictor
-from drevalpy.components.predictors.inputs import Inputs
-from drevalpy.components.predictors.literature._early_stopping import run_epoch
-from drevalpy.components.predictors.literature._metadata import PRECILY_REFERENCE
-from drevalpy.components.predictors.literature._pair_predict import (
-    PairEvalSpec,
+from drevalpy.components.predictors._pair_loader import (
     concatenated_forward,
     declared_blocks,
+    pair_loader,
     predict_pairs,
-    require_drug_pair_idx,
 )
-from drevalpy.components.predictors.literature._torch_utils import DevicePicklingMixin
+from drevalpy.components.predictors.abstract.base import Predictor
+from drevalpy.components.predictors.inputs import Inputs
+from drevalpy.components.predictors.literature._torch_training import DevicePicklingMixin, run_epoch
 from drevalpy.experiment._tracking import log_metrics
 from drevalpy.log import get_logger
+from drevalpy.registry._component import LiteratureReference
 from drevalpy.registry.predictor import register
 from drevalpy.types.data.predictor_input import PredictorInput
-from drevalpy.types.enums.accelerator import Accelerator
+from drevalpy.types.enums import Accelerator
 
 if TYPE_CHECKING:
     import torch
@@ -40,11 +36,22 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
+_REFERENCE = LiteratureReference(
+    repo_url="https://github.com/SmritiChawla/Precily",
+    citation_doi="10.1038/s41467-022-33291-z",
+    citation_text="Precily pathway and SMILESVec drug response model.",
+    deviations=(
+        "Hidden widths match the published pathways Model1 checkpoint. Use one regressor instead of the "
+        "five-model ensemble, fold-specific GSVA and configurable drug features; PyTorch "
+        "initialization/optimizer defaults differ from Keras."
+    ),
+)
+
 
 @register(
     "precily",
     description="Precily pathway + SMILESVec model.",
-    reference=PRECILY_REFERENCE,
+    reference=_REFERENCE,
     license="NOASSERTION",
     accelerator=Accelerator.OPTIONAL,
 )
@@ -55,6 +62,13 @@ class PrecilyPredictor(DevicePicklingMixin, Predictor):
     drug_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("smilesvec"))
     supports_early_stopping: ClassVar[bool] = False
 
+    fixed_hyperparameters = {
+        "learning_rate": 1.0e-3,
+        "dropout": 0.1,
+        "epochs": 50,
+        "batch_size": 128,
+    }
+
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
         """Initialize the Precily predictor.
 
@@ -62,21 +76,6 @@ class PrecilyPredictor(DevicePicklingMixin, Predictor):
         """
         super().__init__(hyperparameters)
         self._model: PrecilyNetwork | None = None
-
-    @classmethod
-    def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
-        """Return the hyperparameter space; Precily tunes nothing.
-
-        :returns: Fixed specs for every Precily hyperparameter.
-        """
-        return fixed_entries(
-            {
-                "learning_rate": 1.0e-3,
-                "dropout": 0.1,
-                "epochs": 50,
-                "batch_size": 128,
-            }
-        )
 
     def _build_model(self, input_dim: int, dropout: float) -> PrecilyNetwork:
         """Construct the Precily network on the target device.
@@ -105,12 +104,8 @@ class PrecilyPredictor(DevicePicklingMixin, Predictor):
         )
         self._model = model
 
-        train_loader = make_pair_loader(
-            (pathway_entity, data.sample_pair_idx),
-            (drug_entity, require_drug_pair_idx(data.drug_pair_idx)),
-            response=np.asarray(data.response, dtype=np.float32),
-            batch_size=self._hyperparameters["batch_size"],
-            shuffle=True,
+        train_loader = pair_loader(
+            data, pathway_entity, drug_entity, batch_size=self._hyperparameters["batch_size"], shuffle=True
         )
 
         loss_func = nn.MSELoss()
@@ -141,11 +136,9 @@ class PrecilyPredictor(DevicePicklingMixin, Predictor):
         return predict_pairs(
             self._model,
             data,
-            PairEvalSpec(
-                sample_blocks=(pathway_entity,),
-                drug_blocks=(drug_entity,),
-                batch_size=self._hyperparameters["batch_size"],
-                device=self._device,
-            ),
+            pathway_entity,
+            drug_entity,
+            batch_size=self._hyperparameters["batch_size"],
+            device=self._device,
             forward=concatenated_forward(self._model),
         )
