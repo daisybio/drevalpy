@@ -10,9 +10,11 @@ Blocks train real models, so the whole file is extended tier.
 
 from __future__ import annotations
 
+import dataclasses
 import sys
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -32,6 +34,13 @@ def _page_id(page: Path) -> str:
     return page.relative_to(DOCS).as_posix()
 
 
+if TYPE_CHECKING:
+    import pandas as pd
+
+    from drevalpy.curation._fit import FitOptions
+    from drevalpy.curation._plan import Chunk, Plan
+
+
 @pytest.fixture
 def isolated_drevalpy(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     """Keep a page's dataset sources and environment from leaking into other tests.
@@ -40,7 +49,30 @@ def isolated_drevalpy(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterat
     sources. The autouse ``registry_snapshot`` fixture restores the in-memory
     registries, zoo included; the dataset registry persists to
     ``DREVALPY_CONFIG_DIR``, so that points into *tmp_path*.
+
+    Curve fits are cheap here. The pages curate tiny tables to show the API, not to
+    publish pEC50 values, and the default ``fit_speed="exhaustive"`` costs seconds per
+    18-curve fit (``fast`` about ten times less), so ``curation._plan.plan`` and
+    ``run_chunks`` are wrapped to plan every curation with ``fit_speed="fast"`` and to
+    fit its chunks in this process. Both ``curate(...)`` and ``drevalpy curate run`` go
+    through them; the chunks carry their options, so nothing else needs patching. The
+    snippets assert no fitted values, only that the calls run.
     """
+    from drevalpy.curation import _plan
+
+    plan, run_chunks = _plan.plan, _plan.run_chunks
+
+    def cheap_plan(
+        df: pd.DataFrame, *, replicate_fits: bool, min_doses: int, metadata: Sequence[str], options: FitOptions
+    ) -> Plan:
+        fast = dataclasses.replace(options, fit_speed="fast")
+        return plan(df, replicate_fits=replicate_fits, min_doses=min_doses, metadata=metadata, options=fast)
+
+    def serial_run_chunks(chunks: Sequence[Chunk], max_workers: int) -> dict[str, pd.DataFrame]:
+        return run_chunks(chunks, 1)
+
+    monkeypatch.setattr(_plan, "plan", cheap_plan)
+    monkeypatch.setattr(_plan, "run_chunks", serial_run_chunks)
     monkeypatch.setenv("DREVALPY_CONFIG_DIR", str(tmp_path / "config"))
     monkeypatch.delenv("DREVALPY_EXTENSIONS_DIR", raising=False)
     yield
