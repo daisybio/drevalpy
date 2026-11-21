@@ -15,7 +15,7 @@ Between reading a dataset file from disk and calling a predictor's `_fit` or `_p
 DrEvalPy passes data through a small sequence of typed containers. Each step has one job:
 separating raw storage from featurization, keeping features indexed per unique entity instead
 of duplicated per pair, and preventing leakage across splits. This page traces that path from
-disk to predictor on the built-in `TOYv1` dataset; see {doc}`models_from_components` for how
+disk to predictor on a small synthetic dataset; see {doc}`models_from_components` for how
 components declare compatibility and {doc}`training_lifecycle` for how folds, tuning and early
 stopping run around it.
 
@@ -68,10 +68,18 @@ single `.h5mu` file (an HDF5-backed `MuData` archive) and wraps it in
 without copying the underlying `MuData`. See {doc}`/reference/datasets` for the full file
 layout.
 
+The examples on this page run on a small synthetic dataset, so they work offline. In practice you
+would call `drevalpy.load` with a registered name or a path to an `.h5mu` file instead.
+
 ```{code-cell} ipython3
 import drevalpy
 
-dataset = drevalpy.load("TOYv1")
+dataset = drevalpy.synthetic(omics=("gene_expression", "proteomics"))
+```
+
+The dataset exposes the layout described above:
+
+```{code-cell} ipython3
 response_mod = dataset.mdata.mod["response"]
 
 print(dataset)
