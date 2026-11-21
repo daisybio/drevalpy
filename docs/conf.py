@@ -36,7 +36,7 @@ extensions = [
     "sphinx.ext.autosectionlabel",
     "sphinx_design",
     "sphinxcontrib.mermaid",
-    "myst_parser",
+    "myst_nb",
 ]
 
 # Generate registry- and application-driven tables before sources are read.
@@ -63,7 +63,11 @@ _write_generated_references()
 templates_path = ["_templates"]
 
 # The suffix(es) of source filenames.
-source_suffix = ".rst"
+source_suffix = {
+    ".rst": "restructuredtext",
+    ".md": "myst-nb",
+    ".ipynb": "myst-nb",
+}
 
 # The master toctree document.
 master_doc = "index"
@@ -90,6 +94,7 @@ language = "en"
 # directories to ignore when looking for source files.
 exclude_patterns = [
     "_build",
+    "jupyter_execute",
     "Thumbs.db",
     ".DS_Store",
     "_cli_click.py",
@@ -260,3 +265,10 @@ DEFAULT_FILTERS["modurl"] = modurl
 
 # -- Options for autosectionlabel mappings -----------------------------
 autosectionlabel_prefix_document = True
+
+# -- Options for myst-nb -----------------------------------------------
+nb_execution_mode = "cache"
+nb_execution_cache_path = str(Path(__file__).parent / "_build" / ".jupyter_cache")
+nb_execution_raise_on_error = True
+nb_execution_show_tb = True
+nb_execution_timeout = 60
