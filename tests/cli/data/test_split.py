@@ -150,8 +150,12 @@ def test_the_quality_rule_reaches_the_written_folds_and_lco_writes_lso_folds(
 @pytest.mark.slow
 def test_a_cached_dataset_splits_by_name(monkeypatch: pytest.MonkeyPatch, tmp_path: UPath) -> None:
     from drevalpy.data import synthetic
+    from drevalpy.registry.dataset import register_dataset, register_source
 
     monkeypatch.setenv("DREVALPY_CACHE_DIR", str(tmp_path / "cache"))
+    monkeypatch.setenv("DREVALPY_CONFIG_DIR", str(tmp_path / "config"))
+    register_source("local", f"file://{tmp_path / 'remote'}")
+    register_dataset("CACHED", source="local", file="CACHED.h5mu")
     synthetic().save(tmp_path / "cache" / "CACHED.h5mu")
 
     result = runner.invoke(app, ["data", "split", "CACHED", str(tmp_path / "folds"), "-n", "2"])

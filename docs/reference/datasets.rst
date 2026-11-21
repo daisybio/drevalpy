@@ -77,21 +77,20 @@ A dataset registered with ``register_dataset`` or a declaration file has the ori
 Loading
 -------
 
-``drevalpy.load(name)`` tries these in order and raises ``FileNotFoundError`` if none works:
+``drevalpy.load(name)`` tries these in order and raises ``FileNotFoundError`` if neither works:
 
 #. A path to an existing ``.h5mu`` file.
 #. A registered name: its cached file, else a download into the cache directory.
-#. An unregistered bare name matching ``<cache dir>/<name>.h5mu``.
 
 A registry entry may carry a ``sha256``, as every built-in one does. A download that does not match it
 raises an error and is deleted, and a cached file for a registered dataset that does not match it is
 deleted and downloaded again; a cached file that matches is used without network access.
 
 The cache directory is set by ``DREVALPY_CACHE_DIR``; see :doc:`environment`. A cached file for a
-registered dataset is deleted and downloaded again if it cannot be parsed, or if it lacks the
-curve-quality layers listed below. Direct paths and unregistered files are always taken at face value
-and never deleted. DrEvalPy has no loader for CSV or other formats; ``drevalpy curate run`` fits
-dose-response curves and writes an ``.h5ad`` file instead.
+registered dataset is deleted and downloaded again if it cannot be parsed or fails its SHA-256
+check. Direct paths are always taken at face value and never deleted. DrEvalPy has no loader for CSV
+or other formats; ``drevalpy curate run`` fits dose-response curves and writes an ``.h5ad`` file
+instead.
 
 ``drevalpy data load NAME OUTPUT`` writes a loaded dataset to an ``.h5mu`` file.
 ``drevalpy.synthetic`` and ``drevalpy data synthetic`` build a small simulated dataset that

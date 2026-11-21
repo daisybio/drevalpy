@@ -45,10 +45,12 @@ def cached_file_matches(local_path: Path, sha256: str) -> bool:
     :returns: ``True`` if the cached file can be reused, ``False`` if it must be downloaded.
     """
     if not local_path.is_file():
+        logger.debug("Cache miss at %s", local_path)
         return False
     if file_sha256(local_path) == sha256.lower():
+        logger.debug("Cached file %s matches pinned SHA-256", local_path)
         return True
-    logger.info("Cached file at %s does not match the pinned sha256, removing and re-downloading.", local_path)
+    logger.warning("Cached file at %s does not match the pinned sha256, removing and re-downloading.", local_path)
     local_path.unlink()
     return False
 
@@ -64,16 +66,19 @@ def download_file(remote: Path, local_path: Path, label: str, *, sha256: str | N
     :raises InvalidInputError: If the downloaded file does not match *sha256*; the file is deleted.
     """
     local_path.parent.mkdir(parents=True, exist_ok=True)
+    logger.debug("Downloading %s from %s to %s", label, remote, local_path)
     with _progress() as progress:
         _stream(remote, local_path, label, progress)
     if sha256 is not None:
         actual = file_sha256(local_path)
         if actual != sha256.lower():
+            logger.error("SHA-256 mismatch for %s downloaded from %s; removing %s", label, remote, local_path)
             local_path.unlink()
             raise InvalidInputError(
                 f"The file downloaded for {label!r} from {remote} does not match the pinned sha256: "
                 f"expected {sha256.lower()}, got {actual}. The file was deleted."
             )
+        logger.debug("Verified SHA-256 for %s (%s)", label, local_path)
     return local_path
 
 

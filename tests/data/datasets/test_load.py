@@ -15,7 +15,8 @@ from drevalpy.data import _transfer
 from drevalpy.data._synthetic import synthetic as build_synthetic_dataset
 from drevalpy.data._transfer import file_sha256
 from drevalpy.data.datasets import _load as load_module
-from drevalpy.data.datasets._load import _carries_curve_quality, _load_from_cache, load
+from drevalpy.data.datasets._cache import load_cached
+from drevalpy.data.datasets._load import load
 from drevalpy.errors import InputNotFoundError, InvalidInputError
 from drevalpy.registry.dataset import DatasetRegistry as Registry
 from drevalpy.registry.dataset import DrevalConfig, SourceEntry, get_config_path
@@ -159,30 +160,21 @@ def _stale_dataset():
     return dataset
 
 
-class TestCachedFileIsRejectedWhenTooOld:
-    """A cache filled by an older drevalpy holds files without the quality layers the splitters read."""
+class TestCachedFileValidation:
+    """Cached files for registered datasets are replaced only when corrupt or hash-mismatched."""
 
-    def test_the_quality_layers_decide_whether_a_dataset_is_usable(self) -> None:
-        assert _carries_curve_quality(build_synthetic_dataset(n_samples=4, n_drugs=3))
-        assert not _carries_curve_quality(_stale_dataset())
-
-    def test_a_stale_cached_file_is_deleted_and_reported(
-        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
-    ) -> None:
-        path = UPath(tmp_path) / "stale.h5mu"
+    def test_a_cached_file_without_quality_layers_is_kept_and_returned(self, tmp_path: Path) -> None:
+        path = UPath(tmp_path) / "no_quality.h5mu"
         _stale_dataset().save(path)
 
-        with caplog.at_level("WARNING"):
-            assert _load_from_cache(path) is None
-
-        assert not path.is_file()
-        assert "curve-quality" in caplog.text
+        assert load_cached(path) is not None
+        assert path.is_file()
 
     def test_a_usable_cached_file_is_returned_and_kept(self, tmp_path: Path) -> None:
         path = UPath(tmp_path) / "fresh.h5mu"
         build_synthetic_dataset(n_samples=4, n_drugs=3).save(path)
 
-        assert _load_from_cache(path) is not None
+        assert load_cached(path) is not None
         assert path.is_file()
 
     @pytest.mark.parametrize("kind", ["corrupt", "truncated"])
@@ -194,7 +186,7 @@ class TestCachedFileIsRejectedWhenTooOld:
             build_synthetic_dataset(n_samples=4, n_drugs=3).save(path)
             path.write_bytes(path.read_bytes()[:200])
 
-        assert _load_from_cache(path) is None
+        assert load_cached(path) is None
         assert not path.is_file()
 
     @pytest.mark.parametrize("error", [PermissionError("denied"), ImportError("missing optional dependency")])
@@ -210,7 +202,7 @@ class TestCachedFileIsRejectedWhenTooOld:
         monkeypatch.setattr(Dataset, "load", staticmethod(fail))
 
         with pytest.raises(type(error)):
-            _load_from_cache(path)
+            load_cached(path)
         assert path.is_file()
 
 
@@ -240,10 +232,11 @@ def test_user_files_without_quality_layers_are_never_deleted(tmp_path: Path, mon
     assert load(str(user_file)) is not None
     assert user_file.is_file()
 
-    # An unregistered bare name in the cache directory is also loaded directly and never unlinked.
+    # An unregistered file sitting in the cache directory is ignored (not loaded and never unlinked).
     unregistered = cache / "custom_local.h5mu"
     _stale_dataset().save(UPath(unregistered))
-    assert load("custom_local") is not None
+    with pytest.raises(InputNotFoundError):
+        load("custom_local")
     assert unregistered.is_file()
 
 
@@ -376,6 +369,6 @@ class TestChecksummedDownloads:
         path = UPath(tmp_path) / "f.h5mu"
         build_synthetic_dataset(n_samples=4, n_drugs=3).save(path)
 
-        assert _load_from_cache(path, _sha256(Path(path)).upper()) is not None
-        assert _load_from_cache(path, "0" * 64) is None
+        assert load_cached(path, _sha256(Path(path)).upper()) is not None
+        assert load_cached(path, "0" * 64) is None
         assert not path.is_file()

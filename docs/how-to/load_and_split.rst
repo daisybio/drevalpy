@@ -119,8 +119,9 @@ and then loads that file.
              Modalities:
                  gene_expression: 60 × 16
 
-A file you pass by path is used as it is. A name that matches a file in the cache directory or a
-registered dataset is looked up first; the order is in :doc:`/reference/datasets`.
+A file you pass by path is used as it is; otherwise ``load`` looks up a registered dataset name
+and downloads it into the cache directory if needed. The resolution order is in
+:doc:`/reference/datasets`.
 
 Look inside a dataset
 ---------------------
