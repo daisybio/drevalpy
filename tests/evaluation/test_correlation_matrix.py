@@ -11,29 +11,24 @@ from drevalpy.evaluation._grouping import group_labeller
 from drevalpy.evaluation._scoring import evaluate_per_group
 from drevalpy.types.results.experiment import ExperimentResult
 from tests.synthetic import make_experiment_result, make_run_result
-
-N_MODELS = 3
-N_FOLDS = 2
-N_PAIRS = 20
-N_DRUGS = 4
-N_SAMPLES = 5
+from tests.synthetic.results import DEFAULT_N_DRUGS, DEFAULT_N_MODELS, DEFAULT_N_SAMPLES
 
 
 @pytest.fixture(scope="module")
 def experiment() -> ExperimentResult:
-    return make_experiment_result(n_models=N_MODELS, n_folds=N_FOLDS, n_pairs=N_PAIRS)
+    return make_experiment_result()
 
 
 class TestModelGroupCorrelations:
     def test_shape_dtype_and_ordering(self, experiment):
         matrix = model_group_correlations(experiment, "drug")
 
-        assert matrix.shape == (N_MODELS, N_DRUGS)
+        assert matrix.shape == (DEFAULT_N_MODELS, DEFAULT_N_DRUGS)
         assert (matrix.dtypes == np.float32).all()
         assert list(matrix.index) == experiment.model_names
         assert list(matrix.columns) == sorted(matrix.columns)
         assert all(isinstance(name, str) for name in matrix.columns)
-        assert model_group_correlations(experiment, "sample").shape[1] == N_SAMPLES
+        assert model_group_correlations(experiment, "sample").shape[1] == DEFAULT_N_SAMPLES
 
     def test_group_axis_is_the_union_across_models_and_unseen_groups_are_nan(self):
         result = ExperimentResult(

@@ -14,6 +14,7 @@ from tests.cli._helpers import (
     GroupSurface,
     Recorder,
     make_runner,
+    patch_loader,
     patch_worker,
     plain,
     write_synthetic_fold,
@@ -32,11 +33,7 @@ def constructed() -> list[str]:
 
 @pytest.fixture()
 def loader(monkeypatch: pytest.MonkeyPatch) -> Recorder:
-
-    recorder = Recorder(return_value=FakeDataset())
-    patch_worker(monkeypatch, "drevalpy.data.datasets._load", "load", recorder)
-    patch_worker(monkeypatch, "drevalpy.data", "load", recorder)
-    return recorder
+    return patch_loader(monkeypatch, Recorder(return_value=FakeDataset()))
 
 
 @pytest.fixture()

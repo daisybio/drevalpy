@@ -12,17 +12,9 @@ from upath import UPath
 from drevalpy.errors import InvalidInputError
 from drevalpy.types.results._store import run_filename
 from drevalpy.types.results.experiment import ExperimentResult, _run_array_bytes
-from drevalpy.types.results.run import TrialResult, _intern_ids
+from drevalpy.types.results.run import _intern_ids
 from tests.synthetic import REFERENCE_MODEL, make_experiment_result, make_run_failure, make_run_result
-
-
-def _trial(n: int = 4) -> TrialResult:
-    return TrialResult(
-        hyperparameters={"alpha": 0.1},
-        metrics={"MSE": 0.3},
-        optimization_metric="MSE",
-        predictions=np.zeros(n),
-    )
+from tests.synthetic.results import make_trial_result
 
 
 class TestConstruction:
@@ -201,7 +193,7 @@ class TestTrialSkipping:
         experiment = make_experiment_result(n_models=2, n_folds=1)
         for model in experiment.models:
             for run in model.runs:
-                run.trials = [_trial()]
+                run.trials = [make_trial_result()]
         experiment.save(directory)
 
         with_trials = ExperimentResult.load(directory)
@@ -229,7 +221,7 @@ class TestLoadLogging:
     def test_byte_total_counts_trial_predictions_and_interned_strings(self) -> None:
         run = make_run_result(n_pairs=8)
         without = _run_array_bytes(run)
-        run.trials = [_trial(1000)]
+        run.trials = [make_trial_result(1000)]
         assert _run_array_bytes(run) > without
 
         run = make_run_result(n_pairs=8)

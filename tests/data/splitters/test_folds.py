@@ -8,14 +8,15 @@ import pytest
 from drevalpy.data.quality import CurveQuality
 from drevalpy.data.splitters._folds import group_folds, group_out_folds, grouped_folds, observed_mask
 from drevalpy.errors import UnknownNameError
-from tests.data.splitters._helpers import MockDataset, first_measured_pairs
+from tests._fake_dataset import FakeResponseDataset
+from tests.data.splitters._helpers import first_measured_pairs
 
 FOLD_KWARGS = {"n_splits": 5, "validation_ratio": 0.1, "random_state": 42}
 
 
 @pytest.fixture(scope="module")
-def dataset() -> MockDataset:
-    return MockDataset()
+def dataset() -> FakeResponseDataset:
+    return FakeResponseDataset()
 
 
 @pytest.fixture(scope="module")
@@ -33,9 +34,9 @@ def test_observed_mask_marks_the_measured_pairs(dataset, observed):
 
 
 def test_observed_mask_drops_the_pairs_that_fail_the_rule_and_off_ignores_it_and_leaves_the_dataset_untouched():
-    clean = MockDataset()
+    clean = FakeResponseDataset()
     failing = first_measured_pairs(clean, 3)
-    dataset = MockDataset(failing_pairs=failing)
+    dataset = FakeResponseDataset(failing_pairs=failing)
     layers = {name: dataset.get_response_layer(name).copy() for name in dataset.response_layer_names()}
 
     filtered = observed_mask(dataset, CurveQuality.default())
@@ -49,10 +50,9 @@ def test_observed_mask_drops_the_pairs_that_fail_the_rule_and_off_ignores_it_and
 
 
 def test_off_works_without_quality_layers_and_infinite_responses_are_not_observed():
-    dataset = MockDataset()
+    dataset = FakeResponseDataset(layers={})
     row, column = first_measured_pairs(dataset, 1)[0]
     dataset.response_matrix[row, column] = np.inf
-    dataset._layers = {}
 
     mask = observed_mask(dataset, CurveQuality.off())
 
@@ -62,7 +62,7 @@ def test_off_works_without_quality_layers_and_infinite_responses_are_not_observe
 
 def test_a_rule_needing_a_missing_layer_raises_an_unknown_name_error_that_is_a_key_error():
     with pytest.raises(UnknownNameError, match="R2") as error:
-        observed_mask(MockDataset(), CurveQuality(min_r2=0.5))
+        observed_mask(FakeResponseDataset(), CurveQuality(min_r2=0.5))
 
     assert isinstance(error.value, KeyError)
 
@@ -96,22 +96,18 @@ class TestGroupFolds:
             list(group_folds(3, n_splits=5, validation_ratio=0.1, random_state=42))
 
 
-class SourceSampleDataset(MockDataset):
-    """A mock whose rows 2k and 2k+1 are one source sample measured in two studies, as after ``concat``."""
+def _source_sample_dataset(studies: tuple[str, ...] = ("A", "B")) -> FakeResponseDataset:
+    """A 12x8 fake whose rows 2k and 2k+1 are one source sample measured in two studies, as after ``concat``.
 
-    def __init__(self, studies: tuple[str, ...] = ("A", "B")) -> None:
-        """Build the 12x8 mock with six source samples on two rows each; the rows cycle through *studies*."""
-        super().__init__(n_cl=12)
-        self._columns = {
-            "source_sample_id": np.array([f"S{i // 2}" for i in range(len(self._cl_ids))]),
-            "study": np.array([studies[i % len(studies)] for i in range(len(self._cl_ids))]),
-        }
-
-    def sample_column(self, column: str, ids: np.ndarray) -> np.ndarray:
-        """Serve the source sample and study columns on top of the tissue column."""
-        if column in self._columns:
-            return self._columns[column]
-        return super().sample_column(column, ids)
+    The study of each row cycles through *studies*.
+    """
+    return FakeResponseDataset(
+        shape=(12, 8),
+        columns={
+            "source_sample_id": [f"S{i // 2}" for i in range(12)],
+            "study": [studies[i % len(studies)] for i in range(12)],
+        },
+    )
 
 
 def _parts(fold) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -134,7 +130,7 @@ class TestGroupedFolds:
         np.testing.assert_array_equal(tested, observed.astype(int))
 
     def test_lso_holds_the_rows_of_one_source_sample_out_together(self):
-        dataset = SourceSampleDataset()
+        dataset = _source_sample_dataset()
 
         for fold in grouped_folds(dataset, CurveQuality.off(), mode="LSO", **FOLD_KWARGS):
             parts_of_sample = [
@@ -148,7 +144,7 @@ class TestGroupedFolds:
             assert all(len(parts) == 1 for parts in parts_of_sample)
 
     def test_lpo_holds_one_source_sample_and_drug_out_together(self):
-        dataset = SourceSampleDataset()
+        dataset = _source_sample_dataset()
         observed = observed_mask(dataset, CurveQuality.off())
         both = observed[0::2] & observed[1::2]
 
@@ -157,7 +153,7 @@ class TestGroupedFolds:
                 np.testing.assert_array_equal(part[0::2] & both, part[1::2] & both)
 
     def test_lsto_tests_on_one_study_and_draws_validation_by_source_sample_and_drug(self):
-        dataset = SourceSampleDataset(studies=("A", "B", "C"))
+        dataset = _source_sample_dataset(studies=("A", "B", "C"))
         observed = observed_mask(dataset, CurveQuality.off())
         studies = np.array(["A", "B", "C"] * 4)
 

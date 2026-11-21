@@ -18,37 +18,10 @@ from drevalpy.registry.splitter import register as register_splitter
 from drevalpy.registry.splitter._validation import SplitValidationError
 from drevalpy.types.data.fold import Fold
 from drevalpy.types.data.selection_mask import SelectionMask
+from tests._fake_dataset import FakeResponseDataset
 
 _SHAPE = (4, 3)
 QUALITY = CurveQuality.default()
-
-
-class _FakeMuDataset:
-    @property
-    def sample_ids(self) -> np.ndarray:
-        return np.array([f"CL_{i}" for i in range(_SHAPE[0])])
-
-    @property
-    def drug_ids(self) -> np.ndarray:
-        return np.array([f"D_{i}" for i in range(_SHAPE[1])])
-
-    @property
-    def response_matrix(self) -> np.ndarray:
-        return np.ones(_SHAPE)
-
-    def get_tissue(self, ids: np.ndarray) -> np.ndarray:
-        return np.array([f"tissue_{i}" for i in range(_SHAPE[0])])
-
-    def sample_column(self, column: str, ids: np.ndarray) -> np.ndarray:
-        if column != "tissue":
-            raise KeyError(f"Sample column '{column}' not found. Available: ['tissue']")
-        return self.get_tissue(ids)
-
-    def response_layer_names(self) -> list[str]:
-        return ["relevance_score", "fold_change"]
-
-    def get_response_layer(self, name: str) -> np.ndarray:
-        return np.full(_SHAPE, 9.0 if name == "relevance_score" else -2.0)
 
 
 def _mask(rows: tuple[int, ...]) -> SelectionMask:
@@ -62,8 +35,8 @@ def _fold(test_rows: tuple[int, ...] = (2, 3)) -> Fold:
 
 
 @pytest.fixture
-def dataset() -> _FakeMuDataset:
-    return _FakeMuDataset()
+def dataset() -> FakeResponseDataset:
+    return FakeResponseDataset(shape=_SHAPE, density=1.0)
 
 
 @pytest.fixture
@@ -126,7 +99,7 @@ def test_quality_parameter_is_required_unless_kwargs() -> None:
     assert "KWARGS" in splitter_registry
 
 
-def test_the_wrapper_runs_validation(dataset: _FakeMuDataset) -> None:
+def test_the_wrapper_runs_validation(dataset: FakeResponseDataset) -> None:
     leaky = register_splitter("LEAKY", "leaks a sample", validation="LSO")(
         lambda dataset, n_splits=5, validation_ratio=0.1, random_state=42, *, quality: [_fold((1, 2))]
     )
@@ -136,7 +109,7 @@ def test_the_wrapper_runs_validation(dataset: _FakeMuDataset) -> None:
         leaky(dataset, quality=QUALITY)
 
 
-def test_the_wrapper_passes_quality_and_manages_metadata(dataset: _FakeMuDataset) -> None:
+def test_the_wrapper_passes_quality_and_manages_metadata(dataset: FakeResponseDataset) -> None:
     seen: list[CurveQuality] = []
 
     def records(dataset, n_splits=5, validation_ratio=0.1, random_state=42, *, quality):
@@ -177,7 +150,7 @@ def test_the_builtin_lco_alias_resolves_to_lso() -> None:
     assert splitter_registry.metadata("LSO")["aliases"] == frozenset({"LCO"})
 
 
-def test_an_alias_resolves_to_its_mode_without_being_listed(register: Callable, dataset: _FakeMuDataset) -> None:
+def test_an_alias_resolves_to_its_mode_without_being_listed(register: Callable, dataset: FakeResponseDataset) -> None:
     wrapped = register(aliases=("OLD", "ANCIENT"))
 
     assert get("OLD") is wrapped
