@@ -67,7 +67,7 @@ These affect only code, configurations and datasets written for an unreleased 2.
   ``stored_params`` and ``from_stored`` are removed: a featurizer that can be precomputed subclasses
   ``PrecomputableFeaturizer`` (see :ref:`how-to/extend/write_featurizer:Reuse pre-computed features`).
 - **Featurizers read data through** ``FeatureSource(dataset, side)``: ``view(name, ids)``,
-  ``feature_names(name)``, ``has_view``, ``smiles``, ``graphs``, ``tissue``, ``uns`` and
+  ``feature_names(name)``, ``name in source``, ``smiles``, ``graphs``, ``tissue``, ``uns`` and
   ``view_settings``. ``get_view_matrix``, ``get_feature_names``, ``get_metadata`` and
   ``get_entity_view`` are renamed or removed, and ``Dataset.get_sample_features``,
   ``get_drug_features``, ``get_sample_feature_names``, ``get_drug_feature_names``,

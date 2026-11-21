@@ -130,7 +130,7 @@ class PrecomputableFeaturizer(Featurizer):
         :param source: Feature source of the featurizer's side.
         :returns: ``True`` to read the view, ``False`` to compute.
         """
-        if not source.has_view(self._view):
+        if self._view not in source:
             return False
         recorded = source.view_settings(self._view)
         return recorded is None or recorded == self._settings

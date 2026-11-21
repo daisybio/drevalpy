@@ -39,16 +39,16 @@ def test_returns_none_without_a_mudata_backing_or_smiles_column() -> None:
     assert source.smiles(dataset.drug_ids) is None
 
 
-def test_returns_smiles_indexed_by_the_requested_drug_ids(drug_source: FeatureSource, drug_ids: np.ndarray) -> None:
+def test_returns_smiles_aligned_to_the_requested_drug_ids(drug_source: FeatureSource, drug_ids: np.ndarray) -> None:
     drug_ids = drug_ids[:3]
 
     smiles = drug_source.smiles(drug_ids)
 
-    assert smiles is not None
-    assert list(smiles.index) == list(drug_ids)
+    assert isinstance(smiles, np.ndarray)
+    assert len(smiles) == len(drug_ids)
     assert all(isinstance(value, str) and value for value in smiles)
     unknown = drug_source.smiles(np.array(["not-a-drug"]))
-    assert unknown is not None and unknown.isna().all()
+    assert unknown is not None and np.isnan(unknown[0])
 
 
 def test_portable_graph_conversion_preserves_arrays_and_index_dtype() -> None:

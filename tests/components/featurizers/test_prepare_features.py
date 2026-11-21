@@ -41,7 +41,7 @@ class _Counting(Featurizer):
         self.names: tuple[str, ...] | None = None
 
     def _matrix(self, source: FeatureSource, ids: np.ndarray) -> np.ndarray:
-        if source.has_view("expr"):
+        if "expr" in source:
             return view_matrix(source, "expr", ids, self.names)
         self.calls["compute"] += 1
         return source.view("raw", ids) / 10
@@ -56,7 +56,7 @@ class _Counting(Featurizer):
     ) -> Self:
         self.calls["fit"] += 1
         self.fit_args = {"train_ids": train_ids, "train_pair_ids": train_pair_ids, "es_pair_ids": es_pair_ids}
-        self.names = source.feature_names("expr") if source.has_view("expr") else None
+        self.names = source.feature_names("expr") if "expr" in source else None
         return self
 
     def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerOutput:
@@ -65,7 +65,7 @@ class _Counting(Featurizer):
 
     def valid_mask(self, source: FeatureSource, ids: np.ndarray) -> np.ndarray:
         self.calls["valid_mask"] += 1
-        if source.has_view("expr"):
+        if "expr" in source:
             return super().valid_mask(source, ids)
         return ~np.all(np.isnan(source.view("raw", ids)), axis=1)
 

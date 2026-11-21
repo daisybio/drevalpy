@@ -91,8 +91,8 @@ class FingerprintsFeaturizer(PrecomputableFeaturizer):
             radius=self._radius, fpSize=self._n_bits, includeChirality=self._use_chirality
         )
         results = np.zeros((len(ids), self._n_bits), dtype=np.float32)
-        for i, drug_id in enumerate(ids):
-            results[i] = _fingerprint_for_smiles(smiles.get(drug_id), generator, self._n_bits, self._use_counts)
+        for i, smi in enumerate(smiles):
+            results[i] = _fingerprint_for_smiles(smi, generator, self._n_bits, self._use_counts)
         return results
 
 

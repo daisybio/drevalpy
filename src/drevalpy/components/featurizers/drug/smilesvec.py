@@ -74,8 +74,7 @@ class SmilesVecDrugFeaturizer(PrecomputableFeaturizer):
         dim = kv.vector_size
 
         results = np.zeros((len(ids), dim), dtype=np.float32)
-        for i, drug_id in enumerate(ids):
-            smi = smiles.get(drug_id)
+        for i, smi in enumerate(smiles):
             if smi and isinstance(smi, str):
                 results[i] = _smilesvec_embed(smi, kv, k=k, dim=dim)
             else:

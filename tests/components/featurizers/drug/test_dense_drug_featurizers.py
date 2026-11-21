@@ -215,7 +215,7 @@ def tiny_chemberta(monkeypatch: pytest.MonkeyPatch) -> tuple[_TinyTokenizer, _Ti
 def _smiles_lengths(source: FeatureSource, ids: np.ndarray) -> list[int]:
     smiles = source.smiles(ids)
     assert smiles is not None
-    return [len(smiles[drug_id]) for drug_id in ids]
+    return [len(smi) for smi in smiles]
 
 
 @pytest.mark.parametrize(

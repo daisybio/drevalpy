@@ -151,7 +151,7 @@ prot = sample_source.view("proteomics", sample_ids[:3])
 print("Sample gene_expression slice:", expr.shape, expr.dtype)
 print("Sample proteomics slice:", prot.shape, prot.dtype)
 print("Sample tissues:", sample_source.tissue(sample_ids[:3]))
-print("Drug SMILES:", drug_source.smiles(drug_ids[:3]).to_dict())
+print("Drug SMILES:", drug_source.smiles(drug_ids[:3]))
 ```
 
 ## Step 4: Filtering and featurizing unique entities into `FeaturizerOutput`

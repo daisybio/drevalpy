@@ -6,10 +6,9 @@ from collections.abc import Mapping
 from typing import Any
 
 import numpy as np
-import pandas as pd
 
-from drevalpy.types.data.feature_source import FeatureSource
-from drevalpy.types.data.views import DRUG_GRAPH_VIEW
+from drevalpy.types.data.feature_source import FeatureSource, Side
+from drevalpy.types.data.views import DRUG_GRAPH_VIEW, SMILES_COLUMN
 
 
 class DrugSource(FeatureSource):
@@ -24,7 +23,7 @@ class DrugSource(FeatureSource):
         settings: Mapping[str, Mapping[str, Any]] | None = None,
     ) -> None:
         """Serve *views* (``{view: {drug: value}}``), *smiles* (``{drug: smiles}``), *names* and view *settings*."""
-        self.side = "drug"
+        self.side = Side.DRUG
         self._views = {view: dict(rows) for view, rows in (views or {}).items()}
         self._smiles = None if smiles is None else dict(smiles)
         self._names = dict(names or {})
@@ -38,8 +37,10 @@ class DrugSource(FeatureSource):
         """Every drug the mock serves, in first-seen order."""
         return self._ids
 
-    def has_view(self, name: str) -> bool:
+    def __contains__(self, name: str) -> bool:
         """Return whether *name* is served."""
+        if name == SMILES_COLUMN:
+            return self._smiles is not None
         return name in self._views
 
     def view_settings(self, name: str) -> dict[str, Any] | None:
@@ -64,13 +65,15 @@ class DrugSource(FeatureSource):
         """Return the names given for *name*."""
         return self._names.get(name)
 
-    def smiles(self, ids: np.ndarray) -> pd.Series | None:
+    def smiles(self, ids: np.ndarray) -> np.ndarray | None:
         """Return the SMILES of *ids* (NaN for unknown drugs), or ``None`` without SMILES."""
         if self._smiles is None:
             return None
-        return pd.Series(self._smiles, dtype=object).reindex(ids)
+        return np.array([self._smiles.get(str(drug), np.nan) for drug in ids], dtype=object)
 
-    def graphs(self, ids: np.ndarray) -> list[Any]:
-        """Return the stored ``drug_graph`` value of every drug, ``None`` where it has none."""
-        stored = self._views.get(DRUG_GRAPH_VIEW, {})
+    def graphs(self, ids: np.ndarray) -> list[Any] | None:
+        """Return the stored ``drug_graph`` value of every drug, ``None`` when the view is absent."""
+        if DRUG_GRAPH_VIEW not in self._views:
+            return None
+        stored = self._views[DRUG_GRAPH_VIEW]
         return [stored.get(str(drug)) for drug in ids]

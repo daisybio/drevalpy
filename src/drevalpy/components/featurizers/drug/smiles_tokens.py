@@ -96,7 +96,7 @@ class SmilesTokensFeaturizer(Featurizer):
         smiles = source.smiles(ids)
         if smiles is None:
             return np.ones(len(ids), dtype=bool)
-        return np.array([isinstance(value, str) and bool(value) for value in smiles.to_numpy()], dtype=bool)
+        return np.array([isinstance(value, str) and bool(value) for value in smiles], dtype=bool)
 
     def _smiles(self, source: FeatureSource, entity_ids: np.ndarray) -> list[str]:
         """Read the SMILES string of every drug.
@@ -109,7 +109,7 @@ class SmilesTokensFeaturizer(Featurizer):
         smiles = source.smiles(entity_ids)
         if smiles is None:
             raise ValueError("Cannot tokenize SMILES: no SMILES available.")
-        return [str(value) for value in smiles.to_numpy()]
+        return [str(value) for value in smiles]
 
     def _build_bank(self, unique_smiles: list[str]) -> list[list[str]]:
         """Draw the equivalent SMILES of each training molecule, or keep the molecule alone.

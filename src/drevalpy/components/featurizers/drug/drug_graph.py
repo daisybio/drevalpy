@@ -84,17 +84,21 @@ class DrugGraphFeaturizer(Featurizer):
         :returns: Result with the ``drug_graph`` block.
         :raises KeyError: If a drug has no stored graph and none can be computed from its SMILES.
         """
-        stored = source.graphs(ids) if source.has_view(self._view) else [None] * len(ids)
-        smiles = None
+        stored = source.graphs(ids) if self._view in source else None
+        if stored is None:
+            stored = [None] * len(ids)
+        smiles: np.ndarray | None = None
+        smiles_loaded = False
         graphs = np.empty(len(ids), dtype=object)
         for row, (drug_id, stored_graph) in enumerate(zip(ids, stored, strict=True)):
             key = str(drug_id)
             graph = as_pyg_graph(stored_graph)
             if graph is None:
-                if smiles is None:
+                if not smiles_loaded:
                     _logger.info("Computing %s on the fly from SMILES.", _BLOCK)
-                    smiles = source.smiles(np.unique(ids))
-                graph = self._graph_from_smiles(None if smiles is None else smiles.get(key))
+                    smiles = source.smiles(ids)
+                    smiles_loaded = True
+                graph = self._graph_from_smiles(None if smiles is None else smiles[row])
             if graph is None:
                 msg = f"View {self._view!r} missing for drug {key!r} and SMILES-based graph computation failed"
                 raise KeyError(msg)

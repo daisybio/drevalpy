@@ -5,7 +5,7 @@ from __future__ import annotations
 import io
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, ClassVar, Self
+from typing import Any, ClassVar, Self
 
 import numpy as np
 
@@ -16,9 +16,6 @@ from drevalpy.registry._component import LiteratureReference
 from drevalpy.registry.featurizer import register
 from drevalpy.types.data.feature_block import FeaturizerOutput
 from drevalpy.types.data.feature_source import FeatureSource, Side
-
-if TYPE_CHECKING:
-    import pandas as pd
 
 
 @contextmanager
@@ -145,12 +142,12 @@ class BpePharmaformerDrugFeaturizer(Featurizer):
         if smiles is None:
             msg = "Cannot encode BPE: no SMILES available."
             raise ValueError(msg)
-        return dense_result(ids, _BLOCK, self._apply_bpe(smiles, ids), None)
+        return dense_result(ids, _BLOCK, self._apply_bpe(smiles), None)
 
-    def _learn_bpe(self, smiles_series: pd.Series) -> object:
+    def _learn_bpe(self, smiles: np.ndarray) -> object:
         """Learn BPE codes from a set of SMILES strings.
 
-        :param smiles_series: Series of SMILES indexed by entity IDs.
+        :param smiles: SMILES strings for the training drugs.
         :returns: Fitted BPE object.
         :raises ImportError: If ``subword-nmt`` is not installed.
         """
@@ -161,7 +158,7 @@ class BpePharmaformerDrugFeaturizer(Featurizer):
             msg = "subword-nmt is required for BPE computation: pip install subword-nmt"
             raise ImportError(msg) from err
 
-        all_smiles = smiles_series.dropna()
+        all_smiles = [smi for smi in smiles if isinstance(smi, str)]
 
         smiles_lines = io.StringIO("".join(f"{smi}\n" for smi in all_smiles))
         bpe_codes = io.StringIO()
@@ -169,16 +166,14 @@ class BpePharmaformerDrugFeaturizer(Featurizer):
             learn_bpe(smiles_lines, bpe_codes, num_symbols=self._num_symbols, verbose=False)
         return BPE(bpe_codes)
 
-    def _apply_bpe(self, smiles_series: pd.Series, ids: np.ndarray) -> np.ndarray:
+    def _apply_bpe(self, smiles: np.ndarray) -> np.ndarray:
         """Apply stored BPE codes to encode SMILES strings.
 
-        :param smiles_series: Series of SMILES indexed by entity IDs.
-        :param ids: Drug identifiers.
+        :param smiles: SMILES strings aligned to the requested drugs.
         :returns: BPE token matrix of shape (n_drugs, max_length).
         """
-        results = np.zeros((len(ids), self._max_length), dtype=np.int32)
-        for i, drug_id in enumerate(ids):
-            smi = smiles_series.get(drug_id)
+        results = np.zeros((len(smiles), self._max_length), dtype=np.int32)
+        for i, smi in enumerate(smiles):
             if smi and isinstance(smi, str):
                 bpe_processed = self._bpe.process_line(smi)
                 encoded = [ord(char) for char in bpe_processed]

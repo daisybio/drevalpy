@@ -57,7 +57,7 @@ does not know the name. The featurizer implements two methods:
        concatenates all entity-aligned numeric blocks in insertion order.
 
 ``source`` is a ``FeatureSource`` for the featurizer's side. ``source.view(view, ids)`` reads rows of a view, ``source.feature_names(view)`` its
-column names, and ``source.has_view(view)`` tells whether the dataset holds it. ``smiles(ids)``,
+column names, and ``view in source`` tells whether the dataset holds it. ``smiles(ids)``,
 ``graphs(ids)``, ``tissue(ids)`` and ``uns(key)`` read the SMILES strings, drug graphs, tissue
 labels and dataset-level payloads.
 

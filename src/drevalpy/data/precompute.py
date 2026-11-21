@@ -5,7 +5,7 @@
 fitting, such as ``fingerprints`` or ``chemberta``) for every entity of its side at its default
 settings and stores it as the featurizer's view: a ``response.varm`` key on the drug side, a
 modality on the sample side. The settings are recorded under
-:data:`~drevalpy.types.data.feature_source.PRECOMPUTED_VIEWS_KEY` in ``mdata.uns``, so a model
+:data:`~drevalpy.types.data.views.PRECOMPUTED_VIEWS_KEY` in ``mdata.uns``, so a model
 whose featurizer has the same settings reads the view, and one with other settings computes
 its own. :func:`precompute_all` does this for every registered precomputable featurizer whose
 source views the dataset holds.
@@ -20,7 +20,8 @@ import numpy as np
 
 from drevalpy.log import get_logger
 from drevalpy.types.data.dataset import Dataset
-from drevalpy.types.data.feature_source import PRECOMPUTED_VIEWS_KEY, FeatureSource, Side, precomputed_views
+from drevalpy.types.data.feature_source import FeatureSource, Side, precomputed_views
+from drevalpy.types.data.views import PRECOMPUTED_VIEWS_KEY
 
 logger = get_logger(__name__)
 
@@ -38,7 +39,7 @@ def _store_view(
     :param settings: Settings *matrix* was computed with.
     """
     mdata = dataset.mdata
-    if side == "drug":
+    if side == Side.DRUG:
         mdata.mod["response"].varm[view] = matrix
     else:
         import anndata as ad
@@ -106,7 +107,7 @@ def precompute_all(dataset: Dataset) -> list[str]:
             if not issubclass(cls, PrecomputableFeaturizer):
                 continue
             source = FeatureSource(dataset, side)
-            if not all(source.has_view(view) for view in cls.source_views):
+            if not all(view in source for view in cls.source_views):
                 logger.debug("Skipping %s: source views %s not available", name, cls.source_views)
                 continue
             try:

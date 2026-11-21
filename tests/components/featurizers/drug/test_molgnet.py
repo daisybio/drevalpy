@@ -124,7 +124,7 @@ def test_molgnet_computes_drugs_without_a_stored_view_from_their_smiles(
 
     smiles = smiles_only.smiles(drug_ids)
     assert smiles is not None
-    assert calls == [smiles[drug] for drug in drug_ids]
+    assert calls == list(smiles)
     np.testing.assert_allclose(np.asarray(values[0], dtype=np.float32), _D1)
 
 

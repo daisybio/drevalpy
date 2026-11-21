@@ -113,6 +113,6 @@ def test_literature_featurizer_views_exist_in_the_fixture(name: str, synthetic_d
     views = cls.views(_config(name, side))
     if not views:
         pytest.skip(f"{name} reads no view")
-    present = all(source.has_view(view) for view in views)
-    from_source = bool(cls.source_views) and all(source.has_view(view) for view in cls.source_views)
+    present = all(view in source for view in views)
+    from_source = bool(cls.source_views) and all(view in source for view in cls.source_views)
     assert present or from_source, f"{name} reads {views} (source views {cls.source_views}), absent from the fixture"

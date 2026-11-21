@@ -89,18 +89,20 @@ def molgnet_node_matrices(source: FeatureSource, view: str, ids: np.ndarray) -> 
     :returns: One ``(n_atoms, n_dim)`` matrix per ID.
     :raises KeyError: If a drug has no stored matrix and none can be computed from its SMILES.
     """
-    stored = source.view(view, ids) if source.has_view(view) else [None] * len(ids)
-    smiles = None
+    stored = source.view(view, ids) if view in source else [None] * len(ids)
+    smiles: np.ndarray | None = None
+    smiles_loaded = False
     rows: list[np.ndarray] = []
-    for drug_id, entity_view in zip(ids, stored, strict=True):
+    for row, (drug_id, entity_view) in enumerate(zip(ids, stored, strict=True)):
         key = str(drug_id)
         if entity_view is not None:
             rows.append(np.asarray(entity_view))
             continue
-        if smiles is None:
+        if not smiles_loaded:
             _logger.info("Computing %s on the fly from SMILES.", _BLOCK)
-            smiles = source.smiles(np.unique(ids))
-        smi = None if smiles is None else smiles.get(key)
+            smiles = source.smiles(ids)
+            smiles_loaded = True
+        smi = None if smiles is None else smiles[row]
         computed = _compute_molgnet_embedding(smi) if smi and isinstance(smi, str) else None
         if computed is None:
             msg = f"View {view!r} missing for drug {key!r} and on-the-fly computation failed"
