@@ -12,9 +12,10 @@ from drevalpy.components.predictors.literature.morgoth import predictor as morgo
 from drevalpy.components.predictors.literature.morgoth._forest import MorgothRegressor
 from drevalpy.components.predictors.literature.morgoth.predictor import SingleDrugMorgothPredictor, class_labels
 from drevalpy.data import synthetic
-from drevalpy.testing.conformance import PREDICTOR_CHECKS
+from drevalpy.testing.conformance import PREDICTOR_CHECKS, check_predictor_instantiates
 from drevalpy.testing.inputs import build_synthetic_input
 from drevalpy.types.data.predictor_input import PredictorInput
+from tests.synthetic.variants import REQUIRES_MORGOTH
 
 SMALL = {"n_estimators": 2, "mrmr_k": 3, "min_samples_leaf": 2, "max_depth": 3}
 
@@ -59,6 +60,7 @@ def _with_layers(batch, layers, **changes):
 
 
 @pytest.mark.slow
+@REQUIRES_MORGOTH
 def test_each_drug_trains_on_its_pairs_with_a_verdict(seen_classes) -> None:
     batch = _batch()
     regulation = np.where(np.arange(len(batch)) % 3 == 0, np.nan, np.where(np.arange(len(batch)) % 2, -1.0, 1.0))
@@ -74,6 +76,7 @@ def test_each_drug_trains_on_its_pairs_with_a_verdict(seen_classes) -> None:
 
 
 @pytest.mark.slow
+@REQUIRES_MORGOTH
 def test_a_drug_without_any_verdict_predicts_nan() -> None:
     batch = _batch()
     first = batch.drug_ids == sorted(set(batch.drug_ids))[0]
@@ -87,6 +90,7 @@ def test_a_drug_without_any_verdict_predicts_nan() -> None:
     assert np.isfinite(predictions[~first]).all()
 
 
+@REQUIRES_MORGOTH
 def test_without_the_layer_it_warns_once_and_falls_back_to_the_quantile(caplog, seen_classes) -> None:
     with caplog.at_level(logging.WARNING, logger=morgoth_predictor.__name__):
         SingleDrugMorgothPredictor(SMALL).fit(_batch(with_regulation=False))
@@ -106,6 +110,12 @@ def test_every_default_lies_in_its_space() -> None:
 
 
 @pytest.mark.slow
-@pytest.mark.parametrize("check", PREDICTOR_CHECKS, ids=lambda check: check.__name__)
+@pytest.mark.parametrize(
+    "check",
+    [
+        pytest.param(check, id=check.__name__, marks=() if check is check_predictor_instantiates else REQUIRES_MORGOTH)
+        for check in PREDICTOR_CHECKS
+    ],
+)
 def test_conforms(check) -> None:
     check(SingleDrugMorgothPredictor, hyperparameters=SMALL)
