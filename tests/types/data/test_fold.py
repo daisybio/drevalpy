@@ -179,3 +179,18 @@ class TestFold:
             tmp_path / "legacy.npz", **{n: np.zeros((2, 2), dtype=bool) for n in ("train", "test", "val")}
         )
         assert _seeds(Fold.load(tmp_path / "legacy.npz")) == [None, None, None]
+
+    def test_fold_id_is_deterministic_and_sensitive_to_masks(self):
+        shape = (3, 2)
+        a = Fold(train=_pairs_mask(shape, (0, 0)), test=_pairs_mask(shape, (1, 0)), val=_pairs_mask(shape, (2, 0)))
+        b = Fold(
+            train=_pairs_mask(shape, (0, 0)),
+            test=_pairs_mask(shape, (1, 0)),
+            val=_pairs_mask(shape, (2, 0)),
+            metadata={"note": "different"},
+        )
+        c = Fold(train=_pairs_mask(shape, (0, 1)), test=_pairs_mask(shape, (1, 0)), val=_pairs_mask(shape, (2, 0)))
+
+        assert len(a.fold_id) == 12
+        assert a.fold_id == b.fold_id
+        assert a.fold_id != c.fold_id

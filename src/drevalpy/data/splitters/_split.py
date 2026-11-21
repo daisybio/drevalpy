@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 from typing import TYPE_CHECKING
 
 from drevalpy.data.quality import CurveQuality
@@ -49,15 +48,8 @@ def split(
         dataset, n_splits=n_splits, validation_ratio=validation_ratio, random_state=random_state, quality=rule
     )
 
-    fold_ids: list[str] = []
-    for fold in folds:
-        hasher = hashlib.sha256()
-        hasher.update(fold.train.mask.tobytes())
-        hasher.update(fold.test.mask.tobytes())
-        hasher.update(fold.val.mask.tobytes())
-        fold_id = hasher.hexdigest()[:12]
-        fold_ids.append(fold_id)
-
+    fold_ids = [fold.fold_id for fold in folds]
+    for fold, fold_id in zip(folds, fold_ids, strict=True):
         fold.metadata.setdefault("dataset", dataset.name)
         fold.metadata.setdefault("fold_id", fold_id)
         fold.metadata["quality"] = rule.to_metadata()

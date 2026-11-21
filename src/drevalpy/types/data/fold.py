@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from dataclasses import dataclass, field
 from typing import Any
@@ -34,6 +35,15 @@ class Fold:
     def train_val(self) -> SelectionMask:
         """Merged train | val mask for final retraining."""
         return self.train | self.val
+
+    @property
+    def fold_id(self) -> str:
+        """Deterministic 12-character SHA-256 hex digest of the train, test, and val masks."""
+        hasher = hashlib.sha256()
+        hasher.update(self.train.mask.tobytes())
+        hasher.update(self.test.mask.tobytes())
+        hasher.update(self.val.mask.tobytes())
+        return hasher.hexdigest()[:12]
 
     def save(self, path: str | Path) -> None:
         """Save to a .npz file (compressed bool arrays + JSON-encoded metadata).
