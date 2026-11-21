@@ -1,0 +1,9 @@
+sample_featurizer:
+  name: concatFeaturizers
+  featurizers:
+    - oneHot
+    - name: tissue
+      options:
+        allow_missing: true
+drug_featurizer: oneHot
+predictor: naiveMeanEffects

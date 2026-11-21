@@ -1,6 +1,22 @@
 name: Build DrEvalPy Package
 
-on: [push, pull_request]
+on:
+  # Same-repo PR branches were building twice (push + pull_request = 18 jobs).
+  # Keep the pull_request build and limit push builds to the branches that are
+  # not covered by a PR: the default branches and release branches, which
+  # feed python-publish.yml.
+  push:
+    branches:
+      - main
+      - master
+      - "release/*"
+  pull_request:
+
+concurrency:
+  # One run per pull request: a newer push, or the duplicate event a stacked base
+  # update sends, cancels the run it supersedes.
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -12,25 +28,15 @@ jobs:
         python: ["3.11", "3.12", "3.13"]
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         name: Check out source-code repository
 
-      - name: Setup Python
-        uses: actions/setup-python@v7
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           python-version: ${{ matrix.python }}
 
-      - name: Install Poetry
-        run: |
-          pipx install poetry
-          pipx inject poetry poetry-plugin-export
-          poetry --version
-
       - name: Build package
-        run: poetry build --ansi
+        run: uv build
 
-      - name: Install required twine packaging dependencies
-        run: pip install setuptools wheel twine
-
-      - name: Check twine package
-        run: twine check dist/*
+      - name: Check package with twine
+        run: uvx twine check dist/*

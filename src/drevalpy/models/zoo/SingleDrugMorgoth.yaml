@@ -1,0 +1,6 @@
+sample_featurizer:
+  name: scaledGeneExpression
+  options:
+    gene_list: landmark_genes
+    transform: arcsinh
+predictor: singleDrugMorgoth
