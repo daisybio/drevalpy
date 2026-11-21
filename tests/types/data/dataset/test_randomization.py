@@ -6,6 +6,8 @@ import numpy as np
 import pytest
 
 from drevalpy.data import synthetic
+from drevalpy.data._synthetic_drugs import DRUG_VIEWS, UNS_PAYLOADS
+from drevalpy.data._synthetic_omics import SAMPLE_VIEWS
 from drevalpy.types.data.dataset import Dataset
 from drevalpy.types.data.dataset._randomization import (
     _degree_preserving_rewire,
@@ -103,6 +105,15 @@ class TestRandomizeGraph:
         assert not np.array_equal(result["x"], graph["x"])
         assert _degrees(result["edge_index"], 8) == _degrees(edge_index, 8)
 
+    def test_arrays_that_are_not_matrices_are_copied(self):
+        graph = {"edge_index": TestDegreePreservingRewire.EDGE_INDEX, "node_ids": np.arange(8), "name": np.array(3.0)}
+
+        result = _randomize_graph(graph, np.random.default_rng(0))
+
+        np.testing.assert_array_equal(result["node_ids"], graph["node_ids"])
+        assert result["node_ids"] is not graph["node_ids"]
+        assert result["name"] == 3.0
+
 
 class TestRandomizeUnsView:
     def test_a_graph_collection_is_randomized_under_invariant(self):
@@ -174,3 +185,125 @@ class TestWithRandomizedViews:
         assert randomized.name == synthetic_dataset.name
         assert randomized.randomization == ("SVRC", "gene_expression")
         assert synthetic_dataset.randomization is None
+
+
+def _rows(matrix: np.ndarray) -> list[tuple[float, ...]]:
+    return sorted(map(tuple, np.asarray(matrix).tolist()))
+
+
+@pytest.fixture(scope="module")
+def auxiliary_dataset() -> Dataset:
+    """A small dataset with drug views in ``varm``, a sample view in ``obsm`` and every ``uns`` payload; not mutated."""
+    return synthetic(
+        n_samples=6,
+        n_drugs=3,
+        omics=["gene_expression"],
+        sample_views=SAMPLE_VIEWS,
+        drug_views=DRUG_VIEWS,
+        uns_payloads=UNS_PAYLOADS,
+        seed=0,
+    )
+
+
+class TestWithRandomizedAuxiliaryViews:
+    """Drug views in ``varm``, sample views in ``obsm`` and payloads in ``uns``, through the public method."""
+
+    @pytest.mark.parametrize("view", ["morgan_fingerprint", "chemberta"])
+    def test_permutation_reorders_the_rows_of_a_varm_view_and_leaves_the_others(self, auxiliary_dataset: Dataset, view):
+        before = auxiliary_dataset.mdata.mod["response"].varm
+        original = {key: np.array(value) for key, value in before.items()}
+
+        after = auxiliary_dataset.with_randomized_views([view], random_state=0).mdata.mod["response"].varm
+
+        assert _rows(after[view]) == _rows(original[view])
+        assert not np.array_equal(after[view], original[view])
+        for untouched in set(original) - {view}:
+            np.testing.assert_array_equal(after[untouched], original[untouched])
+        np.testing.assert_array_equal(before[view], original[view])
+
+    def test_invariant_resamples_a_varm_view_around_its_row_statistics(self, auxiliary_dataset: Dataset):
+        original = np.array(auxiliary_dataset.mdata.mod["response"].varm["chemberta"])
+
+        randomized = (
+            auxiliary_dataset.with_randomized_views(["chemberta"], RandomizationType.INVARIANT, random_state=0)
+            .mdata.mod["response"]
+            .varm["chemberta"]
+        )
+
+        assert randomized.shape == original.shape
+        assert not np.array_equal(randomized, original)
+        np.testing.assert_allclose(randomized.mean(axis=1), original.mean(axis=1), atol=0.3)
+        np.testing.assert_allclose(randomized.std(axis=1), original.std(axis=1), rtol=0.3)
+
+    def test_an_obsm_view_is_permuted(self, auxiliary_dataset: Dataset):
+        original = np.array(auxiliary_dataset.mdata.mod["response"].obsm["pathway_features"])
+
+        after = auxiliary_dataset.with_randomized_views(["pathway_features"], random_state=0).mdata.mod["response"]
+
+        assert _rows(after.obsm["pathway_features"]) == _rows(original)
+        assert not np.array_equal(after.obsm["pathway_features"], original)
+        assert "pathway_features" not in after.varm
+
+    @pytest.mark.parametrize("randomization_type", list(RandomizationType))
+    def test_a_non_dict_uns_payload_is_kept_and_warned_about(
+        self, auxiliary_dataset: Dataset, randomization_type, caplog
+    ):
+        with caplog.at_level("WARNING", logger="drevalpy"):
+            randomized = auxiliary_dataset.with_randomized_views(["bpe_codes"], randomization_type, random_state=0)
+
+        assert randomized.mdata.uns["bpe_codes"] == auxiliary_dataset.mdata.uns["bpe_codes"]
+        assert "Cannot randomize uns key 'bpe_codes' (not a dict)" in caplog.text
+
+    @pytest.mark.parametrize("randomization_type", list(RandomizationType))
+    def test_the_values_of_a_dict_payload_move_to_shuffled_keys(self, auxiliary_dataset: Dataset, randomization_type):
+        original = auxiliary_dataset.mdata.uns["sparsego"]
+
+        results = [
+            auxiliary_dataset.with_randomized_views(["sparsego"], randomization_type, random_state=seed).mdata.uns[
+                "sparsego"
+            ]
+            for seed in range(4)
+        ]
+
+        for shuffled in results:
+            assert set(shuffled) == set(original)
+            assert sorted(shuffled.values()) == sorted(original.values())
+        assert any(shuffled != original for shuffled in results)
+        assert auxiliary_dataset.mdata.uns["sparsego"] == original
+
+    def test_permutation_reassigns_the_drug_graphs_to_other_drugs(self, auxiliary_dataset: Dataset):
+        original = auxiliary_dataset.mdata.uns["drug_graphs"]
+
+        shuffled = auxiliary_dataset.with_randomized_views(["drug_graphs"], random_state=0).mdata.uns["drug_graphs"]
+
+        assert set(shuffled) == set(original)
+        assert any(not np.array_equal(shuffled[drug]["x"], original[drug]["x"]) for drug in original)
+        assert sorted(len(graph["x"]) for graph in shuffled.values()) == sorted(
+            len(graph["x"]) for graph in original.values()
+        )
+
+    def test_invariant_keeps_each_drug_graph_topology_degrees_and_shapes(self, auxiliary_dataset: Dataset):
+        original = auxiliary_dataset.mdata.uns["drug_graphs"]
+
+        randomized = auxiliary_dataset.with_randomized_views(
+            ["drug_graphs"], RandomizationType.INVARIANT, random_state=0
+        ).mdata.uns["drug_graphs"]
+
+        assert list(randomized) == list(original)
+        for drug, graph in original.items():
+            result = randomized[drug]
+            assert {key: value.shape for key, value in result.items()} == {
+                key: value.shape for key, value in graph.items()
+            }
+            n_atoms = graph["x"].shape[0]
+            assert _degrees(result["edge_index"], n_atoms) == _degrees(graph["edge_index"], n_atoms)
+        assert any(not np.array_equal(randomized[drug]["x"], original[drug]["x"]) for drug in original)
+
+    def test_the_same_seed_gives_the_same_result(self, auxiliary_dataset: Dataset):
+        first = auxiliary_dataset.with_randomized_views(["chemberta", "drug_graphs"], random_state=5)
+        second = auxiliary_dataset.with_randomized_views(["chemberta", "drug_graphs"], random_state=5)
+
+        np.testing.assert_array_equal(
+            first.mdata.mod["response"].varm["chemberta"], second.mdata.mod["response"].varm["chemberta"]
+        )
+        assert list(first.mdata.uns["drug_graphs"]) == list(second.mdata.uns["drug_graphs"])

@@ -8,6 +8,7 @@ import pytest
 from pydantic import ValidationError
 
 from drevalpy.models.config import FeaturizerConfig, ModelConfig, PredictorConfig, from_recipe
+from drevalpy.models.config.immutable import freeze_value, thaw_value
 from drevalpy.models.zoo import get_zoo_config
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.enums import ModelScope, PredictionMode
@@ -33,6 +34,90 @@ def test_defaults_move_the_space_default() -> None:
 def test_featurizer_config_compact_forms() -> None:
     config = FeaturizerConfig.parse("fingerprints", "drug")
     assert config.name == "fingerprints"
+
+
+class TestFeaturizerTreeValidation:
+    """The concat node alone holds children; both sides, and a slot's leaves, must stay consistent."""
+
+    @pytest.mark.parametrize("children", [None, ()], ids=["no-children", "empty-children"])
+    def test_concat_needs_children(self, children) -> None:
+        with pytest.raises(ValidationError, match="concatFeaturizers requires a non-empty featurizers list"):
+            FeaturizerConfig(name="concatFeaturizers", side="sample", featurizers=children)
+
+    def test_concat_cannot_hold_a_featurizer_of_the_other_side(self) -> None:
+        drug_child = FeaturizerConfig(name="fingerprints", side="drug")
+
+        with pytest.raises(
+            ValidationError,
+            match=r"concatFeaturizers on the sample side cannot hold featurizers of the other side: \['fingerprints'\]",
+        ):
+            FeaturizerConfig(name="concatFeaturizers", side="sample", featurizers=(SAMPLE, drug_child))
+
+    def test_only_concat_accepts_nested_featurizers(self) -> None:
+        with pytest.raises(ValidationError, match="Featurizer 'pca' does not accept nested featurizers"):
+            FeaturizerConfig(name="pca", side="sample", view="methylation", featurizers=(SAMPLE,))
+
+    def test_a_selector_may_appear_once_per_slot_even_when_nested(self) -> None:
+        inner = FeaturizerConfig.parse("pca[methylation]+scaledGeneExpression", "sample")
+
+        with pytest.raises(ValidationError, match=r"Duplicate featurizer selector 'pca\[methylation\]'"):
+            FeaturizerConfig(
+                name="concatFeaturizers",
+                side="sample",
+                featurizers=(inner, FeaturizerConfig(name="pca", side="sample", view="methylation")),
+            )
+
+    def test_the_same_featurizer_on_different_views_is_not_a_duplicate(self) -> None:
+        config = FeaturizerConfig.parse("pca[methylation]+pca[gene_expression]", "sample")
+
+        assert [leaf.selector for leaf in config.leaves()] == ["pca[methylation]", "pca[gene_expression]"]
+
+    def test_a_value_that_is_neither_a_mapping_nor_a_recipe_is_rejected_by_pydantic(self) -> None:
+        with pytest.raises(ValidationError, match="valid dictionary or instance of FeaturizerConfig"):
+            FeaturizerConfig.model_validate(42)
+
+    def test_an_existing_config_validates_to_itself(self) -> None:
+        assert FeaturizerConfig.model_validate(SAMPLE) == SAMPLE
+
+    def test_parse_rejects_a_config_of_the_other_side(self) -> None:
+        with pytest.raises(
+            ValueError, match="featurizer 'scaledGeneExpression' has side 'sample' but is used on the drug side"
+        ):
+            FeaturizerConfig.parse(SAMPLE, "drug")
+
+    def test_parse_returns_a_config_of_the_right_side_unchanged(self) -> None:
+        assert FeaturizerConfig.parse(SAMPLE, "sample") is SAMPLE
+        assert FeaturizerConfig.parse(SAMPLE, None) is SAMPLE
+
+
+class TestFeaturizerCreateInstance:
+    def test_a_leaf_gets_its_view_and_the_given_hyperparameters(self) -> None:
+        config = FeaturizerConfig.parse("pca[methylation]", "sample")
+
+        instance = config.create_instance({"n_components": 3})
+
+        assert type(instance) is config.featurizer_class
+        assert (instance._view, instance._n_components) == ("methylation", 3)
+
+    def test_an_explicit_view_wins_over_the_configured_one(self) -> None:
+        config = FeaturizerConfig.parse("pca[methylation]", "sample")
+
+        assert config.create_instance({"view": "gene_expression"})._view == "gene_expression"
+
+    def test_a_concat_builds_one_child_per_config(self) -> None:
+        config = FeaturizerConfig.parse("scaledGeneExpression+pca[methylation]", "sample")
+
+        instance = config.create_instance()
+
+        assert [type(child) for child in instance._children] == [leaf.featurizer_class for leaf in config.leaves()]
+
+    def test_the_caller_may_supply_the_children_itself(self) -> None:
+        config = FeaturizerConfig.parse("scaledGeneExpression+pca[methylation]", "sample")
+        only_pca = [{"name": "pca", "view": "methylation"}]
+
+        instance = config.create_instance({"featurizers": only_pca})
+
+        assert [type(child).__name__ for child in instance._children] == ["PCASampleFeaturizer"]
 
 
 def test_featurizer_config_has_no_registry_field() -> None:
@@ -265,6 +350,30 @@ def test_frozen_mappings_dump_plain_containers() -> None:
     assert isinstance(dumped["options"]["nested"]["inner"][1], dict)
     assert featurizer.model_dump(mode="json")["options"] == dumped["options"]
     assert PredictorConfig(name="elasticNet").model_dump(mode="python")["hyperparameter_space"] is None
+
+
+class TestFreezeAndThaw:
+    def test_freeze_makes_mappings_sequences_and_sets_immutable_but_keeps_strings(self) -> None:
+        frozen = freeze_value({"a": [1, {"b": {2, 3}}], "text": "abc", "raw": b"xy"})
+
+        assert isinstance(frozen, MappingProxyType)
+        assert frozen["a"][0] == 1 and isinstance(frozen["a"], tuple)
+        assert frozen["a"][1]["b"] == frozenset({2, 3})
+        assert (frozen["text"], frozen["raw"]) == ("abc", b"xy")
+
+    def test_freezing_a_frozen_mapping_returns_it(self) -> None:
+        frozen = freeze_value({"a": [1]})
+
+        assert freeze_value(frozen) is frozen
+
+    def test_thaw_returns_plain_containers_and_turns_sets_into_lists(self) -> None:
+        thawed = thaw_value(freeze_value({"a": [1, {"b": {2}}], "text": "abc", "raw": b"xy"}))
+
+        assert thawed == {"a": [1, {"b": [2]}], "text": "abc", "raw": b"xy"}
+        assert type(thawed) is dict and type(thawed["a"]) is list
+
+    def test_scalars_pass_through_both_ways(self) -> None:
+        assert freeze_value(None) is None and thaw_value(1.5) == 1.5
 
 
 class TestFields:

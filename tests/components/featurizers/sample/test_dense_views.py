@@ -10,6 +10,8 @@ import pytest
 from drevalpy.components.contracts.feature_format import BlockSpec, FeatureFormat
 from drevalpy.components.featurizers import FeatureMismatchError
 from drevalpy.components.featurizers.featurizer import all_nan_rows_mask
+from drevalpy.components.featurizers.sample.ae_gene_expression import AEGeneExpressionFeaturizer
+from drevalpy.components.featurizers.sample.landmark import LandmarkGenesFeaturizer
 from drevalpy.components.featurizers.sample.molir_omics import MOLIROmicsFeaturizer
 from drevalpy.components.featurizers.sample.normalized_proteomics import (
     NormalizedProteomicsSampleFeaturizer,
@@ -71,6 +73,28 @@ def test_view_bound_featurizers_check_usability_on_their_own_view() -> None:
     for featurizer in (ViewSampleFeaturizer(view="methylation"), PCASampleFeaturizer(view="methylation")):
         np.testing.assert_array_equal(featurizer.valid_mask(features, ids), [False, True])
     np.testing.assert_array_equal(all_nan_rows_mask(features, "gene_expression", ids), [True, False])
+
+
+@pytest.mark.parametrize(
+    ("make", "view"),
+    [
+        (lambda: LandmarkGenesFeaturizer(), "gene_expression"),
+        (lambda: AEGeneExpressionFeaturizer(gene_list=None), "gene_expression"),
+        (lambda: NormalizedProteomicsSampleFeaturizer(), "proteomics"),
+    ],
+    ids=["landmark", "autoencoder", "proteomics"],
+)
+def test_featurizers_with_a_bound_view_reject_the_samples_whose_view_row_is_all_nan(make, view: str) -> None:
+    features = MockFeatureSource(
+        features={
+            "cl1": {"gene_expression": np.array([1.0, 2.0]), "proteomics": np.array([np.nan, np.nan])},
+            "cl2": {"gene_expression": np.array([np.nan, np.nan]), "proteomics": np.array([1.0, 2.0])},
+        }
+    )
+
+    mask = make().valid_mask(features, np.array(["cl1", "cl2"]))
+
+    np.testing.assert_array_equal(mask, [True, False] if view == "gene_expression" else [False, True])
 
 
 def test_raw_gene_list_keeps_the_listed_genes_in_list_order(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -311,6 +335,20 @@ def test_tissue_allow_missing_gives_zero_rows(per_sample, width) -> None:
     assert matrix.shape == (2, width)
     if width:
         np.testing.assert_array_equal(matrix[:, 0], [1.0, 0.0])
+
+
+class _SourceWithoutTissue(MockFeatureSource):
+    def tissue(self, ids: np.ndarray) -> None:
+        return None
+
+
+def test_a_source_that_holds_no_tissue_is_treated_as_every_sample_unannotated() -> None:
+    features = _SourceWithoutTissue({"cl1": {}, "cl2": {}})
+
+    with pytest.raises(ValueError, match="requires tissue"):
+        TissueFeaturizer().fit(features, _TISSUE_IDS)
+    lenient = TissueFeaturizer(allow_missing=True).fit(features, _TISSUE_IDS)
+    assert lenient.transform(features, _TISSUE_IDS).matrix.shape == (2, 0)
 
 
 _GENES = list("abcdef")

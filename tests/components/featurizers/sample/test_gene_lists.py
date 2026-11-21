@@ -22,6 +22,7 @@ from drevalpy.components.featurizers.sample.gene_lists import (
     resolve_gene_list_path,
     select_genes,
     view_gene_union,
+    view_genes,
 )
 from drevalpy.components.featurizers.sample.gene_lists import _make_autoencoder_gene_list as script
 from drevalpy.errors import InvalidInputError, UnknownNameError
@@ -39,6 +40,15 @@ def test_gene_names_read_known_columns_and_reject_unknown(tmp_path: UPath, suffi
             gene_names_from_list(path)
     else:
         assert gene_names_from_list(path) == expected
+
+
+def test_view_genes_reads_the_whole_view_or_the_genes_of_a_list() -> None:
+    landmark = resolve_gene_list("landmark_genes")
+    source = _source("gene_expression", (*reversed(landmark), "EXTRA"))
+
+    assert view_genes(source, "gene_expression", None) == (*reversed(landmark), "EXTRA")
+    assert view_genes(source, "gene_expression", "landmark_genes") == tuple(landmark)
+    assert view_genes(_source("gene_expression", None), "gene_expression", None) is None
 
 
 def test_resolve_gene_list_path_uses_the_packaged_file() -> None:
@@ -141,6 +151,32 @@ def _write_dataset(path: Path, values: dict[str, list[float]], unit: str = "log2
 
 def test_parse_manifest_reads_the_gene_column_of_the_targets_section() -> None:
     assert script.parse_manifest(MANIFEST) == {"AAA", "BBB", "CCC"}
+
+
+def test_parse_manifest_reads_a_targets_section_that_runs_to_the_end_of_the_file() -> None:
+    manifest = "[Header]\nx\n[Targets]\nID\tGene\tExtra\nt1\tAAA\tx\nt2\nt3\t  BBB  \tx"
+
+    assert script.parse_manifest(manifest) == {"AAA", "BBB"}
+
+
+def test_download_fetches_the_url_with_a_browser_user_agent(monkeypatch: pytest.MonkeyPatch) -> None:
+    requested: list[tuple[str, str, int]] = []
+
+    class _Response(io.BytesIO):
+        def __enter__(self) -> _Response:
+            return self
+
+        def __exit__(self, *exc_info: object) -> None:
+            self.close()
+
+    def fake_urlopen(request, timeout: int) -> _Response:
+        requested.append((request.full_url, request.get_header("User-agent"), timeout))
+        return _Response(b"payload")
+
+    monkeypatch.setattr(script.urllib.request, "urlopen", fake_urlopen)
+
+    assert script._download("https://example.org/manifest.zip", 7) == b"payload"
+    assert requested == [("https://example.org/manifest.zip", "Mozilla/5.0", 7)]
 
 
 def test_download_helpers_decode_the_downloaded_files(monkeypatch: pytest.MonkeyPatch) -> None:

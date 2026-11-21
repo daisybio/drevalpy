@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+import importlib
 import pickle
+import sys
+from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pytest
+from upath import UPath
 
 import drevalpy.components.featurizers.drug.molgnet as molgnet_module
 from drevalpy.components.contracts.feature_format import FeatureFormat
@@ -112,6 +117,17 @@ def test_molgnet_compute_embedding_names_the_missing_dependency(
         _compute_molgnet_embedding("CCO")
 
 
+def test_the_molgnet_network_module_names_the_missing_rdkit_on_import(monkeypatch: pytest.MonkeyPatch) -> None:
+    module_name = "drevalpy.components.featurizers.drug._molgnet_network"
+    monkeypatch.delitem(sys.modules, module_name, raising=False)
+    block_imports(monkeypatch, "rdkit")
+
+    with pytest.raises(ImportError, match="Please install rdkit package for MolGNet featurizer") as caught:
+        importlib.import_module(module_name)
+
+    assert isinstance(caught.value.__cause__, ImportError)
+
+
 def test_molgnet_computes_drugs_without_a_stored_view_from_their_smiles(
     monkeypatch: pytest.MonkeyPatch, smiles_only: DrugSource
 ) -> None:
@@ -147,6 +163,93 @@ def test_molgnet_featurizers_pickle() -> None:
         np.testing.assert_array_equal(
             restored.transform(source, _IDS).blocks[fitted.output_blocks({})[0].name].values[1],
             fitted.transform(source, _IDS).blocks[fitted.output_blocks({})[0].name].values[1],
+        )
+
+
+def test_the_checkpoint_is_the_molgnet_artifact(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    requested: list[str] = []
+
+    def get_artifact(name: str) -> UPath:
+        requested.append(name)
+        return UPath(tmp_path) / name
+
+    monkeypatch.setattr(molgnet_module, "get_artifact", get_artifact)
+
+    assert molgnet_module._get_molgnet_checkpoint() == str(UPath(tmp_path) / "MolGNet.pt")
+    assert requested == ["MolGNet.pt"]
+
+
+@pytest.fixture(scope="module")
+def random_molgnet(tmp_path_factory: pytest.TempPathFactory) -> tuple[dict[str, Any], dict[str, UPath]]:
+    """A randomly initialised MolGNet, as the state dict it was built from and as saved checkpoints.
+
+    :returns: The state dict and, per checkpoint format, the file the featurizer's loader is pointed at.
+    """
+    import torch
+
+    from drevalpy.components.featurizers.drug._molgnet_network import MolGNet
+
+    torch.manual_seed(0)
+    state_dict = MolGNet(num_layer=5, emb_dim=768, heads=12, num_message_passing=3, drop_ratio=0.0).state_dict()
+    directory = UPath(tmp_path_factory.mktemp("molgnet"))
+    paths = {"plain": directory / "plain.pt", "wrapped": directory / "wrapped.pt"}
+    torch.save(state_dict, str(paths["plain"]))
+    torch.save({"state_dict": state_dict, "epoch": 3}, str(paths["wrapped"]))
+    return state_dict, paths
+
+
+@pytest.mark.slow
+class TestComputeEmbeddingFromCheckpoint:
+    """``_compute_molgnet_embedding`` against a random checkpoint, so no download is needed."""
+
+    @staticmethod
+    def _expected(state_dict: dict[str, Any], smiles: str) -> np.ndarray:
+        import torch
+        from rdkit import Chem
+
+        from drevalpy.components.featurizers.drug._molgnet_network import MolGNet, mol_to_graph_data_obj_complex
+
+        model = MolGNet(num_layer=5, emb_dim=768, heads=12, num_message_passing=3, drop_ratio=0.0)
+        model.load_state_dict(state_dict)
+        model.eval()
+        with torch.no_grad():
+            return model(mol_to_graph_data_obj_complex(Chem.MolFromSmiles(smiles))).numpy()
+
+    @pytest.mark.parametrize("checkpoint_format", ["plain", "wrapped"])
+    def test_either_checkpoint_format_gives_one_768_wide_row_per_atom(
+        self, monkeypatch: pytest.MonkeyPatch, random_molgnet, checkpoint_format: str
+    ) -> None:
+        state_dict, paths = random_molgnet
+        monkeypatch.setattr(molgnet_module, "_get_molgnet_checkpoint", lambda: str(paths[checkpoint_format]))
+
+        embedding = _compute_molgnet_embedding("CCO")
+
+        assert embedding is not None
+        assert embedding.shape == (3, 768)
+        assert np.isfinite(embedding).all()
+        np.testing.assert_allclose(embedding, self._expected(state_dict, "CCO"), rtol=1e-4, atol=1e-5)
+
+    def test_an_invalid_smiles_returns_none_without_reading_the_checkpoint(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def unexpected() -> str:
+            raise AssertionError("the checkpoint must not be fetched for an invalid SMILES")
+
+        monkeypatch.setattr(molgnet_module, "_get_molgnet_checkpoint", unexpected)
+
+        assert _compute_molgnet_embedding("not-a-smiles") is None
+
+    def test_the_featurizer_computes_a_missing_view_with_it(
+        self, monkeypatch: pytest.MonkeyPatch, random_molgnet
+    ) -> None:
+        state_dict, paths = random_molgnet
+        monkeypatch.setattr(molgnet_module, "_get_molgnet_checkpoint", lambda: str(paths["plain"]))
+        source = DrugSource(smiles={"d1": "CCO"})
+
+        values = MolGNetDrugFeaturizer().transform(source, _IDS[:1]).blocks["molgnet_features"].values
+
+        np.testing.assert_allclose(
+            np.asarray(values[0], dtype=np.float32), self._expected(state_dict, "CCO"), rtol=1e-4, atol=1e-5
         )
 
 

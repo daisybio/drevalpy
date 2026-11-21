@@ -140,7 +140,9 @@ class MockFeatureSource(FeatureSource):
         return self.feature_names(name) is not None
 
     def view(self, name: str, ids: np.ndarray) -> np.ndarray:
-        """Return (len(ids), n_features) float array for a dense numeric view."""
+        """Return (len(ids), n_features) float array for a dense numeric view; no ids give zero rows."""
+        if len(ids) == 0:
+            return np.empty((0, len(self.feature_names(name) or ())), dtype=np.float64)
         rows = [np.asarray(self._features[str(eid)][name], dtype=np.float64).ravel() for eid in ids]
         return np.vstack(rows)
 

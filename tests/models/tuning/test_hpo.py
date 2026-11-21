@@ -107,6 +107,34 @@ def test_all_failed_trials_raise_without_default_fallback(train) -> None:
 
 
 @patch.object(DRPModel, "predict", return_value=np.zeros(4))
+@patch.object(DRPModel, "train", side_effect=[RuntimeError("boom"), None])
+def test_tuning_goes_on_when_only_some_trials_fail(train, predict, caplog) -> None:
+    spec = ModelSpec.from_name("ElasticNet")
+
+    with _scores(0.4), caplog.at_level("WARNING", logger="drevalpy"):
+        best, trials = _tune(spec, 2)
+
+    assert "1 of 2 hyperparameter trials failed; tuning used the 1 that survived" in caplog.text
+    assert [trial.metrics for trial in trials] == [{"RMSE": 0.4}]
+    assert best == {**spec.hyperparameters, **trials[0].hyperparameters}
+
+
+@pytest.mark.parametrize("metrics", [{"RMSE": float("nan")}, {}], ids=["nan-metric", "no-metrics"])
+@patch.object(DRPModel, "predict", return_value=np.zeros(4))
+@patch.object(DRPModel, "train")
+def test_tuning_falls_back_to_the_spec_values_when_no_trial_scored(train, predict, metrics) -> None:
+    spec = ModelSpec.from_name("ElasticNet").with_hyperparameters({"alpha": 0.3})
+
+    with patch.object(hpo, "evaluate", return_value=metrics):
+        with pytest.warns(UserWarning, match="did not find a valid configuration; using defaults"):
+            best, trials = _tune(spec, 2)
+
+    assert best == dict(spec.hyperparameters)
+    assert len(trials) == (2 if metrics else 0)
+    assert all(np.isnan(trial.metrics["RMSE"]) for trial in trials)
+
+
+@patch.object(DRPModel, "predict", return_value=np.zeros(4))
 @patch.object(DRPModel, "train")
 def test_best_hyperparameters_carry_the_decoded_pow2_value_the_trials_trained_with(train, predict) -> None:
     spec = ModelSpec("FingerprintElasticNet", from_recipe("pca[gene_expression]:fingerprints:elasticNet"))

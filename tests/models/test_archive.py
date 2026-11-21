@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import shutil
+import sys
 import tempfile
 import zipfile
 from typing import Any
@@ -139,6 +140,18 @@ class TestLoadArchive:
 
         with pytest.raises(CorruptedCheckpointError, match=f"missing {PAYLOAD_MEMBER!r}"):
             load_archive(str(archive))
+
+    def test_rejects_a_payload_that_cannot_be_deserialized(self, tmp_path) -> None:
+        archive = UPath(tmp_path) / "elastic_net.zip"
+        with zipfile.ZipFile(archive, mode="w") as handle:
+            handle.writestr(PAYLOAD_MEMBER, b"these bytes are not a joblib dump")
+
+        with pytest.raises(
+            CorruptedCheckpointError, match="Failed to deserialize checkpoint .*elastic_net.zip"
+        ) as caught:
+            load_archive(str(archive))
+
+        assert caught.value.__cause__ is not None
 
     def test_rejects_another_version_and_says_how_to_recover(self, tmp_path) -> None:
         assert FORMAT_VERSION == 3
@@ -306,3 +319,68 @@ class TestTorchModules:
         with _modules_on_cpu({"predictor": [module]}):
             assert next(module.parameters()).device.type == "cpu"
         assert next(module.parameters()).device.type == "cpu"
+
+    def test_moves_modules_off_the_accelerator_and_back(self) -> None:
+        torch = pytest.importorskip("torch")
+        from drevalpy.models._archive import _modules_on_cpu
+
+        moves: list[str] = []
+
+        class OnAccelerator(torch.nn.Linear):
+            """A module whose weights sit on a non-CPU device (``meta``), recording where it is sent."""
+
+            def to(self, *args, **kwargs):
+                moves.append(str(args[0]))
+                return self
+
+        class BuffersOnly(OnAccelerator):
+            def __init__(self) -> None:
+                super().__init__(1, 1, device="meta")
+                self.register_buffer("state", torch.empty(1, device="meta"))
+                self.weight = None
+                self.bias = None
+
+        weights, buffers = OnAccelerator(2, 2, device="meta"), BuffersOnly()
+        cpu_module = torch.nn.Linear(1, 1)
+
+        with _modules_on_cpu({"predictor": [weights, buffers, cpu_module]}):
+            assert sorted(moves) == ["cpu", "cpu"]
+        assert sorted(moves) == ["cpu", "cpu", "meta", "meta"]
+
+    def test_restores_the_devices_when_saving_fails(self) -> None:
+        torch = pytest.importorskip("torch")
+        from drevalpy.models._archive import _modules_on_cpu
+
+        moves: list[str] = []
+
+        class OnAccelerator(torch.nn.Linear):
+            def to(self, *args, **kwargs):
+                moves.append(str(args[0]))
+                return self
+
+        with (
+            pytest.raises(RuntimeError, match="disk full"),
+            _modules_on_cpu({"predictor": OnAccelerator(2, 2, device="meta")}),
+        ):
+            raise RuntimeError("disk full")
+
+        assert moves == ["cpu", "meta"]
+
+    def test_nothing_is_searched_when_torch_was_never_imported(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from drevalpy.models import _archive
+
+        def unexpected(*args: object) -> None:
+            raise AssertionError("components must not be searched for modules without torch")
+
+        monkeypatch.delitem(sys.modules, "torch", raising=False)
+        monkeypatch.setattr(_archive, "_torch_modules", unexpected)
+
+        with _archive._modules_on_cpu({"predictor": object()}):
+            pass
+
+    def test_a_module_without_tensors_is_left_alone(self) -> None:
+        torch = pytest.importorskip("torch")
+        from drevalpy.models._archive import _modules_on_cpu
+
+        with _modules_on_cpu({"predictor": torch.nn.ReLU()}):
+            pass

@@ -157,6 +157,16 @@ def test_dipk_preprocess_logs_linear_units_and_zscores_each_row(unit, log_applie
     np.testing.assert_allclose(dipk_preprocess(source, raw, view="absent"), _zscore(raw))
 
 
+def test_dipk_preprocess_promotes_integer_counts_to_float() -> None:
+    source = _source(unit=None)
+    counts = np.array([[1, 2, 4, 8], [3, 3, 5, 9]])
+
+    actual = dipk_preprocess(source, counts)
+
+    assert actual.dtype == np.float64
+    np.testing.assert_allclose(actual, _zscore(counts.astype(np.float64)))
+
+
 def test_ae_transform_encodes_with_the_fitted_encoder_and_survives_pickling(recording_trainer) -> None:
     source = _source(unit="tpm")
     featurizer = _fit(_ae(epochs_autoencoder=3), source)
