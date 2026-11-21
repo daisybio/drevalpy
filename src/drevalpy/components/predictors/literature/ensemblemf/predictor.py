@@ -14,15 +14,14 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
 
-from drevalpy.components.contracts.feature_format import FeatureFormat
+from drevalpy.components.contracts.feature_format import BlockSpec
 from drevalpy.components.contracts.hyperparameter_space import fixed_entries
 from drevalpy.components.predictors.abstract.base import Predictor, response_rows
 from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.components.predictors.literature._metadata import ENSEMBLEMF_REFERENCE
 from drevalpy.components.predictors.literature._torch_utils import DevicePicklingMixin
 from drevalpy.registry.predictor import register
-from drevalpy.types.data.batch.feature_block import BlockSpec
-from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
+from drevalpy.types.data.predictor_input import PredictorInput
 from drevalpy.types.enums.accelerator import Accelerator
 
 if TYPE_CHECKING:
@@ -40,11 +39,11 @@ if TYPE_CHECKING:
     accelerator=Accelerator.OPTIONAL,
 )
 class EnsembleMFPredictor(DevicePicklingMixin, Predictor):
-    """Ensemble of two-tower matrix-factorization networks consuming ModelInputBatch directly."""
+    """Ensemble of two-tower matrix-factorization networks consuming PredictorInput directly."""
 
     device_modules: ClassVar[tuple[str, ...]] = ("_nets",)
-    sample_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX))
-    drug_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("fingerprints", FeatureFormat.NUMERIC_MATRIX))
+    sample_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("gene_expression"))
+    drug_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("fingerprints"))
     supports_early_stopping: ClassVar[bool] = True
 
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
@@ -124,10 +123,10 @@ class EnsembleMFPredictor(DevicePicklingMixin, Predictor):
             torch.as_tensor(response, dtype=torch.float32, device=self._device),
         )
 
-    def _fit(self, batch: ModelInputBatch) -> None:
+    def _fit(self, data: PredictorInput) -> None:
         """Train the ensemble members with their own seeds.
 
-        :param batch: Training batch with gene_expression and fingerprints blocks.
+        :param data: Training input with gene_expression and fingerprints blocks.
         """
         import torch
 
@@ -135,15 +134,15 @@ class EnsembleMFPredictor(DevicePicklingMixin, Predictor):
         from .training import MemberData, MemberSettings, train_member
 
         hp = self._hyperparameters
-        _, x_sample, sample_pos = sorted_entities(batch.sample, "gene_expression")
-        drug_ids, x_drug, drug_pos = sorted_entities(drug_table(batch), "fingerprints")
+        _, x_sample, sample_pos = sorted_entities(data.sample, "gene_expression")
+        drug_ids, x_drug, drug_pos = sorted_entities(drug_table(data), "fingerprints")
         train = self._pairs(
-            sample_pos[batch.sample_pair_idx], drug_pos[np.asarray(batch.drug_pair_idx)], np.asarray(batch.response)
+            sample_pos[data.sample_pair_idx], drug_pos[np.asarray(data.drug_pair_idx)], np.asarray(data.response)
         )
         validation = None
-        if batch.early_stopping_response is not None:
-            stop = batch.early_stopping_response
-            stop_sample, stop_drug = response_rows(batch, stop)
+        if data.early_stopping is not None:
+            stop = data.early_stopping
+            stop_sample, stop_drug = response_rows(data, stop)
             validation = self._pairs(
                 sample_pos[stop_sample], drug_pos[np.asarray(stop_drug)], np.asarray(stop.response)
             )
@@ -154,7 +153,7 @@ class EnsembleMFPredictor(DevicePicklingMixin, Predictor):
         self._drug_seen = np.zeros(len(drug_ids), dtype=bool)
         self._drug_seen[train.drug_idx.unique().cpu().numpy()] = True
 
-        data = MemberData(
+        member_data = MemberData(
             torch.as_tensor(x_sample, dtype=torch.float32, device=self._device),
             torch.as_tensor(x_drug, dtype=torch.float32, device=self._device),
             train,
@@ -178,7 +177,7 @@ class EnsembleMFPredictor(DevicePicklingMixin, Predictor):
                 if seed >= 0:
                     torch.manual_seed(seed + member)
                 net = self._build_net(len(drug_ids))
-                train_member(net, data, settings)
+                train_member(net, member_data, settings)
             self._nets.append(net)
 
     def _embedding_rows(self, net: MFNet, drug_ids: np.ndarray) -> torch.Tensor:
@@ -199,10 +198,10 @@ class EnsembleMFPredictor(DevicePicklingMixin, Predictor):
             ]
         return rows
 
-    def _predict(self, batch: ModelInputBatch) -> np.ndarray:
+    def _predict(self, data: PredictorInput) -> np.ndarray:
         """Average the member predictions on the given batch.
 
-        :param batch: Featurized pairs to score.
+        :param data: Featurized pairs to score.
         :returns: One predicted response per pair.
         :raises ValueError: If the model has not been trained yet.
         """
@@ -213,13 +212,13 @@ class EnsembleMFPredictor(DevicePicklingMixin, Predictor):
         if not self._nets:
             msg = "EnsembleMF model not initialized."
             raise ValueError(msg)
-        drug = drug_table(batch)
+        drug = drug_table(data)
         x_sample = torch.as_tensor(
-            batch.sample.blocks["gene_expression"].values, dtype=torch.float32, device=self._device
+            data.sample.blocks["gene_expression"].values, dtype=torch.float32, device=self._device
         )
         x_drug = torch.as_tensor(drug.blocks["fingerprints"].values, dtype=torch.float32, device=self._device)
-        sample_idx = torch.as_tensor(batch.sample_pair_idx, dtype=torch.long, device=self._device)
-        drug_idx = torch.as_tensor(batch.drug_pair_idx, dtype=torch.long, device=self._device)
+        sample_idx = torch.as_tensor(data.sample_pair_idx, dtype=torch.long, device=self._device)
+        drug_idx = torch.as_tensor(data.drug_pair_idx, dtype=torch.long, device=self._device)
         member_predictions = []
         with torch.no_grad():
             for net in self._nets:

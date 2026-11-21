@@ -7,12 +7,12 @@ from typing import Any, ClassVar, Self
 
 import numpy as np
 
-from drevalpy.components.contracts.feature_format import FeatureFormat
+from drevalpy.components.contracts.feature_format import BlockSpec, FeatureFormat
 from drevalpy.components.featurizers.featurizer import Featurizer
 from drevalpy.data.artifacts import get_artifact
 from drevalpy.log import get_logger
 from drevalpy.registry.featurizer import register
-from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult, ragged_feature_block
+from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
 from drevalpy.types.data.feature_source import FeatureSource, Side
 
 _logger = get_logger(__name__)
@@ -66,7 +66,7 @@ class MolGNetDrugFeaturizer(Featurizer):
         """
         return self
 
-    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerResult:
+    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerOutput:
         """Return one MolGNet node matrix per drug.
 
         :param source: Drug feature source.
@@ -74,7 +74,10 @@ class MolGNetDrugFeaturizer(Featurizer):
         :returns: Result with the ragged ``molgnet_features`` block.
         """
         rows = molgnet_node_matrices(source, self._view, ids)
-        return FeaturizerResult(ids, {_BLOCK: ragged_feature_block(np.array(rows, dtype=object))}, (_BLOCK,))
+        return FeaturizerOutput(
+            ids,
+            {_BLOCK: FeatureBlock(np.array(rows, dtype=object), FeatureFormat.RAGGED_SEQUENCE)},
+        )
 
 
 def molgnet_node_matrices(source: FeatureSource, view: str, ids: np.ndarray) -> list[np.ndarray]:

@@ -7,32 +7,32 @@ from typing import ClassVar
 
 import numpy as np
 
-from drevalpy.components.predictors.abstract.base import Predictor, fit_response
+from drevalpy.components.predictors.abstract.base import Predictor, get_response
 from drevalpy.components.predictors.inputs import Inputs
-from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
+from drevalpy.types.data.predictor_input import PredictorInput
 
 
 class MatrixPredictor(Predictor):
-    """Predictor that flattens ``ModelInputBatch`` into one design matrix."""
+    """Predictor that flattens ``PredictorInput`` into one design matrix."""
 
     sample_inputs: ClassVar[Inputs] = Inputs.matrix()
     drug_inputs: ClassVar[Inputs] = Inputs.matrix()
 
-    def _fit(self, batch: ModelInputBatch) -> None:
-        """Fit on a dense pair-level design matrix built from *batch*.
+    def _fit(self, data: PredictorInput) -> None:
+        """Fit on a dense pair-level design matrix built from *data*.
 
-        :param batch: Featurized pairs with training responses.
+        :param data: Featurized pairs with training responses.
         """
-        self._fit_matrix(batch.to_feature_matrix(), fit_response(batch))
+        self._fit_matrix(data.to_feature_matrix(), get_response(data))
 
-    def _predict(self, batch: ModelInputBatch) -> np.ndarray:
-        """Predict from a dense pair-level design matrix built from *batch*.
+    def _predict(self, data: PredictorInput) -> np.ndarray:
+        """Predict from a dense pair-level design matrix built from *data*.
 
-        :param batch: Featurized pairs to score.
+        :param data: Featurized pairs to score.
 
-        :returns: One predicted response per pair in *batch*.
+        :returns: One predicted response per pair in *data*.
         """
-        return self._predict_matrix(batch.to_feature_matrix())
+        return self._predict_matrix(data.to_feature_matrix())
 
     @abstractmethod
     def _fit_matrix(self, x: np.ndarray, y: np.ndarray) -> None:

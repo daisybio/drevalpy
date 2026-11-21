@@ -23,7 +23,7 @@ import numpy as np
 from drevalpy.errors import InvalidInputError
 from drevalpy.registry.splitter._groups import MODES, in_groups, pair_groups
 from drevalpy.registry.splitter._validation import validate_parts
-from drevalpy.types import PairMask
+from drevalpy.types import SelectionMask
 
 if TYPE_CHECKING:
     from drevalpy.registry.splitter import Validation
@@ -32,7 +32,7 @@ if TYPE_CHECKING:
 
 def early_stopping_split(
     dataset: Dataset, fold: Fold, mode: Validation, *, fraction: float = 0.25
-) -> tuple[PairMask, PairMask]:
+) -> tuple[SelectionMask, SelectionMask]:
     """Cut a seeded *fraction* of the validation groups out of *fold* as its early-stopping set.
 
     ``max(1, int(n_groups * fraction))`` groups are drawn with a generator seeded from the
@@ -66,8 +66,8 @@ def early_stopping_split(
     seed = validation.pair_seed if validation.pair_seed is not None else fold.metadata.get("random_state", 0)
     chosen = np.random.default_rng(seed).permutation(present)[: max(1, int(len(present) * fraction))]
     in_stopping = validation.mask & in_groups(groups, chosen)
-    stopping = PairMask(in_stopping, validation.pair_seed)
-    rest = PairMask(validation.mask & ~in_stopping, validation.pair_seed)
+    stopping = SelectionMask(in_stopping, validation.pair_seed)
+    rest = SelectionMask(validation.mask & ~in_stopping, validation.pair_seed)
     validate_parts(
         {"train": fold.train, "stopping": stopping, "validation": rest, "test": fold.test},
         mode,

@@ -7,11 +7,11 @@ from typing import Any, ClassVar, Self
 
 import numpy as np
 
-from drevalpy.components.contracts.feature_format import FeatureFormat
+from drevalpy.components.contracts.feature_format import BlockSpec, FeatureFormat
 from drevalpy.components.featurizers.featurizer import Featurizer
 from drevalpy.log import get_logger
 from drevalpy.registry.featurizer import register
-from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult, graph_feature_block
+from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
 from drevalpy.types.data.feature_source import FeatureSource, Side
 
 _logger = get_logger(__name__)
@@ -76,7 +76,7 @@ class DrugGraphFeaturizer(Featurizer):
         """
         return self
 
-    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerResult:
+    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerOutput:
         """Return one graph per drug: the stored graph when the source has one, else computed from the SMILES.
 
         :param source: Drug feature source.
@@ -99,7 +99,7 @@ class DrugGraphFeaturizer(Featurizer):
                 msg = f"View {self._view!r} missing for drug {key!r} and SMILES-based graph computation failed"
                 raise KeyError(msg)
             graphs[row] = graph
-        return FeaturizerResult(ids, {_BLOCK: graph_feature_block(graphs)}, (_BLOCK,))
+        return FeaturizerOutput(ids, {_BLOCK: FeatureBlock(graphs, FeatureFormat.GRAPH)})
 
     def _graph_from_smiles(self, smiles: object) -> Any:
         """Compute the graph of one SMILES string.

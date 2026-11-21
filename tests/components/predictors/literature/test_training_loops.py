@@ -19,9 +19,9 @@ from drevalpy.components.predictors.literature._pair_predict import (
     require_drug_pair_idx,
 )
 from drevalpy.experiment._tracking import tracking_run
-from drevalpy.types.data.batch.feature_block import numeric_feature_block
-from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
-from drevalpy.types.data.batch.response_batch import ResponseBatch
+from drevalpy.types.data.feature_block import FeatureBlock
+from drevalpy.types.data.predictor_input import PredictorInput
+from drevalpy.types.data.response_table import ResponseTable
 from tests._fake_wandb import install_fake_wandb
 from tests.components.predictors.literature._helpers import two_by_two_batch
 
@@ -222,10 +222,10 @@ SAMPLE_VALUES = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
 DRUG_VALUES = np.array([[10.0], [20.0]], dtype=np.float32)
 
 
-def _batch(*, with_drug_pair_idx: bool = True) -> ModelInputBatch:
+def _batch(*, with_drug_pair_idx: bool = True) -> PredictorInput:
     return two_by_two_batch(
-        sample_blocks={"view": numeric_feature_block(SAMPLE_VALUES)},
-        drug_blocks={"view": numeric_feature_block(DRUG_VALUES)},
+        sample_blocks={"view": FeatureBlock(SAMPLE_VALUES)},
+        drug_blocks={"view": FeatureBlock(DRUG_VALUES)},
         drug_pair_idx=np.array([0, 1, 0, 1]) if with_drug_pair_idx else None,
     )
 
@@ -305,11 +305,11 @@ def test_a_multi_element_output_row_is_flattened() -> None:
 
 def test_a_batch_with_no_pairs_yields_an_empty_float64_array() -> None:
     empty = two_by_two_batch(
-        response=ResponseBatch(
+        response=ResponseTable(
             response=np.empty(0), sample_ids=np.empty(0, dtype=str), drug_ids=np.empty(0, dtype=str)
         ),
-        sample_blocks={"view": numeric_feature_block(SAMPLE_VALUES)},
-        drug_blocks={"view": numeric_feature_block(DRUG_VALUES)},
+        sample_blocks={"view": FeatureBlock(SAMPLE_VALUES)},
+        drug_blocks={"view": FeatureBlock(DRUG_VALUES)},
         sample_pair_idx=np.empty(0, dtype=np.intp),
         drug_pair_idx=np.empty(0, dtype=np.intp),
     )

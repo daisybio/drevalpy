@@ -1,4 +1,4 @@
-"""MOLIR literature predictor consuming ModelInputBatch directly."""
+"""MOLIR literature predictor consuming PredictorInput directly."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from drevalpy.components.predictors.literature._omic_helpers import (
 )
 from drevalpy.components.predictors.literature._single_drug_omics import SingleDrugOmicsPredictor
 from drevalpy.registry.predictor import register
-from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
+from drevalpy.types.data.predictor_input import PredictorInput
 from drevalpy.types.enums.accelerator import Accelerator
 
 # MOLIModel lives in .utils, which imports pytorch_lightning at module scope. This
@@ -37,21 +37,21 @@ class MOLIRPredictor(SingleDrugOmicsPredictor):
 
     _models: dict[str, MOLIModel]
 
-    def _fit_drug(self, drug_id: str, batch: ModelInputBatch) -> MOLIModel:
+    def _fit_drug(self, drug_id: str, data: PredictorInput) -> MOLIModel:
         """Fit a single-drug MOLIR model.
 
         :param drug_id: Identifier of the drug to train on.
-        :param batch: Subset batch for this drug.
+        :param data: Subset batch for this drug.
         :returns: The model; left untrained when the drug has fewer pairs than one mini-batch.
         """
-        matrices = omic_matrices(batch)
+        matrices = omic_matrices(data)
         model = self._build_model(matrices.widths())
 
-        if batch.n_pairs >= self._hyperparameters["mini_batch"]:
+        if data.n_pairs >= self._hyperparameters["mini_batch"]:
             model.fit(
-                train=matrices.split(batch.sample_pair_idx, np.asarray(batch.response, dtype=np.float32)),
-                val=validation_split(matrices, batch),
-                model_checkpoint_dir=str(batch.training_context.checkpoint_dir),
+                train=matrices.split(data.sample_pair_idx, np.asarray(data.response, dtype=np.float32)),
+                val=validation_split(matrices, data),
+                model_checkpoint_dir=str(data.training_context.checkpoint_dir),
             )
 
         return model

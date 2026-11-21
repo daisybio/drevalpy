@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import numpy as np
 
-from drevalpy.types.data.batch.feature_block import FeatureBlock, FeaturizerResult, numeric_feature_block
-from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
+from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
+from drevalpy.types.data.predictor_input import PredictorInput
 
 
 def one_hot(labels: list[str] | np.ndarray, categories: list[str]) -> np.ndarray:
@@ -27,7 +27,7 @@ def _as_feature_blocks(blocks: dict[str, np.ndarray | FeatureBlock] | None) -> d
         if isinstance(value, FeatureBlock):
             wrapped[name] = value
         else:
-            wrapped[name] = numeric_feature_block(np.asarray(value, dtype=np.float32))
+            wrapped[name] = FeatureBlock(np.asarray(value, dtype=np.float32))
     return wrapped
 
 
@@ -68,7 +68,7 @@ def naive_batch(
     drug_pair_idx: np.ndarray | None = None,
     sample_ids: np.ndarray | None = None,
     drug_ids: np.ndarray | None = None,
-) -> ModelInputBatch:
+) -> PredictorInput:
     """Build a matrix-native batch whose pair IDs are derived from the indexed entity rows."""
     n_pairs = _infer_n_pairs(
         n_pairs=n_pairs,
@@ -95,15 +95,15 @@ def naive_batch(
     cell_blocks = _as_feature_blocks(sample_blocks)
     drug_blocks = _as_feature_blocks(drug_blocks)
     if not cell_blocks:
-        cell_blocks = {"matrix": numeric_feature_block(np.asarray(sample_features, dtype=np.float64))}
+        cell_blocks = {"matrix": FeatureBlock(np.asarray(sample_features, dtype=np.float64))}
     if not drug_blocks:
-        drug_blocks = {"matrix": numeric_feature_block(np.asarray(drug_features, dtype=np.float64))}
-    return ModelInputBatch(
+        drug_blocks = {"matrix": FeatureBlock(np.asarray(drug_features, dtype=np.float64))}
+    return PredictorInput(
         sample_ids=sample_ids,
         drug_ids=drug_ids,
         response=response,
-        sample=FeaturizerResult.from_blocks(cell_blocks, cell_entities),
-        drug=FeaturizerResult.from_blocks(drug_blocks, drug_entities),
+        sample=FeaturizerOutput(cell_entities, cell_blocks),
+        drug=FeaturizerOutput(drug_entities, drug_blocks),
         sample_pair_idx=np.asarray(sample_pair_idx, dtype=np.int64),
         drug_pair_idx=np.asarray(drug_pair_idx, dtype=np.int64),
     )

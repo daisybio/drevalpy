@@ -198,7 +198,7 @@ The default ``random_state`` (``--seed`` on the command line) is 42, so repeatin
          print(folds[0])
 
       ``split`` returns a list of ``Fold`` objects, one per fold, each with a ``train``, a
-      ``test`` and a ``val`` ``PairMask``:
+      ``test`` and a ``val`` ``SelectionMask``:
 
       .. code-block:: text
 

@@ -17,7 +17,7 @@ from drevalpy.registry.splitter import canonical, get, splitter_registry
 from drevalpy.registry.splitter import register as register_splitter
 from drevalpy.registry.splitter._validation import SplitValidationError
 from drevalpy.types.data.fold import Fold
-from drevalpy.types.data.pair_mask import PairMask
+from drevalpy.types.data.selection_mask import SelectionMask
 
 _SHAPE = (4, 3)
 QUALITY = CurveQuality.default()
@@ -51,14 +51,14 @@ class _FakeMuDataset:
         return np.full(_SHAPE, 9.0 if name == "relevance_score" else -2.0)
 
 
-def _mask(rows: tuple[int, ...]) -> PairMask:
+def _mask(rows: tuple[int, ...]) -> SelectionMask:
     array = np.zeros(_SHAPE, dtype=bool)
     array[list(rows), :] = True
-    return PairMask(array)
+    return SelectionMask(array)
 
 
 def _fold(test_rows: tuple[int, ...] = (2, 3)) -> Fold:
-    return Fold(train=_mask((0, 1)), test=_mask(test_rows), val=PairMask(np.zeros(_SHAPE, dtype=bool)))
+    return Fold(train=_mask((0, 1)), test=_mask(test_rows), val=SelectionMask(np.zeros(_SHAPE, dtype=bool)))
 
 
 @pytest.fixture

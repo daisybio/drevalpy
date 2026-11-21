@@ -24,8 +24,8 @@ from drevalpy.log import get_logger
 from drevalpy.models.config.immutable import thaw_value
 from drevalpy.models.spec import ModelSpec
 from drevalpy.models.tuning.search_space import draw
-from drevalpy.types.data.batch.response_batch import ResponseBatch
 from drevalpy.types.data.dataset import Dataset
+from drevalpy.types.data.response_table import ResponseTable
 from drevalpy.types.results.trial import TrialResult
 
 if TYPE_CHECKING:
@@ -93,7 +93,7 @@ def hpam_tune(
 
     require_tracking(wandb_project)
     metric, scopes, fold_index = execution.hpo_metric, execution.scopes, execution.identity.fold_index
-    ground_truth = ResponseBatch.from_dataset(dataset, scopes.validation).response
+    ground_truth = ResponseTable.from_dataset(dataset, scopes.validation).response
     trials: list[TrialResult] = []
     failures = _TrialFailures()
 

@@ -16,10 +16,10 @@ from drevalpy.data._synthetic import synthetic as build_synthetic_dataset
 from drevalpy.models.config import PredictorConfig
 from drevalpy.registry._component import predictor_component_metadata
 from drevalpy.registry.predictor import predictor_registry
-from drevalpy.testing import build_synthetic_batch
-from drevalpy.types.data.batch.feature_block import FeaturizerResult, numeric_feature_block
-from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
-from drevalpy.types.data.batch.response_batch import ResponseBatch
+from drevalpy.testing import build_synthetic_input
+from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
+from drevalpy.types.data.predictor_input import PredictorInput
+from drevalpy.types.data.response_table import ResponseTable
 from tests.components.predictors.literature._helpers import two_by_two_batch
 
 
@@ -31,10 +31,10 @@ class _StubPredictor(Predictor):
     def get_hyperparameter_space(cls) -> dict[str, dict[str, object]]:
         return {"alpha": {"type": "float", "default": 1.0}}
 
-    def _fit(self, batch: ModelInputBatch) -> None:
+    def _fit(self, batch: PredictorInput) -> None:
         _ = batch
 
-    def _predict(self, batch: ModelInputBatch) -> np.ndarray:
+    def _predict(self, batch: PredictorInput) -> np.ndarray:
         return np.zeros(batch.n_pairs, dtype=np.float64)
 
 
@@ -107,9 +107,9 @@ def test_builtin_predictor_interfaces_partition() -> None:
 @pytest.mark.parametrize("invalid", ["missing", "response", "features"])
 def test_stopping_requirement_is_checked_after_pair_filtering(monkeypatch, required, invalid) -> None:
     values = np.array([[1.0], [np.nan if invalid == "features" else 2.0]])
-    batch = two_by_two_batch(sample_blocks={"gene_expression": numeric_feature_block(values)}, drug_blocks={})
+    batch = two_by_two_batch(sample_blocks={"gene_expression": FeatureBlock(values)}, drug_blocks={})
     if invalid != "missing":
-        batch.early_stopping_response = ResponseBatch(
+        batch.early_stopping = ResponseTable(
             np.array([np.nan if invalid == "response" else 3.0]), np.array(["cl2"]), np.array(["d1"])
         )
     monkeypatch.setattr(_StubPredictor, "requires_early_stopping", required)
@@ -136,10 +136,10 @@ def test_a_block_predictor_is_a_predictor_supplying_both_hooks() -> None:
         sample_inputs = Inputs.blocks()
         drug_inputs = Inputs.none()
 
-        def _fit(self, batch: ModelInputBatch) -> None:
+        def _fit(self, batch: PredictorInput) -> None:
             self._value = 1.0
 
-        def _predict(self, batch: ModelInputBatch) -> np.ndarray:
+        def _predict(self, batch: PredictorInput) -> np.ndarray:
             return np.full(len(batch.sample_ids), self._value)
 
     assert not inspect.isabstract(_Constant)
@@ -148,7 +148,7 @@ def test_a_block_predictor_is_a_predictor_supplying_both_hooks() -> None:
 def test_is_fitted_turns_true_once_fit_completes() -> None:
     predictor = _StubPredictor()
     assert predictor.is_fitted() is False
-    predictor.fit(build_synthetic_batch(build_synthetic_dataset()))
+    predictor.fit(build_synthetic_input(build_synthetic_dataset()))
     assert predictor.is_fitted() is True
 
 
@@ -160,17 +160,17 @@ def test_matrix_predictor_cannot_build_a_design_matrix_without_a_response() -> N
         def _predict_matrix(self, x: np.ndarray) -> np.ndarray:
             return np.zeros(len(x))
 
-    batch = ModelInputBatch(
+    batch = PredictorInput(
         sample_ids=np.array(["e0", "e1"]),
         drug_ids=_ids(2),
         response=None,
-        sample=FeaturizerResult.from_blocks({"view": numeric_feature_block(np.ones((2, 1)))}, np.array(["e0", "e1"])),
+        sample=FeaturizerOutput(np.array(["e0", "e1"]), {"view": FeatureBlock(np.ones((2, 1)))}),
         drug=None,
         sample_pair_idx=np.array([0, 1], dtype=np.int64),
         drug_pair_idx=None,
     )
 
-    with pytest.raises(RuntimeError, match="batch.response is required for fit"):
+    with pytest.raises(RuntimeError, match="data.response is required for fit"):
         _Recording()._fit(batch)
 
 
@@ -180,11 +180,11 @@ def test_matrix_predictor_cannot_build_a_design_matrix_without_a_response() -> N
 )
 def test_batch_rejects_length_mismatches(response_length: int, pair_idx_length: int, message: str) -> None:
     with pytest.raises(ValueError, match=message):
-        ModelInputBatch(
+        PredictorInput(
             sample_ids=_ids(3),
             drug_ids=_ids(3),
             response=np.ones(response_length),
-            sample=FeaturizerResult(np.empty(0), {}, ()),
+            sample=FeaturizerOutput(np.empty(0), {}),
             drug=None,
             sample_pair_idx=np.zeros(pair_idx_length, dtype=np.int64),
             drug_pair_idx=None,

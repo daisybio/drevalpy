@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, Self
 import numpy as np
 
 from drevalpy._utils.torch_io import load_state_dict, save_state_dict
-from drevalpy.components.contracts.feature_format import FeatureFormat
+from drevalpy.components.contracts.feature_format import BlockSpec
 from drevalpy.components.featurizers._dense import dense_result, view_matrix
 from drevalpy.components.featurizers.featurizer import Featurizer, all_nan_rows_mask
 from drevalpy.components.featurizers.sample._ae_cache import cache_file, resolve_cache_dir, write_atomically
@@ -31,7 +31,7 @@ from drevalpy.components.featurizers.sample.gene_lists import view_genes
 from drevalpy.errors import InvalidInputError
 from drevalpy.log import get_logger
 from drevalpy.registry.featurizer import register
-from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult
+from drevalpy.types.data.feature_block import FeaturizerOutput
 from drevalpy.types.data.feature_source import FeatureSource, Side
 from drevalpy.types.enums.accelerator import Accelerator
 
@@ -157,7 +157,7 @@ class AEGeneExpressionFeaturizer(Featurizer):
         :returns: The ``gene_expression`` block.
         """
         _ = config
-        return (BlockSpec(_BLOCK, FeatureFormat.NUMERIC_MATRIX),)
+        return (BlockSpec(_BLOCK),)
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
@@ -237,7 +237,7 @@ class AEGeneExpressionFeaturizer(Featurizer):
         )
         return self
 
-    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerResult:
+    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerOutput:
         """Encode the rows of *ids* into latent vectors.
 
         :param source: Feature source of the sample side.

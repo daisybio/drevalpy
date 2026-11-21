@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from drevalpy.types.data.dataset.aligned_fetch import aligned_fetch
+from drevalpy.types.data.dataset._aligned_fetch import aligned_fetch
 
 INDEX = pd.Index(["a", "b", "c"])
 DATA = np.array([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]])
@@ -51,19 +51,19 @@ class TestMissingIds:
         assert np.isnan(result).all()
 
     def test_missing_ids_are_logged_once(self, caplog: pytest.LogCaptureFixture):
-        with caplog.at_level(logging.WARNING, logger="drevalpy.types.data.dataset.aligned_fetch"):
+        with caplog.at_level(logging.WARNING, logger="drevalpy.types.data.dataset._aligned_fetch"):
             _fetch(["a", "absent"])
 
         assert "1 of 2 sample IDs not found" in caplog.text
 
     def test_the_warning_previews_at_most_five_ids(self, caplog: pytest.LogCaptureFixture):
-        with caplog.at_level(logging.WARNING, logger="drevalpy.types.data.dataset.aligned_fetch"):
+        with caplog.at_level(logging.WARNING, logger="drevalpy.types.data.dataset._aligned_fetch"):
             _fetch([f"absent{i}" for i in range(7)])
 
         assert caplog.text.count("absent") == 5
 
     def test_no_warning_is_logged_when_every_id_is_present(self, caplog: pytest.LogCaptureFixture):
-        with caplog.at_level(logging.WARNING, logger="drevalpy.types.data.dataset.aligned_fetch"):
+        with caplog.at_level(logging.WARNING, logger="drevalpy.types.data.dataset._aligned_fetch"):
             _fetch(["a", "b"])
 
         assert caplog.text == ""

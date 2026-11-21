@@ -1,1 +1,1 @@
-"""Data types: the dataset, folds and pair masks, feature sources and model input batches."""
+"""Data types: the dataset, folds and selection masks, feature sources and predictor inputs."""

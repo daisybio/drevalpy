@@ -17,9 +17,9 @@ from drevalpy.components.contracts.training_context import TrainingContext
 from drevalpy.components.predictors.abstract.single_drug import SingleDrugPredictor
 from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.components.predictors.sklearn_models import SingleDrugElasticNetPredictor, SingleDrugRandomForestPredictor
-from drevalpy.types.data.batch.feature_block import FeaturizerResult, numeric_feature_block
-from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
-from drevalpy.types.data.batch.response_batch import ResponseBatch
+from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
+from drevalpy.types.data.predictor_input import PredictorInput
+from drevalpy.types.data.response_table import ResponseTable
 from tests.components.predictors._helpers import pickle_round_trip
 
 
@@ -28,7 +28,7 @@ class _Fitted:
     draws: tuple[int, float, float]
     threads: int
     pid: int
-    batch: ModelInputBatch
+    batch: PredictorInput
 
 
 class _RecordingPredictor(SingleDrugPredictor):
@@ -40,7 +40,7 @@ class _RecordingPredictor(SingleDrugPredictor):
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
         return {}
 
-    def _fit_drug(self, drug_id: str, batch: ModelInputBatch) -> _Fitted | None:
+    def _fit_drug(self, drug_id: str, batch: PredictorInput) -> _Fitted | None:
         import torch
 
         if drug_id == "skip":
@@ -50,7 +50,7 @@ class _RecordingPredictor(SingleDrugPredictor):
         draws = (random.getrandbits(24), float(np.random.rand()), float(torch.rand(1)))
         return _Fitted(draws, torch.get_num_threads(), os.getpid(), batch)
 
-    def _predict_drug(self, drug_id: str, model: _Fitted, batch: ModelInputBatch) -> np.ndarray:
+    def _predict_drug(self, drug_id: str, model: _Fitted, batch: PredictorInput) -> np.ndarray:
         return np.full(batch.n_pairs, float(np.mean(model.batch.response)))
 
 
@@ -61,26 +61,26 @@ def _batch(
     n_features: int = 2,
     n_jobs: int = 1,
     checkpoint_dir: str = "/base",
-    early_stopping_response: ResponseBatch | None = None,
-) -> ModelInputBatch:
+    early_stopping: ResponseTable | None = None,
+) -> PredictorInput:
     sample_ids = np.array([f"s{i}" for i in range(n_samples)])
     drug_ids = np.array([drug for drug, samples in pairs.items() for _ in samples])
-    response = ResponseBatch(
+    response = ResponseTable(
         response=np.arange(len(drug_ids), dtype=np.float64),
         sample_ids=sample_ids[[sample for samples in pairs.values() for sample in samples]],
         drug_ids=drug_ids,
     )
     values = np.arange(n_samples * n_features, dtype=np.float64).reshape(n_samples, n_features)
-    sample = FeaturizerResult.from_blocks({"gene_expression": numeric_feature_block(values)}, sample_ids)
-    return ModelInputBatch.from_response(
+    sample = FeaturizerOutput(sample_ids, {"gene_expression": FeatureBlock(values)})
+    return PredictorInput.from_response(
         response,
         sample=sample,
-        early_stopping_response=early_stopping_response,
+        early_stopping=early_stopping,
         training_context=TrainingContext(checkpoint_dir=UPath(checkpoint_dir), n_jobs=n_jobs),
     )
 
 
-def _fit(batch: ModelInputBatch) -> dict[str, _Fitted]:
+def _fit(batch: PredictorInput) -> dict[str, _Fitted]:
     predictor = _RecordingPredictor()
     predictor.fit(batch)
     return predictor._models
@@ -113,23 +113,23 @@ def test_each_drug_gets_its_own_pairs_checkpoint_dir_and_a_single_process() -> N
 
 
 def test_a_drug_batch_keeps_only_the_rows_its_pairs_and_stopping_pairs_use() -> None:
-    stopping = ResponseBatch(np.array([5.0, 6.0]), np.array(["s3", "s4"]), np.array(["d1", "d2"]))
-    models = _fit(_batch({"d1": [2, 0, 2], "d2": [1]}, n_samples=5, early_stopping_response=stopping))
+    stopping = ResponseTable(np.array([5.0, 6.0]), np.array(["s3", "s4"]), np.array(["d1", "d2"]))
+    models = _fit(_batch({"d1": [2, 0, 2], "d2": [1]}, n_samples=5, early_stopping=stopping))
 
     d1 = models["d1"].batch
     np.testing.assert_array_equal(d1.sample.entity_ids, ["s0", "s2", "s3"])
     np.testing.assert_array_equal(d1.sample.entity_ids[d1.sample_pair_idx], d1.sample_ids)
     np.testing.assert_array_equal(d1.sample.matrix[d1.sample_pair_idx], [[4.0, 5.0], [0.0, 1.0], [4.0, 5.0]])
-    assert d1.early_stopping_response is not None
-    np.testing.assert_array_equal(d1.early_stopping_response.sample_ids, ["s3"])
+    assert d1.early_stopping is not None
+    np.testing.assert_array_equal(d1.early_stopping.sample_ids, ["s3"])
 
 
 @pytest.mark.parametrize("n_jobs", [1, pytest.param(2, marks=pytest.mark.slow)])
 def test_response_layers_stay_aligned_through_the_nan_filter_and_the_per_drug_cut(n_jobs: int) -> None:
-    stopping = ResponseBatch(
+    stopping = ResponseTable(
         np.array([5.0, 6.0]), np.array(["s0", "s1"]), np.array(["d1", "d2"]), {"regulation": np.array([1.0, 0.0])}
     )
-    batch = _batch({"d1": [2, 0, 1], "d2": [1, 2]}, n_jobs=n_jobs, early_stopping_response=stopping)
+    batch = _batch({"d1": [2, 0, 1], "d2": [1, 2]}, n_jobs=n_jobs, early_stopping=stopping)
     batch = replace(
         batch,
         response=np.array([0.0, np.nan, 2.0, 3.0, 4.0]),
@@ -142,8 +142,8 @@ def test_response_layers_stay_aligned_through_the_nan_filter_and_the_per_drug_cu
     np.testing.assert_array_equal(d1.sample_ids, ["s2", "s1"])
     np.testing.assert_array_equal(d1.response_layers["regulation"], [-1.0, 0.0])
     np.testing.assert_array_equal(d2.response_layers["regulation"], [np.nan, -1.0])
-    assert d1.early_stopping_response is not None
-    np.testing.assert_array_equal(d1.early_stopping_response.layers["regulation"], [1.0])
+    assert d1.early_stopping is not None
+    np.testing.assert_array_equal(d1.early_stopping.layers["regulation"], [1.0])
 
 
 def test_a_pickled_drug_batch_is_much_smaller_than_the_full_batch() -> None:
@@ -160,9 +160,9 @@ def test_pairs_are_scored_by_their_drugs_model_and_drugs_without_one_get_nan() -
     predictor.fit(_batch({"d1": [0, 1], "skip": [2], "d2": [0, 2]}))
     assert set(predictor._models) == {"d1", "d2"}
 
-    query = ResponseBatch(None, np.array(["s0", "s1", "s2", "s0"]), np.array(["d2", "skip", "d1", "unseen"]))
+    query = ResponseTable(None, np.array(["s0", "s1", "s2", "s0"]), np.array(["d2", "skip", "d1", "unseen"]))
     sample = _batch({"d1": [0]}).sample
-    predictions = predictor.predict(ModelInputBatch.from_response(query, sample=sample))
+    predictions = predictor.predict(PredictorInput.from_response(query, sample=sample))
 
     np.testing.assert_array_equal(predictions[[0, 2]], [3.5, 0.5])
     assert np.isnan(predictions[[1, 3]]).all()
@@ -241,9 +241,9 @@ def test_elastic_net_fits_one_estimator_per_drug_on_sample_features_only() -> No
     assert SingleDrugElasticNetPredictor.drug_inputs.kind == "none"
     assert set(predictor._models) == {"d1", "d2"}
     assert {estimator.n_features_in_ for estimator in predictor._models.values()} == {3}
-    query = ResponseBatch(None, np.array(["s0", "s0", "s0"]), np.array(["d1", "d2", "d3"]))
+    query = ResponseTable(None, np.array(["s0", "s0", "s0"]), np.array(["d1", "d2", "d3"]))
     predictions = predictor.predict(
-        ModelInputBatch.from_response(query, sample=_batch({"d1": [0]}, n_features=3).sample)
+        PredictorInput.from_response(query, sample=_batch({"d1": [0]}, n_features=3).sample)
     )
     assert predictions[0] < predictions[1]
     assert np.isnan(predictions[2])

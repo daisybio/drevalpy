@@ -10,7 +10,7 @@ from drevalpy.cli.experiments import experiments_app
 from drevalpy.cli.experiments.randomization import randomization_cmd
 from drevalpy.cli.experiments.robustness import robustness_cmd
 from drevalpy.cli.main import app
-from drevalpy.types import Fold, PairMask
+from drevalpy.types import Fold, SelectionMask
 from tests.cli._helpers import (
     FakeDataset,
     GroupSurface,
@@ -233,9 +233,9 @@ def _write_fold(path: UPath, fold_index: int) -> None:
     rng = np.random.default_rng(fold_index)
     assignment = rng.integers(0, 3, size=(3, 3))
     Fold(
-        train=PairMask(assignment == 0),
-        test=PairMask(assignment == 1),
-        val=PairMask(assignment == 2),
+        train=SelectionMask(assignment == 0),
+        test=SelectionMask(assignment == 1),
+        val=SelectionMask(assignment == 2),
         metadata={"fold_index": fold_index},
     ).save(path)
 

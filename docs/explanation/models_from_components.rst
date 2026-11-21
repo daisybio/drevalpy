@@ -65,13 +65,13 @@ format. Each predictor declares, per side, what it reads from that side's featur
   network can consume a graph for the drug and a matrix for the sample. The
   tissue-mean baseline reads the ``tissue`` block this way.
 
-Features that a featurizer produces are bundled as a result containing the
-entity identifiers, a set of named blocks and a projection, the ordered list of
-blocks that make up the featurizer's default matrix. The matrix is derived from
-the blocks when it is meaningful. An empty projection gives a matrix with no
-columns, one block passes through unchanged, and several blocks are joined only
-if all of them are numeric and aligned by entity. Graph and sequence blocks stay
-addressable by name instead of being flattened.
+Features that a featurizer produces are bundled as a ``FeaturizerOutput`` containing the
+unique entity identifiers and a mapping of named feature blocks. When a matrix predictor reads
+``result.matrix``, a single entity-aligned numeric block passes through unchanged and several
+entity-aligned numeric blocks are concatenated horizontally in insertion order; graph, ragged
+sequence and global blocks stay addressable by name instead of being flattened. See
+:doc:`data_flow` for the full path from an ``.h5mu`` file through ``FeatureSource`` and
+``PredictorInput`` into a predictor.
 
 Describing a model
 ------------------

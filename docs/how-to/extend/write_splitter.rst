@@ -71,7 +71,7 @@ and gets the canonical mode back.
    import numpy as np
 
    import drevalpy
-   from drevalpy.plugin import PairMask, Fold, observed_mask, register_splitter
+   from drevalpy.plugin import SelectionMask, Fold, observed_mask, register_splitter
 
 
    @register_splitter(
@@ -92,9 +92,9 @@ and gets the canonical mode back.
 
        return [
            Fold(
-               train=PairMask(keep(train_rows[1:])),
-               test=PairMask(keep(test_rows)),
-               val=PairMask(keep(train_rows[:1])),
+               train=SelectionMask(keep(train_rows[1:])),
+               test=SelectionMask(keep(test_rows)),
+               val=SelectionMask(keep(train_rows[:1])),
            )
        ]
 

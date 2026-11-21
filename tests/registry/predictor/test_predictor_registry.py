@@ -13,7 +13,7 @@ from drevalpy.registry._component import predictor_component_metadata
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.registry.predictor import predictor_registry
 from drevalpy.registry.predictor import register as register_predictor
-from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
+from drevalpy.types.data.predictor_input import PredictorInput
 from drevalpy.types.enums.model_scope import ModelScope
 from tests.registry._helpers import empty_component_registries
 
@@ -35,18 +35,18 @@ class _ConcreteBlock(Predictor):
     sample_inputs = Inputs.blocks()
     drug_inputs = Inputs.blocks()
 
-    def _fit(self, batch: ModelInputBatch) -> None:
+    def _fit(self, batch: PredictorInput) -> None:
         return None
 
-    def _predict(self, batch: ModelInputBatch) -> np.ndarray:
+    def _predict(self, batch: PredictorInput) -> np.ndarray:
         return np.zeros(batch.n_pairs, dtype=np.float64)
 
 
 class _ConcreteFeatureFree(FeatureFreePredictor):
-    def _fit(self, batch: ModelInputBatch) -> None:
+    def _fit(self, batch: PredictorInput) -> None:
         return None
 
-    def _predict(self, batch: ModelInputBatch) -> np.ndarray:
+    def _predict(self, batch: PredictorInput) -> np.ndarray:
         return np.zeros(batch.n_pairs, dtype=np.float64)
 
 

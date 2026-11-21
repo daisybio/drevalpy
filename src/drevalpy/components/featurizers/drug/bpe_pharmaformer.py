@@ -9,12 +9,12 @@ from typing import TYPE_CHECKING, Any, ClassVar, Self
 
 import numpy as np
 
-from drevalpy.components.contracts.feature_format import FeatureFormat
+from drevalpy.components.contracts.feature_format import BlockSpec
 from drevalpy.components.featurizers._dense import dense_result
 from drevalpy.components.featurizers.featurizer import Featurizer
 from drevalpy.registry._component import LiteratureReference
 from drevalpy.registry.featurizer import register
-from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult
+from drevalpy.types.data.feature_block import FeaturizerOutput
 from drevalpy.types.data.feature_source import FeatureSource, Side
 
 if TYPE_CHECKING:
@@ -99,7 +99,7 @@ class BpePharmaformerDrugFeaturizer(Featurizer):
         :param config: Featurizer config; unused.
         :returns: One numeric block spec.
         """
-        return (BlockSpec(_BLOCK, FeatureFormat.NUMERIC_MATRIX),)
+        return (BlockSpec(_BLOCK),)
 
     def fit(
         self,
@@ -125,7 +125,7 @@ class BpePharmaformerDrugFeaturizer(Featurizer):
         self._bpe = self._learn_bpe(smiles)
         return self
 
-    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerResult:
+    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerOutput:
         """Encode SMILES with the learned BPE codes into one ``bpe_smiles`` block.
 
         Drugs without a SMILES get a zero row.

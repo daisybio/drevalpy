@@ -11,7 +11,7 @@ import pytest
 from drevalpy.models import DRPModel, ModelSpec
 from drevalpy.models.config import from_dict, from_recipe, validate
 from drevalpy.models.zoo import list_zoo_names
-from drevalpy.types.data.pair_mask import PairMask
+from drevalpy.types.data.selection_mask import SelectionMask
 from tests._trusted_subprocess import run_trusted_python
 from tests.models.synthetic_fixtures import (
     lso_fold,
@@ -116,7 +116,7 @@ def test_subprocess_blocks_optional_deps_for_simple_models() -> None:
         import pandas as pd
 
         from drevalpy.types.data.dataset import Dataset
-        from drevalpy.types import PairMask, Fold
+        from drevalpy.types import SelectionMask, Fold
         from drevalpy.models import DRPModel, ModelSpec
         from drevalpy.models.config import from_recipe
 
@@ -147,9 +147,9 @@ def test_subprocess_blocks_optional_deps_for_simple_models() -> None:
         dataset_id = Dataset(mdata2, name="test")
 
         fold = Fold(
-            train=PairMask(np.array([[True, True], [False, False]])),
-            test=PairMask(np.array([[False, False], [True, True]])),
-            val=PairMask(np.zeros((2, 2), dtype=bool)),
+            train=SelectionMask(np.array([[True, True], [False, False]])),
+            test=SelectionMask(np.array([[False, False], [True, True]])),
+            val=SelectionMask(np.zeros((2, 2), dtype=bool)),
         )
 
         naive = DRPModel(ModelSpec.from_name("NaivePredictor"), {})
@@ -324,7 +324,7 @@ def test_fit_with_early_stopping_scope_reloads_the_best_epoch(
     reloaded = _spy_on_best_epoch_reload(monkeypatch, model_name)
     dataset = _three_omics_dataset()
     model = DRPModel(small_data_spec(model_name), hyperparameters, check_values=False)
-    model.train(dataset, PairMask(train), early_stopping_scope=PairMask(stop), model_checkpoint_dir=tmp_path)
+    model.train(dataset, SelectionMask(train), early_stopping_scope=SelectionMask(stop), model_checkpoint_dir=tmp_path)
 
     assert reloaded, "the fit never reached the best-epoch reload"
-    assert np.isfinite(model.predict(dataset, PairMask(stop))).all()
+    assert np.isfinite(model.predict(dataset, SelectionMask(stop))).all()

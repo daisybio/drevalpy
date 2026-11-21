@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from drevalpy.components.contracts.feature_format import FeatureFormat
+from drevalpy.components.contracts.feature_format import BlockSpec, FeatureFormat
 from drevalpy.components.featurizers import FeatureMismatchError
 from drevalpy.components.featurizers.featurizer import all_nan_rows_mask
 from drevalpy.components.featurizers.sample._proteomics_transformer import (
@@ -25,7 +25,6 @@ from drevalpy.components.featurizers.sample.superfeltr_omics import SuperFELTROm
 from drevalpy.components.featurizers.sample.tissue import TissueFeaturizer
 from drevalpy.components.featurizers.sample.view import ViewSampleFeaturizer
 from drevalpy.errors import InvalidInputError
-from drevalpy.types.data.batch.feature_block import BlockSpec
 from tests.components.featurizers._helpers import mock_source, random_views
 from tests.components.featurizers.sample._helpers import (
     assert_reads_by_name,

@@ -156,7 +156,8 @@ def test_tokens_block_holds_the_padded_token_indices_and_block_metadata() -> Non
     tokens = result.blocks[TOKENS_BLOCK].values
     assert tokens.shape == (4, 8)
     assert tokens.dtype == np.float32
-    np.testing.assert_array_equal(result.matrix, tokens)
+    assert result.matrix.shape == (4, 8 + 3 * 8)
+    np.testing.assert_array_equal(result.matrix[:, :8], tokens)
     vocabulary_size = int(tokens.max()) + 1
     for block in result.blocks.values():
         annotations = dict(block.annotations or {})

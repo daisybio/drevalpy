@@ -18,7 +18,7 @@ from dataclasses import replace
 import numpy as np
 from sklearn.model_selection import KFold
 
-from drevalpy.plugin import CurveQuality, Dataset, Fold, PairMask, observed_mask, register_splitter
+from drevalpy.plugin import CurveQuality, Dataset, Fold, SelectionMask, observed_mask, register_splitter
 
 
 @register_splitter(
@@ -60,9 +60,9 @@ def toy_leave_sample_out(
         n_validation = max(1, len(shuffled) // 5)
         folds.append(
             Fold(
-                train=PairMask(_rows_mask(observed, shuffled[n_validation:])),
-                test=PairMask(_rows_mask(observed, test_rows)),
-                val=PairMask(_rows_mask(observed, shuffled[:n_validation])),
+                train=SelectionMask(_rows_mask(observed, shuffled[n_validation:])),
+                test=SelectionMask(_rows_mask(observed, test_rows)),
+                val=SelectionMask(_rows_mask(observed, shuffled[:n_validation])),
             )
         )
     return folds

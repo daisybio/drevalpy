@@ -7,16 +7,11 @@ from typing import Any, Self
 
 import numpy as np
 
-from drevalpy.components.contracts.feature_format import FeatureFormat
-from drevalpy.components.featurizers._one_hot import OneHotCategoryEncoder
+from drevalpy.components.contracts.feature_format import BlockSpec
 from drevalpy.components.featurizers.featurizer import Featurizer
+from drevalpy.components.featurizers.shared.one_hot import OneHotCategoryEncoder
 from drevalpy.registry.featurizer import register
-from drevalpy.types.data.batch.feature_block import (
-    BlockSpec,
-    FeaturizerResult,
-    global_feature_block,
-    numeric_feature_block,
-)
+from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
 from drevalpy.types.data.feature_source import FeatureSource, Side
 
 _MISSING_MESSAGE = "TissueFeaturizer requires tissue annotations in sample_input"
@@ -51,7 +46,7 @@ class TissueFeaturizer(Featurizer):
         :returns: The ``tissue`` block spec.
         """
         _ = config
-        return (BlockSpec("tissue", FeatureFormat.NUMERIC_MATRIX),)
+        return (BlockSpec("tissue"),)
 
     def fit(
         self,
@@ -84,7 +79,7 @@ class TissueFeaturizer(Featurizer):
         self._encoder.fit_categories(np.asarray(available, dtype=str))
         return self
 
-    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerResult:
+    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerOutput:
         """Emit the one-hot ``tissue`` block and the fitted category labels as a global block.
 
         :param source: Feature source of the sample side.
@@ -103,11 +98,12 @@ class TissueFeaturizer(Featurizer):
                     label = "__missing__"
                 categories.append(label)
             matrix = self._encoder.transform(np.asarray(categories, dtype=str))
-        return FeaturizerResult(
+        return FeaturizerOutput(
             ids,
             {
-                "tissue": numeric_feature_block(matrix),
-                "tissue_categories": global_feature_block(np.asarray(self._encoder.categories, dtype=str)),
+                "tissue": FeatureBlock(matrix),
+                "tissue_categories": FeatureBlock(
+                    np.asarray(self._encoder.categories, dtype=str), entity_aligned=False
+                ),
             },
-            ("tissue",),
         )

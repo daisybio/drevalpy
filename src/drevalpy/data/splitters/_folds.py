@@ -19,7 +19,7 @@ import numpy as np
 
 from drevalpy.errors import UnknownNameError
 from drevalpy.registry.splitter._groups import MODES, in_groups, pair_groups
-from drevalpy.types import Fold, PairMask
+from drevalpy.types import Fold, SelectionMask
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -117,9 +117,9 @@ def grouped_folds(
     present = np.unique(groups[observed])
     return [
         Fold(
-            train=PairMask(observed & in_groups(groups, present[train])),
-            test=PairMask(observed & in_groups(groups, present[test])),
-            val=PairMask(observed & in_groups(groups, present[validation])),
+            train=SelectionMask(observed & in_groups(groups, present[train])),
+            test=SelectionMask(observed & in_groups(groups, present[test])),
+            val=SelectionMask(observed & in_groups(groups, present[validation])),
         )
         for train, validation, test in group_folds(
             len(present), n_splits=n_splits, validation_ratio=validation_ratio, random_state=random_state
@@ -153,5 +153,7 @@ def group_out_folds(
         rest = observed & ~in_group
         _, validation = validation_split(np.unique(cut[rest]), validation_ratio, random_state)
         val = rest & in_groups(cut, validation)
-        folds.append(Fold(train=PairMask(rest & ~val), test=PairMask(observed & in_group), val=PairMask(val)))
+        folds.append(
+            Fold(train=SelectionMask(rest & ~val), test=SelectionMask(observed & in_group), val=SelectionMask(val))
+        )
     return folds

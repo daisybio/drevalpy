@@ -8,7 +8,7 @@ from upath import UPath
 
 from drevalpy.cli.main import app
 from drevalpy.data.quality import CurveQuality
-from drevalpy.types import Fold, PairMask
+from drevalpy.types import Fold, SelectionMask
 from drevalpy.types.data.dataset import Dataset
 from tests.cli._helpers import FakeDataset, Recorder, make_runner, patch_worker, plain
 
@@ -25,9 +25,9 @@ def _make_fold(fold_index: int) -> Fold:
     val = np.zeros((2, 2), dtype=bool)
     val[0, 1] = True
     return Fold(
-        train=PairMask(train),
-        test=PairMask(test),
-        val=PairMask(val),
+        train=SelectionMask(train),
+        test=SelectionMask(test),
+        val=SelectionMask(val),
         metadata={"fold_index": fold_index},
     )
 

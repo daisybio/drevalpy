@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 from pydantic import ValidationError
 
+from drevalpy.components.contracts.feature_format import FeatureFormat
 from drevalpy.components.featurizers.sample.view import ViewSampleFeaturizer
 from drevalpy.components.featurizers.shared.concat import ConcatFeaturizer
 from drevalpy.components.featurizers.shared.constant import ConstantFeaturizer
@@ -15,7 +16,7 @@ from drevalpy.components.featurizers.shared.one_hot import OneHotFeaturizer
 from drevalpy.models._feature_preparation import FitIds, prepare_features
 from drevalpy.models.config import FeaturizerConfig
 from drevalpy.registry.featurizer import get_featurizer
-from drevalpy.types.data.batch.feature_block import FeaturizerResult, ragged_feature_block
+from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
 from tests.conftest import MockFeatureSource
 
 _IDS = np.array(["cl1", "cl2"], dtype=str)
@@ -57,7 +58,7 @@ def _drug_features() -> MockFeatureSource:
     )
 
 
-def _run(featurizer, source, ids) -> FeaturizerResult:
+def _run(featurizer, source, ids) -> FeaturizerOutput:
     return prepare_features(featurizer, source, ids, fit=FitIds(ids))
 
 
@@ -139,10 +140,10 @@ def test_concat_rejects_duplicate_block_names_and_selectors() -> None:
 
 def test_concat_rejects_non_numeric_children_and_empty_lists() -> None:
     class _Tokens(ConstantFeaturizer):
-        def transform(self, source, ids) -> FeaturizerResult:
+        def transform(self, source, ids) -> FeaturizerOutput:
             values = np.empty(len(ids), dtype=object)
             values[:] = [np.arange(2) for _ in ids]
-            return FeaturizerResult(ids, {"tokens": ragged_feature_block(values)}, ())
+            return FeaturizerOutput(ids, {"tokens": FeatureBlock(values, FeatureFormat.RAGGED_SEQUENCE)})
 
     featurizer = ConcatFeaturizer(featurizers=[OneHotFeaturizer(), _Tokens()])
     with pytest.raises(ValueError, match="child _Tokens emits non-numeric blocks \\['tokens'\\]"):

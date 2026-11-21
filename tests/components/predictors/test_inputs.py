@@ -6,12 +6,11 @@ from typing import ClassVar
 
 import pytest
 
-from drevalpy.components.contracts.feature_format import FeatureFormat
+from drevalpy.components.contracts.feature_format import BlockSpec, FeatureFormat
 from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.components.predictors.inputs import Inputs, predictor_inputs
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.registry.predictor import predictor_registry
-from drevalpy.types.data.batch.feature_block import BlockSpec
 
 _NUMERIC = FeatureFormat.NUMERIC_MATRIX
 

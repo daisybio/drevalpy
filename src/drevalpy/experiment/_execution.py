@@ -16,12 +16,12 @@ from drevalpy.models.spec import ModelSpec
 from drevalpy.registry.splitter import Validation, canonical, splitter_registry
 from drevalpy.registry.splitter._groups import MODES
 from drevalpy.registry.splitter._validation import validate_folds
-from drevalpy.types import Dataset, Fold, PairMask
+from drevalpy.types import Dataset, Fold, SelectionMask
 from drevalpy.types.enums.model_scope import ModelScope
 from drevalpy.types.results._identity import RunIdentity
 
 
-def _scope_provenance(scope: PairMask | None) -> dict[str, Any] | None:
+def _scope_provenance(scope: SelectionMask | None) -> dict[str, Any] | None:
     if scope is None:
         return None
     return {
@@ -36,11 +36,11 @@ def _scope_provenance(scope: PairMask | None) -> dict[str, Any] | None:
 class FitScopes:
     """Selections for tuning and final fitting, in their original pair order."""
 
-    training: PairMask
-    stopping: PairMask | None
-    validation: PairMask
-    final_training: PairMask
-    test: PairMask
+    training: SelectionMask
+    stopping: SelectionMask | None
+    validation: SelectionMask
+    final_training: SelectionMask
+    test: SelectionMask
 
     def provenance(self) -> dict[str, Any]:
         """Return serializable scope checksums, counts, and pair-order seeds."""

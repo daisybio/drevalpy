@@ -16,39 +16,39 @@ from drevalpy.types.enums.model_scope import ModelScope
 from drevalpy.types.enums.prediction_mode import PredictionMode
 
 if TYPE_CHECKING:
-    from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
-    from drevalpy.types.data.batch.response_batch import ResponseBatch
+    from drevalpy.types.data.predictor_input import PredictorInput
+    from drevalpy.types.data.response_table import ResponseTable
 
 _logger = get_logger(__name__)
 
 
-def fit_response(batch: ModelInputBatch) -> np.ndarray:
-    """Return the training responses of *batch*, which :meth:`Predictor.fit` has checked are present.
+def get_response(data: PredictorInput) -> np.ndarray:
+    """Return the training responses of *data*, which :meth:`Predictor.fit` has checked are present.
 
-    :param batch: Batch passed to ``_fit``.
-    :returns: ``batch.response``.
-    :raises RuntimeError: If the batch has no responses, i.e. ``_fit`` was called directly on a prediction batch.
+    :param data: Input passed to ``_fit``.
+    :returns: ``data.response``.
+    :raises RuntimeError: If *data* has no responses, i.e. ``_fit`` was called directly on a prediction input.
     """
-    if batch.response is None:
-        raise RuntimeError("batch.response is required for fit")
-    return batch.response
+    if data.response is None:
+        raise RuntimeError("data.response is required for fit")
+    return data.response
 
 
-def response_rows(batch: ModelInputBatch, response: ResponseBatch) -> tuple[np.ndarray, np.ndarray | None]:
-    """Index the pairs of *response* (usually the early-stopping one) into *batch*'s entity tables.
+def response_rows(data: PredictorInput, response: ResponseTable) -> tuple[np.ndarray, np.ndarray | None]:
+    """Index the pairs of *response* (usually early stopping) into *data*'s entity tables.
 
-    :param batch: Batch whose sample and drug feature tables are indexed.
+    :param data: Input whose sample and drug feature tables are indexed.
     :param response: Pairs to look up.
-    :returns: ``(sample_rows, drug_rows)``; ``drug_rows`` is ``None`` when the batch has no drug features.
+    :returns: ``(sample_rows, drug_rows)``; ``drug_rows`` is ``None`` when *data* has no drug features.
     """
-    sample_rows = batch.sample.rows_for(response.sample_ids)
-    return sample_rows, None if batch.drug is None else batch.drug.rows_for(response.drug_ids)
+    sample_rows = data.sample.rows_for(response.sample_ids)
+    return sample_rows, None if data.drug is None else data.drug.rows_for(response.drug_ids)
 
 
 class Predictor(TunableComponent, ABC):
-    """Train and predict drug response from a ``ModelInputBatch``.
+    """Train and predict drug response from a ``PredictorInput``.
 
-    Predictors take featurizer outputs and predict a response for each drug/sample pair in the batch.
+    Predictors take featurizer outputs and predict a response for each drug/sample pair in *data*.
     Subclasses must be registered to the predictor registry using ``@register``,
     so that they can be discovered and used in models.
 
@@ -65,8 +65,8 @@ class Predictor(TunableComponent, ABC):
     scope: ClassVar[ModelScope] = ModelScope.MULTI_DRUG
     nan_threshold: ClassVar[float] = 0.2
     #: Response layers of the dataset (such as ``regulation``) the fit reads from
-    #: ``batch.response_layers``, beside the response it trains on. Training only; a layer the
-    #: dataset lacks is left out of the batch, so the predictor must cope without it.
+    #: ``data.response_layers``, beside the response it trains on. Training only; a layer the
+    #: dataset lacks is left out of the input, so the predictor must cope without it.
     response_layers: ClassVar[tuple[str, ...]] = ()
     #: Whether it uses a torch accelerator, set by ``register(accelerator=...)``.
     accelerator: ClassVar[Accelerator] = Accelerator.NONE
@@ -87,94 +87,94 @@ class Predictor(TunableComponent, ABC):
             **(hyperparameters or {}),
         }
 
-    def fit(self, batch: ModelInputBatch) -> None:
-        """Validate the batch, filter NaN pairs, and delegate to ``_fit``.
+    def fit(self, data: PredictorInput) -> None:
+        """Validate the input, filter NaN pairs, and delegate to ``_fit``.
 
-        :param batch: Featurized sample/drug pairs with training responses.
-        :raises ValueError: If *batch* has no response values.
+        :param data: Featurized sample/drug pairs with training responses.
+        :raises ValueError: If *data* has no response values.
         """
-        if batch.response is None:
+        if data.response is None:
             msg = "Predictors require response values during fit"
             raise ValueError(msg)
-        valid_mask = self._valid_pair_mask(batch)
-        valid_mask &= ~np.isnan(batch.response)
+        valid_mask = self._valid_pair_mask(data)
+        valid_mask &= ~np.isnan(data.response)
         self._warn_if_above_threshold(valid_mask, f"{type(self).__name__}.fit")
         if not valid_mask.all():
-            batch = batch.subset_pairs(valid_mask)
-        self._fit(self._filter_early_stopping(batch))
+            data = data.subset_pairs(valid_mask)
+        self._fit(self._filter_early_stopping(data))
         self._fitted = True
 
-    def _filter_early_stopping(self, batch: ModelInputBatch) -> ModelInputBatch:
+    def _filter_early_stopping(self, data: PredictorInput) -> PredictorInput:
         """Remove unusable stopping pairs and enforce the predictor requirement.
 
-        :param batch: Training batch, possibly carrying an early-stopping response.
-        :returns: *batch* with the early-stopping response restricted to pairs with valid features and response.
+        :param data: Training input, possibly carrying early-stopping pairs.
+        :returns: *data* with early-stopping pairs restricted to pairs with valid features and response.
         :raises ValueError: If the predictor requires early stopping and no usable pair remains.
         """
-        response = batch.early_stopping_response
+        response = data.early_stopping
         if response is not None:
-            cl_idx, drug_idx = response_rows(batch, response)
+            cl_idx, drug_idx = response_rows(data, response)
             stopping = replace(
-                batch,
+                data,
                 sample_ids=response.sample_ids,
                 drug_ids=response.drug_ids,
                 response=response.response,
                 sample_pair_idx=cl_idx,
                 drug_pair_idx=drug_idx,
-                early_stopping_response=None,
+                early_stopping=None,
                 response_layers=response.layers,
             )
             keep = self._valid_pair_mask(stopping) & ~np.isnan(response.response)
             response = response.subset(keep)
         if self.requires_early_stopping and (response is None or len(response) == 0):
             raise ValueError(f"{type(self).__name__} requires a usable early-stopping holdout")
-        return replace(batch, early_stopping_response=response)
+        return replace(data, early_stopping=response)
 
     @abstractmethod
-    def _fit(self, batch: ModelInputBatch) -> None:
+    def _fit(self, data: PredictorInput) -> None:
         """Subclass fitting logic (response is guaranteed non-None).
 
-        :param batch: Featurized sample/drug pairs with training responses.
+        :param data: Featurized sample/drug pairs with training responses.
         """
 
-    def predict(self, batch: ModelInputBatch) -> np.ndarray:
+    def predict(self, data: PredictorInput) -> np.ndarray:
         """Predict response, returning NaN for pairs with NaN features.
 
-        :param batch: Featurized sample/drug pairs to score.
+        :param data: Featurized sample/drug pairs to score.
 
-        :returns: One predicted response per pair in *batch*.
+        :returns: One predicted response per pair in *data*.
         """
-        valid_mask = self._valid_pair_mask(batch)
+        valid_mask = self._valid_pair_mask(data)
         if valid_mask.all():
-            return self._predict(batch)
-        result = np.full(batch.n_pairs, np.nan, dtype=np.float64)
+            return self._predict(data)
+        result = np.full(data.n_pairs, np.nan, dtype=np.float64)
         if valid_mask.any():
-            result[valid_mask] = self._predict(batch.subset_pairs(valid_mask))
+            result[valid_mask] = self._predict(data.subset_pairs(valid_mask))
         return result
 
     @abstractmethod
-    def _predict(self, batch: ModelInputBatch) -> np.ndarray:
+    def _predict(self, data: PredictorInput) -> np.ndarray:
         """Subclass prediction logic on pre-validated (non-NaN) pairs.
 
-        :param batch: Featurized sample/drug pairs to score.
+        :param data: Featurized sample/drug pairs to score.
 
-        :returns: One predicted response per pair in *batch*.
+        :returns: One predicted response per pair in *data*.
         """
 
     # ------------------------------------------------------------------
     # NaN detection helpers
     # ------------------------------------------------------------------
 
-    def _valid_pair_mask(self, batch: ModelInputBatch) -> np.ndarray:
+    def _valid_pair_mask(self, data: PredictorInput) -> np.ndarray:
         """Return boolean mask over pairs where features are non-NaN.
 
-        :param batch: Input batch.
-        :returns: Boolean array of shape ``(batch.n_pairs,)``.
+        :param data: Model input.
+        :returns: Boolean array of shape ``(data.n_pairs,)``.
         """
-        valid = np.ones(batch.n_pairs, dtype=bool)
-        if batch.n_pairs == 0:
+        valid = np.ones(data.n_pairs, dtype=bool)
+        if data.n_pairs == 0:
             return valid
-        for table, indices in ((batch.sample, batch.sample_pair_idx), (batch.drug, batch.drug_pair_idx)):
+        for table, indices in ((data.sample, data.sample_pair_idx), (data.drug, data.drug_pair_idx)):
             if table is None or indices is None:
                 continue
             for block in table.blocks.values():

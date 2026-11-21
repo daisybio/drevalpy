@@ -1,4 +1,4 @@
-"""Lightweight immutable container for response triples passed to predictors."""
+"""Lightweight immutable table of sample-drug response pairs."""
 
 from __future__ import annotations
 
@@ -10,17 +10,16 @@ import numpy as np
 
 if TYPE_CHECKING:
     from drevalpy.types.data.dataset import Dataset
-    from drevalpy.types.data.pair_mask import PairMask
+    from drevalpy.types.data.selection_mask import SelectionMask
 
 
 @dataclass(frozen=True, slots=True)
-class ResponseBatch:
-    """Lightweight immutable container for response triples passed to predictors.
+class ResponseTable:
+    """Lightweight immutable container for sample-drug response pairs.
 
-    Provides ``.response``, ``.sample_ids``,
-    ``.drug_ids``, and ``__len__``. ``layers`` holds further response layers of the
-    same pairs (such as ``regulation``) by name, one value per pair; every subset
-    keeps them aligned with the response.
+    Provides ``.response``, ``.sample_ids``, ``.drug_ids``, and ``__len__``.
+    ``layers`` holds further response layers of the same pairs (such as ``regulation``)
+    by name, one value per pair; every subset keeps them aligned with the response.
     """
 
     response: np.ndarray
@@ -41,18 +40,18 @@ class ResponseBatch:
     def from_dataset(
         cls,
         dataset: Dataset,
-        scope: PairMask,
+        scope: SelectionMask,
         *,
         observed_only: bool = False,
         layers: Collection[str] = (),
-    ) -> ResponseBatch:
+    ) -> ResponseTable:
         """Extract aligned responses and identifiers in the scope's pair order.
 
         :param dataset: Response matrix and entity identifiers.
         :param scope: Requested response positions, possibly shuffled.
         :param observed_only: Drop missing targets for training only.
         :param layers: Response layers to read at the same pairs; names the dataset does not have are left out.
-        :returns: Response triples, preserving missing targets by default.
+        :returns: Response pairs, preserving missing targets by default.
         """
         pairs = scope.pairs
         values = np.asarray(dataset.response_matrix[pairs[:, 0], pairs[:, 1]], dtype=np.float64)
@@ -65,13 +64,13 @@ class ResponseBatch:
         }
         return cls(values, dataset.sample_ids[pairs[:, 0]], dataset.drug_ids[pairs[:, 1]], layer_values)
 
-    def subset(self, mask: np.ndarray) -> ResponseBatch:
+    def subset(self, mask: np.ndarray) -> ResponseTable:
         """Keep the pairs selected by a boolean mask.
 
         :param mask: One boolean value per pair.
-        :returns: Batch with the selected pairs, in their original order.
+        :returns: Response pairs with the selected entries, in their original order.
         """
-        return ResponseBatch(
+        return ResponseTable(
             self.response[mask],
             self.sample_ids[mask],
             self.drug_ids[mask],

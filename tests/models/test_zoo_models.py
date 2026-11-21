@@ -13,7 +13,7 @@ from drevalpy.data.splitters._early_stopping import early_stopping_split
 from drevalpy.models import DRPModel, ModelSpec
 from drevalpy.models.config import FeaturizerConfig, ModelConfig, from_recipe
 from drevalpy.models.zoo import get_zoo_config
-from drevalpy.types import Fold, PairMask
+from drevalpy.types import Fold, SelectionMask
 from drevalpy.types.data.dataset import Dataset
 from drevalpy.types.data.feature_source import FeatureSource
 from tests.synthetic.variants import (
@@ -145,7 +145,7 @@ def _train(model: DRPModel, dataset: Dataset, fold: Fold) -> None:
 def _assert_round_trips(
     model: DRPModel,
     dataset: Dataset,
-    scope: PairMask,
+    scope: SelectionMask,
     preds: np.ndarray,
 ) -> None:
     """Assert a save/load cycle reproduces the prediction shape."""

@@ -10,10 +10,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from drevalpy.components.contracts.feature_format import FeatureFormat
+from drevalpy.components.contracts.feature_format import BlockSpec, FeatureFormat
 from drevalpy.components.predictors.inputs import Inputs, predictor_inputs
 from drevalpy.registry.predictor import get as get_predictor
-from drevalpy.types.data.batch.feature_block import BlockSpec
 from drevalpy.types.data.feature_source import Side
 from drevalpy.types.enums.model_scope import ModelScope
 

@@ -12,7 +12,7 @@ from typing import Any, ClassVar, Self
 
 import numpy as np
 
-from drevalpy.components.contracts.feature_format import FeatureFormat
+from drevalpy.components.contracts.feature_format import BlockSpec
 from drevalpy.components.featurizers.drug.smiles_tokenizer import (
     BASE_VOCABULARY,
     build_vocabulary,
@@ -22,7 +22,7 @@ from drevalpy.components.featurizers.drug.smiles_tokenizer import (
 from drevalpy.components.featurizers.featurizer import Featurizer
 from drevalpy.errors import InvalidInputError
 from drevalpy.registry.featurizer import register
-from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult, numeric_feature_block
+from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
 from drevalpy.types.data.feature_source import FeatureSource, Side
 
 TOKENS_BLOCK = "smiles_tokens"
@@ -82,8 +82,8 @@ class SmilesTokensFeaturizer(Featurizer):
         :returns: Two numeric block specs.
         """
         return (
-            BlockSpec(TOKENS_BLOCK, FeatureFormat.NUMERIC_MATRIX),
-            BlockSpec(VARIANTS_BLOCK, FeatureFormat.NUMERIC_MATRIX),
+            BlockSpec(TOKENS_BLOCK),
+            BlockSpec(VARIANTS_BLOCK),
         )
 
     def valid_mask(self, source: FeatureSource, ids: np.ndarray) -> np.ndarray:
@@ -149,7 +149,7 @@ class SmilesTokensFeaturizer(Featurizer):
         self._is_fitted = True
         return self
 
-    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerResult:
+    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerOutput:
         """Encode each drug's own SMILES and its variant bank.
 
         :param source: Drug feature source.
@@ -172,7 +172,7 @@ class SmilesTokensFeaturizer(Featurizer):
             "n_variants": self._bank_width,
         }
         blocks = {
-            TOKENS_BLOCK: numeric_feature_block(tokens.astype(np.float32), annotations=metadata),
-            VARIANTS_BLOCK: numeric_feature_block(variants.astype(np.float32), annotations=metadata),
+            TOKENS_BLOCK: FeatureBlock(tokens.astype(np.float32), annotations=metadata),
+            VARIANTS_BLOCK: FeatureBlock(variants.astype(np.float32), annotations=metadata),
         }
-        return FeaturizerResult(ids, blocks, (TOKENS_BLOCK,))
+        return FeaturizerOutput(ids, blocks)

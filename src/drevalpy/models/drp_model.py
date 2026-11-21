@@ -25,7 +25,7 @@ from upath import UPath
 from drevalpy._utils.accelerator import ensure_available
 from drevalpy._utils.n_jobs import check_n_jobs
 from drevalpy.components.contracts.training_context import TrainingContext
-from drevalpy.components.featurizers._featurizer_label import CONCAT
+from drevalpy.components.featurizers.featurizer import CONCAT
 from drevalpy.models._feature_preparation import FitIds, prepare_features, unique_entity_ids, usable_pairs
 from drevalpy.models.config.immutable import thaw_value
 from drevalpy.models.hyperparameters import FEATURIZER_SLOTS, PREDICTOR_SLOT, component_values
@@ -35,12 +35,12 @@ from drevalpy.models.response_transformation._pipeline_ops import (
     group_labels,
 )
 from drevalpy.models.spec import ModelSpec
-from drevalpy.types.data.batch.feature_block import FeaturizerResult
-from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
-from drevalpy.types.data.batch.response_batch import ResponseBatch
 from drevalpy.types.data.dataset import Dataset
-from drevalpy.types.data.feature_source import FeatureSource
-from drevalpy.types.data.pair_mask import PairMask
+from drevalpy.types.data.feature_block import FeaturizerOutput
+from drevalpy.types.data.feature_source import FeatureSource, Side
+from drevalpy.types.data.predictor_input import PredictorInput
+from drevalpy.types.data.response_table import ResponseTable
+from drevalpy.types.data.selection_mask import SelectionMask
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -51,7 +51,7 @@ if TYPE_CHECKING:
     from drevalpy.models.response_transformation import ResponseTransformer
 
 
-def validate_fit_scopes(dataset: Dataset, scope: PairMask, stopping: PairMask | None) -> None:
+def validate_fit_scopes(dataset: Dataset, scope: SelectionMask, stopping: SelectionMask | None) -> None:
     """Check dataset-backed selections without imposing split-mode entity rules.
 
     :param dataset: Dataset that *scope* and *stopping* index into.
@@ -63,8 +63,8 @@ def validate_fit_scopes(dataset: Dataset, scope: PairMask, stopping: PairMask | 
     if not isinstance(dataset, Dataset):
         raise TypeError("Model operations require a Dataset")
     for selection in (scope,) if stopping is None else (scope, stopping):
-        if not isinstance(selection, PairMask):
-            raise TypeError("Model scope must be a PairMask")
+        if not isinstance(selection, SelectionMask):
+            raise TypeError("Model scope must be a SelectionMask")
         if selection.shape != dataset.response_matrix.shape:
             raise ValueError("Model scope shape must match the dataset response matrix")
     if stopping is not None and np.any(scope.mask & stopping.mask):
@@ -182,9 +182,9 @@ class DRPModel:
     def train(
         self,
         dataset: Dataset,
-        scope: PairMask,
+        scope: SelectionMask,
         *,
-        early_stopping_scope: PairMask | None = None,
+        early_stopping_scope: SelectionMask | None = None,
         model_checkpoint_dir: str | UPath | None = None,
         n_jobs: int = 1,
     ) -> None:
@@ -216,23 +216,26 @@ class DRPModel:
     def _fit(
         self,
         dataset: Dataset,
-        scope: PairMask,
-        early_stopping_scope: PairMask | None,
+        scope: SelectionMask,
+        early_stopping_scope: SelectionMask | None,
         *,
         training_context: TrainingContext,
     ) -> None:
         validate_fit_scopes(dataset, scope, early_stopping_scope)
-        raw = ResponseBatch.from_dataset(dataset, scope, observed_only=True)
+        predictor = self._require_predictor()
+        layers = predictor.response_layers
+        raw = ResponseTable.from_dataset(dataset, scope, observed_only=True, layers=layers)
         if len(raw) == 0:
             self.state = ModelState.EMPTY
             return
         self._fitted_response_transformation = fit_response_transformation(
             self._response_transformation, raw.response, group_labels(self._response_transformation, dataset, raw)
         )
-        layers = self._require_predictor().response_layers
-        output = self._transformed_responses(dataset, scope, layers)
+        output = self._transform_responses(dataset, raw)
         stopping = (
-            self._transformed_responses(dataset, early_stopping_scope, layers)
+            self._transform_responses(
+                dataset, ResponseTable.from_dataset(dataset, early_stopping_scope, observed_only=True, layers=layers)
+            )
             if early_stopping_scope is not None
             else None
         )
@@ -245,19 +248,18 @@ class DRPModel:
         if len(output) == 0:
             self.state = ModelState.EMPTY
             return
-        batch = self._batch(
+        data = self._predictor_input(
             output,
             sample_input,
             drug_input,
             fitting=True,
-            output_earlystopping=stopping,
+            early_stopping=stopping,
             training_context=training_context,
         )
-        predictor = self._require_predictor()
-        if not predictor._valid_pair_mask(batch).any():
+        if not predictor._valid_pair_mask(data).any():
             self.state = ModelState.EMPTY
             return
-        predictor.fit(batch)
+        predictor.fit(data)
         self.state = ModelState.FITTED
 
     def _require_predictor(self) -> Predictor:
@@ -265,19 +267,14 @@ class DRPModel:
             raise RuntimeError("Model has not been trained; call train() or load() before predict()")
         return self._predictor
 
-    def _transformed_responses(self, dataset: Dataset, scope: PairMask, layers: tuple[str, ...]) -> ResponseBatch:
-        """Return the observed responses in *scope*, transformed by the fitted response transformation.
+    def _transform_responses(self, dataset: Dataset, response: ResponseTable) -> ResponseTable:
+        """Apply the fitted response transformation to *response*, leaving response layers untouched.
 
-        Only training-time extractions are transformed; prediction reads the raw matrix. The
-        response layers are read at the same pairs and left untransformed.
-
-        :param dataset: Source of response values.
-        :param scope: Response positions.
-        :param layers: Response layers the predictor declares in ``Predictor.response_layers``.
-        :returns: Flat ResponseBatch of (sample, drug, response) triples with the available layers.
+        :param dataset: Source of grouping metadata for the response transformation.
+        :param response: Observed response pairs and optional response layers.
+        :returns: ResponseTable with transformed responses and unchanged layers.
         """
         transformation = self._fitted_response_transformation
-        response = ResponseBatch.from_dataset(dataset, scope, observed_only=True, layers=layers)
         return replace(
             response,
             response=apply_response_transformation(
@@ -286,43 +283,43 @@ class DRPModel:
         )
 
     def _feature_sources(self, dataset: Dataset) -> tuple[FeatureSource, FeatureSource | None]:
-        sample_source = FeatureSource(dataset, "sample")
-        drug_source = FeatureSource(dataset, "drug") if self._drug_featurizer is not None else None
+        sample_source = FeatureSource(dataset, Side.SAMPLE)
+        drug_source = FeatureSource(dataset, Side.DRUG) if self._drug_featurizer is not None else None
         return sample_source, drug_source
 
-    def _batch(
+    def _predictor_input(
         self,
-        response: ResponseBatch,
+        response: ResponseTable,
         sample_input: FeatureSource,
         drug_input: FeatureSource | None,
         *,
         fitting: bool = False,
-        output_earlystopping: ResponseBatch | None = None,
+        early_stopping: ResponseTable | None = None,
         training_context: TrainingContext | None = None,
-    ) -> ModelInputBatch:
+    ) -> PredictorInput:
         results = []
         for attr, featurizer, source in (
             ("sample_ids", self._sample_featurizer, sample_input),
             ("drug_ids", self._drug_featurizer, drug_input),
         ):
             ids = getattr(response, attr)
-            es_ids = getattr(output_earlystopping, attr) if output_earlystopping is not None else None
+            es_ids = getattr(early_stopping, attr) if early_stopping is not None else None
             all_ids = np.concatenate([ids, es_ids]) if es_ids is not None else ids
             if featurizer is None or source is None:
-                results.append(FeaturizerResult(unique_entity_ids(all_ids), {}, ()))
+                results.append(FeaturizerOutput(unique_entity_ids(all_ids), {}))
                 continue
             fit = FitIds(ids, es_ids) if fitting else None
             results.append(prepare_features(featurizer, source, all_ids, fit=fit))
         sample, drug = results
-        return ModelInputBatch.from_response(
+        return PredictorInput.from_response(
             response,
             sample=sample,
             drug=drug if self._drug_featurizer is not None else None,
-            early_stopping_response=output_earlystopping,
+            early_stopping=early_stopping,
             training_context=training_context,
         )
 
-    def predict(self, dataset: Dataset, scope: PairMask) -> np.ndarray:
+    def predict(self, dataset: Dataset, scope: SelectionMask) -> np.ndarray:
         """Predict original-unit responses in scope order, preserving missing positions.
 
         Pairs with missing features get NaN predictions. A model that requires an accelerator raises
@@ -341,11 +338,11 @@ class DRPModel:
             raise RuntimeError("Model has not been trained; call train() or load() before predict()")
         predictor = self._require_predictor()
         validate_fit_scopes(dataset, scope, None)
-        response = ResponseBatch.from_dataset(dataset, scope)
+        response = ResponseTable.from_dataset(dataset, scope)
         sample_input, drug_input = self._feature_sources(dataset)
         if len(response) == 0:
             return np.empty(0, dtype=float)
-        predictions = np.asarray(predictor.predict(self._batch(response, sample_input, drug_input)))
+        predictions = np.asarray(predictor.predict(self._predictor_input(response, sample_input, drug_input)))
         if predictions.shape != (len(response),):
             raise ValueError(
                 f"Predictor {type(predictor).__name__} returned shape {predictions.shape}; "

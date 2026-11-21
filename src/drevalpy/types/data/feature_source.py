@@ -28,8 +28,8 @@ import numpy as np
 
 from drevalpy.errors import InvalidInputError
 from drevalpy.types.data.dataset import Dataset
+from drevalpy.types.data.dataset._aligned_fetch import aligned_fetch
 from drevalpy.types.data.dataset._anndata import to_dense
-from drevalpy.types.data.dataset.aligned_fetch import aligned_fetch
 from drevalpy.types.data.views import (
     DRUG_GRAPH_VIEW,
     DRUG_GRAPHS_KEY,
@@ -70,7 +70,7 @@ def precomputed_views(mdata: Any) -> dict[str, dict[str, dict[str, Any]]]:
 class FeatureSource:
     """The views of one entity side of a dataset, as featurizers read them."""
 
-    def __init__(self, dataset: Dataset, side: Side) -> None:
+    def __init__(self, dataset: Dataset, side: Side | str) -> None:
         """Wrap *dataset* for feature access on *side*.
 
         :param dataset: The backing dataset.

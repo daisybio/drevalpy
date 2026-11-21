@@ -7,10 +7,10 @@ from typing import Any, Self
 
 import numpy as np
 
-from drevalpy.components.contracts.feature_format import FeatureFormat
+from drevalpy.components.contracts.feature_format import BlockSpec
 from drevalpy.components.featurizers.featurizer import Featurizer
 from drevalpy.registry.featurizer import register
-from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult, numeric_feature_block
+from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
 from drevalpy.types.data.feature_source import FeatureSource, Side
 
 
@@ -25,7 +25,7 @@ class ConstantFeaturizer(Featurizer):
         :returns: One numeric ``constant`` block.
         """
         _ = config
-        return (BlockSpec("constant", FeatureFormat.NUMERIC_MATRIX),)
+        return (BlockSpec("constant"),)
 
     def fit(
         self,
@@ -46,7 +46,7 @@ class ConstantFeaturizer(Featurizer):
         _ = source, train_ids, train_pair_ids, es_pair_ids
         return self
 
-    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerResult:
+    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerOutput:
         """Return a ``(len(ids), 1)`` float32 ``constant`` block of ones.
 
         :param source: Unused.
@@ -55,7 +55,7 @@ class ConstantFeaturizer(Featurizer):
         """
         _ = source
         matrix = np.ones((len(ids), 1), dtype=np.float32)
-        return FeaturizerResult(ids, {"constant": numeric_feature_block(matrix)}, ("constant",))
+        return FeaturizerOutput(ids, {"constant": FeatureBlock(matrix)})
 
 
 @register("constant", side=Side.SAMPLE, description="Constant one-column intercept features with no sample identity.")

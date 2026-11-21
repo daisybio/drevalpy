@@ -33,9 +33,9 @@ from drevalpy.components.predictors.xgboost_pred import XGBoostPredictor
 from drevalpy.models import DRPModel, ModelSpec
 from drevalpy.models.config import ModelConfig
 from drevalpy.registry.predictor import get as get_predictor
-from drevalpy.types.data.batch.feature_block import FeaturizerResult, numeric_feature_block
-from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
-from drevalpy.types.data.batch.response_batch import ResponseBatch
+from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
+from drevalpy.types.data.predictor_input import PredictorInput
+from drevalpy.types.data.response_table import ResponseTable
 from drevalpy.types.enums.model_scope import ModelScope
 from drevalpy.types.enums.prediction_mode import PredictionMode
 from tests.components.predictors._helpers import neural_batch, pickle_round_trip
@@ -232,22 +232,22 @@ def test_single_drug_knn_standardizes_and_selects_per_drug() -> None:
     ids = [f"cl{i}" for i in range(6)]
     expression = rng.normal(size=(6, 4))
     # d1 has six pairs and responds to gene 2; d2 has two pairs, fewer than n_neighbors.
-    response = ResponseBatch(
+    response = ResponseTable(
         response=np.concatenate([expression[:, 2], [1.0, 2.0]]),
         sample_ids=np.array([*ids, "cl0", "cl1"]),
         drug_ids=np.array(["d1"] * 6 + ["d2"] * 2),
     )
-    sample = FeaturizerResult.from_blocks({"gene_expression": numeric_feature_block(expression)}, np.array(ids))
+    sample = FeaturizerOutput(np.array(ids), {"gene_expression": FeatureBlock(expression)})
     predictor = SingleDrugKNNPredictor({"mrmr_k": 2, "n_neighbors": 20})
-    predictor.fit(ModelInputBatch.from_response(response, sample=sample))
+    predictor.fit(PredictorInput.from_response(response, sample=sample))
 
     first, second = predictor._models["d1"], predictor._models["d2"]
     assert first.named_steps["mrmr"].selected_[0] == 2
     assert first.named_steps["knn"].n_neighbors == 6
     assert second.named_steps["knn"].n_neighbors == 2
     assert not np.allclose(first.named_steps["scale"].mean_, second.named_steps["scale"].mean_)
-    query = ResponseBatch(response=None, sample_ids=np.array(["cl0", "cl0"]), drug_ids=np.array(["d1", "d2"]))
-    assert np.isfinite(predictor.predict(ModelInputBatch.from_response(query, sample=sample))).all()
+    query = ResponseTable(response=None, sample_ids=np.array(["cl0", "cl0"]), drug_ids=np.array(["d1", "d2"]))
+    assert np.isfinite(predictor.predict(PredictorInput.from_response(query, sample=sample))).all()
 
 
 def test_boosted_trees_shared_space_is_consistent() -> None:

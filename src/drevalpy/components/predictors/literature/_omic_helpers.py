@@ -22,7 +22,7 @@ from drevalpy.components.predictors.literature._omics_loaders import OmicsSplit
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
+    from drevalpy.types.data.predictor_input import PredictorInput
 
 #: The three sample views both models consume, in encoder order.
 OMIC_BLOCK_NAMES = ("gene_expression", "mutations", "copy_number_variation_gistic")
@@ -79,52 +79,52 @@ class OmicMatrices:
         )
 
 
-def omic_matrices(batch: ModelInputBatch) -> OmicMatrices:
-    """Read the three sample views out of *batch*.
+def omic_matrices(data: PredictorInput) -> OmicMatrices:
+    """Read the three sample views out of *data*.
 
-    :param batch: Batch carrying all three blocks.
+    :param data: Batch carrying all three blocks.
     :returns: The entity-level matrices as float32.
     """
-    values = [np.asarray(batch.sample.blocks[name].values, dtype=np.float32) for name in OMIC_BLOCK_NAMES]
+    values = [np.asarray(data.sample.blocks[name].values, dtype=np.float32) for name in OMIC_BLOCK_NAMES]
     return OmicMatrices(*values)
 
 
-def omic_feature_names(batch: ModelInputBatch) -> OmicFeatureNames:
-    """Record the feature names of the three sample views of *batch*.
+def omic_feature_names(data: PredictorInput) -> OmicFeatureNames:
+    """Record the feature names of the three sample views of *data*.
 
-    :param batch: Batch carrying all three blocks.
+    :param data: Batch carrying all three blocks.
     :returns: The recorded feature names.
     """
-    return OmicFeatureNames(*(batch.sample.blocks[name].feature_names for name in OMIC_BLOCK_NAMES))
+    return OmicFeatureNames(*(data.sample.blocks[name].feature_names for name in OMIC_BLOCK_NAMES))
 
 
-def validation_split(matrices: OmicMatrices, batch: ModelInputBatch) -> OmicsSplit | None:
+def validation_split(matrices: OmicMatrices, data: PredictorInput) -> OmicsSplit | None:
     """Build the early-stopping split over the same entity matrices as training.
 
     :param matrices: The batch's entity-level omic matrices.
-    :param batch: Training batch carrying the early-stopping response.
+    :param data: Training batch carrying the early-stopping response.
     :returns: The validation split, or ``None`` when there are fewer than two early-stopping pairs.
     """
-    es_resp = batch.early_stopping_response
+    es_resp = data.early_stopping
     if es_resp is None or len(es_resp) < 2:
         return None
-    return matrices.split(batch.sample.rows_for(es_resp.sample_ids), np.asarray(es_resp.response, dtype=np.float32))
+    return matrices.split(data.sample.rows_for(es_resp.sample_ids), np.asarray(es_resp.response, dtype=np.float32))
 
 
 def aligned_pair_matrices(
-    batch: ModelInputBatch,
+    data: PredictorInput,
     feature_names: OmicFeatureNames,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Expand the three views to pair level and realign them onto the trained order.
 
-    :param batch: Batch to score.
+    :param data: Batch to score.
     :param feature_names: Feature names the model was trained on.
     :returns: Tuple of ``(expression, mutation, cnv)`` pair-level matrices.
     """
-    pair_idx = batch.sample_pair_idx
+    pair_idx = data.sample_pair_idx
     aligned = []
     for name, trained in zip(OMIC_BLOCK_NAMES, feature_names.as_tuple(), strict=True):
-        block = batch.sample.blocks[name]
+        block = data.sample.blocks[name]
         values = np.asarray(block.values[pair_idx], dtype=np.float32)
         aligned.append(_align(values, trained, block.feature_names))
     return aligned[0], aligned[1], aligned[2]

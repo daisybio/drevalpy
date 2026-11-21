@@ -1,4 +1,4 @@
-"""Canonical predictor input batch for component-based models."""
+"""Canonical predictor input container for component-based models."""
 
 from __future__ import annotations
 
@@ -8,12 +8,12 @@ from dataclasses import dataclass, field, replace
 import numpy as np
 
 from drevalpy.components.contracts.training_context import TrainingContext
-from drevalpy.types.data.batch.feature_block import FeaturizerResult
-from drevalpy.types.data.batch.response_batch import ResponseBatch
+from drevalpy.types.data.feature_block import FeaturizerOutput
+from drevalpy.types.data.response_table import ResponseTable
 
 
 def _validate_pair_indices(
-    table: FeaturizerResult | None, indices: np.ndarray | None, pair_ids: np.ndarray, *, side: str
+    table: FeaturizerOutput | None, indices: np.ndarray | None, pair_ids: np.ndarray, *, side: str
 ) -> None:
     if table is None:
         if indices is not None:
@@ -30,7 +30,7 @@ def _validate_pair_indices(
 
 
 @dataclass
-class ModelInputBatch:
+class PredictorInput:
     """Response pairs indexed into canonical per-side featurizer results.
 
     ``response_layers`` holds the training-time response layers a predictor declares
@@ -40,11 +40,11 @@ class ModelInputBatch:
     sample_ids: np.ndarray
     drug_ids: np.ndarray
     response: np.ndarray | None
-    sample: FeaturizerResult
-    drug: FeaturizerResult | None
+    sample: FeaturizerOutput
+    drug: FeaturizerOutput | None
     sample_pair_idx: np.ndarray
     drug_pair_idx: np.ndarray | None
-    early_stopping_response: ResponseBatch | None = None
+    early_stopping: ResponseTable | None = None
     training_context: TrainingContext = field(default_factory=TrainingContext)
     response_layers: Mapping[str, np.ndarray] = field(default_factory=dict)
 
@@ -74,19 +74,19 @@ class ModelInputBatch:
     @classmethod
     def from_response(
         cls,
-        response: ResponseBatch,
+        response: ResponseTable,
         *,
-        sample: FeaturizerResult,
-        drug: FeaturizerResult | None = None,
-        early_stopping_response: ResponseBatch | None = None,
+        sample: FeaturizerOutput,
+        drug: FeaturizerOutput | None = None,
+        early_stopping: ResponseTable | None = None,
         training_context: TrainingContext | None = None,
-    ) -> ModelInputBatch:
+    ) -> PredictorInput:
         """Index response pairs into already computed entity-level results.
 
         :param response: Requested pairs and optional targets; its ``layers`` become ``response_layers``.
         :param sample: Canonical sample features.
         :param drug: Optional canonical drug features.
-        :param early_stopping_response: Optional disjoint stopping pairs.
+        :param early_stopping: Optional disjoint stopping pairs.
         :param training_context: Runtime checkpoint and logging context.
         :returns: Aligned predictor input in response order.
         """
@@ -98,30 +98,32 @@ class ModelInputBatch:
             drug,
             sample.rows_for(response.sample_ids),
             None if drug is None else drug.rows_for(response.drug_ids),
-            early_stopping_response,
+            early_stopping,
             training_context or TrainingContext(),
             response.layers,
         )
 
     def to_feature_matrix(self) -> np.ndarray:
-        """Return the dense design matrix in the batch's requested pair order.
+        """Return the dense design matrix in the input's requested pair order.
 
-        :returns: Sample and drug projections side by side, one row per pair.
-        :raises ValueError: If a projection is not a two-dimensional numeric array.
+        Raises ``ValueError`` (via :attr:`FeaturizerOutput.matrix`) if a numeric feature
+        block is not a two-dimensional numeric array.
+
+        :returns: Sample and drug feature matrices side by side, one row per pair.
         """
         arrays = []
         for table, indices in ((self.sample, self.sample_pair_idx), (self.drug, self.drug_pair_idx)):
-            if table is None or not table.projection:
+            if table is None or indices is None:
                 continue
             matrix = table.matrix
-            if matrix.ndim != 2 or not np.issubdtype(matrix.dtype, np.number):
-                raise ValueError("Matrix predictors require two-dimensional numeric feature projections")
+            if matrix.shape[1] == 0:
+                continue
             arrays.append(matrix[indices])
         if not arrays:
             return np.empty((self.n_pairs, 0), dtype=np.float32)
         return np.concatenate(arrays, axis=1)
 
-    def subset_pairs(self, mask: np.ndarray) -> ModelInputBatch:
+    def subset_pairs(self, mask: np.ndarray) -> PredictorInput:
         """Subset pairs, sharing entity payloads and restricting stopping drugs.
 
         :param mask: One boolean value per pair.
@@ -131,7 +133,7 @@ class ModelInputBatch:
         mask = np.asarray(mask, dtype=bool)
         if mask.ndim != 1 or len(mask) != self.n_pairs:
             raise ValueError("subset mask must be a one-dimensional boolean array matching n_pairs")
-        stopping = self.early_stopping_response
+        stopping = self.early_stopping
         if stopping is not None and mask.any():
             keep = np.isin(stopping.drug_ids, np.unique(self.drug_ids[mask]))
             stopping = stopping.subset(keep) if keep.any() else None
@@ -142,6 +144,6 @@ class ModelInputBatch:
             response=None if self.response is None else self.response[mask],
             sample_pair_idx=self.sample_pair_idx[mask],
             drug_pair_idx=None if self.drug_pair_idx is None else self.drug_pair_idx[mask],
-            early_stopping_response=stopping,
+            early_stopping=stopping,
             response_layers={name: values[mask] for name, values in self.response_layers.items()},
         )

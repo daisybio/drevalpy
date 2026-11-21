@@ -10,7 +10,7 @@ from drevalpy.components.featurizers._dense import dense_result, view_matrix
 from drevalpy.components.featurizers.featurizer import Featurizer
 from drevalpy.components.featurizers.sample.gene_lists import view_genes
 from drevalpy.registry.featurizer import register
-from drevalpy.types.data.batch.feature_block import FeaturizerResult
+from drevalpy.types.data.feature_block import FeaturizerOutput
 from drevalpy.types.data.feature_source import FeatureSource, Side
 
 if TYPE_CHECKING:
@@ -61,7 +61,7 @@ class PharmaFormerGeneExpressionFeaturizer(Featurizer):
         self._scalers = (scaler, minmax)
         return self
 
-    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerResult:
+    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerOutput:
         """Apply the fitted scalers to the rows of *ids*.
 
         :param source: Feature source of the sample side.

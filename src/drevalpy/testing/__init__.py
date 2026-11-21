@@ -3,7 +3,7 @@
 Everything a plugin's test suite needs to exercise its own components without a
 downloaded dataset, beside the in-memory dataset of :func:`drevalpy.synthetic`:
 
-* :func:`build_synthetic_batch` - a featurized batch a predictor can train on.
+* :func:`build_synthetic_input` - a featurized :class:`~drevalpy.plugin.PredictorInput` a predictor can train on.
 * :func:`check_plugin` - assert the plugin's entry point loaded and its
   components resolve through the registries.
 * The ``check_*`` functions in :mod:`drevalpy.testing.conformance` - assert a
@@ -15,7 +15,6 @@ This is shipped in the wheel rather than kept in drevalpy's own ``tests/`` tree
 precisely so third-party plugins can import it.
 """
 
-from .batch import build_synthetic_batch, observed_pairs
 from .conformance import (
     FEATURIZER_CHECKS,
     PREDICTOR_CHECKS,
@@ -29,6 +28,7 @@ from .conformance import (
     check_predictor_single_drug_routing,
     feature_source_for,
 )
+from .inputs import build_synthetic_input, observed_pairs
 from .plugins import ENTRY_POINT_GROUP, PluginCheckError, PluginReport, check_plugin
 
 __all__ = [
@@ -38,7 +38,7 @@ __all__ = [
     "PREDICTOR_CHECKS",
     "PluginCheckError",
     "PluginReport",
-    "build_synthetic_batch",
+    "build_synthetic_input",
     "check_featurizer_fit_transform",
     "check_featurizer_instantiates",
     "check_featurizer_pickle_round_trip",

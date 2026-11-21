@@ -9,7 +9,7 @@ import numpy as np
 from drevalpy.components.featurizers._dense import dense_result, view_matrix
 from drevalpy.components.featurizers.featurizer import Featurizer, all_nan_rows_mask
 from drevalpy.registry.featurizer import register
-from drevalpy.types.data.batch.feature_block import FeaturizerResult
+from drevalpy.types.data.feature_block import FeaturizerOutput
 from drevalpy.types.data.feature_source import FeatureSource, Side
 
 if TYPE_CHECKING:
@@ -76,7 +76,7 @@ class PCASampleFeaturizer(Featurizer):
         self._pca = PCA(n_components=min(self._n_components, matrix.shape[0], matrix.shape[1])).fit(matrix)
         return self
 
-    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerResult:
+    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerOutput:
         """Project the view's rows for *ids* through the fitted PCA.
 
         :param source: Feature source of the sample side.

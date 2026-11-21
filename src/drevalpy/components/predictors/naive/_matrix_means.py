@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
+from drevalpy.types.data.predictor_input import PredictorInput
 
 
 def pair_align(entity_matrix: np.ndarray, pair_idx: np.ndarray | None) -> np.ndarray:
@@ -25,40 +25,40 @@ def pair_align(entity_matrix: np.ndarray, pair_idx: np.ndarray | None) -> np.nda
 
 
 def require_pair_matrix(
-    batch: ModelInputBatch,
+    data: PredictorInput,
     *,
     side: str,
 ) -> np.ndarray:
     """Return a pair-aligned dense matrix for the sample or drug side.
 
-    :param batch: Featurized batch whose sample or drug matrix is aligned.
+    :param data: Featurized batch whose sample or drug matrix is aligned.
     :param side: ``"sample"`` or ``"drug"``.
     :returns: Matrix with one row per pair.
     :raises ValueError: If ``side`` is unknown or the drug side is requested but the batch has no drug features.
     """
     if side == "sample":
-        return pair_align(batch.sample.matrix, batch.sample_pair_idx)
+        return pair_align(data.sample.matrix, data.sample_pair_idx)
     if side == "drug":
-        if batch.drug is None:
+        if data.drug is None:
             msg = "drug features are required"
             raise ValueError(msg)
-        return pair_align(batch.drug.matrix, batch.drug_pair_idx)
+        return pair_align(data.drug.matrix, data.drug_pair_idx)
     msg = f"Unknown feature side {side!r}"
     raise ValueError(msg)
 
 
-def block_pair_matrix(batch: ModelInputBatch, block_name: str) -> np.ndarray:
+def block_pair_matrix(data: PredictorInput, block_name: str) -> np.ndarray:
     """Return a pair-aligned named sample block matrix.
 
-    :param batch: Featurized batch.
+    :param data: Featurized batch.
     :param block_name: Name of the sample block to align.
     :returns: Matrix with one row per pair.
     :raises ValueError: If the sample side has no block named ``block_name``.
     """
-    if block_name not in batch.sample.blocks:
+    if block_name not in data.sample.blocks:
         msg = f"Required sample block {block_name!r} is missing"
         raise ValueError(msg)
-    return pair_align(batch.sample.blocks[block_name].values, batch.sample_pair_idx)
+    return pair_align(data.sample.blocks[block_name].values, data.sample_pair_idx)
 
 
 def category_means(design: np.ndarray, y: np.ndarray) -> np.ndarray:

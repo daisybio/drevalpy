@@ -17,7 +17,7 @@ from drevalpy.models import DRPModel, ModelSpec
 from drevalpy.models.config import from_recipe
 from drevalpy.models.tuning import hpo
 from drevalpy.models.tuning.hpo import HPOTrialsFailedError, hpam_tune
-from drevalpy.types import PairMask
+from drevalpy.types import SelectionMask
 from drevalpy.types.results._identity import RunIdentity
 from tests._fake_wandb import FakeWandb, install_fake_wandb
 from tests._import_shims import block_imports
@@ -29,7 +29,7 @@ SRC = Path(__file__).resolve().parents[3] / "src" / "drevalpy"
 def _execution(
     spec: ModelSpec, n_trials: int, *, tuning: bool = True, metric: str = "RMSE", fold_index: int = 0
 ) -> ExecutionSpec:
-    scope = PairMask.from_pairs(np.array([[0, 0], [0, 1], [1, 0], [1, 1]]), shape=(2, 2))
+    scope = SelectionMask.from_pairs(np.array([[0, 0], [0, 1], [1, 0], [1, 1]]), shape=(2, 2))
     return ExecutionSpec(
         model=spec,
         scopes=FitScopes(scope, None, scope, scope, scope),

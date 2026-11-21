@@ -12,16 +12,16 @@ from drevalpy.components.predictors.literature.morgoth import predictor as morgo
 from drevalpy.components.predictors.literature.morgoth._forest import MorgothRegressor
 from drevalpy.components.predictors.literature.morgoth.predictor import SingleDrugMorgothPredictor, class_labels
 from drevalpy.data import synthetic
-from drevalpy.testing.batch import build_synthetic_batch
 from drevalpy.testing.conformance import PREDICTOR_CHECKS
-from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
+from drevalpy.testing.inputs import build_synthetic_input
+from drevalpy.types.data.predictor_input import PredictorInput
 
 SMALL = {"n_estimators": 2, "mrmr_k": 3, "min_samples_leaf": 2, "max_depth": 3}
 
 
-def _batch(*, with_regulation: bool = True) -> ModelInputBatch:
+def _batch(*, with_regulation: bool = True) -> PredictorInput:
     layers = ("regulation",) if with_regulation else ()
-    return build_synthetic_batch(
+    return build_synthetic_input(
         synthetic(n_samples=20, n_drugs=2, seed=3), n_sample_features=6, n_drug_features=None, response_layers=layers
     )
 

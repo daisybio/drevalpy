@@ -16,14 +16,14 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from drevalpy.log import get_logger
-from drevalpy.types.data.batch.feature_block import FeatureBlock, FeaturizerResult
+from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
     from drevalpy.components.featurizers.featurizer import Featurizer
-    from drevalpy.types.data.batch.response_batch import ResponseBatch
     from drevalpy.types.data.feature_source import FeatureSource
+    from drevalpy.types.data.response_table import ResponseTable
 
 _logger = get_logger(__name__)
 
@@ -83,10 +83,10 @@ def _check_side(featurizer: Featurizer, source: FeatureSource) -> None:
 
 
 def usable_pairs(
-    response: ResponseBatch,
-    stopping: ResponseBatch | None,
+    response: ResponseTable,
+    stopping: ResponseTable | None,
     sides: tuple[tuple[str, Featurizer | None, FeatureSource | None], ...],
-) -> tuple[ResponseBatch, ResponseBatch | None]:
+) -> tuple[ResponseTable, ResponseTable | None]:
     """Keep the observed pairs whose entities are usable under each featurizer's missing-input policy.
 
     Each featurizer's ``valid_mask`` runs once, on the unique entities of the training and
@@ -149,7 +149,7 @@ def prepare_features(
     ids: np.ndarray,
     *,
     fit: FitIds | None,
-) -> FeaturizerResult:
+) -> FeaturizerOutput:
     """Fit *featurizer* when *fit* is given, then compute the features of every entity in *ids* once.
 
     With *fit*, every ID must be usable: the pairs come from :func:`usable_pairs`. Without it
@@ -184,4 +184,4 @@ def prepare_features(
         raise ValueError(f"{type(featurizer).__name__} must preserve requested entity order")
     if valid.all():
         return features
-    return FeaturizerResult(ids, _padded(features.blocks, valid), features.projection)
+    return FeaturizerOutput(ids, _padded(features.blocks, valid))

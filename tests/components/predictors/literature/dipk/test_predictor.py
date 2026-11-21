@@ -10,6 +10,7 @@ import pytest
 import torch
 from torch import nn
 
+from drevalpy.components.contracts.feature_format import FeatureFormat
 from drevalpy.components.predictors.literature.dipk.attention_utils import MultiHeadAttentionLayer
 from drevalpy.components.predictors.literature.dipk.model_utils import (
     AttentionLayer,
@@ -23,8 +24,8 @@ from drevalpy.components.predictors.literature.dipk.predictor import (
     _CollateFn,
 )
 from drevalpy.registry.predictor import get as get_predictor
-from drevalpy.types.data.batch.feature_block import numeric_feature_block, ragged_feature_block
-from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
+from drevalpy.types.data.feature_block import FeatureBlock
+from drevalpy.types.data.predictor_input import PredictorInput
 from tests.components.predictors.literature._helpers import (
     assert_frozen_reference,
     assert_pickle_round_trip,
@@ -38,7 +39,7 @@ from tests.components.predictors.literature._helpers import (
 )
 
 
-def _dipk_batch() -> ModelInputBatch:
+def _dipk_batch() -> PredictorInput:
     molgnet = np.empty(2, dtype=object)
     molgnet[:] = [
         np.arange(6, dtype=np.float32).reshape(3, 2),
@@ -46,24 +47,24 @@ def _dipk_batch() -> ModelInputBatch:
     ]
     return two_by_two_batch(
         sample_blocks={
-            "gene_expression": numeric_feature_block(np.array([[0.1, 0.2], [0.3, 0.4]], dtype=np.float32)),
-            "bionic_features": numeric_feature_block(np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)),
+            "gene_expression": FeatureBlock(np.array([[0.1, 0.2], [0.3, 0.4]], dtype=np.float32)),
+            "bionic_features": FeatureBlock(np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)),
         },
-        drug_blocks={"molgnet_features": ragged_feature_block(molgnet)},
+        drug_blocks={"molgnet_features": FeatureBlock(molgnet, FeatureFormat.RAGGED_SEQUENCE)},
         checkpoint_dir=Path(tempfile.mkdtemp()),
     )
 
 
-def _trainable_dipk_batch(tmp_path: Path) -> ModelInputBatch:
+def _trainable_dipk_batch(tmp_path: Path) -> PredictorInput:
     rng = np.random.default_rng(321)
     molgnet = np.empty(2, dtype=object)
     molgnet[:] = [rng.normal(size=(2, 768)).astype(np.float32), rng.normal(size=(3, 768)).astype(np.float32)]
     return train_validation_batch(
         {
-            "gene_expression": numeric_feature_block(rng.normal(size=(4, 512)).astype(np.float32)),
-            "bionic_features": numeric_feature_block(rng.normal(size=(4, 512)).astype(np.float32)),
+            "gene_expression": FeatureBlock(rng.normal(size=(4, 512)).astype(np.float32)),
+            "bionic_features": FeatureBlock(rng.normal(size=(4, 512)).astype(np.float32)),
         },
-        {"molgnet_features": ragged_feature_block(molgnet)},
+        {"molgnet_features": FeatureBlock(molgnet, FeatureFormat.RAGGED_SEQUENCE)},
         tmp_path,
     )
 

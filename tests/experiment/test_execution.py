@@ -11,7 +11,7 @@ from drevalpy.errors import InvalidInputError
 from drevalpy.experiment import robustness
 from drevalpy.experiment._execution import build_execution, check_mode_supported
 from drevalpy.models import ModelSpec
-from drevalpy.types import Fold, PairMask
+from drevalpy.types import Fold, SelectionMask
 from tests.models.synthetic_fixtures import synthetic_model_dataset
 
 
@@ -31,9 +31,9 @@ def _build(spec, dataset, fold):
 def _execution(monkeypatch, *, stopping=True, seed=17, split_mode="LPO"):
     dataset = synthetic_model_dataset()
     fold = Fold(
-        PairMask(np.array([[True, False], [False, False]]), seed),
-        PairMask(np.array([[False, False], [False, True]]), seed),
-        PairMask(np.array([[False, True], [True, False]]), seed),
+        SelectionMask(np.array([[True, False], [False, False]]), seed),
+        SelectionMask(np.array([[False, False], [False, True]]), seed),
+        SelectionMask(np.array([[False, True], [True, False]]), seed),
         {"split_mode": split_mode, "fold_index": 1, "nested": {"values": [1, 2]}},
     )
     spec = ModelSpec.from_name("NaivePredictor")
@@ -106,9 +106,9 @@ def test_tuning_settings_are_validated(monkeypatch, overrides, message):
 def test_a_stored_lco_mode_is_recorded_as_lso():
     dataset = synthetic_model_dataset()
     fold = Fold(
-        PairMask(np.array([[True, True], [False, False]]), 17),
-        PairMask(np.array([[False, False], [False, False]]), 17),
-        PairMask(np.array([[False, False], [True, True]]), 17),
+        SelectionMask(np.array([[True, True], [False, False]]), 17),
+        SelectionMask(np.array([[False, False], [False, False]]), 17),
+        SelectionMask(np.array([[False, False], [True, True]]), 17),
         {"split_mode": "LCO", "fold_index": 0},
     )
     execution = _build(ModelSpec.from_name("NaivePredictor"), dataset, fold)
@@ -141,9 +141,9 @@ def test_single_drug_models_are_rejected_only_where_drugs_are_held_out(mode):
 def _one_drug_per_part_fold() -> Fold:
     """An LDO fold of the 2x2 dataset: drug 0 trains, drug 1 validates, nothing is tested."""
     return Fold(
-        PairMask(np.array([[True, False], [True, False]])),
-        PairMask(np.zeros((2, 2), dtype=bool)),
-        PairMask(np.array([[False, True], [False, True]])),
+        SelectionMask(np.array([[True, False], [True, False]])),
+        SelectionMask(np.zeros((2, 2), dtype=bool)),
+        SelectionMask(np.array([[False, True], [False, True]])),
         {"split_mode": "LDO", "fold_index": 0},
     )
 
@@ -166,9 +166,9 @@ def fold() -> Fold:
     train = rng.random((6, 5)) < 0.6
     test = (~train) & (rng.random((6, 5)) < 0.5)
     return Fold(
-        train=PairMask(train),
-        test=PairMask(test),
-        val=PairMask(~train & ~test),
+        train=SelectionMask(train),
+        test=SelectionMask(test),
+        val=SelectionMask(~train & ~test),
         metadata={"fold_index": 3, "split_mode": "LPO"},
     )
 

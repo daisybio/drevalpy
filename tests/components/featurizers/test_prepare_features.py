@@ -8,12 +8,13 @@ from typing import Any, ClassVar, Self
 import numpy as np
 import pytest
 
+from drevalpy.components.contracts.feature_format import FeatureFormat
 from drevalpy.components.featurizers._dense import FeatureMismatchError, dense_result, view_matrix
 from drevalpy.components.featurizers.featurizer import Featurizer
 from drevalpy.models._feature_preparation import FitIds, prepare_features, usable_pairs
-from drevalpy.types.data.batch.feature_block import FeaturizerResult, numeric_feature_block, ragged_feature_block
-from drevalpy.types.data.batch.response_batch import ResponseBatch
+from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
 from drevalpy.types.data.feature_source import FeatureSource
+from drevalpy.types.data.response_table import ResponseTable
 from tests.conftest import MockFeatureSource
 
 _LOGGER = "drevalpy.models._feature_preparation"
@@ -58,7 +59,7 @@ class _Counting(Featurizer):
         self.names = source.feature_names("expr") if source.has_view("expr") else None
         return self
 
-    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerResult:
+    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerOutput:
         self.calls["transform"] += 1
         return dense_result(ids, "expr", self._matrix(source, ids), self.names or ())
 
@@ -99,9 +100,9 @@ def test_present_but_invalid_view_raises_instead_of_computing() -> None:
     assert featurizer.calls["compute"] == 0
 
 
-def _pairs(sample_ids: list[str], drug_ids: list[str] | None = None) -> ResponseBatch:
+def _pairs(sample_ids: list[str], drug_ids: list[str] | None = None) -> ResponseTable:
     drugs = drug_ids if drug_ids is not None else ["x"] * len(sample_ids)
-    return ResponseBatch(np.ones(len(sample_ids)), np.array(sample_ids), np.array(drugs))
+    return ResponseTable(np.ones(len(sample_ids)), np.array(sample_ids), np.array(drugs))
 
 
 def test_usable_pairs_ask_each_featurizer_once_on_the_unique_train_and_stopping_entities() -> None:
@@ -118,7 +119,7 @@ def test_usable_pairs_ask_each_featurizer_once_on_the_unique_train_and_stopping_
 
 
 def test_usable_pairs_drop_missing_targets_and_keep_order_without_stopping() -> None:
-    response = ResponseBatch(np.array([1.0, np.nan, 2.0]), np.array(["c", "a", "a"]), np.array(["x", "y", "z"]))
+    response = ResponseTable(np.array([1.0, np.nan, 2.0]), np.array(["c", "a", "a"]), np.array(["x", "y", "z"]))
 
     train, es = usable_pairs(response, None, (("sample_ids", _Counting(), _source()),))
 
@@ -145,10 +146,10 @@ def test_fit_trusts_the_usable_ids_and_prediction_pads_unusable_entities() -> No
 
 def test_object_blocks_are_padded_with_none() -> None:
     class _Ragged(_Counting):
-        def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerResult:
+        def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerOutput:
             values = np.empty(len(ids), dtype=object)
             values[:] = [np.arange(i + 1) for i in range(len(ids))]
-            return FeaturizerResult(ids, {"tokens": ragged_feature_block(values)}, ())
+            return FeaturizerOutput(ids, {"tokens": FeatureBlock(values, FeatureFormat.RAGGED_SEQUENCE)})
 
     featurizer = _Ragged()
     prepare_features(featurizer, _source(), np.array(["a"]), fit=FitIds(np.array(["a"])))
@@ -184,9 +185,9 @@ def test_entity_order_is_kept_and_repeats_collapse_to_first_seen_order() -> None
 
 def test_a_transform_that_reorders_entities_raises() -> None:
     class _Reversing(_Counting):
-        def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerResult:
+        def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerOutput:
             values = np.zeros((len(ids), 1), dtype=np.float32)
-            return FeaturizerResult(ids[::-1], {"x": numeric_feature_block(values)}, ("x",))
+            return FeaturizerOutput(ids[::-1], {"x": FeatureBlock(values)})
 
     with pytest.raises(ValueError, match="must preserve requested entity order"):
         prepare_features(_Reversing(), _source(), np.array(["a", "c"]), fit=FitIds(np.array(["a", "c"])))

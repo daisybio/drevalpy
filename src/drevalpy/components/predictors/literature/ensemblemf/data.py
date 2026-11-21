@@ -5,8 +5,8 @@ from __future__ import annotations
 import numpy as np
 import torch
 
-from drevalpy.types.data.batch.feature_block import FeaturizerResult
-from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
+from drevalpy.types.data.feature_block import FeaturizerOutput
+from drevalpy.types.data.predictor_input import PredictorInput
 
 from .training import PairTensors
 
@@ -14,7 +14,7 @@ from .training import PairTensors
 FALLBACK_VALIDATION_FRACTION = 0.1
 
 
-def sorted_entities(result: FeaturizerResult, block: str) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+def sorted_entities(result: FeaturizerOutput, block: str) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Order the entity rows of *block* by identifier, as the 1.6.1 model did.
 
     :param result: Entity table holding *block*.
@@ -27,17 +27,17 @@ def sorted_entities(result: FeaturizerResult, block: str) -> tuple[np.ndarray, n
     return result.entity_ids[order], result.blocks[block].values[order], position
 
 
-def drug_table(batch: ModelInputBatch) -> FeaturizerResult:
+def drug_table(data: PredictorInput) -> FeaturizerOutput:
     """Narrow a batch's drug table to non-``None``.
 
-    :param batch: Batch to read.
+    :param data: Batch to read.
     :returns: The drug entity table.
     :raises RuntimeError: If the batch carries no drug features.
     """
-    if batch.drug is None or batch.drug_pair_idx is None:
+    if data.drug is None or data.drug_pair_idx is None:
         msg = "EnsembleMF requires drug features (fingerprints)."
         raise RuntimeError(msg)
-    return batch.drug
+    return data.drug
 
 
 def _rows(pairs: PairTensors, rows: torch.Tensor) -> PairTensors:

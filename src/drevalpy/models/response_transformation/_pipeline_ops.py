@@ -11,14 +11,14 @@ from drevalpy.errors import InvalidInputError
 from ._protocol import ResponseTransformer
 
 if TYPE_CHECKING:
-    from drevalpy.types.data.batch.response_batch import ResponseBatch
     from drevalpy.types.data.dataset import Dataset
+    from drevalpy.types.data.response_table import ResponseTable
 
 
-def group_labels(transformer: object, dataset: Dataset, response: ResponseBatch) -> np.ndarray | None:
+def group_labels(transformer: object, dataset: Dataset, response: ResponseTable) -> np.ndarray | None:
     """Build the group label columns a group-aware transformer asks for.
 
-    Drug labels come from the batch's drug ids and tissue labels from *dataset*, so the lookup is
+    Drug labels come from *response*'s drug ids and tissue labels from *dataset*, so the lookup is
     made on the dataset being fitted or predicted, which covers a concatenated cross-study dataset.
 
     :param transformer: Prototype or fitted transformer; one without ``requires_groups`` needs none.

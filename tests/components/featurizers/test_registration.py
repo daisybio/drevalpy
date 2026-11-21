@@ -5,8 +5,8 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from drevalpy.components.featurizers._featurizer_label import requires_explicit_view
 from drevalpy.models.config import FeaturizerConfig, ModelConfig, PredictorConfig, from_recipe
+from drevalpy.models.config.featurizer import requires_explicit_view
 from drevalpy.types.data.feature_source import Side
 
 

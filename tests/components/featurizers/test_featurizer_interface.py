@@ -7,10 +7,10 @@ from typing import Any, ClassVar, Self
 import numpy as np
 import pytest
 
-from drevalpy.components.contracts.feature_format import FeatureFormat
+from drevalpy.components.contracts.feature_format import BlockSpec, FeatureFormat
 from drevalpy.components.featurizers._dense import FeatureMismatchError, dense_result, view_matrix
 from drevalpy.components.featurizers.featurizer import Featurizer
-from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult
+from drevalpy.types.data.feature_block import FeaturizerOutput
 from drevalpy.types.data.feature_source import FeatureSource
 from tests.conftest import MockFeatureSource
 
@@ -29,7 +29,7 @@ class _PassThrough(Featurizer):
         self.names = source.feature_names("expr")
         return self
 
-    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerResult:
+    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerOutput:
         return dense_result(ids, "expr", view_matrix(source, "expr", ids, self.names), self.names)
 
 
@@ -80,7 +80,7 @@ def test_fit_transform_aligns_to_fitted_names_and_emits_one_float32_block() -> N
 
     result = featurizer.transform(_source(("g1", "g0")), ids)
 
-    assert result.projection == ("expr",)
+    assert list(result.blocks) == ["expr"]
     assert result.blocks["expr"].feature_names == ("g0", "g1")
     assert result.matrix.dtype == np.float32
     np.testing.assert_array_equal(result.matrix, [[6.0, 5.0], [2.0, 1.0]])

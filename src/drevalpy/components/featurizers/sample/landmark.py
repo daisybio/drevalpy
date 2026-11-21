@@ -7,12 +7,12 @@ from typing import TYPE_CHECKING, Any, ClassVar, Self
 
 import numpy as np
 
-from drevalpy.components.contracts.feature_format import FeatureFormat
+from drevalpy.components.contracts.feature_format import BlockSpec
 from drevalpy.components.featurizers._dense import dense_result, view_matrix
 from drevalpy.components.featurizers.featurizer import Featurizer, all_nan_rows_mask
 from drevalpy.components.featurizers.sample.gene_lists import select_genes
 from drevalpy.registry.featurizer import register
-from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult
+from drevalpy.types.data.feature_block import FeaturizerOutput
 from drevalpy.types.data.feature_source import FeatureSource, Side
 
 if TYPE_CHECKING:
@@ -65,7 +65,7 @@ class LandmarkGenesFeaturizer(Featurizer):
         :returns: The ``gene_expression`` block.
         """
         _ = config
-        return (BlockSpec(_BLOCK, FeatureFormat.NUMERIC_MATRIX),)
+        return (BlockSpec(_BLOCK),)
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
@@ -135,7 +135,7 @@ class LandmarkGenesFeaturizer(Featurizer):
         selected = np.nan_to_num(matrix.astype(np.float64), nan=0.0, posinf=0.0, neginf=0.0)
         return np.arcsinh(selected) if self._arcsinh else selected
 
-    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerResult:
+    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerOutput:
         """Transform and scale the landmark-gene columns of the rows of *ids*.
 
         :param source: Feature source of the sample side.

@@ -5,12 +5,12 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from drevalpy.components.contracts.feature_format import FeatureFormat
+from drevalpy.components.contracts.feature_format import BlockSpec, FeatureFormat
 from drevalpy.components.featurizers.featurizer import Featurizer
 from drevalpy.errors import UnknownNameError
 from drevalpy.registry._component import featurizer_component_metadata
 from drevalpy.registry.featurizer import featurizer_registry, get_featurizer, names_for_side, register
-from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult, numeric_feature_block
+from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
 from drevalpy.types.data.feature_source import Side
 from tests.registry._helpers import empty_component_registries
 
@@ -28,9 +28,9 @@ class _Probe(Featurizer):
     def fit(self, source, train_ids, *, train_pair_ids=None, es_pair_ids=None):
         return self
 
-    def transform(self, source, ids) -> FeaturizerResult:
+    def transform(self, source, ids) -> FeaturizerOutput:
         values = np.zeros((len(ids), 1), dtype=np.float32)
-        return FeaturizerResult(ids, {"probe": numeric_feature_block(values)}, ("probe",))
+        return FeaturizerOutput(ids, {"probe": FeatureBlock(values)})
 
 
 def _subclass(name: str, **attrs) -> type[Featurizer]:

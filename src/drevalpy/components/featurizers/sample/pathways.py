@@ -12,7 +12,7 @@ from drevalpy.components.featurizers._dense import dense_result
 from drevalpy.components.featurizers.featurizer import Featurizer
 from drevalpy.data._msigdb import get_precily_gmt
 from drevalpy.registry.featurizer import register
-from drevalpy.types.data.batch.feature_block import FeaturizerResult
+from drevalpy.types.data.feature_block import FeaturizerOutput
 from drevalpy.types.data.feature_source import FeatureSource, Side
 from drevalpy.types.data.views import PATHWAYS_GMT_KEY
 
@@ -72,7 +72,7 @@ class PathwaysSampleFeaturizer(Featurizer):
         self._fit_ids = np.asarray(train_ids)
         return self
 
-    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerResult:
+    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerOutput:
         """Return GSVA scores for *ids*: the fitted ones, re-running GSVA with the training samples for others.
 
         :param source: Feature source of the sample side.

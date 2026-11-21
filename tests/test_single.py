@@ -20,7 +20,7 @@ from drevalpy.evaluation import Metric
 from drevalpy.models import DRPModel, ModelSpec
 from drevalpy.models.response_transformation import get_response_transformation
 from drevalpy.registry.splitter import SplitValidationError
-from drevalpy.types import Fold, PairMask
+from drevalpy.types import Fold, SelectionMask
 from drevalpy.types.results.run import RunResult
 from drevalpy.types.results.trial import TrialResult
 from tests._fake_wandb import FakeWandb, install_fake_wandb
@@ -110,9 +110,9 @@ def _fold_with_val_pairs(shape: tuple[int, int], n_val: int) -> Fold:
     test[2, :] = True
     val[3 : 3 + n_val, 0] = True
     return Fold(
-        train=PairMask(train),
-        test=PairMask(test),
-        val=PairMask(val),
+        train=SelectionMask(train),
+        test=SelectionMask(test),
+        val=SelectionMask(val),
         metadata={"split_mode": "LSO", "fold_index": 0, "fold_id": "abc123"},
     )
 
@@ -156,9 +156,9 @@ class TestFoldMetadata:
     def test_absent_metadata_falls_back_to_defaults(self, synthetic_dataset, stub_model) -> None:
         shape = synthetic_dataset.response_matrix.shape
         fold = Fold(
-            train=PairMask(np.eye(*shape, dtype=bool)),
-            test=PairMask(np.flipud(np.eye(*shape, dtype=bool))),
-            val=PairMask(np.zeros(shape, dtype=bool)),
+            train=SelectionMask(np.eye(*shape, dtype=bool)),
+            test=SelectionMask(np.flipud(np.eye(*shape, dtype=bool))),
+            val=SelectionMask(np.zeros(shape, dtype=bool)),
         )
 
         result = single(stub_model.recipe, synthetic_dataset, fold, hyperparameter_tuning=False)
@@ -407,13 +407,13 @@ def test_final_fit_excludes_stopping_holdout_and_transforms_training_only(
 def test_direct_folds_are_validated_before_training(stub_model, synthetic_dataset, defect):
     fold = _fold_with_val_pairs(synthetic_dataset.response_matrix.shape, 4)
     if defect == "shape":
-        fold = replace(fold, test=PairMask(np.zeros((1, 1), dtype=bool)))
+        fold = replace(fold, test=SelectionMask(np.zeros((1, 1), dtype=bool)))
     elif defect == "pair_overlap":
-        fold = replace(fold, test=PairMask(fold.train.mask.copy()))
+        fold = replace(fold, test=SelectionMask(fold.train.mask.copy()))
     else:
         train, test = fold.train.mask.copy(), fold.test.mask.copy()
         train[0, 0], test[0, 0] = False, True
-        fold = replace(fold, train=PairMask(train), test=PairMask(test))
+        fold = replace(fold, train=SelectionMask(train), test=SelectionMask(test))
 
     with pytest.raises(SplitValidationError):
         single(stub_model.recipe, synthetic_dataset, fold, hyperparameter_tuning=False)

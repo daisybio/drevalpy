@@ -12,15 +12,14 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
 
-from drevalpy.components.contracts.feature_format import FeatureFormat
+from drevalpy.components.contracts.feature_format import BlockSpec
 from drevalpy.components.contracts.hyperparameter_space import fixed_entries
-from drevalpy.components.predictors.abstract.base import Predictor, fit_response
+from drevalpy.components.predictors.abstract.base import Predictor, get_response
 from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.components.predictors.literature._metadata import SRMF_REFERENCE
 from drevalpy.components.predictors.literature._pair_predict import require_drug_pair_idx
 from drevalpy.registry.predictor import register
-from drevalpy.types.data.batch.feature_block import BlockSpec
-from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
+from drevalpy.types.data.predictor_input import PredictorInput
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -35,8 +34,8 @@ if TYPE_CHECKING:
 class SRMFPredictor(Predictor):
     """Registered SRMF predictor using similarity-regularized matrix factorization."""
 
-    sample_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX))
-    drug_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("fingerprints", FeatureFormat.NUMERIC_MATRIX))
+    sample_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("gene_expression"))
+    drug_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("fingerprints"))
     supports_early_stopping: ClassVar[bool] = False
 
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
@@ -72,24 +71,24 @@ class SRMFPredictor(Predictor):
     # Fit
     # ------------------------------------------------------------------
 
-    def _fit(self, batch: ModelInputBatch) -> None:
+    def _fit(self, data: PredictorInput) -> None:
         """Fit the SRMF model on training data.
 
-        :param batch: Training batch with gene_expression and fingerprints blocks.
+        :param data: Training batch with gene_expression and fingerprints blocks.
         :raises ValueError: If drug features are missing.
         """
         import pandas as pd
 
-        if batch.drug is None:
+        if data.drug is None:
             msg = "SRMF requires drug features"
             raise ValueError(msg)
 
         # Sorted ids, as drevalpy 1.6.1 (np.unique): the seeded initial factors are drawn row by row.
         sample_order, drug_order = (
-            np.argsort(ids.astype(str), kind="stable") for ids in (batch.sample.entity_ids, batch.drug.entity_ids)
+            np.argsort(ids.astype(str), kind="stable") for ids in (data.sample.entity_ids, data.drug.entity_ids)
         )
-        samples, drugs = batch.sample.entity_ids[sample_order], batch.drug.entity_ids[drug_order]
-        response_matrix = self._response_matrix(batch, sample_order, drug_order)
+        samples, drugs = data.sample.entity_ids[sample_order], data.drug.entity_ids[drug_order]
+        response_matrix = self._response_matrix(data, sample_order, drug_order)
         observed = ~np.isnan(response_matrix)
         response_matrix_filled = np.where(observed, response_matrix, 0.0)
 
@@ -97,13 +96,13 @@ class SRMFPredictor(Predictor):
         best_u, best_v = self._cmf(
             w=observed.T,
             int_mat=response_matrix_filled.T,
-            drug_mat=self._drug_similarity(batch.drug.blocks["fingerprints"].values[drug_order]),
-            cell_mat=np.corrcoef(batch.sample.blocks["gene_expression"].values[sample_order], rowvar=True),
+            drug_mat=self._drug_similarity(data.drug.blocks["fingerprints"].values[drug_order]),
+            cell_mat=np.corrcoef(data.sample.blocks["gene_expression"].values[sample_order], rowvar=True),
         )
 
         self._best_u = pd.DataFrame(best_u, index=[str(d) for d in drugs])
         self._best_v = pd.DataFrame(best_v, index=[str(c) for c in samples])
-        self._training_mean = float(np.nanmean(batch.response))
+        self._training_mean = float(np.nanmean(data.response))
 
     @staticmethod
     def _drug_similarity(drug_features: np.ndarray) -> np.ndarray:
@@ -123,7 +122,7 @@ class SRMFPredictor(Predictor):
 
     @staticmethod
     def _response_matrix(
-        batch: ModelInputBatch,
+        data: PredictorInput,
         sample_order: np.ndarray,
         drug_order: np.ndarray,
     ) -> np.ndarray:
@@ -133,18 +132,18 @@ class SRMFPredictor(Predictor):
         implementation took. Unobserved cells stay ``NaN`` so the caller can derive the
         weight mask from them.
 
-        :param batch: Training batch with response data.
+        :param data: Training batch with response data.
         :param sample_order: Sample entity rows, in the order of the matrix rows.
         :param drug_order: Drug entity rows, in the order of the matrix columns.
         :returns: Response matrix with ``NaN`` for unobserved pairs.
         """
         cells = (
-            np.argsort(sample_order)[batch.sample_pair_idx],
-            np.argsort(drug_order)[require_drug_pair_idx(batch.drug_pair_idx)],
+            np.argsort(sample_order)[data.sample_pair_idx],
+            np.argsort(drug_order)[require_drug_pair_idx(data.drug_pair_idx)],
         )
         sums = np.zeros((len(sample_order), len(drug_order)))
         counts = np.zeros_like(sums)
-        np.add.at(sums, cells, fit_response(batch))
+        np.add.at(sums, cells, get_response(data))
         np.add.at(counts, cells, 1.0)
         return np.divide(sums, counts, out=np.full_like(sums, np.nan), where=counts > 0)
 
@@ -152,13 +151,13 @@ class SRMFPredictor(Predictor):
     # Predict
     # ------------------------------------------------------------------
 
-    def _predict(self, batch: ModelInputBatch) -> np.ndarray:
+    def _predict(self, data: PredictorInput) -> np.ndarray:
         """Predict responses using learned latent factors.
 
-        :param batch: Featurized pairs to score.
+        :param data: Featurized pairs to score.
         :returns: One predicted response per pair.
         """
-        drug_ids, sample_ids = batch.drug_ids.astype(str), batch.sample_ids.astype(str)
+        drug_ids, sample_ids = data.drug_ids.astype(str), data.sample_ids.astype(str)
         best_u = np.ascontiguousarray(self._best_u.reindex(drug_ids).to_numpy())
         best_v = np.ascontiguousarray(self._best_v.reindex(sample_ids).to_numpy())
         known = np.isin(drug_ids, self._best_u.index) & np.isin(sample_ids, self._best_v.index)

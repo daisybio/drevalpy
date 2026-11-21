@@ -141,7 +141,7 @@ run fail the test instead of being recorded:
 
    import drevalpy
    from drevalpy import ModelSpec
-   from drevalpy.testing import FEATURIZER_CHECKS, PREDICTOR_CHECKS, build_synthetic_batch, check_plugin
+   from drevalpy.testing import FEATURIZER_CHECKS, PREDICTOR_CHECKS, build_synthetic_input, check_plugin
 
    from my_plugin.featurizers import TopGenes
    from my_plugin.predictors import Ridge
@@ -158,7 +158,7 @@ run fail the test instead of being recorded:
 
    @pytest.mark.parametrize("check", PREDICTOR_CHECKS)
    def test_predictor_conforms(check):
-       check(Ridge, build_synthetic_batch(drevalpy.synthetic(), sample_block_names=("gene_expression",)))
+       check(Ridge, build_synthetic_input(drevalpy.synthetic(), sample_block_names=("gene_expression",)))
 
 
    def test_preset_runs_end_to_end():

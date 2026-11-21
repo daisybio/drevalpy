@@ -36,9 +36,9 @@ from tests.registry._helpers import empty_component_registries, restore_builtin_
 
 _SAMPLE_FEATURIZER_SOURCE = """
 import numpy as np
-from drevalpy.components.contracts.feature_format import FeatureFormat
+from drevalpy.components.contracts.feature_format import BlockSpec, FeatureFormat
 from drevalpy.components.featurizers.featurizer import Featurizer
-from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult, numeric_feature_block
+from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
 from drevalpy.registry.featurizer import register as register_featurizer
 
 
@@ -53,7 +53,7 @@ class ToySampleFeaturizer(Featurizer):
 
     def transform(self, source, ids):
         values = np.ones((len(ids), 1), dtype=np.float32)
-        return FeaturizerResult(ids, {{"toy": numeric_feature_block(values)}}, ("toy",))
+        return FeaturizerOutput(ids, {{"toy": FeatureBlock(values)}})
 """
 
 _TOY_PREDICTOR_TEMPLATE = """\

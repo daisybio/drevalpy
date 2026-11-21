@@ -13,7 +13,7 @@ import numpy as np
 from drevalpy import synthetic
 from drevalpy.plugin import CurveQuality, ModelResult
 from drevalpy.registry import splitter
-from drevalpy.testing import FEATURIZER_CHECKS, PREDICTOR_CHECKS, build_synthetic_batch
+from drevalpy.testing import FEATURIZER_CHECKS, PREDICTOR_CHECKS, build_synthetic_input
 from drevalpy.types.results import RunResult
 
 from .toy_block_predictor import BLOCK, ToyBlockRidgePredictor
@@ -32,18 +32,18 @@ def check_components() -> None:
     """Run every shipped check against every toy featurizer and predictor.
 
     ``synthetic`` holds the ``gene_expression`` view by default; the ``omics``
-    argument names the sample views ``ToySampleFeaturizer`` reads. ``build_synthetic_batch``
+    argument names the sample views ``ToySampleFeaturizer`` reads. ``build_synthetic_input``
     skips featurization entirely and draws the feature matrices, which is what makes a
     predictor testable on its own.
     """
     dataset = synthetic(omics=["gene_expression"])
-    batch = build_synthetic_batch(dataset, sample_block_names=(BLOCK,))
+    data = build_synthetic_input(dataset, sample_block_names=(BLOCK,))
     for check in FEATURIZER_CHECKS:
         for featurizer in FEATURIZERS:
             check(featurizer, dataset)
     for check in PREDICTOR_CHECKS:
         for predictor in PREDICTORS:
-            check(predictor, batch)
+            check(predictor, data)
 
 
 def check_splitter() -> None:
