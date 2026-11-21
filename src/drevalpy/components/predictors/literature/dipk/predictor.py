@@ -16,7 +16,7 @@ import numpy as np
 from drevalpy.components.contracts.feature_format import BlockSpec, FeatureFormat
 from drevalpy.components.contracts.hyperparameter_space import fixed_entries
 from drevalpy.components.predictors._pair_loader import collect_predictions
-from drevalpy.components.predictors.abstract.base import Predictor, response_rows
+from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.components.predictors.literature._early_stopping import (
     EarlyStoppingRun,
@@ -154,7 +154,7 @@ class DIPKPredictor(DevicePicklingMixin, Predictor):
         )
 
         es_response = data.early_stopping
-        cl_pair_idx_es, drug_pair_idx_es = response_rows(data, es_response)
+        cl_pair_idx_es, drug_pair_idx_es = data.early_stopping_sample_idx, data.early_stopping_drug_idx
         if drug_pair_idx_es is None:
             msg = "DIPK requires drug pair indices for early stopping"
             raise ValueError(msg)

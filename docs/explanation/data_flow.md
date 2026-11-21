@@ -283,7 +283,7 @@ Subclasses then consume `data` in one of three patterns:
   `data.sample_pair_idx` and `data.drug_pair_idx`. PyTorch predictors wrap these arrays in a
   lazy pair `DataLoader` so full pair-level feature matrices are never materialized in memory;
   early-stopping pairs are indexed into the same entity tables via
-  `response_rows(data, data.early_stopping)`.
+  `data.early_stopping_sample_idx` and `data.early_stopping_drug_idx`.
 
 ```{code-cell} ipython3
 from drevalpy.components.predictors.sklearn_models import ElasticNetPredictor

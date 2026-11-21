@@ -17,20 +17,8 @@ from drevalpy.types.enums.prediction_mode import PredictionMode
 
 if TYPE_CHECKING:
     from drevalpy.types.data.predictor_input import PredictorInput
-    from drevalpy.types.data.response_table import ResponseTable
 
 _logger = get_logger(__name__)
-
-
-def response_rows(data: PredictorInput, response: ResponseTable) -> tuple[np.ndarray, np.ndarray | None]:
-    """Index the pairs of *response* (usually early stopping) into *data*'s entity tables.
-
-    :param data: Input whose sample and drug feature tables are indexed.
-    :param response: Pairs to look up.
-    :returns: ``(sample_rows, drug_rows)``; ``drug_rows`` is ``None`` when *data* has no drug features.
-    """
-    sample_rows = data.sample.rows_for(response.sample_ids)
-    return sample_rows, None if data.drug is None else data.drug.rows_for(response.drug_ids)
 
 
 class Predictor(TunableComponent, ABC):

@@ -16,7 +16,7 @@ import numpy as np
 
 from drevalpy.components.contracts.feature_format import BlockSpec
 from drevalpy.components.contracts.hyperparameter_space import fixed_entries
-from drevalpy.components.predictors.abstract.base import Predictor, response_rows
+from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.components.predictors.literature._metadata import ENSEMBLEMF_REFERENCE
 from drevalpy.components.predictors.literature._torch_utils import DevicePicklingMixin
@@ -142,7 +142,7 @@ class EnsembleMFPredictor(DevicePicklingMixin, Predictor):
         validation = None
         if data.early_stopping is not None:
             stop = data.early_stopping
-            stop_sample, stop_drug = response_rows(data, stop)
+            stop_sample, stop_drug = data.early_stopping_sample_idx, data.early_stopping_drug_idx
             validation = self._pairs(
                 sample_pos[stop_sample], drug_pos[np.asarray(stop_drug)], np.asarray(stop.response)
             )

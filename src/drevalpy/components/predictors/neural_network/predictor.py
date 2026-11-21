@@ -8,7 +8,7 @@ import numpy as np
 
 from drevalpy.components.predictors._lightning_training import LightningRun, reload_best_weights, run_lightning_fit
 from drevalpy.components.predictors._pair_loader import collect_predictions, make_pair_loader
-from drevalpy.components.predictors.abstract.base import Predictor, response_rows
+from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.registry.predictor import register
 from drevalpy.types.data.predictor_input import PredictorInput
@@ -158,8 +158,9 @@ class NeuralNetworkPredictor(Predictor):
         y_val = np.asarray(es_resp.response, dtype=np.float32).reshape(-1)
         if len(y_val) == 0:
             return None
-        es_cell_idx, es_drug_idx = response_rows(data, es_resp)
-        return self._build_pair_loader(data, es_cell_idx, es_drug_idx, y_val, shuffle=False, drop_last=False)
+        return self._build_pair_loader(
+            data, data.early_stopping_sample_idx, data.early_stopping_drug_idx, y_val, shuffle=False, drop_last=False
+        )
 
     def _train_with_optional_early_stopping(self, data: PredictorInput, model: FeedForwardNetwork) -> None:
         """Train *model*, early-stopping on validation loss when validation pairs exist.

@@ -26,7 +26,9 @@ def _model_input(*, drug=True, stopping=None) -> PredictorInput:
         np.array(["cl1", "cl2"]), {"view": FeatureBlock(np.array([[0.1, 0.2], [0.3, 0.4]]))}
     )
     drug_result = (
-        FeaturizerOutput(np.array(["d1", "d2"]), {"view": FeatureBlock(np.array([[1.0, 0.0], [0.0, 1.0]]))})
+        FeaturizerOutput(
+            np.array(["d1", "d2", "d3"]), {"view": FeatureBlock(np.array([[1.0, 0.0], [0.0, 1.0], [1.0, 1.0]]))}
+        )
         if drug
         else None
     )
@@ -89,6 +91,26 @@ class TestConstruction:
         data = _model_input()
         with pytest.raises(FrozenInstanceError):
             data.early_stopping = None  # type: ignore[misc]
+
+
+class TestEarlyStoppingRows:
+    def test_stopping_pairs_are_indexed_into_the_same_entity_tables(self) -> None:
+        stopping = ResponseTable(np.array([0.5, 0.6]), np.array(["cl2", "cl1"]), np.array(["d3", "d1"]))
+        data = _model_input(stopping=stopping)
+        assert data.early_stopping_sample_idx is not None and data.early_stopping_sample_idx.tolist() == [1, 0]
+        assert data.early_stopping_drug_idx is not None and data.early_stopping_drug_idx.tolist() == [2, 0]
+
+    def test_there_are_no_stopping_rows_without_stopping_pairs_or_drug_features(self) -> None:
+        data = _model_input()
+        assert data.early_stopping_sample_idx is None and data.early_stopping_drug_idx is None
+        stopping = ResponseTable(np.array([0.5]), np.array(["cl1"]), np.array(["d1"]))
+        featureless = _model_input(drug=False, stopping=stopping)
+        assert featureless.early_stopping_sample_idx is not None and featureless.early_stopping_drug_idx is None
+
+    def test_a_stopping_entity_missing_from_the_tables_is_rejected(self) -> None:
+        stopping = ResponseTable(np.array([0.5]), np.array(["cl1"]), np.array(["missing"]))
+        with pytest.raises(ValueError, match="Missing identifiers"):
+            _model_input(stopping=stopping)
 
 
 class TestToFeatureMatrix:

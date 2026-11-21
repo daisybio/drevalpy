@@ -15,7 +15,7 @@ import numpy as np
 from drevalpy.components.contracts.feature_format import BlockSpec
 from drevalpy.components.contracts.hyperparameter_space import fixed_entries
 from drevalpy.components.predictors._pair_loader import make_pair_loader
-from drevalpy.components.predictors.abstract.base import Predictor, response_rows
+from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.components.predictors.literature._early_stopping import (
     EarlyStoppingRun,
@@ -131,7 +131,7 @@ class PharmaFormerPredictor(DevicePicklingMixin, Predictor):
         )
 
         es_response = data.early_stopping
-        es_cell_pair_idx, es_drug_pair_idx = response_rows(data, es_response)
+        es_cell_pair_idx, es_drug_pair_idx = data.early_stopping_sample_idx, data.early_stopping_drug_idx
         val_loader = make_pair_loader(
             (gene_entity, es_cell_pair_idx),
             (drug_entity, require_drug_pair_idx(es_drug_pair_idx)),
