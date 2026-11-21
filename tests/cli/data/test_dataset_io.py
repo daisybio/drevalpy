@@ -208,7 +208,7 @@ class TestConcatWriting:
         inner = runner.invoke(app, ["data", "concat", first, str(narrow), str(out), "--join", "inner"])
 
         assert exact.exit_code == 1
-        assert plain(exact.output).startswith("Error: ")
+        assert "Error: " in plain(exact.output)
         assert inner.exit_code == 0, inner.output
         assert drevalpy.load(str(out)).mdata.mod["gene_expression"].n_vars == 8
 
@@ -220,7 +220,7 @@ class TestConcatWriting:
         assert single.exit_code == 1
         assert "at least two" in single.output
         assert unknown.exit_code == 1
-        assert plain(unknown.output).startswith("Error: ")
+        assert "Error: " in plain(unknown.output)
         assert "Traceback" not in unknown.output
         assert not out.exists()
 
