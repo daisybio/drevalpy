@@ -33,31 +33,25 @@ class PredictorInput:
     drug_pair_idx: np.ndarray | None = field(init=False)
 
     def __post_init__(self) -> None:
-        """Normalize arrays, validate pair lengths, and derive entity row indices."""
-        sample_ids = np.asarray(self.sample_ids)
+        """Validate pair lengths and derive the entity row of every pair.
+
+        :raises ValueError: If a pair array is not one-dimensional with one value per pair.
+        """
+        sample_ids, drug_ids = np.asarray(self.sample_ids), np.asarray(self.drug_ids)
         if sample_ids.ndim != 1:
             raise ValueError("sample_ids must be one-dimensional")
         n = len(sample_ids)
-        drug_ids = np.asarray(self.drug_ids)
-        if drug_ids.ndim != 1 or len(drug_ids) != n:
-            raise ValueError(f"drug_ids must be one-dimensional with {n} entries")
-        response: np.ndarray | None = None
-        if self.response is not None:
-            response = np.asarray(self.response, dtype=np.float64)
-            if response.ndim != 1 or len(response) != n:
-                raise ValueError(f"response must be one-dimensional with {n} entries")
-        layers: dict[str, np.ndarray] = {}
-        for name, values in self.response_layers.items():
-            arr = np.asarray(values)
-            if arr.ndim != 1 or len(arr) != n:
-                raise ValueError(f"Response layer {name!r} must be one-dimensional with {n} entries")
-            layers[name] = arr
+        pair_arrays = {"drug_ids": drug_ids, "response": self.response}
+        pair_arrays |= {f"response layer {name!r}": values for name, values in self.response_layers.items()}
+        for name, values in pair_arrays.items():
+            if values is not None and (np.ndim(values) != 1 or len(values) != n):
+                raise ValueError(f"{name} must be one-dimensional with {n} entries")
         object.__setattr__(self, "sample_ids", sample_ids)
         object.__setattr__(self, "drug_ids", drug_ids)
-        object.__setattr__(self, "response", response)
-        object.__setattr__(self, "response_layers", layers)
-        object.__setattr__(self, "sample_pair_idx", self.sample.rows_for(sample_ids))
-        object.__setattr__(self, "drug_pair_idx", None if self.drug is None else self.drug.rows_for(drug_ids))
+        if self.response is not None:
+            object.__setattr__(self, "response", np.asarray(self.response, dtype=np.float64))
+        object.__setattr__(self, "sample_pair_idx", self.sample.rows_for(self.sample_ids))
+        object.__setattr__(self, "drug_pair_idx", None if self.drug is None else self.drug.rows_for(self.drug_ids))
 
     def __len__(self) -> int:
         """Return the number of requested sample/drug response pairs.
@@ -114,7 +108,7 @@ class PredictorInput:
             arrays.append(matrix[indices])
         if not arrays:
             return np.empty((len(self), 0), dtype=np.float32)
-        return arrays[0] if len(arrays) == 1 else np.concatenate(arrays, axis=1)
+        return np.concatenate(arrays, axis=1)
 
     def __getitem__(self, selector: np.ndarray | slice) -> PredictorInput:
         """Select pairs by boolean/integer mask or slice, sharing entity payloads and restricting stopping drugs.
@@ -133,11 +127,8 @@ class PredictorInput:
         selected_drugs = self.drug_ids[index]
         stopping = self.early_stopping
         if stopping is not None:
-            if len(selected_drugs) == 0:
-                stopping = None
-            else:
-                keep = np.isin(stopping.drug_ids, np.unique(selected_drugs))
-                stopping = stopping[keep] if keep.any() else None
+            keep = np.isin(stopping.drug_ids, np.unique(selected_drugs))
+            stopping = stopping[keep] if keep.any() else None
         return replace(
             self,
             sample_ids=self.sample_ids[index],
