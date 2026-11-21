@@ -70,7 +70,7 @@ Typer cannot take `UPath` in a CLI parameter annotation: take `str` and convert 
 function body. Open files in a `with` block (`UPath.open`), so Windows can delete or replace
 them afterwards, and read and write text with `encoding="utf-8"`.
 
-Support Python 3.11 to 3.13. On 3.11, `"x" in SomeStrEnum` raises `TypeError`: test
+Support Python 3.11 to 3.14. On 3.11, `"x" in SomeStrEnum` raises `TypeError`: test
 membership against the values.
 
 ## Tests

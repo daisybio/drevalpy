@@ -56,7 +56,8 @@ def _pool(n_jobs: int) -> Iterator[None]:
 
     ``joblib.effective_n_jobs`` resolves -1 to all cores, but to 1 inside the workers of a per-drug parallel
     run, where the drugs already run in parallel. With one process, the trees are grown in this process
-    instead of in a child.
+    instead of in a child. The workers alias fireducks themselves (``initializer``): since Python 3.14 the
+    default start method on Linux is ``forkserver``, whose clean workers do not inherit the alias.
 
     :param n_jobs: Number of processes, -1 for all cores.
     :yields: Nothing; the package's ``Pool`` is swapped inside the block.
@@ -66,7 +67,11 @@ def _pool(n_jobs: int) -> Iterator[None]:
 
     processes = joblib.effective_n_jobs(n_jobs)
     original = morgoth_module.Pool
-    morgoth_module.Pool = partial(ThreadPool, 1) if processes == 1 else partial(multiprocessing.Pool, processes)
+    morgoth_module.Pool = (
+        partial(ThreadPool, 1)
+        if processes == 1
+        else partial(multiprocessing.Pool, processes, initializer=alias_fireducks)
+    )
     try:
         yield
     finally:
