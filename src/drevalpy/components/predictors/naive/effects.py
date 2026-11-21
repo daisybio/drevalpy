@@ -7,7 +7,7 @@ from typing import ClassVar
 import numpy as np
 
 from drevalpy.components.contracts.feature_format import BlockSpec
-from drevalpy.components.predictors.abstract.base import Predictor, get_response
+from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.components.predictors.naive._matrix_means import (
     additive_effects,
@@ -53,7 +53,7 @@ class NaiveMeanEffectsPredictor(Predictor):
         :param data: Training batch; tissue effects are fitted first, then sample effects on the residual, then drug
             effects.
         """
-        y = get_response(data)
+        y = data.response
         cell, tissue = self._cell_and_tissue(data)
         drugs = np.asarray(require_pair_matrix(data, side="drug"), dtype=np.float64)
         self._dataset_mean = float(np.mean(y))

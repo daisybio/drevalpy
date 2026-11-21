@@ -6,7 +6,6 @@ from typing import Any
 
 import numpy as np
 
-from drevalpy.components.predictors.abstract.base import get_response
 from drevalpy.components.predictors.abstract.single_drug import SingleDrugPredictor
 from drevalpy.components.predictors.sklearn_tabular import SklearnTabularPredictor
 from drevalpy.types.data.predictor_input import PredictorInput
@@ -23,7 +22,7 @@ class SingleDrugSklearnPredictor(SingleDrugPredictor, SklearnTabularPredictor):
         :returns: The fitted estimator.
         """
         estimator = self._make_estimator()
-        estimator.fit(_sample_matrix(data), get_response(data).ravel())
+        estimator.fit(_sample_matrix(data), data.response.ravel())
         return estimator
 
     def _predict_drug(self, drug_id: str, model: Any, data: PredictorInput) -> np.ndarray:

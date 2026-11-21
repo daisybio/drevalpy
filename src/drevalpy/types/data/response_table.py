@@ -28,13 +28,15 @@ class ResponseTable:
     layers: Mapping[str, np.ndarray] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        """Check that every layer holds one value per pair.
+        """Check that every identifier array and layer holds one value per pair.
 
-        :raises ValueError: If a layer is not one-dimensional with one value per pair.
+        :raises ValueError: If an array is not one-dimensional with one value per pair.
         """
-        for name, values in self.layers.items():
+        arrays = {"response": self.response, "sample_ids": self.sample_ids, "drug_ids": self.drug_ids}
+        arrays |= {f"Response layer {name!r}": values for name, values in self.layers.items()}
+        for name, values in arrays.items():
             if np.ndim(values) != 1 or len(values) != len(self.response):
-                raise ValueError(f"Response layer {name!r} must be one-dimensional with one value per pair")
+                raise ValueError(f"{name} must be one-dimensional with one value per pair")
 
     @classmethod
     def from_dataset(

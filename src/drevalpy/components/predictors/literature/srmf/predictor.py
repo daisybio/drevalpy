@@ -14,7 +14,7 @@ import numpy as np
 
 from drevalpy.components.contracts.feature_format import BlockSpec
 from drevalpy.components.contracts.hyperparameter_space import fixed_entries
-from drevalpy.components.predictors.abstract.base import Predictor, get_response
+from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.components.predictors.literature._metadata import SRMF_REFERENCE
 from drevalpy.components.predictors.literature._pair_predict import require_drug_pair_idx
@@ -143,7 +143,7 @@ class SRMFPredictor(Predictor):
         )
         sums = np.zeros((len(sample_order), len(drug_order)))
         counts = np.zeros_like(sums)
-        np.add.at(sums, cells, get_response(data))
+        np.add.at(sums, cells, data.response)
         np.add.at(counts, cells, 1.0)
         return np.divide(sums, counts, out=np.full_like(sums, np.nan), where=counts > 0)
 

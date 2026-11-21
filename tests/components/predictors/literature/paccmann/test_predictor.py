@@ -180,7 +180,7 @@ def test_inputs_missing_vocabulary_metadata_or_drug_features_are_rejected(tmp_pa
         PaccMannPredictor(TINY).fit(_batch(tmp_path, metadata=False))
 
     sample, _ = _tables()
-    batch = PredictorInput.from_response(
+    batch = PredictorInput(
         ResponseTable(
             response=np.zeros(2, dtype=np.float32), sample_ids=np.array(["s0", "s1"]), drug_ids=np.array(["d0", "d0"])
         ),

@@ -6,7 +6,7 @@ from typing import ClassVar
 
 import numpy as np
 
-from drevalpy.components.predictors.abstract.base import Predictor, get_response
+from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.components.predictors.naive._matrix_means import (
     additive_effects,
@@ -31,7 +31,7 @@ class SingleEntityNaivePredictor(Predictor):
 
         :param data: Training batch; its responses give the dataset mean and the per-entity effects.
         """
-        y = get_response(data)
+        y = data.response
         design = self._design(data)
         self._dataset_mean = float(np.mean(y))
         self._effects = additive_effects(design, y, baseline=self._dataset_mean)

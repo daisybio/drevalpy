@@ -174,7 +174,7 @@ def test_unfitted_predictor_refuses_to_predict() -> None:
 
 def test_a_batch_without_drug_features_is_rejected(tmp_path) -> None:
     sample, _ = _tables()
-    batch = PredictorInput.from_response(
+    batch = PredictorInput(
         ResponseTable(
             response=np.zeros(2, dtype=np.float32), sample_ids=np.array(["s0", "s1"]), drug_ids=np.array(["d0", "d0"])
         ),

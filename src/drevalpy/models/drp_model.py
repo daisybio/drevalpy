@@ -313,12 +313,12 @@ class DRPModel:
                 )
             )
         sample, drug = results
-        return PredictorInput.from_response(
+        return PredictorInput(
             response,
             sample=sample,
             drug=drug if self._drug_featurizer is not None else None,
             early_stopping=early_stopping,
-            training_context=training_context,
+            training_context=training_context or TrainingContext(),
         )
 
     def predict(self, dataset: Dataset, scope: SelectionMask) -> np.ndarray:

@@ -7,7 +7,7 @@ from typing import ClassVar
 import numpy as np
 
 from drevalpy.components.contracts.feature_format import BlockSpec
-from drevalpy.components.predictors.abstract.base import Predictor, get_response
+from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.components.predictors.naive._matrix_means import require_pair_matrix
 from drevalpy.components.predictors.naive._single_entity import SingleEntityNaivePredictor
@@ -64,7 +64,7 @@ class NaiveTissueDrugMeanPredictor(Predictor):
         if tissue.shape[1] == 0 or drugs.shape[1] == 0:
             msg = "NaiveTissueDrugMeanPredictor requires tissue featurizer output"
             raise ValueError(msg)
-        y = get_response(data)
+        y = data.response
         self._dataset_mean = float(np.mean(y))
         tissue64 = np.asarray(tissue, dtype=np.float64)
         drugs64 = np.asarray(drugs, dtype=np.float64)

@@ -7,7 +7,7 @@ from typing import ClassVar
 
 import numpy as np
 
-from drevalpy.components.predictors.abstract.base import Predictor, get_response
+from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.types.data.predictor_input import PredictorInput
 
@@ -23,7 +23,7 @@ class MatrixPredictor(Predictor):
 
         :param data: Featurized pairs with training responses.
         """
-        self._fit_matrix(data.to_feature_matrix(), get_response(data))
+        self._fit_matrix(data.to_feature_matrix(), data.response)
 
     def _predict(self, data: PredictorInput) -> np.ndarray:
         """Predict from a dense pair-level design matrix built from *data*.

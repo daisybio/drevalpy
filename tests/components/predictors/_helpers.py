@@ -57,7 +57,7 @@ def neural_batch(*, with_early_stopping: bool = False) -> PredictorInput:
             sample_ids=np.array(["cl1", "cl2"]),
             drug_ids=np.array(["d1", "d2"]),
         )
-    return PredictorInput.from_response(
+    return PredictorInput(
         response,
         sample=FeaturizerOutput(np.array(["cl1", "cl2"]), {"gene_expression": FeatureBlock(sample_features)}),
         drug=FeaturizerOutput(np.array(["d1", "d2"]), {"fingerprints": FeatureBlock(drug_features)}),

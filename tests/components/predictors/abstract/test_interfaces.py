@@ -18,7 +18,7 @@ from drevalpy.models.config import PredictorConfig
 from drevalpy.registry._component import predictor_component_metadata
 from drevalpy.registry.predictor import predictor_registry
 from drevalpy.testing import build_synthetic_input
-from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
+from drevalpy.types.data.feature_block import FeatureBlock
 from drevalpy.types.data.predictor_input import PredictorInput
 from drevalpy.types.data.response_table import ResponseTable
 from tests.components.predictors.literature._helpers import two_by_two_batch
@@ -154,38 +154,3 @@ def test_is_fitted_turns_true_once_fit_completes() -> None:
     assert predictor.is_fitted() is False
     predictor.fit(build_synthetic_input(build_synthetic_dataset()))
     assert predictor.is_fitted() is True
-
-
-def test_matrix_predictor_cannot_build_a_design_matrix_without_a_response() -> None:
-    class _Recording(MatrixPredictor):
-        def _fit_matrix(self, x: np.ndarray, y: np.ndarray) -> None:
-            raise AssertionError("should not be reached")
-
-        def _predict_matrix(self, x: np.ndarray) -> np.ndarray:
-            return np.zeros(len(x))
-
-    batch = PredictorInput(
-        sample_ids=np.array(["e0", "e1"]),
-        drug_ids=_ids(2),
-        response=None,
-        sample=FeaturizerOutput(np.array(["e0", "e1"]), {"view": FeatureBlock(np.ones((2, 1)))}),
-        drug=None,
-    )
-
-    with pytest.raises(RuntimeError, match="data.response is required for fit"):
-        _Recording()._fit(batch)
-
-
-@pytest.mark.parametrize(
-    ("drug_length", "response_length", "message"),
-    [(2, 3, "drug_ids must be one-dimensional"), (3, 2, "response must be one-dimensional")],
-)
-def test_batch_rejects_length_mismatches(drug_length: int, response_length: int, message: str) -> None:
-    with pytest.raises(ValueError, match=message):
-        PredictorInput(
-            sample_ids=_ids(3),
-            drug_ids=_ids(drug_length),
-            response=np.ones(response_length),
-            sample=FeaturizerOutput(_ids(3), {}),
-            drug=None,
-        )

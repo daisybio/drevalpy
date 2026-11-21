@@ -100,7 +100,7 @@ def train_validation_batch(
     validation = ResponseTable(
         response=np.array([0.25, 2.25], dtype=np.float32), sample_ids=np.array(["val-1", "val-2"]), drug_ids=drug_ids
     )
-    return PredictorInput.from_response(
+    return PredictorInput(
         training,
         sample=FeaturizerOutput(np.array(["train-1", "train-2", "val-1", "val-2"]), sample_blocks),
         drug=FeaturizerOutput(drug_ids, drug_blocks),
@@ -125,7 +125,7 @@ def entity_pair_batch(
         sample_ids=np.array(["v0", "v1"]),
         drug_ids=np.array(["d0", "d1"]),
     )
-    return PredictorInput.from_response(
+    return PredictorInput(
         ResponseTable(
             response=np.zeros(len(sample_ids), dtype=np.float32) if response is None else response,
             sample_ids=np.asarray(sample_ids),
@@ -134,7 +134,9 @@ def entity_pair_batch(
         sample=sample,
         drug=drug,
         early_stopping=stopping if early_stopping else None,
-        training_context=None if checkpoint_dir is None else TrainingContext(checkpoint_dir=checkpoint_dir),
+        training_context=TrainingContext()
+        if checkpoint_dir is None
+        else TrainingContext(checkpoint_dir=checkpoint_dir),
     )
 
 
@@ -169,7 +171,7 @@ def single_drug_omics_batch(checkpoint_dir: Any) -> PredictorInput:
     )
     widths = {"gene_expression": 6, "mutations": 5, "copy_number_variation_gistic": 4}
     blocks = {name: FeatureBlock(rng.normal(size=(8, width)).astype(np.float32)) for name, width in widths.items()}
-    return PredictorInput.from_response(
+    return PredictorInput(
         training,
         sample=FeaturizerOutput(sample_ids, blocks),
         drug=FeaturizerOutput(
@@ -356,9 +358,7 @@ def two_by_two_batch(
 ) -> PredictorInput:
     response = multi_drug_response() if response is None else response
     return PredictorInput(
-        response.sample_ids,
-        response.drug_ids,
-        response.response,
+        response,
         FeaturizerOutput(SAMPLE_IDS, sample_blocks),
         FeaturizerOutput(
             DRUG_IDS,

@@ -22,18 +22,6 @@ if TYPE_CHECKING:
 _logger = get_logger(__name__)
 
 
-def get_response(data: PredictorInput) -> np.ndarray:
-    """Return the training responses of *data*, which :meth:`Predictor.fit` has checked are present.
-
-    :param data: Input passed to ``_fit``.
-    :returns: ``data.response``.
-    :raises RuntimeError: If *data* has no responses, i.e. ``_fit`` was called directly on a prediction input.
-    """
-    if data.response is None:
-        raise RuntimeError("data.response is required for fit")
-    return data.response
-
-
 def response_rows(data: PredictorInput, response: ResponseTable) -> tuple[np.ndarray, np.ndarray | None]:
     """Index the pairs of *response* (usually early stopping) into *data*'s entity tables.
 
@@ -91,11 +79,10 @@ class Predictor(TunableComponent, ABC):
         """Validate the input, filter NaN pairs, and delegate to ``_fit``.
 
         :param data: Featurized sample/drug pairs with training responses.
-        :raises ValueError: If *data* has no response values.
+        :raises ValueError: If *data* has pairs but none of them has a response.
         """
-        if data.response is None:
-            msg = "Predictors require response values during fit"
-            raise ValueError(msg)
+        if len(data) and np.isnan(data.response).all():
+            raise ValueError("Predictors require response values during fit")
         valid_mask = self._valid_pair_mask(data)
         valid_mask &= ~np.isnan(data.response)
         self._warn_if_above_threshold(valid_mask, f"{type(self).__name__}.fit")
@@ -113,14 +100,7 @@ class Predictor(TunableComponent, ABC):
         """
         response = data.early_stopping
         if response is not None:
-            stopping = replace(
-                data,
-                sample_ids=response.sample_ids,
-                drug_ids=response.drug_ids,
-                response=response.response,
-                early_stopping=None,
-                response_layers=response.layers,
-            )
+            stopping = replace(data, pairs=response, early_stopping=None)
             keep = self._valid_pair_mask(stopping) & ~np.isnan(response.response)
             response = response[keep]
         if self.requires_early_stopping and (response is None or len(response) == 0):
@@ -129,7 +109,7 @@ class Predictor(TunableComponent, ABC):
 
     @abstractmethod
     def _fit(self, data: PredictorInput) -> None:
-        """Subclass fitting logic (response is guaranteed non-None).
+        """Subclass fitting logic (at least one pair has a response).
 
         :param data: Featurized sample/drug pairs with training responses.
         """

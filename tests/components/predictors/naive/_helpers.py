@@ -6,6 +6,7 @@ import numpy as np
 
 from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
 from drevalpy.types.data.predictor_input import PredictorInput
+from drevalpy.types.data.response_table import ResponseTable
 
 
 def one_hot(labels: list[str] | np.ndarray, categories: list[str]) -> np.ndarray:
@@ -99,9 +100,11 @@ def naive_batch(
     if not drug_blocks:
         drug_blocks = {"matrix": FeatureBlock(np.asarray(drug_features, dtype=np.float64))}
     return PredictorInput(
-        sample_ids=sample_ids,
-        drug_ids=drug_ids,
-        response=response,
+        ResponseTable(
+            response=np.full(len(sample_ids), np.nan) if response is None else np.asarray(response, dtype=np.float64),
+            sample_ids=sample_ids,
+            drug_ids=drug_ids,
+        ),
         sample=FeaturizerOutput(cell_entities, cell_blocks),
         drug=FeaturizerOutput(drug_entities, drug_blocks),
     )

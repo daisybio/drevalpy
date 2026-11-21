@@ -90,7 +90,7 @@ def build_synthetic_input(
         drug_blocks = {name: FeatureBlock(drug_features) for name in drug_names}
         drug_result = FeaturizerOutput(drug_entity_ids, drug_blocks)
 
-    return PredictorInput.from_response(
+    return PredictorInput(
         _learnable_response(response, sample_features, sample_result.rows_for(response.sample_ids), rng),
         sample=sample_result,
         drug=drug_result,

@@ -72,7 +72,7 @@ def _batch(
     )
     values = np.arange(n_samples * n_features, dtype=np.float64).reshape(n_samples, n_features)
     sample = FeaturizerOutput(sample_ids, {"gene_expression": FeatureBlock(values)})
-    return PredictorInput.from_response(
+    return PredictorInput(
         response,
         sample=sample,
         early_stopping=early_stopping,
@@ -130,11 +130,12 @@ def test_response_layers_stay_aligned_through_the_nan_filter_and_the_per_drug_cu
         np.array([5.0, 6.0]), np.array(["s0", "s1"]), np.array(["d1", "d2"]), {"regulation": np.array([1.0, 0.0])}
     )
     batch = _batch({"d1": [2, 0, 1], "d2": [1, 2]}, n_jobs=n_jobs, early_stopping=stopping)
-    batch = replace(
-        batch,
+    pairs = replace(
+        batch.pairs,
         response=np.array([0.0, np.nan, 2.0, 3.0, 4.0]),
-        response_layers={"regulation": np.array([-1.0, 1.0, 0.0, np.nan, -1.0])},
+        layers={"regulation": np.array([-1.0, 1.0, 0.0, np.nan, -1.0])},
     )
+    batch = replace(batch, pairs=pairs)
 
     models = _fit(batch)
 
@@ -160,9 +161,11 @@ def test_pairs_are_scored_by_their_drugs_model_and_drugs_without_one_get_nan() -
     predictor.fit(_batch({"d1": [0, 1], "skip": [2], "d2": [0, 2]}))
     assert set(predictor._models) == {"d1", "d2"}
 
-    query = ResponseTable(None, np.array(["s0", "s1", "s2", "s0"]), np.array(["d2", "skip", "d1", "unseen"]))
+    query = ResponseTable(
+        np.full(4, np.nan), np.array(["s0", "s1", "s2", "s0"]), np.array(["d2", "skip", "d1", "unseen"])
+    )
     sample = _batch({"d1": [0]}).sample
-    predictions = predictor.predict(PredictorInput.from_response(query, sample=sample))
+    predictions = predictor.predict(PredictorInput(query, sample=sample))
 
     np.testing.assert_array_equal(predictions[[0, 2]], [3.5, 0.5])
     assert np.isnan(predictions[[1, 3]]).all()
@@ -241,10 +244,8 @@ def test_elastic_net_fits_one_estimator_per_drug_on_sample_features_only() -> No
     assert SingleDrugElasticNetPredictor.drug_inputs.kind == "none"
     assert set(predictor._models) == {"d1", "d2"}
     assert {estimator.n_features_in_ for estimator in predictor._models.values()} == {3}
-    query = ResponseTable(None, np.array(["s0", "s0", "s0"]), np.array(["d1", "d2", "d3"]))
-    predictions = predictor.predict(
-        PredictorInput.from_response(query, sample=_batch({"d1": [0]}, n_features=3).sample)
-    )
+    query = ResponseTable(np.full(3, np.nan), np.array(["s0", "s0", "s0"]), np.array(["d1", "d2", "d3"]))
+    predictions = predictor.predict(PredictorInput(query, sample=_batch({"d1": [0]}, n_features=3).sample))
     assert predictions[0] < predictions[1]
     assert np.isnan(predictions[2])
 

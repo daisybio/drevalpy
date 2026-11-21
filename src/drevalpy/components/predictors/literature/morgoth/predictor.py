@@ -11,7 +11,6 @@ from typing import Any, ClassVar
 
 import numpy as np
 
-from drevalpy.components.predictors.abstract.base import get_response
 from drevalpy.components.predictors.literature._metadata import MORGOTH_REFERENCE
 from drevalpy.components.predictors.single_drug_sklearn import SingleDrugSklearnPredictor, _sample_matrix
 from drevalpy.log import get_logger
@@ -91,7 +90,7 @@ class SingleDrugMorgothPredictor(SingleDrugSklearnPredictor):
         if not keep.any():
             return None
         estimator = self._make_estimator()
-        estimator.fit(_sample_matrix(data)[keep], get_response(data)[keep], morgoth__y_class=y_class)
+        estimator.fit(_sample_matrix(data)[keep], data.response[keep], morgoth__y_class=y_class)
         return estimator
 
     @classmethod

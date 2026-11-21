@@ -16,7 +16,7 @@ import numpy as np
 from drevalpy._utils.accelerator import lightning_accelerator
 from drevalpy.components.contracts.feature_format import BlockSpec, FeatureFormat
 from drevalpy.components.predictors._lightning_training import LightningRun, reload_best_weights, run_lightning_fit
-from drevalpy.components.predictors.abstract.base import Predictor, get_response
+from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.components.predictors.literature._pair_predict import require_drug_pair_idx
 from drevalpy.registry.predictor import register
@@ -141,7 +141,7 @@ class DrugGNNPredictor(Predictor):
             require_drug_pair_idx(data.drug_pair_idx),
             sample_matrix,
             drug_graphs,
-            get_response(data),
+            data.response,
             batch_size=int(self._hyperparameters["batch_size"]),
             shuffle=True,
         )

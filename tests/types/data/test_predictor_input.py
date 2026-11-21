@@ -31,18 +31,16 @@ def _model_input(*, drug=True, stopping=None) -> PredictorInput:
         else None
     )
     return PredictorInput(
-        np.array(["cl1", "cl2"]),
-        np.array(["d1", "d2"]),
-        np.array([1.0, 2.0]),
+        ResponseTable(np.array([1.0, 2.0]), np.array(["cl1", "cl2"]), np.array(["d1", "d2"])),
         sample_result,
         drug_result,
         stopping,
     )
 
 
-class TestFromResponse:
+class TestConstruction:
     def test_indexes_entities_in_result_order(self) -> None:
-        data = PredictorInput.from_response(
+        data = PredictorInput(
             _response(("cl2", "cl1", "cl2"), ("d2", "d1", "d2")),
             sample=_entity_result(),
             drug=_entity_result(("d1", "d2")),
@@ -53,55 +51,39 @@ class TestFromResponse:
 
     def test_keeps_the_response_pairs_and_targets(self) -> None:
         response = _response(("cl2", "cl1"), ("d1", "d1"))
-        data = PredictorInput.from_response(response, sample=_entity_result(), drug=_entity_result(("d1", "d2")))
+        data = PredictorInput(response, sample=_entity_result(), drug=_entity_result(("d1", "d2")))
         assert data.sample_ids.tolist() == ["cl2", "cl1"]
         assert data.drug_ids.tolist() == ["d1", "d1"]
         np.testing.assert_array_equal(data.response, response.response)
 
     def test_drug_is_optional(self) -> None:
-        data = PredictorInput.from_response(_response(), sample=_entity_result())
+        data = PredictorInput(_response(), sample=_entity_result())
         assert data.drug is None
         assert data.drug_pair_idx is None
 
     def test_featureless_entity_table_retains_and_indexes_entity_ids(self) -> None:
         featureless = FeaturizerOutput(np.array(["cl1", "cl2"]), {})
-        data = PredictorInput.from_response(_response(), sample=featureless)
+        data = PredictorInput(_response(), sample=featureless)
         assert data.sample_pair_idx.tolist() == [0, 1]
 
     def test_rejects_duplicate_entity_ids(self) -> None:
         duplicate = FeaturizerOutput(np.array(["cl1", "cl1"]), {})
         with pytest.raises(ValueError, match="unique"):
-            PredictorInput.from_response(_response(), sample=duplicate)
+            PredictorInput(_response(), sample=duplicate)
 
     def test_zero_pairs_yield_empty_indices(self) -> None:
         empty = FeaturizerOutput(np.array([], dtype=str), {})
-        data = PredictorInput.from_response(_response((), ()), sample=empty, drug=empty)
+        data = PredictorInput(_response((), ()), sample=empty, drug=empty)
         assert data.sample_pair_idx.size == 0
         assert data.drug_pair_idx is not None and data.drug_pair_idx.size == 0
 
     def test_rejects_missing_pair_ids(self) -> None:
         with pytest.raises(ValueError, match="Missing identifiers"):
-            PredictorInput.from_response(
-                _response(("missing",), ("d1",)), sample=_entity_result(), drug=_entity_result(("d1", "d2"))
-            )
+            PredictorInput(_response(("missing",), ("d1",)), sample=_entity_result(), drug=_entity_result(("d1", "d2")))
         with pytest.raises(ValueError, match="Missing identifiers"):
-            PredictorInput.from_response(
+            PredictorInput(
                 _response(("cl1",), ("missing",)), sample=_entity_result(), drug=_entity_result(("d1", "d2"))
             )
-
-
-class TestConstruction:
-    def test_rejects_non_1d_sample_ids(self) -> None:
-        with pytest.raises(ValueError, match="sample_ids must be one-dimensional"):
-            PredictorInput(np.array("cl1"), np.array(["d1"]), np.array([1.0]), _entity_result())
-
-    def test_coerces_sequences_and_derives_pair_indices(self) -> None:
-        data = PredictorInput(["cl2", "cl1"], ["d1", "d2"], [1.0, 2.0], _entity_result(), _entity_result(("d1", "d2")))
-        assert isinstance(data.sample_ids, np.ndarray)
-        assert isinstance(data.drug_ids, np.ndarray)
-        assert data.sample_pair_idx.tolist() == [1, 0]
-        assert data.drug_pair_idx is not None and data.drug_pair_idx.tolist() == [0, 1]
-        assert len(data) == 2
 
     def test_is_immutable(self) -> None:
         data = _model_input()
@@ -120,21 +102,19 @@ class TestToFeatureMatrix:
 
     def test_featureless_result_has_no_columns(self) -> None:
         empty = FeaturizerOutput(np.array(["cl1"]), {})
-        data = PredictorInput(np.array(["cl1"]), np.array(["d1"]), np.array([1.0]), empty)
+        data = PredictorInput(_response(("cl1",), ("d1",)), empty)
         assert data.to_feature_matrix().shape == (1, 0)
 
     def test_target_free_input_projects_requested_pairs(self) -> None:
         data = PredictorInput(
-            np.array(["cl2", "cl1"]),
-            np.array(["d1", "d1"]),
-            None,
+            ResponseTable(np.full(2, np.nan), np.array(["cl2", "cl1"]), np.array(["d1", "d1"])),
             _entity_result(values=np.array([[1.0], [2.0]])),
         )
         np.testing.assert_allclose(data.to_feature_matrix(), [[2.0], [1.0]])
 
     def test_rejects_a_non_numeric_block(self) -> None:
         text = FeaturizerOutput(np.array(["cl1"]), {"view": FeatureBlock(np.array([["a"]]))})
-        data = PredictorInput(np.array(["cl1"]), np.array(["d1"]), None, text)
+        data = PredictorInput(_response(("cl1",), ("d1",)), text)
         with pytest.raises(ValueError, match="two-dimensional numeric"):
             data.to_feature_matrix()
 
@@ -169,7 +149,7 @@ class TestIndexing:
 
 
 class TestResponseLayers:
-    def test_from_response_carries_the_response_layers(self) -> None:
+    def test_carries_the_response_layers(self) -> None:
         response = ResponseTable(
             np.array([1.0, 2.0]),
             np.array(["cl1", "cl2"]),
@@ -177,7 +157,7 @@ class TestResponseLayers:
             {"regulation": np.array([-1.0, 0.0])},
         )
 
-        data = PredictorInput.from_response(response, sample=_entity_result())
+        data = PredictorInput(response, sample=_entity_result())
 
         assert data.response_layers["regulation"].tolist() == [-1.0, 0.0]
 
@@ -185,7 +165,7 @@ class TestResponseLayers:
         assert dict(_model_input().response_layers) == {}
 
     def test_indexing_keeps_the_response_layers_aligned(self) -> None:
-        data = PredictorInput.from_response(
+        data = PredictorInput(
             ResponseTable(
                 np.array([1.0, 2.0]),
                 np.array(["cl1", "cl2"]),
@@ -196,15 +176,3 @@ class TestResponseLayers:
         )
 
         assert data[np.array([False, True])].response_layers["regulation"].tolist() == [1.0]
-
-    def test_a_response_layer_needs_one_value_per_pair(self) -> None:
-        data = _model_input()
-        with pytest.raises(ValueError, match="regulation"):
-            PredictorInput(
-                data.sample_ids,
-                data.drug_ids,
-                data.response,
-                data.sample,
-                data.drug,
-                response_layers={"regulation": np.zeros(3)},
-            )

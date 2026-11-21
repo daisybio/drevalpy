@@ -40,6 +40,20 @@ class TestConstruction:
             ResponseTable(response=np.array([1.0]))  # type: ignore[call-arg]
 
 
+class TestValidation:
+    @pytest.mark.parametrize(
+        ("sample_length", "drug_length", "message"),
+        [(2, 3, "drug_ids must be one-dimensional"), (3, 2, "sample_ids must be one-dimensional")],
+    )
+    def test_identifiers_need_one_value_per_pair(self, sample_length: int, drug_length: int, message: str):
+        with pytest.raises(ValueError, match=message):
+            ResponseTable(np.ones(2), np.arange(sample_length).astype(str), np.arange(drug_length).astype(str))
+
+    def test_identifiers_must_be_one_dimensional(self):
+        with pytest.raises(ValueError, match="sample_ids must be one-dimensional"):
+            ResponseTable(np.ones(1), np.array("cl1"), np.array(["d1"]))
+
+
 class TestLength:
     def test_len_counts_response_pairs(self, pairs: ResponseTable):
         assert len(pairs) == 2

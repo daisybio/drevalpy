@@ -242,7 +242,7 @@ and lets neural predictors gather mini-batches lazily.
 ```{code-cell} ipython3
 from drevalpy.types.data.predictor_input import PredictorInput
 
-train_input = PredictorInput.from_response(
+train_input = PredictorInput(
     train_table,
     sample=sample_output,
     drug=drug_output,
@@ -300,7 +300,7 @@ x_drug_batch = train_input.drug.matrix[train_input.drug_pair_idx[batch]]
 print("Lazy mini-batch shapes (expr, tissue, drug):", x_expr_batch.shape, x_tissue_batch.shape, x_drug_batch.shape)
 
 # End-to-end fit and predict on the held-out validation pairs.
-val_input = PredictorInput.from_response(val_table, sample=sample_output, drug=drug_output)
+val_input = PredictorInput(val_table, sample=sample_output, drug=drug_output)
 predictor = ElasticNetPredictor(hyperparameters={"alpha": 0.1, "l1_ratio": 0.5})
 predictor.fit(train_input)
 preds = predictor.predict(val_input)

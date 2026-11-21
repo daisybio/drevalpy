@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import numpy as np
 
-from drevalpy.components.predictors.abstract.base import get_response
 from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
 from drevalpy.registry.predictor import register
 from drevalpy.types.data.predictor_input import PredictorInput
@@ -25,7 +24,7 @@ class NaiveMeanPredictor(FeatureFreePredictor):
 
         :param data: Training batch; only its responses are used.
         """
-        self._dataset_mean = float(np.mean(get_response(data)))
+        self._dataset_mean = float(np.mean(data.response))
 
     def _predict(self, data: PredictorInput) -> np.ndarray:
         """Predict responses for each pair in the batch.

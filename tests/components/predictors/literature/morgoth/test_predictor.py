@@ -54,11 +54,15 @@ def test_class_labels_without_the_layer_keep_every_pair_and_leave_the_class_to_t
     assert y_class is None
 
 
+def _with_layers(batch, layers, **changes):
+    return replace(batch, pairs=replace(batch.pairs, layers=layers, **changes))
+
+
 @pytest.mark.slow
 def test_each_drug_trains_on_its_pairs_with_a_verdict(seen_classes) -> None:
     batch = _batch()
     regulation = np.where(np.arange(len(batch)) % 3 == 0, np.nan, np.where(np.arange(len(batch)) % 2, -1.0, 1.0))
-    batch = replace(batch, response_layers={"regulation": regulation})
+    batch = _with_layers(batch, {"regulation": regulation})
 
     SingleDrugMorgothPredictor(SMALL).fit(batch)
 
@@ -76,8 +80,8 @@ def test_a_drug_without_any_verdict_predicts_nan() -> None:
     regulation = np.where(first, np.nan, -1.0)
     predictor = SingleDrugMorgothPredictor(SMALL)
 
-    predictor.fit(replace(batch, response_layers={"regulation": regulation}))
-    predictions = predictor.predict(replace(batch, response=None, response_layers={}))
+    predictor.fit(_with_layers(batch, {"regulation": regulation}))
+    predictions = predictor.predict(_with_layers(batch, {}, response=np.full(len(batch), np.nan)))
 
     assert np.isnan(predictions[first]).all()
     assert np.isfinite(predictions[~first]).all()

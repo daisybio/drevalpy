@@ -239,15 +239,17 @@ def test_single_drug_knn_standardizes_and_selects_per_drug() -> None:
     )
     sample = FeaturizerOutput(np.array(ids), {"gene_expression": FeatureBlock(expression)})
     predictor = SingleDrugKNNPredictor({"mrmr_k": 2, "n_neighbors": 20})
-    predictor.fit(PredictorInput.from_response(response, sample=sample))
+    predictor.fit(PredictorInput(response, sample=sample))
 
     first, second = predictor._models["d1"], predictor._models["d2"]
     assert first.named_steps["mrmr"].selected_[0] == 2
     assert first.named_steps["knn"].n_neighbors == 6
     assert second.named_steps["knn"].n_neighbors == 2
     assert not np.allclose(first.named_steps["scale"].mean_, second.named_steps["scale"].mean_)
-    query = ResponseTable(response=None, sample_ids=np.array(["cl0", "cl0"]), drug_ids=np.array(["d1", "d2"]))
-    assert np.isfinite(predictor.predict(PredictorInput.from_response(query, sample=sample))).all()
+    query = ResponseTable(
+        response=np.full(2, np.nan), sample_ids=np.array(["cl0", "cl0"]), drug_ids=np.array(["d1", "d2"])
+    )
+    assert np.isfinite(predictor.predict(PredictorInput(query, sample=sample))).all()
 
 
 def test_boosted_trees_shared_space_is_consistent() -> None:
