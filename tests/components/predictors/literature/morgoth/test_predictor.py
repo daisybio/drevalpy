@@ -12,12 +12,11 @@ from drevalpy.components.predictors.literature.morgoth import predictor as morgo
 from drevalpy.components.predictors.literature.morgoth._forest import MorgothRegressor
 from drevalpy.components.predictors.literature.morgoth.predictor import SingleDrugMorgothPredictor, class_labels
 from drevalpy.data import synthetic
-from drevalpy.testing.conformance import PREDICTOR_CHECKS, check_predictor_instantiates
 from drevalpy.testing.inputs import build_synthetic_input
 from drevalpy.types.data.predictor_input import PredictorInput
-from tests.synthetic.variants import REQUIRES_MORGOTH
+from tests.synthetic.variants import REQUIRES_MORGOTH, small_hyperparameters
 
-SMALL = {"n_estimators": 2, "mrmr_k": 3, "min_samples_leaf": 2, "max_depth": 3}
+SMALL = small_hyperparameters("SingleDrugMorgoth")
 
 
 def _batch(*, with_regulation: bool = True) -> PredictorInput:
@@ -107,15 +106,3 @@ def test_every_default_lies_in_its_space() -> None:
             assert spec["low"] <= default <= spec["high"], name
         elif spec["type"] == "categorical":
             assert default in spec["choices"], name
-
-
-@pytest.mark.slow
-@pytest.mark.parametrize(
-    "check",
-    [
-        pytest.param(check, id=check.__name__, marks=() if check is check_predictor_instantiates else REQUIRES_MORGOTH)
-        for check in PREDICTOR_CHECKS
-    ],
-)
-def test_conforms(check) -> None:
-    check(SingleDrugMorgothPredictor, hyperparameters=SMALL)

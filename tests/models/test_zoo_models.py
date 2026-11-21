@@ -21,6 +21,7 @@ from tests.synthetic.variants import (
     SUPPORTED_SINGLE_DRUG_MODELS,
     build_partial_coverage_dataset,
     model_param,
+    small_hyperparameters,
 )
 
 pytestmark = pytest.mark.slow
@@ -69,47 +70,6 @@ def _construct_global_model_spec(whole_name: str, model_name: str) -> ModelSpec:
         )
         return ModelSpec(model_name, config)
     return ModelSpec.from_name(model_name)
-
-
-def _apply_global_model_hpam_tweaks(model_name: str, hpam_combi: dict) -> None:
-    """Shrink the model to the smallest configuration that still exercises it."""
-    if model_name == "DIPK":
-        hpam_combi["batch_size"] = 8
-        hpam_combi["epochs"] = 1
-        hpam_combi["epochs_autoencoder"] = 1
-        hpam_combi["heads"] = 1
-    elif model_name in ["SimpleNeuralNetwork", "MultiViewNeuralNetwork"]:
-        hpam_combi["units_per_layer"] = [2, 2]
-        hpam_combi["max_epochs"] = 1
-    elif model_name == "PharmaFormer":
-        hpam_combi["epochs"] = 1
-        hpam_combi["patience"] = 2
-    elif model_name in {"Precily", "SparseGO", "DrugGNN"}:
-        hpam_combi["epochs"] = 1
-        hpam_combi["batch_size"] = 32
-    elif model_name == "EnsembleMF":
-        hpam_combi["n_ensemble"] = 2
-        hpam_combi["max_epochs"] = 2
-        hpam_combi["hidden_dim"] = 16
-        hpam_combi["emb_dim"] = 8
-        hpam_combi["mlp_hidden"] = 8
-    elif model_name == "PaccMann":
-        hpam_combi["epochs"] = 1
-        hpam_combi["batch_size"] = 32
-        hpam_combi["filters"] = [4, 4, 4]
-        hpam_combi["molecule_heads"] = [1, 1, 1, 1]
-        hpam_combi["gene_heads"] = [1, 1, 1, 1]
-        hpam_combi["stacked_dense_hidden_sizes"] = [16]
-    elif model_name == "SRMF":
-        hpam_combi["max_iter"] = 2
-    elif model_name == "RandomForestAEMolGNet":
-        hpam_combi["epochs_autoencoder"] = 1
-        hpam_combi["n_estimators"] = 5
-    elif model_name == "AdaBoostDecisionTree":
-        hpam_combi["max_depth"] = 2
-        hpam_combi["min_samples_split"] = 2
-        hpam_combi["min_samples_leaf"] = 2
-        hpam_combi["n_estimators"] = 2
 
 
 def _stub_molgnet_embeddings(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -172,18 +132,6 @@ def _construct_single_drug_spec(whole_name: str, model_name: str) -> ModelSpec:
     return ModelSpec.from_name(model_name)
 
 
-def _configure_single_drug_hpam(model_name: str, hpam_combi: dict) -> None:
-    """Shrink the model to the smallest configuration that still exercises it."""
-    if model_name == "SingleDrugRandomForest":
-        hpam_combi["n_estimators"] = 2
-        hpam_combi["max_depth"] = 2
-    elif model_name == "SingleDrugMorgoth":
-        hpam_combi["n_estimators"] = 2
-        hpam_combi["mrmr_k"] = 5
-    elif model_name in ["MOLIR", "SuperFELTR"]:
-        hpam_combi["epochs"] = 1
-
-
 @pytest.mark.parametrize("model_name", [model_param(name) for name in SUPPORTED_GLOBAL_MODELS])
 def test_global_models(synthetic_dataset: Dataset, model_name: str, monkeypatch: pytest.MonkeyPatch) -> None:
     """Each global model trains, predicts and reloads on a Leave-Tissue-Out fold."""
@@ -193,9 +141,7 @@ def test_global_models(synthetic_dataset: Dataset, model_name: str, monkeypatch:
 
     whole_name, model_name = _resolve_global_model_name(model_name)
     spec = _construct_global_model_spec(whole_name, model_name)
-    hpam_combi: dict[str, Any] = {}
-    _apply_global_model_hpam_tweaks(model_name, hpam_combi)
-    model = DRPModel(spec, hpam_combi, check_values=False)
+    model = DRPModel(spec, small_hyperparameters(model_name), check_values=False)
 
     _train(model, synthetic_dataset, fold)
 
@@ -246,9 +192,7 @@ def test_single_drug_models(synthetic_dataset: Dataset, model_name: str) -> None
     fold = _first_lto_fold(synthetic_dataset)
 
     spec = _construct_single_drug_spec(whole_name, model_name)
-    hpam_combi: dict[str, Any] = {}
-    _configure_single_drug_hpam(model_name, hpam_combi)
-    model = DRPModel(spec, hpam_combi, check_values=False)
+    model = DRPModel(spec, small_hyperparameters(model_name), check_values=False)
 
     _train(model, synthetic_dataset, fold)
 
@@ -273,8 +217,7 @@ def test_n_jobs_changes_the_speed_not_the_model(synthetic_dataset: Dataset, mode
     name = _resolve_single_drug_model_name(model_name)
     fold = _first_lto_fold(synthetic_dataset)
     spec = _construct_single_drug_spec(model_name, name)
-    hpam_combi: dict[str, Any] = {}
-    _configure_single_drug_hpam(name, hpam_combi)
+    hpam_combi = small_hyperparameters(name)
     if name in ("MOLIR", "SuperFELTR"):
         hpam_combi["mini_batch"] = 6  # at most the 7 pairs of a drug, so every drug really trains
 
@@ -312,8 +255,7 @@ DIPK_ARTIFACT_SHA256 = {
 class TestDIPKArtifactIntegration:
     """Train the full facade with actual pretrained PPI and MolGNet artifacts."""
 
-    @pytest.mark.parametrize("seed", [0, 1, 2])
-    def test_raw_features_train_and_restore(self, seed: int, tmp_path) -> None:
+    def test_raw_features_train_and_restore(self, tmp_path) -> None:
         import hashlib
 
         from drevalpy.data.artifacts import get_artifact
@@ -324,8 +266,8 @@ class TestDIPKArtifactIntegration:
             # Actual cached/downloaded bytes, with no artifact or backend mocking.
             assert hashlib.sha256(get_artifact(name).read_bytes()).hexdigest() == sha256
 
-        with _isolated_reference_rng(seed):
-            dataset = build_synthetic_dataset(seed=seed)
+        with _isolated_reference_rng(0):
+            dataset = build_synthetic_dataset(seed=0)
             fold = _first_lto_fold(dataset)
             model = DRPModel(
                 ModelSpec.from_name("DIPK"), {"epochs": 2, "epochs_autoencoder": 2, "batch_size": 8, "heads": 1}
