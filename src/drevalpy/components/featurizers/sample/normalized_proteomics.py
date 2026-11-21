@@ -1,14 +1,8 @@
-"""Normalized proteomics featurizer for samples.
-
-``ProteomicsMedianCenterAndImputeTransformer`` lives in
-``_proteomics_transformer`` because it subclasses ``sklearn.base.BaseEstimator``,
-which cannot be deferred past the ``class`` statement, so importing it here at
-registration time would import ``sklearn``. See ``tests/test_import_cost_policy.py``.
-"""
+"""Normalized proteomics featurizer for samples: log10, median centering and imputation in NumPy."""
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, ClassVar, Self
+from typing import Any, ClassVar, Self
 
 import numpy as np
 
@@ -18,10 +12,8 @@ from drevalpy.registry.featurizer import register
 from drevalpy.types.data.feature_block import FeaturizerOutput
 from drevalpy.types.data.feature_source import FeatureSource, Side
 
-if TYPE_CHECKING:
-    from drevalpy.components.featurizers.sample._proteomics_transformer import (
-        ProteomicsMedianCenterAndImputeTransformer,
-    )
+_IMPUTATION_SEED = 100
+"""Seed of the per-sample imputation draw, which leaves the global NumPy RNG state alone."""
 
 
 def log10_and_set_na(x: np.ndarray) -> np.ndarray:
@@ -33,6 +25,55 @@ def log10_and_set_na(x: np.ndarray) -> np.ndarray:
     x = np.log10(x)
     x[np.isinf(x)] = np.nan
     return x
+
+
+def _select_proteins(matrix: np.ndarray, feature_threshold: float, n_features: int) -> tuple[np.ndarray, np.floating]:
+    """Pick the proteins to keep and the mean over training samples of their median.
+
+    Keeps every protein measured in at least ``feature_threshold`` of the samples, or, when that
+    leaves fewer than *n_features*, the *n_features* most complete ones.
+
+    :param matrix: Training matrix of shape ``(n_samples, n_proteins)``, NaN where missing.
+    :param feature_threshold: Minimum fraction of non-missing values per protein.
+    :param n_features: Fallback protein count when thresholding leaves too few.
+    :returns: Indices of the kept proteins, and the mean of the per-sample medians over them.
+    """
+    required_proteins = int(matrix.shape[0] * feature_threshold)
+    completeness = np.sum(~np.isnan(matrix), axis=0)
+    if np.count_nonzero(completeness >= required_proteins) < n_features:
+        protein_indices = np.argsort(completeness)[::-1][:n_features]
+    else:
+        protein_indices = np.where(completeness >= required_proteins)[0]
+    medians = np.nanmedian(matrix[:, protein_indices], axis=1)
+    return protein_indices, np.nanmean(medians)
+
+
+def _median_center_and_impute(
+    row: np.ndarray,
+    protein_indices: np.ndarray,
+    mean_median: np.floating,
+    normalization_downshift: float,
+    normalization_width: float,
+) -> np.ndarray:
+    """Median-center one sample and fill its missing values from a downshifted normal distribution.
+
+    :param row: Log10 proteomics vector of one sample over all proteins, NaN where missing.
+    :param protein_indices: Indices of the proteins to keep.
+    :param mean_median: Mean of the training samples' medians that the sample median is scaled to.
+    :param normalization_downshift: Downshift of the imputation mean, in standard deviations.
+    :param normalization_width: Width of the imputation distribution, in standard deviations.
+    :returns: The centered vector over the kept proteins, with no NaN left.
+    """
+    vector = row[protein_indices]
+    vector = vector * (mean_median / np.nanmedian(vector))
+    sample_sd = np.nanstd(vector)
+    missing = np.isnan(vector)
+    vector[missing] = np.random.default_rng(_IMPUTATION_SEED).normal(
+        loc=np.nanmean(vector) - normalization_downshift * sample_sd,
+        scale=normalization_width * sample_sd,
+        size=np.count_nonzero(missing),
+    )
+    return vector
 
 
 @register(
@@ -54,7 +95,7 @@ class NormalizedProteomicsSampleFeaturizer(Featurizer):
         proteomics_normalization_width: float = 0.3,
         proteomics_normalization_downshift: float = 1.8,
     ) -> None:
-        """Bind the proteomics view and configure the normalizing transformer.
+        """Bind the proteomics view and configure the normalization.
 
         :param view: Name of the proteomics view to read.
         :param proteomics_feature_threshold: Minimum fraction of non-missing values a protein needs
@@ -66,14 +107,13 @@ class NormalizedProteomicsSampleFeaturizer(Featurizer):
             in standard deviations.
         """
         self._view = view
-        self._settings = {
-            "feature_threshold": proteomics_feature_threshold,
-            "n_features": proteomics_n_features,
-            "normalization_width": proteomics_normalization_width,
-            "normalization_downshift": proteomics_normalization_downshift,
-        }
+        self._feature_threshold = proteomics_feature_threshold
+        self._n_features = proteomics_n_features
+        self._normalization_width = proteomics_normalization_width
+        self._normalization_downshift = proteomics_normalization_downshift
         self._names: tuple[str, ...] | None = None
-        self._transformer: ProteomicsMedianCenterAndImputeTransformer | None = None
+        self._protein_indices: np.ndarray | None = None
+        self._mean_median: np.floating = np.float64(0.0)
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
@@ -105,7 +145,7 @@ class NormalizedProteomicsSampleFeaturizer(Featurizer):
         train_pair_ids: np.ndarray | None = None,
         es_pair_ids: np.ndarray | None = None,
     ) -> Self:
-        """Fit the median-centering transformer on the log10 rows of the sorted unique training samples.
+        """Select the proteins and the median to center on from the log10 rows of the unique training samples.
 
         :param source: Feature source of the sample side.
         :param train_ids: Training sample IDs.
@@ -113,14 +153,10 @@ class NormalizedProteomicsSampleFeaturizer(Featurizer):
         :param es_pair_ids: Unused.
         :returns: This featurizer, fitted.
         """
-        from drevalpy.components.featurizers.sample._proteomics_transformer import (
-            ProteomicsMedianCenterAndImputeTransformer,
-        )
-
         _ = train_pair_ids, es_pair_ids
         self._names = source.feature_names(self._view)
         matrix = log10_and_set_na(view_matrix(source, self._view, np.unique(train_ids), self._names))
-        self._transformer = ProteomicsMedianCenterAndImputeTransformer(**self._settings).fit(matrix)
+        self._protein_indices, self._mean_median = _select_proteins(matrix, self._feature_threshold, self._n_features)
         return self
 
     def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerOutput:
@@ -131,12 +167,17 @@ class NormalizedProteomicsSampleFeaturizer(Featurizer):
         :returns: One block of the retained proteins, named after the view.
         :raises RuntimeError: If called before ``fit``.
         """
-        transformer = self._transformer
-        if transformer is None:
+        protein_indices = self._protein_indices
+        if protein_indices is None:
             msg = "NormalizedProteomicsSampleFeaturizer must be fit before transform"
             raise RuntimeError(msg)
         raw = log10_and_set_na(view_matrix(source, self._view, ids, self._names))
-        rows = [transformer.transform(row[None, :])[0] for row in raw]
-        matrix = np.vstack(rows) if rows else np.empty((0, len(transformer.protein_indices)))
-        names = None if self._names is None else tuple(self._names[i] for i in transformer.protein_indices)
+        rows = [
+            _median_center_and_impute(
+                row, protein_indices, self._mean_median, self._normalization_downshift, self._normalization_width
+            )
+            for row in raw
+        ]
+        matrix = np.vstack(rows) if rows else np.empty((0, len(protein_indices)))
+        names = None if self._names is None else tuple(self._names[i] for i in protein_indices)
         return dense_result(ids, self._view, matrix, names)

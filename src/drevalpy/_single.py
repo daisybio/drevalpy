@@ -129,30 +129,14 @@ def _fit_fold(
         hpo_random_state=hpo_random_state,
         seed=seed,
     )
-    identity = execution.identity
-    final = fit(
+    _, result = fit(
         execution,
         dataset,
         response_transformation=_transformation_for(model_spec, response_transformation),
         wandb_project=wandb_project,
         n_jobs=n_jobs,
     )
-    return RunResult(
-        model_name=identity.model_name,
-        dataset_name=dataset.name,
-        split_mode=identity.split_mode,
-        fold_index=identity.fold_index,
-        fold_id=identity.fold_id,
-        predictions=final.predictions,
-        ground_truth=final.test.response,
-        sample_ids=final.test.sample_ids,
-        drug_ids=final.test.drug_ids,
-        best_hyperparameters=final.best_hyperparameters,
-        metrics=final.metrics,
-        fold_metadata=execution.result_metadata(),
-        trials=final.trials or None,
-        randomization=dataset.randomization,
-    )
+    return result
 
 
 def _transformation_for(

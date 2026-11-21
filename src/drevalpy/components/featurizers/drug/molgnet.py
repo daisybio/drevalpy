@@ -140,17 +140,9 @@ def _compute_molgnet_embedding(smiles: str) -> np.ndarray | None:
 
     checkpoint_path = _get_molgnet_checkpoint()
 
-    from drevalpy.components.featurizers.drug._molgnet_network import (
-        AddSegId,
-        MolGNet,
-        SelfLoop,
-        mol_to_graph_data_obj_complex,
-    )
+    from drevalpy.components.featurizers.drug._molgnet_network import MolGNet, mol_to_graph_data_obj_complex
 
     graph = mol_to_graph_data_obj_complex(mol)
-    self_loop = SelfLoop()
-    add_seg = AddSegId()
-    prepared = add_seg(self_loop(graph))
 
     device = torch.device("cpu")
     model = MolGNet(num_layer=5, emb_dim=768, heads=12, num_message_passing=3, drop_ratio=0.0)
@@ -163,5 +155,5 @@ def _compute_molgnet_embedding(smiles: str) -> np.ndarray | None:
     model.eval()
 
     with torch.no_grad():
-        emb = model(prepared.to(device))
+        emb = model(graph.to(device))
     return emb.cpu().numpy()

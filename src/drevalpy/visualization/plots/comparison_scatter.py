@@ -17,13 +17,14 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from drevalpy.evaluation._correlation_matrix import GroupCorrelationMatrix, model_group_correlations
+from drevalpy.evaluation._correlation_matrix import model_group_correlations
 from drevalpy.evaluation._grouping import GROUPINGS
 from drevalpy.registry.visualization import register
 from drevalpy.visualization.base import Plot, Section
 from drevalpy.visualization.requirements import PlotRequirement
 
 if TYPE_CHECKING:
+    import pandas as pd
     import plotly.graph_objects as go
 
     from drevalpy.types.results import ExperimentResult
@@ -41,9 +42,9 @@ _POINTS_TRACE = 0
 _DROPDOWNS = (("x", 0.0), ("y", 0.5))
 
 
-def _correlations(row: np.ndarray) -> np.ndarray:
+def _correlations(row: pd.Series) -> np.ndarray:
     """One model's correlations as plotted: ``float`` with the undefined ones drawn at 0."""
-    return np.nan_to_num(row, nan=0.0).astype(float)
+    return row.fillna(0.0).to_numpy(dtype=float)
 
 
 def _axis_layout(grouping: str, model_name: str) -> dict:
@@ -59,7 +60,7 @@ def _axis_layout(grouping: str, model_name: str) -> dict:
     return {"title": {"text": f"{model_name} (per-{grouping} Pearson)"}, "range": list(_AXIS_RANGE)}
 
 
-def _dropdown_buttons(matrix: GroupCorrelationMatrix, axis: str) -> list[dict]:
+def _dropdown_buttons(grouping: str, matrix: pd.DataFrame, axis: str) -> list[dict]:
     """Build the update buttons for one axis of one grouping.
 
     Each button carries a single model's correlation vector, so the whole figure
@@ -70,7 +71,8 @@ def _dropdown_buttons(matrix: GroupCorrelationMatrix, axis: str) -> list[dict]:
     cyclically across every trace and the dashed reference line is overwritten
     with the model's data.
 
-    :param matrix: Correlations to build buttons from.
+    :param grouping: The grouping the correlations are for.
+    :param matrix: Correlations to build buttons from, one row per model.
     :param axis: ``"x"`` or ``"y"``.
     :returns: One Plotly ``updatemenu`` button per model.
     """
@@ -79,34 +81,35 @@ def _dropdown_buttons(matrix: GroupCorrelationMatrix, axis: str) -> list[dict]:
             "label": model_name,
             "method": "update",
             "args": [
-                {axis: [_correlations(matrix.values[index]).tolist()]},
-                {f"{axis}axis": _axis_layout(matrix.grouping, model_name)},
+                {axis: [_correlations(row).tolist()]},
+                {f"{axis}axis": _axis_layout(grouping, model_name)},
                 [_POINTS_TRACE],
             ],
         }
-        for index, model_name in enumerate(matrix.model_names)
+        for model_name, row in matrix.iterrows()
     ]
 
 
-def _build_figure(matrix: GroupCorrelationMatrix) -> go.Figure:
+def _build_figure(grouping: str, matrix: pd.DataFrame) -> go.Figure:
     """Build the two-dropdown comparison figure for one grouping.
 
-    :param matrix: Correlations to plot, with at least one model and one group.
+    :param grouping: The grouping the correlations are for.
+    :param matrix: Correlations to plot, one row per model, with at least one model and one group.
     :returns: A Plotly figure with one scatter trace and two ``updatemenus``.
     """
     import plotly.graph_objects as go
 
     fig = go.Figure()
-    first = _correlations(matrix.values[0])
+    first = _correlations(matrix.iloc[0])
     fig.add_trace(
         go.Scatter(
             x=first,
             y=first,
             mode="markers",
             marker={"size": 6, "opacity": 0.7},
-            customdata=list(matrix.group_names),
+            customdata=list(matrix.columns),
             hovertemplate=(
-                f"{matrix.grouping.capitalize()}: %{{customdata}}<br>x: %{{x:.3f}}<br>y: %{{y:.3f}}<extra></extra>"
+                f"{grouping.capitalize()}: %{{customdata}}<br>x: %{{x:.3f}}<br>y: %{{y:.3f}}<extra></extra>"
             ),
             showlegend=False,
         )
@@ -122,10 +125,10 @@ def _build_figure(matrix: GroupCorrelationMatrix) -> go.Figure:
         )
     )
 
-    first_axis = _axis_layout(matrix.grouping, matrix.model_names[0])
+    first_axis = _axis_layout(grouping, matrix.index[0])
     fig.update_layout(
         title={
-            "text": f"Per-{matrix.grouping} Pearson correlation, model against model",
+            "text": f"Per-{grouping} Pearson correlation, model against model",
             "y": 0.99,
             "yanchor": "top",
         },
@@ -147,7 +150,7 @@ def _build_figure(matrix: GroupCorrelationMatrix) -> go.Figure:
         ],
         updatemenus=[
             {
-                "buttons": _dropdown_buttons(matrix, axis),
+                "buttons": _dropdown_buttons(grouping, matrix, axis),
                 "direction": "down",
                 "showactive": True,
                 "x": x,
@@ -197,10 +200,10 @@ def _inline_plotly_html(fig: go.Figure, div_id: str) -> str:
     )
 
 
-def _matrices(result: ExperimentResult) -> dict[str, GroupCorrelationMatrix]:
+def _matrices(result: ExperimentResult) -> dict[str, pd.DataFrame]:
     """Compute the per-group correlations of every model, for each grouping with something to compare.
 
-    Each matrix is one ``float32`` array of shape ``n_models x n_groups``, independent of
+    Each matrix is one ``float32`` frame of shape ``n_models x n_groups``, independent of
     the number of predictions.
 
     :param result: Experiment to read.
@@ -210,7 +213,7 @@ def _matrices(result: ExperimentResult) -> dict[str, GroupCorrelationMatrix]:
     matrices = {}
     for grouping in GROUPINGS:
         matrix = model_group_correlations(result, grouping)
-        if matrix.n_models >= 2 and matrix.n_groups > 0:
+        if matrix.shape[0] >= 2 and matrix.shape[1] > 0:
             matrices[grouping] = matrix
     return matrices
 
@@ -233,7 +236,7 @@ class ComparisonScatterPlot(Plot):
         import plotly.graph_objects as go
 
         matrices = _matrices(result)
-        return _build_figure(next(iter(matrices.values()))) if matrices else go.Figure()
+        return _build_figure(*next(iter(matrices.items()))) if matrices else go.Figure()
 
     def sections(self, result: ExperimentResult) -> list[Section]:
         """Return one Section per grouping, each holding a two-dropdown figure.
@@ -255,11 +258,11 @@ class ComparisonScatterPlot(Plot):
                     anchor=anchor,
                     description=(
                         f"Pearson correlation of predictions against ground truth within each {label}, "
-                        f"for {matrix.n_models} models over {matrix.n_groups} {plural}. "
+                        f"for {matrix.shape[0]} models over {matrix.shape[1]} {plural}. "
                         "Pick the model on each axis with the dropdowns; points above the diagonal "
                         "favour the model on the y-axis."
                     ),
-                    content=_inline_plotly_html(_build_figure(matrix), f"{anchor}_div"),
+                    content=_inline_plotly_html(_build_figure(grouping, matrix), f"{anchor}_div"),
                 )
             )
         return sections

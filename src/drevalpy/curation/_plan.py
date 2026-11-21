@@ -111,20 +111,20 @@ def plan(
     from drevalpy.curation._replicate_fits import tag_replicates
     from drevalpy.curation._series import number_series
 
-    numbered = number_series(df, metadata=metadata, min_doses=min_doses)
-    tables = {Source.POOLED: numbered.viability}
+    viability, series = number_series(df, metadata=metadata, min_doses=min_doses)
+    tables = {Source.POOLED: viability}
     if replicate_fits:
-        tables[Source.REPLICATE] = tag_replicates(numbered.viability)
+        tables[Source.REPLICATE] = tag_replicates(viability)
     infos: dict[Source, list[GroupInfo]] = {}
     chunks: list[Chunk] = []
-    for fit, viability in tables.items():
-        frames, infos[fit] = split(viability, options)
+    for fit, table in tables.items():
+        frames, infos[fit] = split(table, options)
         chunks.extend(
             Chunk(f"{fit.value}-{i:05d}", fit, group, infos[fit][group], options, frame)
             for i, (frame, group) in enumerate(frames)
         )
-    logger.info("Planned %d chunks for %d series", len(chunks), len(numbered.series))
-    return Plan(options, replicate_fits, numbered.series, infos, chunks)
+    logger.info("Planned %d chunks for %d series", len(chunks), len(series))
+    return Plan(options, replicate_fits, series, infos, chunks)
 
 
 def run_chunks(chunks: Sequence[Chunk], max_workers: int) -> dict[str, pd.DataFrame]:

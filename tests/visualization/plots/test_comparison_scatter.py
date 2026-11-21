@@ -7,10 +7,11 @@ import re
 import sys
 
 import numpy as np
+import pandas as pd
 import pytest
 from plotly.basedatatypes import BaseFigure
 
-from drevalpy.evaluation._correlation_matrix import GroupCorrelationMatrix, model_group_correlations
+from drevalpy.evaluation._correlation_matrix import model_group_correlations
 from drevalpy.types.results.experiment import ExperimentResult
 from drevalpy.visualization.base import Section, save_png, show
 from drevalpy.visualization.plots.comparison_scatter import (
@@ -43,7 +44,7 @@ def sections(experiment) -> list[Section]:
 
 
 @pytest.fixture(scope="module")
-def matrix(experiment) -> GroupCorrelationMatrix:
+def matrix(experiment) -> pd.DataFrame:
     return model_group_correlations(experiment, "drug")
 
 
@@ -69,39 +70,39 @@ class TestAxisLayout:
 
 class TestDropdownButtons:
     def test_one_labelled_button_per_model_carrying_its_group_vector(self, matrix):
-        buttons = _dropdown_buttons(matrix, "x")
+        buttons = _dropdown_buttons("drug", matrix, "x")
 
-        assert [button["label"] for button in buttons] == list(matrix.model_names)
-        assert len(buttons[0]["args"][0]["x"][0]) == matrix.n_groups
+        assert [button["label"] for button in buttons] == list(matrix.index)
+        assert len(buttons[0]["args"][0]["x"][0]) == matrix.shape[1]
         values = buttons[0]["args"][0]["x"][0]
         assert json.loads(json.dumps(values)) == values
 
     @pytest.mark.parametrize("axis", ["x", "y"])
     def test_buttons_restyle_the_axis_and_target_only_the_points_trace(self, matrix, axis):
-        for button in _dropdown_buttons(matrix, axis):
+        for button in _dropdown_buttons("drug", matrix, axis):
             assert set(button["args"][0]) == {axis}
             assert set(button["args"][1]) == {f"{axis}axis"}
             assert button["args"][2] == [_POINTS_TRACE]
 
     def test_undefined_correlations_become_zero_rather_than_nan(self):
-        matrix = GroupCorrelationMatrix("drug", ("A",), ("D_0", "D_1"), np.array([[np.nan, 0.5]], dtype=np.float32))
+        matrix = pd.DataFrame(np.array([[np.nan, 0.5]], dtype=np.float32), index=["A"], columns=["D_0", "D_1"])
 
-        values = _dropdown_buttons(matrix, "x")[0]["args"][0]["x"][0]
+        values = _dropdown_buttons("drug", matrix, "x")[0]["args"][0]["x"][0]
 
         assert values == [0.0, 0.5]
 
 
 class TestBuildFigure:
     def test_figure_structure(self, matrix):
-        fig = _build_figure(matrix)
+        fig = _build_figure("drug", matrix)
         points, line = fig.data
-        expected = f"{matrix.model_names[0]} (per-drug Pearson)"
+        expected = f"{matrix.index[0]} (per-drug Pearson)"
 
         assert (points.mode, line.mode) == ("markers", "lines")
         assert _POINTS_TRACE == 0
-        assert len(points.x) == matrix.n_groups
+        assert len(points.x) == matrix.shape[1]
         assert "Drug:" in points.hovertemplate
-        assert tuple(points.customdata) == matrix.group_names
+        assert tuple(points.customdata) == tuple(matrix.columns)
         assert tuple(line.x) == tuple(line.y) == _AXIS_RANGE
         assert fig.layout.xaxis.title.text == fig.layout.yaxis.title.text == expected
         assert tuple(fig.layout.xaxis.range) == tuple(fig.layout.yaxis.range) == _AXIS_RANGE
@@ -112,7 +113,7 @@ class TestBuildFigure:
 
 class TestInlinePlotlyHtml:
     def test_emits_a_div_calling_newplot_without_bundling_plotly(self, matrix):
-        html = _inline_plotly_html(_build_figure(matrix), "my_div")
+        html = _inline_plotly_html(_build_figure("drug", matrix), "my_div")
 
         assert '<div id="my_div"' in html
         assert "Plotly.newPlot(target" in html
@@ -123,7 +124,7 @@ class TestInlinePlotlyHtml:
         assert "DOMContentLoaded" in html
 
     def test_the_embedded_spec_is_valid_json(self, matrix):
-        html = _inline_plotly_html(_build_figure(matrix), "my_div")
+        html = _inline_plotly_html(_build_figure("drug", matrix), "my_div")
 
         spec = json.loads(re.search(r"var spec = (\{.*\});", html, re.DOTALL).group(1))
 
@@ -137,21 +138,21 @@ class TestMatrices:
         matrices = _matrices(experiment)
 
         assert set(matrices) == {"drug", "sample"}
-        assert matrices["drug"].values.shape == (N_MODELS, N_DRUGS)
-        assert matrices["sample"].values.shape == (N_MODELS, N_SAMPLES)
+        assert matrices["drug"].shape == (N_MODELS, N_DRUGS)
+        assert matrices["sample"].shape == (N_MODELS, N_SAMPLES)
 
     def test_a_concatenated_run_gets_one_column_per_study(self):
         matrices = _matrices(_concatenated_experiment())
 
-        assert matrices["study"].group_names == ("CTRPv2", "GDSC2")
-        assert matrices["study"].values.shape == (3, 2)
+        assert list(matrices["study"].columns) == ["CTRPv2", "GDSC2"]
+        assert matrices["study"].shape == (3, 2)
 
     def test_models_with_no_defined_group_are_dropped(self):
         undefined = make_run_result(model_name="Undefined", n_pairs=20)
         undefined.ground_truth[:] = 1.0
         runs = [undefined, make_run_result(model_name="A", n_pairs=20), make_run_result(model_name="B", n_pairs=20)]
 
-        assert _matrices(ExperimentResult(runs))["drug"].model_names == ("A", "B")
+        assert list(_matrices(ExperimentResult(runs))["drug"].index) == ["A", "B"]
         assert _matrices(ExperimentResult(runs[:2])) == {}
 
     def test_a_constant_predictor_is_drawn_at_zero(self):
@@ -161,8 +162,8 @@ class TestMatrices:
 
         matrix = _matrices(ExperimentResult(runs))["drug"]
 
-        assert matrix.model_names == ("Constant", "A")
-        np.testing.assert_array_equal(matrix.values[0], np.zeros(matrix.n_groups))
+        assert list(matrix.index) == ["Constant", "A"]
+        np.testing.assert_array_equal(matrix.loc["Constant"], np.zeros(matrix.shape[1]))
 
 
 class TestFigure:

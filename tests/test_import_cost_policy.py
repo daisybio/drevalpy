@@ -58,10 +58,6 @@ DEFERRED_TRAINING_SYMBOLS = (
         "drevalpy.components.predictors.literature.dipk.gene_expression_encoder",
         "train_gene_expession_autoencoder",
     ),
-    (
-        "drevalpy.components.featurizers.sample._proteomics_transformer",
-        "ProteomicsMedianCenterAndImputeTransformer",
-    ),
 )
 
 _CHILD_SCRIPT = textwrap.dedent(f"""

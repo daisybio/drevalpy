@@ -105,4 +105,5 @@ def train(
         seed=seed,
     )
     logger.info("Training %s on %d pairs", spec.name, len(execution.scopes.final_training))
-    return fit(execution, data, response_transformation=response_transformation, n_jobs=n_jobs).model
+    model, _ = fit(execution, data, response_transformation=response_transformation, n_jobs=n_jobs)
+    return model

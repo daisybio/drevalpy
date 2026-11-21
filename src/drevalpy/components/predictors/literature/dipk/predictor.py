@@ -149,15 +149,14 @@ class DIPKPredictor(DevicePicklingMixin, Predictor):
         es_pairs = self._build_pairs(stopping, response=True)
 
         return (
-            self._loader(train_pairs, train=True, shuffle=True),
-            self._loader(es_pairs, train=True, shuffle=True),
+            self._loader(train_pairs, shuffle=True),
+            self._loader(es_pairs, shuffle=True),
         )
 
-    def _loader(self, pairs: list[dict[str, torch.Tensor]], *, train: bool, shuffle: bool) -> DataLoader:
+    def _loader(self, pairs: list[dict[str, torch.Tensor]], *, shuffle: bool) -> DataLoader:
         """Wrap *pairs* in a padding-collated DataLoader.
 
         :param pairs: Per-pair dictionaries from :meth:`_build_pairs`.
-        :param train: Whether the collated batches carry target values.
         :param shuffle: Whether to shuffle each epoch.
         :returns: A DataLoader over the pairs.
         """
@@ -167,7 +166,7 @@ class DIPKPredictor(DevicePicklingMixin, Predictor):
             pairs,
             batch_size=self._hyperparameters["batch_size"],
             shuffle=shuffle,
-            collate_fn=_CollateFn(train=train),
+            collate_fn=_collate,
         )
 
     def _fit(self, data: PredictorInput) -> None:
@@ -232,55 +231,28 @@ class DIPKPredictor(DevicePicklingMixin, Predictor):
             raise ValueError(msg)
 
         pairs = self._build_pairs(data)
-        test_loader = self._loader(pairs, train=False, shuffle=False)
+        test_loader = self._loader(pairs, shuffle=False)
 
         model = self._model
         return collect_predictions(model, test_loader, lambda dl_batch: self._forward(model, dl_batch))
 
 
-class _CollateFn:
-    """Collate function for DIPK DataLoader batches."""
+def _collate(batch: list[dict[str, torch.Tensor]]) -> dict[str, torch.Tensor]:
+    """Collate pair dicts from :meth:`DIPKPredictor._build_pairs` into one zero-padded batch.
 
-    def __init__(self, train: bool = True) -> None:
-        """Initialize collation function.
+    :param batch: Per-pair dictionaries; they carry ``ic50`` only when built with ``response=True``.
+    :returns: Batch with the padded atom features, their boolean mask, and ``ic50_values`` when the pairs hold targets.
+    """
+    import torch
+    from torch.nn.utils.rnn import pad_sequence
 
-        :param train: Whether to include target (ic50) values.
-        """
-        self.train = train
-
-    def __call__(self, batch: list[dict[str, torch.Tensor]]) -> dict[str, torch.Tensor]:
-        """Collate a list of pair dicts into padded batch tensors.
-
-        :param batch: List of per-pair dictionaries.
-        :returns: Collated batch dictionary.
-        """
-        import torch
-
-        max_atoms = max(pair["molgnet_features"].size(0) for pair in batch)
-
-        padded_molgnet: list[torch.Tensor] = []
-        masks: list[torch.Tensor] = []
-
-        for pair in batch:
-            num_atoms = pair["molgnet_features"].size(0)
-            padding_size = max_atoms - num_atoms
-            padded = torch.cat(
-                [pair["molgnet_features"], torch.zeros(padding_size, pair["molgnet_features"].size(1))],
-                dim=0,
-            )
-            padded_molgnet.append(padded)
-            mask = torch.cat(
-                [torch.ones(num_atoms, dtype=torch.bool), torch.zeros(padding_size, dtype=torch.bool)],
-                dim=0,
-            )
-            masks.append(mask)
-
-        result: dict[str, torch.Tensor] = {
-            "molgnet_features": torch.stack(padded_molgnet),
-            "molgnet_mask": torch.stack(masks),
-            "gene_features": torch.stack([s["gene_expression"] for s in batch]),
-            "bionic_features": torch.stack([s["bionic_features"] for s in batch]),
-        }
-        if self.train:
-            result["ic50_values"] = torch.stack([s["ic50"] for s in batch])
-        return result
+    atoms = [pair["molgnet_features"] for pair in batch]
+    result: dict[str, torch.Tensor] = {
+        "molgnet_features": pad_sequence(atoms, batch_first=True),
+        "molgnet_mask": pad_sequence([torch.ones(len(a), dtype=torch.bool) for a in atoms], batch_first=True),
+        "gene_features": torch.stack([pair["gene_expression"] for pair in batch]),
+        "bionic_features": torch.stack([pair["bionic_features"] for pair in batch]),
+    }
+    if "ic50" in batch[0]:
+        result["ic50_values"] = torch.stack([pair["ic50"] for pair in batch])
+    return result

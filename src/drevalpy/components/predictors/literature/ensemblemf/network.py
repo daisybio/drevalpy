@@ -7,8 +7,6 @@ optional free per-drug id embedding and an optional interaction head.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 import torch
 import torch.nn as nn
 
@@ -47,42 +45,43 @@ class ResidualEncoder(nn.Module):
         return self.output_proj(h) + self.skip_proj(h0)
 
 
-@dataclass(frozen=True)
-class MFNetConfig:
-    """Widths and switches of one ensemble member."""
-
-    sample_in_dim: int
-    drug_in_dim: int
-    n_drugs: int
-    hidden_dim: int = 256
-    emb_dim: int = 128
-    n_layers: int = 1
-    dropout: float = 0.2
-    use_drug_id_embedding: bool = True
-    use_mlp_head: bool = True
-    mlp_hidden: int = 256
-
-
 class MFNet(nn.Module):
     """One ensemble member: two encoders plus a bilinear head with main effects."""
 
-    def __init__(self, config: MFNetConfig) -> None:
+    def __init__(
+        self,
+        sample_in_dim: int,
+        drug_in_dim: int,
+        n_drugs: int,
+        *,
+        hidden_dim: int,
+        emb_dim: int,
+        n_layers: int,
+        dropout: float,
+        use_drug_id_embedding: bool,
+        use_mlp_head: bool,
+        mlp_hidden: int,
+    ) -> None:
         """Build the member.
 
-        :param config: Dimensions and switches of the network.
+        :param sample_in_dim: Width of the sample features.
+        :param drug_in_dim: Width of the drug features.
+        :param n_drugs: Number of rows of the drug id-embedding table.
+        :param hidden_dim: Width of the residual blocks of both encoders.
+        :param emb_dim: Width of the latent factors.
+        :param n_layers: Number of residual blocks per encoder.
+        :param dropout: Dropout probability in the encoders and the interaction head.
+        :param use_drug_id_embedding: Whether to add a free per-drug id embedding to the drug factor.
+        :param use_mlp_head: Whether to add the interaction head on top of the dot product.
+        :param mlp_hidden: Width of the interaction head's hidden layer.
         """
         super().__init__()
-        emb_dim = config.emb_dim
-        self.sample_encoder = ResidualEncoder(
-            config.sample_in_dim, config.hidden_dim, emb_dim, config.n_layers, config.dropout
-        )
-        self.drug_encoder = ResidualEncoder(
-            config.drug_in_dim, config.hidden_dim, emb_dim, config.n_layers, config.dropout
-        )
+        self.sample_encoder = ResidualEncoder(sample_in_dim, hidden_dim, emb_dim, n_layers, dropout)
+        self.drug_encoder = ResidualEncoder(drug_in_dim, hidden_dim, emb_dim, n_layers, dropout)
 
-        self.use_drug_id_embedding = config.use_drug_id_embedding
-        if config.use_drug_id_embedding:
-            self.drug_id_emb = nn.Embedding(config.n_drugs, emb_dim)
+        self.use_drug_id_embedding = use_drug_id_embedding
+        if use_drug_id_embedding:
+            self.drug_id_emb = nn.Embedding(n_drugs, emb_dim)
             nn.init.normal_(self.drug_id_emb.weight, std=0.01)
 
         self.sample_bias = nn.Linear(emb_dim, 1)
@@ -90,13 +89,13 @@ class MFNet(nn.Module):
         self.global_bias = nn.Parameter(torch.zeros(1))
         self.dot_scale = nn.Parameter(torch.ones(1))
 
-        self.use_mlp_head = config.use_mlp_head
-        if config.use_mlp_head:
+        self.use_mlp_head = use_mlp_head
+        if use_mlp_head:
             self.mlp = nn.Sequential(
-                nn.Linear(3 * emb_dim, config.mlp_hidden),
+                nn.Linear(3 * emb_dim, mlp_hidden),
                 nn.ReLU(),
-                nn.Dropout(config.dropout),
-                nn.Linear(config.mlp_hidden, 1),
+                nn.Dropout(dropout),
+                nn.Linear(mlp_hidden, 1),
             )
 
     def encode(

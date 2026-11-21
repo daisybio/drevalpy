@@ -92,7 +92,7 @@ class TestCurate:
         from drevalpy.curation._fit import FitOptions
         from drevalpy.curation._series import number_series
 
-        viability = number_series(dose_response_df, min_doses=4).viability
+        viability = number_series(dose_response_df, min_doses=4)[0]
         fits = fit_table(viability, FitOptions(fit_speed="fast"))
         composed = build_anndata(fits.drop(columns="status"))
 

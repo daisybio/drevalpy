@@ -12,11 +12,9 @@ from torch_geometric.data import Data
 
 from drevalpy.components.contracts.feature_format import FeatureFormat
 from drevalpy.components.featurizers.drug._molgnet_network import (
-    AddSegId,
     BertLayerNorm,
     LinearActivation,
     MolGNet,
-    SelfLoop,
     _gelu,
     _MessagePassing,
     atom_cumsum,
@@ -146,17 +144,24 @@ def test_cumulative_offsets_are_monotonic() -> None:
 
 
 @pytest.mark.parametrize(
-    ("smiles", "nodes", "edges"),
+    ("smiles", "nodes", "bond_edges"),
     [("CCO", 3, 4), ("C", 1, 0), ("c1ccccc1", 6, 12)],
     ids=["ethanol", "single-atom", "benzene"],
 )
-def test_mol_to_graph_encodes_atoms_and_both_bond_directions(smiles: str, nodes: int, edges: int) -> None:
+def test_mol_to_graph_encodes_atoms_both_bond_directions_self_loops_and_zero_segments(
+    smiles: str, nodes: int, bond_edges: int
+) -> None:
     graph = _mol_graph(smiles)
+    edges = bond_edges + nodes
 
     assert graph.x.shape == (nodes, 8)
     assert graph.x.dtype == torch.long
     assert graph.edge_index.shape == (2, edges)
+    assert graph.edge_index[:, bond_edges:].tolist() == [list(range(nodes))] * 2
     assert graph.edge_attr.shape == (edges, 5)
+    assert graph.edge_attr[bond_edges:].tolist() == [[0, 5, 8, 10, 12]] * nodes
+    assert graph.node_seg.tolist() == [0] * nodes
+    assert graph.edge_seg.tolist() == [0] * edges
 
 
 def test_mol_to_graph_rejects_none() -> None:
@@ -164,30 +169,8 @@ def test_mol_to_graph_rejects_none() -> None:
         mol_to_graph_data_obj_complex(None)
 
 
-def test_self_loop_and_seg_id_transforms() -> None:
-    graph = _mol_graph("CCO")
-    before_edges = graph.edge_index.shape[1]
-
-    looped = SelfLoop()(graph)
-    segmented = AddSegId()(looped)
-
-    assert looped.edge_index.shape[1] == looped.edge_attr.shape[0] == before_edges + 3
-    assert segmented.node_seg.tolist() == [0, 0, 0]
-    assert segmented.edge_seg.shape[0] == segmented.num_edges
-    assert torch.all(segmented.edge_seg == 0)
-
-
-def test_add_seg_id_rejects_a_graph_without_a_node_count() -> None:
-    class _NodelessGraph:
-        num_nodes = None
-        num_edges = 0
-
-    with pytest.raises(ValueError, match="graph reports no node count"):
-        AddSegId()(_NodelessGraph())
-
-
 def test_molgnet_forward_returns_one_embedding_row_per_atom_from_a_graph_or_tensors() -> None:
-    graph = AddSegId()(SelfLoop()(_mol_graph("CCO")))
+    graph = _mol_graph("CCO")
     model = _tiny_model()
 
     with torch.no_grad():

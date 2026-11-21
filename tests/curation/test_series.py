@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from drevalpy.curation._series import SERIES_COLUMNS, VIABILITY_COLUMNS, Series, number_series
+from drevalpy.curation._series import SERIES_COLUMNS, VIABILITY_COLUMNS, number_series
 from drevalpy.errors import InvalidInputError
 
 METADATA = ("plate", "DATE")
@@ -36,7 +36,9 @@ def _wells(*series: tuple) -> pd.DataFrame:
 FIVE = [0.01, 0.1, 1.0, 10.0, 100.0]
 
 
-def _number(wells: pd.DataFrame, metadata: tuple[str, ...] = METADATA, min_doses: int = 4) -> Series:
+def _number(
+    wells: pd.DataFrame, metadata: tuple[str, ...] = METADATA, min_doses: int = 4
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     return number_series(wells, metadata=metadata, min_doses=min_doses)
 
 
@@ -229,7 +231,7 @@ class TestLabels:
     def test_a_missing_label_does_not_trip_the_guard(self) -> None:
         wells = _wells(("c", "d", "P1", "e", FIVE, "x"))
         wells.loc[0, "drug"] = None
-        assert len(_number(wells).viability) == 4
+        assert len(_number(wells)[0]) == 4
 
 
 class TestExperimentScoping:

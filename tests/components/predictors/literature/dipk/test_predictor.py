@@ -19,10 +19,7 @@ from drevalpy.components.predictors.literature.dipk.model_utils import (
     features_dim_bionic,
     features_dim_gene,
 )
-from drevalpy.components.predictors.literature.dipk.predictor import (
-    DIPKPredictor,
-    _CollateFn,
-)
+from drevalpy.components.predictors.literature.dipk.predictor import DIPKPredictor, _collate
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.data.feature_block import FeatureBlock
 from drevalpy.types.data.predictor_input import PredictorInput
@@ -144,8 +141,8 @@ def test_collate_pads_ragged_atoms_masks_them_and_adds_targets_only_in_training(
         },
     ]
 
-    predict = _CollateFn(train=False)(pairs)
-    train = _CollateFn(train=True)(pairs)
+    train = _collate(pairs)
+    predict = _collate([{key: value for key, value in pair.items() if key != "ic50"} for pair in pairs])
 
     assert predict["molgnet_features"].shape == (2, 3, 2)
     assert predict["molgnet_features"][1, 1:].abs().sum().item() == 0.0

@@ -95,13 +95,13 @@ class EnsembleMFPredictor(DevicePicklingMixin, Predictor):
         :param n_drugs: Number of rows of the drug id-embedding table.
         :returns: Freshly initialized network.
         """
-        from .network import MFNet, MFNetConfig
+        from .network import MFNet
 
         hp = self._hyperparameters
-        config = MFNetConfig(
-            sample_in_dim=self._input_dims[0],
-            drug_in_dim=self._input_dims[1],
-            n_drugs=n_drugs,
+        return MFNet(
+            self._input_dims[0],
+            self._input_dims[1],
+            n_drugs,
             hidden_dim=int(hp["hidden_dim"]),
             emb_dim=int(hp["emb_dim"]),
             n_layers=int(hp["n_layers"]),
@@ -109,8 +109,7 @@ class EnsembleMFPredictor(DevicePicklingMixin, Predictor):
             use_drug_id_embedding=bool(hp["use_drug_id_embedding"]),
             use_mlp_head=bool(hp["use_mlp_head"]),
             mlp_hidden=int(hp["mlp_hidden"]),
-        )
-        return MFNet(config).to(self._device)
+        ).to(self._device)
 
     def _pairs(self, sample_idx: np.ndarray, drug_idx: np.ndarray, response: np.ndarray) -> PairTensors:
         """Move pair indices and responses to the target device.
@@ -138,7 +137,7 @@ class EnsembleMFPredictor(DevicePicklingMixin, Predictor):
         import torch
 
         from .data import drug_table, sorted_entities, split_pairs
-        from .training import MemberData, MemberSettings, train_member
+        from .training import MemberData, train_member
 
         hp = self._hyperparameters
         _, x_sample, sample_pos = sorted_entities(data.sample, "gene_expression")
@@ -165,13 +164,6 @@ class EnsembleMFPredictor(DevicePicklingMixin, Predictor):
             train,
             validation,
         )
-        settings = MemberSettings(
-            learning_rate=float(hp["learning_rate"]),
-            weight_decay=float(hp["weight_decay"]),
-            batch_size=int(hp["batch_size"]),
-            max_epochs=int(hp["max_epochs"]),
-            patience=int(hp["patience"]),
-        )
         seed = int(hp["seed"])
         on_cpu = self._device.type == "cpu"
         fork: dict[str, Any] = (
@@ -183,7 +175,15 @@ class EnsembleMFPredictor(DevicePicklingMixin, Predictor):
                 if seed >= 0:
                     torch.manual_seed(seed + member)
                 net = self._build_net(len(drug_ids))
-                train_member(net, member_data, settings)
+                train_member(
+                    net,
+                    member_data,
+                    learning_rate=float(hp["learning_rate"]),
+                    weight_decay=float(hp["weight_decay"]),
+                    batch_size=int(hp["batch_size"]),
+                    max_epochs=int(hp["max_epochs"]),
+                    patience=int(hp["patience"]),
+                )
             self._nets.append(net)
 
     def _embedding_rows(self, net: MFNet, drug_ids: np.ndarray) -> torch.Tensor:

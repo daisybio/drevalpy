@@ -12,8 +12,7 @@ trials are not checked.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import numpy as np
 
@@ -25,32 +24,18 @@ from drevalpy.log import get_logger
 from drevalpy.models.drp_model import DRPModel
 from drevalpy.models.tuning.hpo import hpam_tune
 from drevalpy.types.data.response_table import ResponseTable
+from drevalpy.types.results.run import RunResult
 
 if TYPE_CHECKING:
     from drevalpy.experiment._execution import ExecutionSpec
     from drevalpy.models.response_transformation import ResponseTransformer
     from drevalpy.types.data.dataset import Dataset
-    from drevalpy.types.results.run import TrialResult
 
 logger = get_logger(__name__)
 
 #: Largest share of non-finite (NaN or infinite) test predictions, among pairs with a finite response, that a run may
 #: have and still be scored; a larger share raises :class:`~drevalpy.errors.NaNPredictionError`.
 MAX_NAN_PREDICTION_SHARE = 0.2
-
-
-@dataclass(frozen=True)
-class FinalFit:
-    """The fitted model of an execution, how it was tuned, and its test-scope predictions."""
-
-    model: DRPModel
-    best_hyperparameters: dict[str, Any]
-    trials: list[TrialResult]
-    #: Test scope, as the pairs in scope order with their observed responses.
-    test: ResponseTable
-    #: One prediction per test pair, in scope order.
-    predictions: np.ndarray
-    metrics: dict[str, float]
 
 
 def fit(
@@ -60,7 +45,7 @@ def fit(
     response_transformation: ResponseTransformer | None = None,
     wandb_project: str | None = None,
     n_jobs: int = 1,
-) -> FinalFit:
+) -> tuple[DRPModel, RunResult]:
     """Tune the execution's model, train it on the final training scope and predict the test scope.
 
     Tuning and the final fit are each seeded from the execution's seed and identity. With
@@ -72,7 +57,8 @@ def fit(
     :param response_transformation: Optional unfitted response transformation, cloned for every fit.
     :param wandb_project: W&B project to log to; ``None`` disables tracking.
     :param n_jobs: Worker processes a single-drug predictor fits its per-drug models in.
-    :returns: The fitted model, the chosen hyperparameters, the trials and the test predictions.
+    :returns: The fitted model and the run result: the chosen hyperparameters, the trials and the test-scope
+        predictions and metrics, which are empty when the execution has no test scope (``drevalpy.train``).
     """
     identity, scopes = execution.identity, execution.scopes
     base_config = {
@@ -105,12 +91,29 @@ def fit(
         model.train(dataset, scopes.final_training, early_stopping_scope=scopes.stopping, n_jobs=n_jobs)
         test = ResponseTable.from_dataset(dataset, scopes.test)
         if len(test.response) == 0:  # ``drevalpy.train`` has no test set
-            return FinalFit(model, best, trials, test, np.empty(0), {})
-        predictions = model.predict(dataset, scopes.test)
-        _check_non_finite_predictions(identity.model_name, predictions, test.response)
-        metrics = evaluate(predictions, test.response)
-        log_summary({f"test_{key}": value for key, value in metrics.items()})
-    return FinalFit(model, best, trials, test, predictions, metrics)
+            predictions, metrics = np.empty(0), {}
+        else:
+            predictions = model.predict(dataset, scopes.test)
+            _check_non_finite_predictions(identity.model_name, predictions, test.response)
+            metrics = evaluate(predictions, test.response)
+            log_summary({f"test_{key}": value for key, value in metrics.items()})
+    result = RunResult(
+        model_name=identity.model_name,
+        dataset_name=dataset.name,
+        split_mode=identity.split_mode,
+        fold_index=identity.fold_index,
+        fold_id=identity.fold_id,
+        predictions=predictions,
+        ground_truth=test.response,
+        sample_ids=test.sample_ids,
+        drug_ids=test.drug_ids,
+        best_hyperparameters=best,
+        metrics=metrics,
+        fold_metadata=execution.result_metadata(),
+        trials=trials or None,
+        randomization=dataset.randomization,
+    )
+    return model, result
 
 
 def _check_non_finite_predictions(model_name: str, predictions: np.ndarray, ground_truth: np.ndarray) -> None:

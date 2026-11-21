@@ -34,7 +34,6 @@ plate's series into another's.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import NamedTuple
 
 import numpy as np
 import pandas as pd
@@ -71,17 +70,9 @@ _GROUP = ["sample", "drug", "experiment", "series_key"]
 _KEYS = ["experiment", "series_key"]
 
 
-class Series(NamedTuple):
-    """What is fitted, and what each replicate is."""
-
-    viability: pd.DataFrame
-    """Exactly :data:`VIABILITY_COLUMNS`, eligible series only, ``replicate`` numbered per pair."""
-
-    series: pd.DataFrame
-    """One row per series: :data:`SERIES_COLUMNS`, then the lowercased metadata columns."""
-
-
-def number_series(df: pd.DataFrame, *, metadata: Sequence[str] = (), min_doses: int) -> Series:
+def number_series(
+    df: pd.DataFrame, *, metadata: Sequence[str] = (), min_doses: int
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Group wells into numbered series and average repeated doses.
 
     Rows missing a label, concentration or intensity are dropped.
@@ -90,7 +81,9 @@ def number_series(df: pd.DataFrame, *, metadata: Sequence[str] = (), min_doses: 
         :data:`OPTIONAL_COLUMNS`, and the *metadata* columns.
     :param metadata: Columns to keep per series in the series table.
     :param min_doses: Minimum number of distinct doses for a series to be fitted.
-    :returns: The viability table and the series table.
+    :returns: The viability table and the series table. The viability table has exactly
+        :data:`VIABILITY_COLUMNS`, eligible series only, with ``replicate`` numbered per pair. The
+        series table has one row per series: :data:`SERIES_COLUMNS`, then the lowercased metadata columns.
     """
     frame = _wells(df, metadata)
     if "position" in df.columns:
@@ -110,7 +103,7 @@ def number_series(df: pd.DataFrame, *, metadata: Sequence[str] = (), min_doses: 
     viability["sample"] = viability["sample"].astype(str)
     viability["drug"] = viability["drug"].astype(str)
     viability["replicate"] = viability["replicate"].astype("int64")
-    return Series(viability=viability, series=series)
+    return viability, series
 
 
 def _str_keys(frame: pd.DataFrame) -> pd.DataFrame:

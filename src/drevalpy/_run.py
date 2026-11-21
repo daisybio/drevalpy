@@ -19,7 +19,7 @@ import json
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from functools import partial
-from typing import TYPE_CHECKING, Any, Literal, Protocol, TypeVar
+from typing import TYPE_CHECKING, Any, Literal, TypeVar
 
 from rich.markup import escape
 
@@ -57,12 +57,6 @@ def _validate_models(models: list[ModelSpec]) -> None:
         raise InvalidInputError("Model names must be unique within an experiment")
 
 
-class _FitRun(Protocol):
-    """``_fit_fold`` bound to one model and the run settings."""
-
-    def __call__(self, dataset: Dataset, fold: Fold, *, hyperparameters: Mapping[str, Any] | None) -> RunResult: ...
-
-
 @dataclass
 class _Outcomes:
     """The runs that finished and the failures that were recorded, under one error policy.
@@ -96,7 +90,9 @@ class _Outcomes:
                 self.record(error, model_name=model_name, fold=fold, randomized=randomized)
             return None
 
-    def fit_folds(self, fit: _FitRun, model_name: str, datasets: Sequence[Dataset], folds: Sequence[Fold]) -> None:
+    def fit_folds(
+        self, fit: Callable[..., RunResult], model_name: str, datasets: Sequence[Dataset], folds: Sequence[Fold]
+    ) -> None:
         """Fit *model_name* on every fold of every dataset (original first, then its randomizations).
 
         :param fit: The fit of the model.
@@ -108,7 +104,7 @@ class _Outcomes:
             for run_ds in datasets:
                 self.fit_run(fit, model_name, run_ds, fold)
 
-    def fit_run(self, fit: _FitRun, model_name: str, run_ds: Dataset, fold: Fold) -> None:
+    def fit_run(self, fit: Callable[..., RunResult], model_name: str, run_ds: Dataset, fold: Fold) -> None:
         """Load or fit one run: tune an original run and keep its values, or reuse them for a stress-test run.
 
         The original dataset on an original fold is tuned; every other run (a randomized dataset, or a robustness
@@ -133,7 +129,7 @@ class _Outcomes:
 
     def _fit_new(
         self,
-        fit: _FitRun,
+        fit: Callable[..., RunResult],
         model_name: str,
         run_ds: Dataset,
         fold: Fold,

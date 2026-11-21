@@ -10,12 +10,11 @@ import pytest
 from drevalpy.components.contracts.feature_format import BlockSpec, FeatureFormat
 from drevalpy.components.featurizers import FeatureMismatchError
 from drevalpy.components.featurizers.featurizer import all_nan_rows_mask
-from drevalpy.components.featurizers.sample._proteomics_transformer import (
-    ProteomicsMedianCenterAndImputeTransformer,
-)
 from drevalpy.components.featurizers.sample.molir_omics import MOLIROmicsFeaturizer
 from drevalpy.components.featurizers.sample.normalized_proteomics import (
     NormalizedProteomicsSampleFeaturizer,
+    _median_center_and_impute,
+    _select_proteins,
     log10_and_set_na,
 )
 from drevalpy.components.featurizers.sample.pca import PCASampleFeaturizer
@@ -205,7 +204,7 @@ def test_normalized_proteomics_blocks_carry_feature_names() -> None:
     blocks = featurizer.transform(features, entity_ids).blocks
 
     assert set(blocks) == {"proteomics"}
-    retained = featurizer._transformer.protein_indices
+    retained = featurizer._protein_indices
     assert blocks["proteomics"].feature_names == tuple(np.array(["p1", "p2", "p3"])[retained])
     assert sorted(blocks["proteomics"].feature_names) == ["p1", "p2", "p3"]
 
@@ -232,45 +231,29 @@ _MATRIX = np.array([[1.0, 2.0, np.nan], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]])
 
 @pytest.mark.parametrize(("n_features", "kept"), [(1, [0, 1]), (3, [0, 1, 2])])
 def test_fit_keeps_complete_features_then_falls_back_to_the_n_most_complete(n_features: int, kept: list[int]) -> None:
-    transformer = ProteomicsMedianCenterAndImputeTransformer(feature_threshold=1.0, n_features=n_features)
+    protein_indices, _ = _select_proteins(_MATRIX, feature_threshold=1.0, n_features=n_features)
 
-    assert transformer.fit(_MATRIX) is transformer
-    assert sorted(transformer.protein_indices.tolist()) == kept
+    assert sorted(protein_indices.tolist()) == kept
 
 
 def test_median_centering_uses_the_mean_of_the_per_row_medians() -> None:
-    transformer = ProteomicsMedianCenterAndImputeTransformer(feature_threshold=1.0, n_features=1).fit(_MATRIX)
+    protein_indices, mean_median = _select_proteins(_MATRIX, feature_threshold=1.0, n_features=1)
 
-    np.testing.assert_allclose(transformer.mean_median, 4.5)  # medians over columns 0 and 1: 1.5, 4.5, 7.5
-    (row,) = transformer.transform(np.array([[4.0, 5.0, 6.0]]))
+    np.testing.assert_allclose(mean_median, 4.5)  # medians over columns 0 and 1: 1.5, 4.5, 7.5
+    row = _median_center_and_impute(np.array([4.0, 5.0, 6.0]), protein_indices, mean_median, 1.8, 0.3)
     np.testing.assert_allclose(row, [4.0, 5.0])
 
 
 def test_imputation_fills_missing_values_reproducibly() -> None:
-    transformer = ProteomicsMedianCenterAndImputeTransformer(feature_threshold=0.0, n_features=3).fit(_MATRIX)
+    protein_indices, mean_median = _select_proteins(_MATRIX, feature_threshold=0.0, n_features=3)
+    vector = np.array([1.0, np.nan, 3.0])
 
-    (first,) = transformer.transform(np.array([[1.0, np.nan, 3.0]]))
-    (second,) = transformer.transform(np.array([[1.0, np.nan, 3.0]]))
+    first = _median_center_and_impute(vector, protein_indices, mean_median, 1.8, 0.3)
+    second = _median_center_and_impute(vector, protein_indices, mean_median, 1.8, 0.3)
 
     assert not np.isnan(first).any()
     np.testing.assert_allclose(first, second)
-
-
-def test_the_transformer_satisfies_the_sklearn_estimator_protocol() -> None:
-    from sklearn.base import clone
-
-    params = ProteomicsMedianCenterAndImputeTransformer(n_features=7).get_params()
-    assert params["n_features"] == 7
-    assert set(params) == {
-        "feature_threshold",
-        "imputation_seed",
-        "n_features",
-        "normalization_downshift",
-        "normalization_width",
-    }
-    cloned = clone(ProteomicsMedianCenterAndImputeTransformer(feature_threshold=0.5))
-    assert cloned.feature_threshold == 0.5
-    assert cloned.protein_indices.size == 0
+    assert np.isnan(vector[1])
 
 
 def _tissue(**per_sample) -> MockFeatureSource:

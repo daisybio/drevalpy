@@ -43,17 +43,6 @@ class MemberData:
     validation: PairTensors
 
 
-@dataclass(frozen=True)
-class MemberSettings:
-    """Optimizer and stopping settings of one member."""
-
-    learning_rate: float
-    weight_decay: float
-    batch_size: int
-    max_epochs: int
-    patience: int
-
-
 @torch.no_grad()
 def validation_mse(net: MFNet, data: MemberData) -> float:
     """Return the mean squared error of *net* on the validation pairs.
@@ -96,24 +85,37 @@ def _train_epoch(net: MFNet, data: MemberData, optimizer: torch.optim.Optimizer,
         optimizer.step()
 
 
-def train_member(net: MFNet, data: MemberData, settings: MemberSettings) -> None:
+def train_member(
+    net: MFNet,
+    data: MemberData,
+    *,
+    learning_rate: float,
+    weight_decay: float,
+    batch_size: int,
+    max_epochs: int,
+    patience: int,
+) -> None:
     """Train one ensemble member in place and restore its best-validation weights.
 
     :param net: Network to train.
     :param data: Entity features, training pairs and early-stopping pairs.
-    :param settings: Optimizer and stopping settings.
+    :param learning_rate: Adam learning rate.
+    :param weight_decay: Adam weight decay.
+    :param batch_size: Number of pairs per mini-batch.
+    :param max_epochs: Largest number of passes over the training pairs.
+    :param patience: Epochs without validation improvement after which training stops.
     """
-    optimizer = torch.optim.Adam(net.parameters(), lr=settings.learning_rate, weight_decay=settings.weight_decay)
+    optimizer = torch.optim.Adam(net.parameters(), lr=learning_rate, weight_decay=weight_decay)
     best_val, best_state, stale = float("inf"), None, 0
-    for _epoch in range(settings.max_epochs):
-        _train_epoch(net, data, optimizer, settings.batch_size)
+    for _epoch in range(max_epochs):
+        _train_epoch(net, data, optimizer, batch_size)
         val_mse = validation_mse(net, data)
         if val_mse < best_val - MIN_IMPROVEMENT:
             best_val, stale = val_mse, 0
             best_state = {key: value.detach().clone() for key, value in net.state_dict().items()}
             continue
         stale += 1
-        if stale >= settings.patience:
+        if stale >= patience:
             break
     if best_state is not None:
         net.load_state_dict(best_state)

@@ -4,7 +4,8 @@ The comparison scatter needs one number per (model, group) pair - the Pearson co
 a model's predictions against ground truth restricted to a single drug, sample or study - not
 the underlying point cloud. :func:`model_group_correlations` concatenates the non-randomized
 runs of each model, scores them on one shared, sorted group axis with
-:func:`~drevalpy.evaluation.evaluate_per_group` and keeps a ``models x groups`` ``float32`` matrix.
+:func:`~drevalpy.evaluation.evaluate_per_group` and keeps a ``models x groups`` ``float32``
+:class:`~pandas.DataFrame` whose index is the model names and whose columns are the group names.
 
 The undefined-score rule is the one shared with every other per-group score (see
 :mod:`drevalpy.evaluation._metrics`): a group with fewer than two pairs or a constant response is
@@ -14,7 +15,6 @@ A model whose correlations are all ``NaN`` is left out of the matrix.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -26,32 +26,9 @@ from ._scoring import evaluate_per_group
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    import pandas as pd
+
     from drevalpy.types.results import ExperimentResult, RunResult
-
-
-@dataclass(frozen=True)
-class GroupCorrelationMatrix:
-    """Per-group correlations for every model, on a shared group axis.
-
-    The shared axis is what makes the comparison plot cheap: two models are
-    compared by reading two rows of :attr:`values`, with column ``j`` of both
-    referring to ``group_names[j]``.
-    """
-
-    grouping: str
-    model_names: tuple[str, ...]
-    group_names: tuple[str, ...]
-    values: np.ndarray
-
-    @property
-    def n_models(self) -> int:
-        """Number of models on the row axis."""
-        return len(self.model_names)
-
-    @property
-    def n_groups(self) -> int:
-        """Number of drugs, samples or studies on the column axis."""
-        return len(self.group_names)
 
 
 def _shared_group_axis(result: ExperimentResult, labels_of: Callable[[RunResult], np.ndarray]) -> np.ndarray:
@@ -66,7 +43,7 @@ def _shared_group_axis(result: ExperimentResult, labels_of: Callable[[RunResult]
     return np.unique(np.concatenate(seen))
 
 
-def model_group_correlations(result: ExperimentResult, grouping: str) -> GroupCorrelationMatrix:
+def model_group_correlations(result: ExperimentResult, grouping: str) -> pd.DataFrame:
     """Correlate predictions against ground truth per model and per group.
 
     The non-randomized runs of each model are concatenated and scored once on the shared
@@ -77,8 +54,11 @@ def model_group_correlations(result: ExperimentResult, grouping: str) -> GroupCo
     :param result: Experiment whose models to summarise. Randomized runs are
         skipped.
     :param grouping: One of :data:`~drevalpy.evaluation._grouping.GROUPINGS`.
-    :returns: A :class:`GroupCorrelationMatrix` over the models of ``result`` with a defined correlation.
+    :returns: A ``float32`` frame of Pearson correlations, one row per model of ``result`` with a defined
+        correlation (index: model names) and one column per group (columns: group names, as strings).
     """
+    import pandas as pd
+
     labels_of = group_labeller(grouping)
     groups = _shared_group_axis(result, labels_of)
 
@@ -101,9 +81,4 @@ def model_group_correlations(result: ExperimentResult, grouping: str) -> GroupCo
             model_names.append(model.model_name)
 
     values = np.stack(rows) if rows else np.empty((0, len(groups)), dtype=np.float32)
-    return GroupCorrelationMatrix(
-        grouping=grouping,
-        model_names=tuple(model_names),
-        group_names=tuple(str(name) for name in groups),
-        values=values,
-    )
+    return pd.DataFrame(values, index=model_names, columns=[str(name) for name in groups])

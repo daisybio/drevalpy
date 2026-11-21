@@ -94,10 +94,13 @@ bond_cumsum = np.cumsum(bond_dic)
 
 
 def mol_to_graph_data_obj_complex(mol: RDMol) -> Data:
-    """Convert an RDKit Mol into a torch_geometric Data object.
+    """Convert an RDKit Mol into the torch_geometric Data object that :class:`MolGNet` takes.
+
+    The graph holds both directions of every bond, then one self-loop per atom (edge attributes
+    ``[0, 5, 8, 10, 12]``), and all-zero ``node_seg`` and ``edge_seg`` segment ids.
 
     :param mol: RDKit Mol instance.
-    :return: torch_geometric.data.Data with node and edge fields.
+    :return: torch_geometric.data.Data with node, edge and segment-id fields.
     :raises ValueError: If mol is None.
     """
     if mol is None:
@@ -151,42 +154,16 @@ def mol_to_graph_data_obj_complex(mol: RDMol) -> Data:
         edge_index = torch.empty((2, 0), dtype=torch.long)
         edge_attr = torch.empty((0, num_bond_features), dtype=torch.long)
 
-    return Data(x=x, edge_index=edge_index, edge_attr=edge_attr)
-
-
-class SelfLoop:
-    """Append self-loops and matching edge attributes to a Data object."""
-
-    def __call__(self, data: Data) -> Data:
-        """Add self-loop indices and corresponding edge attributes.
-
-        :param data: torch_geometric.data.Data to modify.
-        :return: The modified Data object.
-        """
-        num_nodes = data.num_nodes
-        data.edge_index, _ = add_self_loops(data.edge_index, num_nodes=num_nodes)
-        self_loop_attr = torch.LongTensor([0, 5, 8, 10, 12]).repeat(num_nodes, 1)
-        data.edge_attr = torch.cat((data.edge_attr, self_loop_attr), dim=0)
-        return data
-
-
-class AddSegId:
-    """Attach zero-valued segment id tensors to nodes and edges."""
-
-    def __call__(self, data: Data) -> Data:
-        """Attach zero-filled node_seg and edge_seg tensors.
-
-        :param data: torch_geometric.data.Data to modify.
-        :return: The modified Data object.
-        :raises ValueError: If the graph does not report a node count.
-        """
-        num_nodes = data.num_nodes
-        if num_nodes is None:
-            msg = "Cannot add segment ids: graph reports no node count (data.num_nodes is None)."
-            raise ValueError(msg)
-        data.edge_seg = torch.LongTensor([0] * data.num_edges)
-        data.node_seg = torch.LongTensor([0] * num_nodes)
-        return data
+    num_nodes = x.size(0)
+    edge_index, _ = add_self_loops(edge_index, num_nodes=num_nodes)
+    edge_attr = torch.cat((edge_attr, torch.LongTensor([0, 5, 8, 10, 12]).repeat(num_nodes, 1)), dim=0)
+    return Data(
+        x=x,
+        edge_index=edge_index,
+        edge_attr=edge_attr,
+        edge_seg=torch.zeros(edge_index.size(1), dtype=torch.long),
+        node_seg=torch.zeros(num_nodes, dtype=torch.long),
+    )
 
 
 class BertLayerNorm(nn.Module):
