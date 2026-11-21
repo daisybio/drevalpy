@@ -78,7 +78,8 @@ class FeatureSource:
         :raises ValueError: If *side* is not a side.
         """
         if side not in tuple(Side):
-            msg = f"Unknown feature source side {side!r}. Available: drug, sample"
+            available = ", ".join(sorted(s.value for s in Side))
+            msg = f"Unknown feature source side {side!r}. Available: {available}"
             raise ValueError(msg)
         self.side = Side(side)
         self._dataset = dataset
