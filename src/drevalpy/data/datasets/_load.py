@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from upath import UPath as Path
 
-from drevalpy.data._paths import get_default_data_dir, resolve_h5mu_path
+from drevalpy.data._paths import get_default_data_dir
 from drevalpy.data._transfer import cached_file_matches, download_file
 from drevalpy.errors import InputNotFoundError
 from drevalpy.log import get_logger
@@ -74,43 +74,42 @@ def _load_registered(dataset_name: str, registered_path: Path, sha256: str | Non
     return Dataset.load(_download(dataset_name))
 
 
+def _is_plain_name(value: str) -> bool:
+    """Return whether *value* is a bare dataset name (not a path or URI)."""
+    return bool(value) and not value.endswith(".h5mu") and "/" not in value and "\\" not in value and ":" not in value
+
+
 def load(dataset_name: str) -> Dataset:
     """Load a registered or custom dataset as a Dataset from its .h5mu file.
 
     Resolution order:
 
-    1. If the .h5mu exists at the standard cache path, load it directly.
-    2. If *dataset_name* is registered, download the .h5mu if needed and load.
-    3. If *dataset_name* is a path to an existing .h5mu file, load it directly.
+    1. If *dataset_name* is a path to an existing ``.h5mu`` file, load it directly.
+    2. If *dataset_name* is registered, load it from the cache directory (downloading it if
+       missing, corrupted, lacking curve-quality layers, or mismatched against its pinned SHA-256).
+    3. If *dataset_name* is a bare name matching ``<cache dir>/<name>.h5mu``, load it directly.
 
-    A cached file is re-downloaded when it cannot be parsed, when it is too
-    old to carry the curve-quality layers the splitters filter on, or when the
-    registry entry has a ``sha256`` that the file does not match. A download that
-    does not match it raises ``InvalidInputError``. An explicit path in case 3 is
-    always taken at face value.
+    Only cached files belonging to a registered dataset are ever deleted and re-downloaded; direct
+    paths and unregistered files are always left untouched.
 
-    :param dataset_name: Registered dataset name, or path to a .h5mu file.
+    :param dataset_name: Path to a ``.h5mu`` file or a registered/cached dataset name.
     :returns: Loaded Dataset.
-    :raises InputNotFoundError: If the .h5mu file cannot be found or downloaded.
+    :raises InputNotFoundError: If the ``.h5mu`` file cannot be found or downloaded.
     """
-    h5mu_path = resolve_h5mu_path(dataset_name)
+    candidate = Path(dataset_name)
+    if candidate.suffix == ".h5mu" and candidate.is_file():
+        return Dataset.load(candidate)
+
     entry = dataset_registry.datasets.get(dataset_name)
-    registered_path = get_default_data_dir() / entry.file if entry is not None else None
+    if entry is not None:
+        return _load_registered(dataset_name, get_default_data_dir() / entry.file, entry.sha256)
 
-    if h5mu_path.is_file():
-        expected = entry.sha256 if registered_path == h5mu_path and entry is not None else None
-        dataset = _load_from_cache(h5mu_path, expected)
-        if dataset is not None:
-            return dataset
-
-    if entry is not None and registered_path is not None:
-        return _load_registered(dataset_name, registered_path, entry.sha256)
-
-    candidate_path = Path(dataset_name)
-    if candidate_path.is_file() and candidate_path.suffix == ".h5mu":
-        return Dataset.load(candidate_path)
+    if _is_plain_name(dataset_name):
+        cached = get_default_data_dir() / f"{dataset_name}.h5mu"
+        if cached.is_file():
+            return Dataset.load(cached)
 
     raise InputNotFoundError(
         f"Cannot locate .h5mu for dataset '{dataset_name}'. "
-        f"Checked: {h5mu_path}, registry ({list(dataset_registry.names())}), and direct path."
+        f"Checked direct path, registry ({list(dataset_registry.names())}), and {get_default_data_dir()}."
     )

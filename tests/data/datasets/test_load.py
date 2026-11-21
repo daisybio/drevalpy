@@ -223,6 +223,30 @@ def test_a_name_that_is_neither_cached_registered_nor_a_path_raises_input_not_fo
         load("no_such_dataset")
 
 
+def test_user_files_without_quality_layers_are_never_deleted(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    cache = tmp_path / "cache"
+    cache.mkdir()
+    monkeypatch.setenv("DREVALPY_CACHE_DIR", str(cache))
+
+    user_file = tmp_path / "my_screen.h5mu"
+    _stale_dataset().save(UPath(user_file))
+
+    # Passing an absolute path without .h5mu must not resolve into cache lookup and unlink user_file.
+    with pytest.raises(InputNotFoundError):
+        load(str(tmp_path / "my_screen"))
+    assert user_file.is_file()
+
+    # Passing the explicit .h5mu path loads it directly without deleting it.
+    assert load(str(user_file)) is not None
+    assert user_file.is_file()
+
+    # An unregistered bare name in the cache directory is also loaded directly and never unlinked.
+    unregistered = cache / "custom_local.h5mu"
+    _stale_dataset().save(UPath(unregistered))
+    assert load("custom_local") is not None
+    assert unregistered.is_file()
+
+
 def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
