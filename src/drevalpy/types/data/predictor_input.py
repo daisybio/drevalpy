@@ -136,7 +136,7 @@ class PredictorInput:
         stopping = self.early_stopping
         if stopping is not None and mask.any():
             keep = np.isin(stopping.drug_ids, np.unique(self.drug_ids[mask]))
-            stopping = stopping.subset(keep) if keep.any() else None
+            stopping = stopping[keep] if keep.any() else None
         return replace(
             self,
             sample_ids=self.sample_ids[mask],

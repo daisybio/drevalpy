@@ -66,19 +66,22 @@ class TestLength:
 
 class TestSubset:
     def test_a_boolean_mask_keeps_the_selected_pairs_in_order(self, pairs: ResponseTable):
-        subset = pairs.subset(np.array([False, True]))
+        subset = pairs[np.array([False, True])]
 
         assert subset.response.tolist() == [2.0]
         assert subset.sample_ids.tolist() == ["cl2"]
         assert subset.drug_ids.tolist() == ["d2"]
 
     def test_an_all_false_mask_yields_empty_pairs(self, pairs: ResponseTable):
-        assert len(pairs.subset(np.zeros(2, dtype=bool))) == 0
+        assert len(pairs[np.zeros(2, dtype=bool)]) == 0
 
     def test_the_original_is_unchanged(self, pairs: ResponseTable):
-        pairs.subset(np.array([True, False]))
+        _ = pairs[np.array([True, False])]
 
         assert len(pairs) == 2
+
+    def test_slicing_selects_entries_in_order(self, pairs: ResponseTable):
+        assert pairs[:1].sample_ids.tolist() == ["cl1"]
 
 
 class TestImmutability:
@@ -110,7 +113,7 @@ class TestLayers:
             {"regulation": np.array([-1.0, 0.0, 1.0])},
         )
 
-        assert pairs.subset(np.array([True, False, True])).layers["regulation"].tolist() == [-1.0, 1.0]
+        assert pairs[np.array([True, False, True])].layers["regulation"].tolist() == [-1.0, 1.0]
 
     def test_from_dataset_reads_a_layer_at_the_observed_pairs_of_a_shuffled_scope(self):
         dataset = synthetic(n_samples=6, n_drugs=3, seed=1)

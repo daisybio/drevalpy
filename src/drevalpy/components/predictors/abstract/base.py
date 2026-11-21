@@ -125,7 +125,7 @@ class Predictor(TunableComponent, ABC):
                 response_layers=response.layers,
             )
             keep = self._valid_pair_mask(stopping) & ~np.isnan(response.response)
-            response = response.subset(keep)
+            response = response[keep]
         if self.requires_early_stopping and (response is None or len(response) == 0):
             raise ValueError(f"{type(self).__name__} requires a usable early-stopping holdout")
         return replace(data, early_stopping=response)

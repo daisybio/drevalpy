@@ -75,7 +75,7 @@ def usable_pairs(
         keep &= np.isin(pair_ids, ids[valid])
         if keep_stopping is not None:
             keep_stopping &= np.isin(stopping_ids, ids[valid])
-    return response.subset(keep), None if stopping is None else stopping.subset(keep_stopping)
+    return response[keep], None if stopping is None else stopping[keep_stopping]
 
 
 def _padded_block(block: FeatureBlock, valid: np.ndarray) -> FeatureBlock:

@@ -40,20 +40,20 @@ class ResponseTable:
     def from_dataset(
         cls,
         dataset: Dataset,
-        scope: SelectionMask,
+        mask: SelectionMask,
         *,
         observed_only: bool = False,
         layers: Collection[str] = (),
     ) -> ResponseTable:
-        """Extract aligned responses and identifiers in the scope's pair order.
+        """Extract aligned responses and identifiers in the mask's pair order.
 
         :param dataset: Response matrix and entity identifiers.
-        :param scope: Requested response positions, possibly shuffled.
+        :param mask: Requested response positions, possibly shuffled.
         :param observed_only: Drop missing targets for training only.
         :param layers: Response layers to read at the same pairs; names the dataset does not have are left out.
-        :returns: Response pairs, preserving missing targets by default.
+        :returns: Response table, preserving missing targets by default.
         """
-        pairs = scope.pairs
+        pairs = mask.pairs
         values = np.asarray(dataset.response_matrix[pairs[:, 0], pairs[:, 1]], dtype=np.float64)
         if observed_only:
             keep = ~np.isnan(values)
@@ -64,11 +64,11 @@ class ResponseTable:
         }
         return cls(values, dataset.sample_ids[pairs[:, 0]], dataset.drug_ids[pairs[:, 1]], layer_values)
 
-    def subset(self, mask: np.ndarray) -> ResponseTable:
-        """Keep the pairs selected by a boolean mask.
+    def __getitem__(self, mask: np.ndarray | slice) -> ResponseTable:
+        """Select pairs by boolean/integer mask or slice.
 
-        :param mask: One boolean value per pair.
-        :returns: Response pairs with the selected entries, in their original order.
+        :param mask: Boolean mask, integer index array, or slice over the pairs.
+        :returns: Response table with the selected entries.
         """
         return ResponseTable(
             self.response[mask],
