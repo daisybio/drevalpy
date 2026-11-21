@@ -24,11 +24,12 @@ class TestDataSurface(DeclaredSurface):
     unpinned_names = ("CurveQuality", "concat", "split")
 
 
-def test_curve_quality_and_split_are_defined_by_the_barrel() -> None:
+def test_curve_quality_and_split_resolve_to_their_defining_modules() -> None:
     from drevalpy.data.quality import CurveQuality
+    from drevalpy.data.splitters._split import split
 
     assert data.CurveQuality is CurveQuality
-    assert data.split.__module__ == "drevalpy.data"
+    assert data.split is split
 
 
 def test_unknown_name_raises_rather_than_returning_none() -> None:
