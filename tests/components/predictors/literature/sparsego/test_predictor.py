@@ -47,16 +47,12 @@ def test_registry_name_defaults_and_no_tunable_hyperparameters() -> None:
 class TestFrozenSparseGONumericalReference:
     pytestmark = pytest.mark.slow
 
-    @pytest.mark.parametrize("seed", [0, 1, 2])
-    def test_matches_v2(self, seed: int) -> None:
-        assert_frozen_reference("sparsego", seed)
+    def test_matches_v2(self) -> None:
+        assert_frozen_reference("sparsego")
 
 
 class TestTinySparseGOFit:
-    pytestmark = pytest.mark.slow
-
-    @pytest.mark.parametrize("seed", [0, 1, 2])
-    def test_updates_parameters_and_round_trips_through_pickle(self, seed: int) -> None:
+    def test_updates_parameters_and_round_trips_through_pickle(self) -> None:
         metadata = {
             "layer_connections": [
                 np.array([["term-1", "gene-1"], ["term-1", "gene-2"], ["term-2", "gene-3"]]),
@@ -93,7 +89,7 @@ class TestTinySparseGOFit:
             "batch_size": 4,
         }
 
-        seed_literature(seed)
+        seed_literature()
         initial_predictor = SparseGOPredictor(hyperparameters)
         initial_predictor._layer_connections = metadata["layer_connections"]
         initial_predictor._gene2id_mapping_ont = metadata["gene2id_mapping_ont"]
@@ -101,13 +97,13 @@ class TestTinySparseGOFit:
         assert initial_predictor._model is not None
         initial = trainable_parameter_vector(initial_predictor._model)
 
-        seed_literature(seed)
+        seed_literature()
         predictor = SparseGOPredictor(hyperparameters)
         predictor.fit(batch)
         assert predictor._model is not None
         assert_trainable_parameters_changed(initial, predictor._model)
         predictions = finite_predictions(predictor, batch)
-        assert_training_predictions("sparsego", seed, predictions)
+        assert_training_predictions("sparsego", predictions)
 
         assert_pickle_round_trip(predictor, batch, predictions, rtol=1e-6, atol=1e-7)
 

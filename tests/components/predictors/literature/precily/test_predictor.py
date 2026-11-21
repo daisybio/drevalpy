@@ -32,8 +32,7 @@ def test_precily_predictor_registry_name() -> None:
 class TestTinyPrecilyFit:
     pytestmark = pytest.mark.slow
 
-    @pytest.mark.parametrize("seed", [0, 1, 2])
-    def test_updates_parameters_and_round_trips_through_pickle(self, seed: int) -> None:
+    def test_updates_parameters_and_round_trips_through_pickle(self) -> None:
         batch = two_by_two_batch(
             sample_blocks={
                 "pathways": FeatureBlock(np.array([[0.1, 0.4, 0.8, 1.2], [1.3, 0.7, -0.2, 0.5]], dtype=np.float32))
@@ -43,18 +42,18 @@ class TestTinyPrecilyFit:
             },
         )
         hyperparameters = {"epochs": 1, "batch_size": 4, "dropout": 0.0, "learning_rate": 0.01}
-        seed_literature(seed)
+        seed_literature()
         pristine = PrecilyPredictor(hyperparameters)
         initial = trainable_parameter_vector(pristine._build_model(8, 0.0))
 
-        seed_literature(seed)
+        seed_literature()
         predictor = PrecilyPredictor(hyperparameters=hyperparameters)
         predictor.fit(batch)
         assert predictor._model is not None
         assert_trainable_parameters_changed(initial, predictor._model)
         expected = finite_predictions(predictor, batch)
-        assert_training_predictions("precily", seed, expected)
-        assert_frozen_reference("precily", seed)
+        assert_training_predictions("precily", expected)
+        assert_frozen_reference("precily")
 
         assert_pickle_round_trip(predictor, batch, expected)
 

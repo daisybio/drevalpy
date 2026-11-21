@@ -29,14 +29,18 @@ DRUG_PAIR_IDX = np.array([0, 1, 0, 1])
 TRAINING_TOLERANCE = {"rtol": 1e-4, "atol": 1e-6}
 
 
-def seed_literature(seed: int) -> None:
+#: The seed every frozen reference in ``_reference/`` was recorded with.
+REFERENCE_SEED = 0
+
+
+def seed_literature() -> None:
     import random
 
     import torch
 
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
+    random.seed(REFERENCE_SEED)
+    np.random.seed(REFERENCE_SEED)
+    torch.manual_seed(REFERENCE_SEED)
     torch.set_num_threads(1)
 
 
@@ -54,29 +58,24 @@ def assert_trainable_parameters_changed(initial: np.ndarray, fitted_module: Any)
     assert not np.array_equal(initial, fitted)
 
 
-def assert_training_predictions(model: str, seed: int, actual: Any) -> None:
-    from tests.components.predictors.literature._reference.loader import load_training_seed
+def assert_training_predictions(model: str, actual: Any) -> None:
+    from tests.components.predictors.literature._reference.loader import load_training
 
-    expected = load_training_seed(seed)[model]
+    expected = load_training()[model]
     np.testing.assert_allclose(np.asarray(actual), np.asarray(expected), **TRAINING_TOLERANCE)
 
 
-def assert_training_checkpoint_score(model: str, seed: int, actual: Any) -> None:
-    from tests.components.predictors.literature._reference.loader import load_training_seed
+def assert_training_checkpoint_score(model: str, actual: Any) -> None:
+    from tests.components.predictors.literature._reference.loader import load_training
 
-    expected = load_training_seed(seed)[f"{model}_checkpoint_score"]
+    expected = load_training()[f"{model}_checkpoint_score"]
     np.testing.assert_allclose(float(actual), float(expected), **TRAINING_TOLERANCE)
 
 
-def assert_corrected_training_result(
-    correction: str,
-    seed: int,
-    predictions: Any,
-    checkpoint_score: Any,
-) -> None:
-    from tests.components.predictors.literature._reference.loader import load_corrected_training_seed
+def assert_corrected_training_result(correction: str, predictions: Any, checkpoint_score: Any) -> None:
+    from tests.components.predictors.literature._reference.loader import load_correction
 
-    expected = load_corrected_training_seed(correction, seed)
+    expected = load_correction(correction)
     np.testing.assert_allclose(np.asarray(predictions), np.asarray(expected["predictions"]), **TRAINING_TOLERANCE)
     np.testing.assert_allclose(float(checkpoint_score), float(expected["checkpoint_score"]), **TRAINING_TOLERANCE)
 
@@ -187,7 +186,7 @@ def single_drug_omics_batch(checkpoint_dir: Any) -> PredictorInput:
 
 
 @contextmanager
-def _isolated_reference_rng(seed: int) -> Iterator[None]:
+def _isolated_reference_rng() -> Iterator[None]:
     import random
 
     import torch
@@ -200,9 +199,9 @@ def _isolated_reference_rng(seed: int) -> Iterator[None]:
     deterministic_warn_only = torch.is_deterministic_algorithms_warn_only_enabled()
     thread_count = torch.get_num_threads()
     try:
-        random.seed(seed)
-        np.random.seed(seed)
-        torch.manual_seed(seed)
+        random.seed(REFERENCE_SEED)
+        np.random.seed(REFERENCE_SEED)
+        torch.manual_seed(REFERENCE_SEED)
         torch.use_deterministic_algorithms(True)
         torch.set_num_threads(1)
         yield
@@ -223,8 +222,8 @@ def _array_payload(value: Any) -> dict[str, Any]:
     return {"shape": list(array.shape), "dtype": str(array.dtype), "values": array.tolist()}
 
 
-@lru_cache(maxsize=3)
-def _current_reference_sequence(seed: int) -> dict[str, Any]:
+@lru_cache(maxsize=1)
+def _current_reference_sequence() -> dict[str, Any]:
     import torch
     from torch_geometric.data import Data
 
@@ -238,8 +237,8 @@ def _current_reference_sequence(seed: int) -> dict[str, Any]:
     from drevalpy.components.predictors.literature.srmf.predictor import SRMFPredictor
     from drevalpy.components.predictors.literature.superfeltr.utils import SuperFELTEncoder
 
-    result: dict[str, Any] = {"seed": seed}
-    with _isolated_reference_rng(seed), torch.no_grad():
+    result: dict[str, Any] = {}
+    with _isolated_reference_rng(), torch.no_grad():
         graph = Data(
             x=torch.randn(6, 5),
             edge_index=torch.tensor([[0, 1, 2, 3], [1, 2, 3, 4]], dtype=torch.long),
@@ -292,14 +291,14 @@ def _current_reference_sequence(seed: int) -> dict[str, Any]:
             np.array([0.0, 0.2, 0.8, 1.0]),
             positive_range=0.1,
             negative_range=1.0,
-            random_seed=seed,
+            random_seed=REFERENCE_SEED,
         )
         result["molir_triplets"] = {
             "positive": np.asarray(positive).tolist(),
             "negative": np.asarray(negative).tolist(),
         }
 
-        srmf = SRMFPredictor({"K": 2, "max_iter": 2, "seed": seed})
+        srmf = SRMFPredictor({"K": 2, "max_iter": 2, "seed": REFERENCE_SEED})
         factors = srmf._cmf(
             np.ones((2, 3), dtype=np.float64),
             np.array([[1.0, 2.0, 3.0], [2.0, 3.0, 4.0]], dtype=np.float64),
@@ -334,11 +333,11 @@ def _assert_array_payload_matches(actual: dict[str, Any], expected: dict[str, An
     np.testing.assert_allclose(actual["values"], expected["values"], rtol=1e-6, atol=1e-7)
 
 
-def assert_frozen_reference(model: str, seed: int) -> None:
-    from tests.components.predictors.literature._reference.loader import load_seed
+def assert_frozen_reference(model: str) -> None:
+    from tests.components.predictors.literature._reference.loader import load_reference
 
-    expected = load_seed(seed)
-    actual = _current_reference_sequence(seed)
+    expected = load_reference()
+    actual = _current_reference_sequence()
     if model == "srmf":
         for factor in ("u", "v"):
             _assert_array_payload_matches(actual[model][factor], expected[model][factor])

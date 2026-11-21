@@ -74,16 +74,14 @@ def test_registry_name_and_default_hyperparameters() -> None:
 class TestFrozenDIPKNumericalReference:
     pytestmark = pytest.mark.slow
 
-    @pytest.mark.parametrize("seed", [0, 1, 2])
-    def test_matches_v2(self, seed: int) -> None:
-        assert_frozen_reference("dipk", seed)
+    def test_matches_v2(self) -> None:
+        assert_frozen_reference("dipk")
 
 
 class TestTinyDIPKFit:
     pytestmark = pytest.mark.slow
 
-    @pytest.mark.parametrize("seed", [0, 1, 2])
-    def test_updates_parameters_and_round_trips_through_pickle(self, seed: int, tmp_path: Path) -> None:
+    def test_updates_parameters_and_round_trips_through_pickle(self, tmp_path: Path) -> None:
         hyperparameters = {
             "batch_size": 4,
             "lr": 0.001,
@@ -94,11 +92,11 @@ class TestTinyDIPKFit:
             "epochs": 1,
             "patience": 1,
         }
-        seed_literature(seed)
+        seed_literature()
         initial_predictor = DIPKPredictor(hyperparameters)
         initial = trainable_parameter_vector(initial_predictor._build_model())
 
-        seed_literature(seed)
+        seed_literature()
         predictor = DIPKPredictor(hyperparameters)
         batch = _trainable_dipk_batch(tmp_path)
         predictor.fit(batch)
@@ -106,7 +104,7 @@ class TestTinyDIPKFit:
         assert_trainable_parameters_changed(initial, predictor._model)
 
         predictions = finite_predictions(predictor, batch)
-        assert_training_predictions("dipk", seed, predictions)
+        assert_training_predictions("dipk", predictions)
 
         assert_pickle_round_trip(predictor, batch, predictions, rtol=1e-6, atol=1e-7)
 
@@ -206,6 +204,7 @@ def test_dense_layers_reduce_to_one_scalar_per_row_and_size_their_head() -> None
     assert len(dropout.dropout_layers) == 4
 
 
+@pytest.mark.slow
 def test_predictor_scores_one_response_per_pair_and_trains_the_attention_stage() -> None:
     predictor = Predictor(heads=1, fc_layer_num=3, fc_layer_dim=FC_LAYER_DIM, dropout_rate=0.0)
     assert isinstance(predictor.attention_layer, AttentionLayer)

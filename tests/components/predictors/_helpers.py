@@ -5,7 +5,7 @@ from __future__ import annotations
 import pickle
 import tempfile
 from pathlib import Path
-from typing import TypeVar
+from typing import TYPE_CHECKING, TypeVar
 
 import numpy as np
 
@@ -18,6 +18,9 @@ from tests.models.synthetic_fixtures import (
     multi_drug_response,
     sample_gene_expression,
 )
+
+if TYPE_CHECKING:
+    import pytest
 
 _T = TypeVar("_T")
 
@@ -64,3 +67,22 @@ def neural_batch(*, with_early_stopping: bool = False) -> PredictorInput:
         early_stopping=early_stopping,
         training_context=TrainingContext(checkpoint_dir=Path(tempfile.mkdtemp())),
     )
+
+
+def spy_trainer(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, object]]:
+    """Record the keyword arguments of every ``pytorch_lightning.Trainer`` built from now on.
+
+    :param monkeypatch: The test's monkeypatch fixture; the patch is undone with it.
+    :returns: A list that gains one dict of ``Trainer`` keyword arguments per construction.
+    """
+    import pytorch_lightning as pl
+
+    seen: list[dict[str, object]] = []
+    real_trainer = pl.Trainer
+
+    def spy(*args, **kwargs):
+        seen.append(dict(kwargs))
+        return real_trainer(*args, **kwargs)
+
+    monkeypatch.setattr(pl, "Trainer", spy)
+    return seen

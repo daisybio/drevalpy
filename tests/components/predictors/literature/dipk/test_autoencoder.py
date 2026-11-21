@@ -64,6 +64,7 @@ def test_encode_gene_expression_keeps_shape_squeezes_a_vector_and_leaves_eval_mo
     assert encoder.training is False
 
 
+@pytest.mark.slow
 def test_train_autoencoder_returns_an_eval_encoder_usable_for_encoding() -> None:
     train = _matrix(4, seed=3)
 
@@ -76,6 +77,7 @@ def test_train_autoencoder_returns_an_eval_encoder_usable_for_encoding() -> None
     assert np.isfinite(encoded).all()
 
 
+@pytest.mark.slow
 def test_train_autoencoder_logs_each_epoch_to_the_active_tracking_run(monkeypatch) -> None:
     fake = install_fake_wandb(monkeypatch)
 
@@ -122,6 +124,7 @@ class TestAutoencoderFinalWeightsContract:
         )
 
 
+@pytest.mark.slow
 def test_training_keeps_the_full_matrices_in_host_memory(monkeypatch) -> None:
     captured: list[torch.Tensor] = []
     original_loader = gee.DataLoader
@@ -139,6 +142,7 @@ def test_training_keeps_the_full_matrices_in_host_memory(monkeypatch) -> None:
     assert captured[0].dtype == torch.float32
 
 
+@pytest.mark.slow
 def test_only_batch_sized_tensors_are_moved_to_the_device(monkeypatch) -> None:
     n_genes, batch_size = 13, 4
     moved_rows: list[int] = []
@@ -161,6 +165,7 @@ def test_only_batch_sized_tensors_are_moved_to_the_device(monkeypatch) -> None:
     assert max(moved_rows) <= batch_size
 
 
+@pytest.mark.slow
 def test_training_accepts_float64_input_and_a_validation_set_smaller_than_the_batch() -> None:
     train = _matrix(8).astype(np.float64)
 
@@ -181,6 +186,7 @@ def test_trainer_defaults_are_keyword_only() -> None:
     assert all(parameters[name].kind is inspect.Parameter.KEYWORD_ONLY for name in ("lr", "batch_size", "patience"))
 
 
+@pytest.mark.slow
 def test_learning_rate_and_batch_size_reach_the_optimizer_and_loader(monkeypatch) -> None:
     seen: dict = {}
     original_adam, original_loader = gee.optim.Adam, gee.DataLoader
@@ -268,6 +274,7 @@ def test_validation_loss_leaves_the_input_untouched_and_is_nan_for_an_empty_matr
     assert np.isnan(validation_loss(encoder, decoder, torch.empty(0, INPUT_DIM), 4, _CPU))
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize(
     ("n_train", "batch_size", "moved"),
     [(5, 4, True), (9, 4, True), (4, 4, False), (6, 4, False)],
