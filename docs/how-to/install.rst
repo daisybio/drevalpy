@@ -3,7 +3,7 @@ Install DrEvalPy
 
 .. interface: cli
 
-DrEvalPy runs on Linux, macOS and Windows with Python 3.11, 3.12 or 3.13. This page shows how to
+DrEvalPy runs on Linux, macOS and Windows with Python 3.11, 3.12, 3.13 or 3.14. This page shows how to
 install it from source, with pip, in a conda or venv environment, and with Docker. If something
 goes wrong, open an issue on `GitHub <https://github.com/daisybio/drevalpy/issues>`_.
 

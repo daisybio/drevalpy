@@ -342,38 +342,14 @@ def test_chemberta_embeds_dataset_smiles(smiles_only: DrugSource) -> None:
     assert matrix.dtype == np.float32
 
 
-class _FakeKeyedVectors:
-    def __init__(self, vectors: dict[str, np.ndarray], vector_size: int) -> None:
-        self._vectors = vectors
-        self.vector_size = vector_size
-
-    @property
-    def key_to_index(self) -> dict[str, int]:
-        return {word: i for i, word in enumerate(self._vectors)}
-
-    def __getitem__(self, word: str) -> np.ndarray:
-        return self._vectors[word]
-
-
 @pytest.fixture
-def loaded_word2vec(monkeypatch: pytest.MonkeyPatch, tmp_path) -> list[tuple[str, bool]]:
-    """Stand in for gensim and the model download; returns the ``(path, binary)`` of every load."""
-    loaded: list[tuple[str, bool]] = []
-    vectors = {"AB": np.array([1.0, 3.0]), "BC": np.array([3.0, 5.0])}
-
-    def load_word2vec_format(path: str, binary: bool) -> _FakeKeyedVectors:
-        loaded.append((path, binary))
-        return _FakeKeyedVectors(vectors, 2)
-
-    models = ModuleType("gensim.models")
-    models.KeyedVectors = SimpleNamespace(load_word2vec_format=load_word2vec_format)
-    monkeypatch.setitem(sys.modules, "gensim", ModuleType("gensim"))
-    monkeypatch.setitem(sys.modules, "gensim.models", models)
+def word2vec_file(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    """Stand in for the model download with a plain-text Word2Vec file of two 2-dimensional words."""
+    (tmp_path / smilesvec._SMILESVEC_MODEL_FILE).write_text("2 2\nAB 1.0 3.0 \nBC 3.0 5.0\n", encoding="utf-8")
     monkeypatch.setattr(smilesvec, "get_artifact", lambda name: tmp_path / name)
-    return loaded
 
 
-def test_smilesvec_averages_the_kmer_vectors_of_each_drug(loaded_word2vec, tmp_path) -> None:
+def test_smilesvec_averages_the_kmer_vectors_of_each_drug(word2vec_file) -> None:
     source = DrugSource(smiles={"d1": "ABCD", "d2": "XXXX", "d3": None})
     ids = np.array(["d1", "d2", "d3"])
 
@@ -383,22 +359,14 @@ def test_smilesvec_averages_the_kmer_vectors_of_each_drug(loaded_word2vec, tmp_p
     np.testing.assert_allclose(matrix[0], [2.0, 4.0])
     np.testing.assert_allclose(matrix[1], [0.0, 0.0])
     assert np.isnan(matrix[2]).all()
-    assert loaded_word2vec == [(str(tmp_path / smilesvec._SMILESVEC_MODEL_FILE), False)]
 
 
-def test_smilesvec_embeds_a_smiles_shorter_than_k_as_one_word(loaded_word2vec) -> None:
+def test_smilesvec_embeds_a_smiles_shorter_than_k_as_one_word(word2vec_file) -> None:
     source = DrugSource(smiles={"d1": "AB"})
 
     matrix = _fit_transform(SmilesVecDrugFeaturizer(k=8), source, source.identifiers).matrix
 
     np.testing.assert_allclose(matrix, [[1.0, 3.0]])
-
-
-def test_smilesvec_reports_a_missing_gensim(monkeypatch: pytest.MonkeyPatch, smiles_only: DrugSource) -> None:
-    block_imports(monkeypatch, "gensim")
-
-    with pytest.raises(ImportError, match="gensim is required"):
-        _fit_transform(SmilesVecDrugFeaturizer(), smiles_only, smiles_only.identifiers[:1])
 
 
 @pytest.mark.network
