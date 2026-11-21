@@ -16,18 +16,12 @@ from drevalpy.models._feature_preparation import prepare_features
 from drevalpy.registry.featurizer import register
 from drevalpy.types.data.dataset import Dataset
 from drevalpy.types.data.feature_source import FeatureSource, precomputed_views
-from tests.synthetic import N_DRUGS, build_synthetic_dataset
-
-
-@pytest.fixture(scope="module")
-def h5mu_path(tmp_path_factory: pytest.TempPathFactory) -> UPath:
-    path = UPath(tmp_path_factory.mktemp("dataset")) / "synthetic.h5mu"
-    build_synthetic_dataset().save(path)
-    return path
+from tests.synthetic import N_DRUGS
 
 
 @pytest.fixture()
 def dataset(h5mu_path: UPath) -> Dataset:
+    """A fresh read-back copy per test, since precomputing writes views into the dataset."""
     return Dataset.load(h5mu_path)
 
 
@@ -56,6 +50,7 @@ def _register(name: str, side: str = "sample", **attrs: Any) -> type[_Scaled]:
     return register(name, side=side, description="precompute stub")(cls)
 
 
+@pytest.mark.slow
 def test_a_sample_view_is_written_with_its_settings_and_read_only_at_those_settings(dataset: Dataset) -> None:
     cls = _register("scaledStub")
 
@@ -74,6 +69,7 @@ def test_a_sample_view_is_written_with_its_settings_and_read_only_at_those_setti
     np.testing.assert_allclose(other.matrix, expected * 2.0, rtol=1e-6)
 
 
+@pytest.mark.slow
 def test_the_record_survives_saving(dataset: Dataset, tmp_path: UPath) -> None:
     _register("scaledStub")
     precompute(dataset, "scaledStub", "sample")
@@ -86,6 +82,7 @@ def test_the_record_survives_saving(dataset: Dataset, tmp_path: UPath) -> None:
     assert _Scaled().reads_view(FeatureSource(reloaded, "sample"))
 
 
+@pytest.mark.slow
 def test_a_drug_view_lands_in_varm(dataset: Dataset) -> None:
     def compute(self: _Scaled, source: FeatureSource, ids: np.ndarray) -> np.ndarray:
         return source.view("chemberta", ids)[:, :1]
@@ -104,6 +101,7 @@ def test_a_drug_view_lands_in_varm(dataset: Dataset) -> None:
     assert cls().reads_view(FeatureSource(dataset, "drug"))
 
 
+@pytest.mark.slow
 def test_a_view_the_featurizer_already_reads_is_not_computed_again(dataset: Dataset) -> None:
     cls = _register("scaledStub")
     precompute(dataset, "scaledStub", "sample")
@@ -113,15 +111,16 @@ def test_a_view_the_featurizer_already_reads_is_not_computed_again(dataset: Data
     assert cls.computed == []
 
 
-def test_an_unsupported_side_or_a_featurizer_that_needs_fitting_raises(dataset: Dataset) -> None:
+def test_an_unsupported_side_or_a_featurizer_that_needs_fitting_raises(synthetic_dataset: Dataset) -> None:
     _register("scaledStub")
 
     with pytest.raises(ValueError, match="'scaledStub' is a sample featurizer and cannot be used on the drug side"):
-        precompute(dataset, "scaledStub", "drug")
+        precompute(synthetic_dataset, "scaledStub", "drug")
     with pytest.raises(ValueError, match="cannot be precomputed"):
-        precompute(dataset, "pca", "sample")
+        precompute(synthetic_dataset, "pca", "sample")
 
 
+@pytest.mark.slow
 def test_precompute_all_covers_eligible_featurizers_and_skips_the_rest(
     dataset: Dataset, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
@@ -147,6 +146,7 @@ def test_precompute_all_covers_eligible_featurizers_and_skips_the_rest(
     assert any("Failed to precompute brokenStub: boom" in record.getMessage() for record in caplog.records)
 
 
+@pytest.mark.slow
 def test_fingerprints_are_written_at_their_defaults_and_other_bit_counts_compute(dataset: Dataset) -> None:
     pytest.importorskip("rdkit")
     del dataset.mdata.mod["response"].varm["morgan_fingerprint"]
@@ -160,9 +160,9 @@ def test_fingerprints_are_written_at_their_defaults_and_other_bit_counts_compute
     assert not FingerprintsFeaturizer(n_bits=512).reads_view(source)
 
 
-def test_an_unrecorded_shipped_view_is_read_whatever_the_settings(dataset: Dataset) -> None:
-    source = FeatureSource(dataset, "drug")
+def test_an_unrecorded_shipped_view_is_read_whatever_the_settings(synthetic_dataset: Dataset) -> None:
+    source = FeatureSource(synthetic_dataset, "drug")
 
     assert source.view_settings("morgan_fingerprint") is None
     assert FingerprintsFeaturizer(n_bits=512).reads_view(source)
-    assert precompute(dataset, "fingerprints", "drug") is None
+    assert precompute(synthetic_dataset, "fingerprints", "drug") is None

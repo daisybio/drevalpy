@@ -60,6 +60,22 @@ def synthetic_dataset() -> Dataset:
 
 
 @pytest.fixture(scope="session")
+def h5mu_path(synthetic_dataset: Dataset, tmp_path_factory: pytest.TempPathFactory) -> UPath:
+    """The :func:`synthetic_dataset` saved as an ``.h5mu`` file, written once.
+
+    ``Dataset.save`` leaves the dataset untouched, so the shared session dataset stays read-only.
+    A test that mutates a dataset takes its own copy with ``Dataset.load(h5mu_path)``.
+
+    :param synthetic_dataset: The session dataset to write.
+    :param tmp_path_factory: Session-scoped temporary directory factory.
+    :returns: Path of the written file.
+    """
+    path = UPath(tmp_path_factory.mktemp("dataset")) / "synthetic.h5mu"
+    synthetic_dataset.save(path)
+    return path
+
+
+@pytest.fixture(scope="session")
 def built_wheel_contents(tmp_path_factory: pytest.TempPathFactory) -> frozenset[str]:
     """Namelist of a real ``uv build --wheel`` of this repository, built once.
 
