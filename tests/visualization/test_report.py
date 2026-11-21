@@ -69,11 +69,6 @@ def _reset_multiqc() -> Iterator[None]:
     multiqc.report.reset()
 
 
-@pytest.fixture(scope="module")
-def experiment() -> ExperimentResult:
-    return make_experiment_result()
-
-
 @pytest.fixture
 def only_stub_is_applicable(monkeypatch) -> type[_StubPlot]:
     """Restrict the report to a single cheap, experiment-level plot."""

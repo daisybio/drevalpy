@@ -10,14 +10,17 @@ from drevalpy.cli.data import concat_datasets, data_app, load_dataset, split_dat
 from drevalpy.cli.main import app
 from drevalpy.data._synthetic import MAX_SYNTHETIC_DRUGS, N_DRUGS, N_SAMPLES
 from drevalpy.errors import UnknownNameError
-from tests.cli._helpers import HELP_ENV, FakeDataset, GroupSurface, Recorder, make_runner, patch_worker, plain
+from tests.cli._helpers import (
+    HELP_ENV,
+    FakeDataset,
+    GroupSurface,
+    Recorder,
+    make_runner,
+    patch_loader,
+    plain,
+)
 
 runner = make_runner()
-
-
-def _patch_loader(monkeypatch: pytest.MonkeyPatch, worker) -> None:
-    patch_worker(monkeypatch, "drevalpy.data.datasets._load", "load", worker)
-    patch_worker(monkeypatch, "drevalpy.data", "load", worker)
 
 
 @pytest.fixture()
@@ -27,9 +30,7 @@ def dataset() -> FakeDataset:
 
 @pytest.fixture()
 def loader(monkeypatch: pytest.MonkeyPatch, dataset: FakeDataset) -> Recorder:
-    recorder = Recorder(return_value=dataset)
-    _patch_loader(monkeypatch, recorder)
-    return recorder
+    return patch_loader(monkeypatch, Recorder(return_value=dataset))
 
 
 def test_loads_by_name_and_writes_to_the_requested_path(
@@ -60,7 +61,7 @@ def test_a_loader_error_is_reported_without_a_traceback_and_writes_no_file(
     def boom(name: str) -> FakeDataset:
         raise UnknownNameError(f"Unknown dataset {name!r}")
 
-    _patch_loader(monkeypatch, boom)
+    patch_loader(monkeypatch, boom)
     out = tmp_path / "out.h5mu"
 
     result = runner.invoke(app, ["data", "load", "NoSuchDataset", str(out)])
