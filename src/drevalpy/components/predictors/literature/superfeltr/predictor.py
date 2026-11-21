@@ -7,11 +7,9 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from drevalpy.components.predictors.literature._omics import (
-    OmicsSplit,
+    OMIC_BLOCK_NAMES,
     SingleDrugOmicsPredictor,
     fit_omics_model,
-    omic_matrices,
-    validation_split,
 )
 from drevalpy.registry._component import LiteratureReference
 from drevalpy.registry.predictor import register
@@ -73,29 +71,23 @@ class SuperFELTRPredictor(SingleDrugOmicsPredictor):
         :param data: Subset batch for this drug.
         :returns: The fitted regressor, which holds the fitted encoders.
         """
-        matrices = omic_matrices(data)
         response = np.asarray(data.response, dtype=np.float32)
         std = float(np.std(response))
         ranges = (std * 0.1, std)
 
-        train = OmicsSplit(*matrices, response=response, pair_idx=data.sample_pair_idx)
-        val = validation_split(matrices, data)
-        checkpoint_dir = str(data.training_context.checkpoint_dir)
         #: Below one mini-batch the training loader's ``drop_last`` empties it, so the
         #: encoders and regressor stay randomly initialized rather than being fitted.
         trainable = len(data) >= self._hyperparameters["mini_batch"]
 
-        widths = tuple(matrix.shape[1] for matrix in matrices)
-        encoders = self._fit_encoders(widths, ranges, train, val, checkpoint_dir, trainable)
-        return self._fit_regressor(encoders, train, val, checkpoint_dir, trainable)
+        widths = tuple(data.sample.blocks[name].values.shape[1] for name in OMIC_BLOCK_NAMES)
+        encoders = self._fit_encoders(widths, ranges, data, trainable)
+        return self._fit_regressor(encoders, data, trainable)
 
     def _fit_encoders(
         self,
         widths: tuple[int, ...],
         ranges: tuple[float, float],
-        train: OmicsSplit,
-        val: OmicsSplit | None,
-        checkpoint_dir: str,
+        data: PredictorInput,
         trainable: bool,
     ) -> tuple[SuperFELTEncoder, SuperFELTEncoder, SuperFELTEncoder]:
         """Train one independent encoder per omic view.
@@ -105,9 +97,7 @@ class SuperFELTRPredictor(SingleDrugOmicsPredictor):
 
         :param widths: Input width of each omic view.
         :param ranges: Positive and negative triplet-loss ranges.
-        :param train: Training split.
-        :param val: Validation split, or None.
-        :param checkpoint_dir: Directory the fits checkpoint into.
+        :param data: Training batch carrying all three omic views and optional early-stopping pairs.
         :param trainable: Whether there are enough pairs to fit at all.
         :returns: The three encoders, in ``ENCODER_DIM_KEYS`` order.
         """
@@ -122,7 +112,7 @@ class SuperFELTRPredictor(SingleDrugOmicsPredictor):
                 ranges=ranges,
             )
             if trainable:
-                best_ckpt = self._fit_module(encoder, train, val, checkpoint_dir)
+                best_ckpt = self._fit_module(encoder, data)
                 encoder = SuperFELTEncoder.load_from_checkpoint(best_ckpt.best_model_path)
             encoders.append(encoder)
         return encoders[0], encoders[1], encoders[2]
@@ -130,17 +120,13 @@ class SuperFELTRPredictor(SingleDrugOmicsPredictor):
     def _fit_regressor(
         self,
         encoders: tuple[SuperFELTEncoder, SuperFELTEncoder, SuperFELTEncoder],
-        train: OmicsSplit,
-        val: OmicsSplit | None,
-        checkpoint_dir: str,
+        data: PredictorInput,
         trainable: bool,
     ) -> SuperFELTRegressor:
         """Train the regression head on top of the frozen encoders.
 
         :param encoders: The fitted encoders.
-        :param train: Training split.
-        :param val: Validation split, or None.
-        :param checkpoint_dir: Directory the fit checkpoints into.
+        :param data: Training batch carrying all three omic views and optional early-stopping pairs.
         :param trainable: Whether there are enough pairs to fit at all.
         :returns: The regressor, loaded from its best checkpoint when it was fitted.
         """
@@ -155,7 +141,7 @@ class SuperFELTRPredictor(SingleDrugOmicsPredictor):
         if not trainable:
             return regressor
 
-        best_checkpoint = self._fit_module(regressor, train, val, checkpoint_dir)
+        best_checkpoint = self._fit_module(regressor, data)
         return SuperFELTRegressor.load_from_checkpoint(
             best_checkpoint.best_model_path,
             input_size=input_size,
@@ -163,21 +149,15 @@ class SuperFELTRPredictor(SingleDrugOmicsPredictor):
             encoders=encoders,
         )
 
-    def _fit_module(
-        self, model: pl.LightningModule, train: OmicsSplit, val: OmicsSplit | None, checkpoint_dir: str
-    ) -> pl.callbacks.ModelCheckpoint:
+    def _fit_module(self, model: pl.LightningModule, data: PredictorInput) -> pl.callbacks.ModelCheckpoint:
         """Fit one encoder or the regressor on the CPU with early stopping.
 
         :param model: Encoder or regressor to fit.
-        :param train: Training split.
-        :param val: Validation split, or None to monitor the training loss.
-        :param checkpoint_dir: Directory the fit checkpoints into.
+        :param data: Training batch carrying all three omic views and optional early-stopping pairs.
         :returns: The checkpoint callback holding the best epoch.
         :raises ValueError: If ``epochs`` or ``mini_batch`` is not an integer.
         """
         epochs, mini_batch = self._hyperparameters["epochs"], self._hyperparameters["mini_batch"]
         if not isinstance(epochs, int) or not isinstance(mini_batch, int):
             raise ValueError("epochs and mini_batch must be integers!")
-        return fit_omics_model(
-            model, train, val, batch_size=mini_batch, epochs=epochs, patience=5, checkpoint_dir=checkpoint_dir
-        )
+        return fit_omics_model(model, data, batch_size=mini_batch, epochs=epochs, patience=5)

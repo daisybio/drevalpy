@@ -119,10 +119,10 @@ class NeuralNetworkPredictor(Predictor):
         :returns: DataLoader.
         """
         batch_size = max(1, min(int(self._hyperparameters["batch_size"]), len(data)))
-        sample = data.sample.matrix if data.sample.matrix.size > 0 else None
+        samples = (data.sample.matrix,) if data.sample.matrix.size > 0 else ()
         drug = data.drug.matrix if data.drug is not None and data.drug.matrix.size > 0 else None
         return pair_loader(
-            data, sample, drug, batch_size=batch_size, shuffle=shuffle, drop_last=drop_last, response=response
+            data, *samples, drug=drug, batch_size=batch_size, shuffle=shuffle, drop_last=drop_last, response=response
         )
 
     def _validation_loader(self, data: PredictorInput) -> DataLoader | None:

@@ -184,12 +184,12 @@ class PaccMannPredictor(DevicePicklingMixin, Predictor):
         # only then, so that training sets smaller than a batch stay usable.
         drop_last = n_pairs > batch_size and n_pairs % batch_size == 1
         train_loader = pair_loader(
-            data, gene_entity, variants.values, batch_size=batch_size, shuffle=True, drop_last=drop_last
+            data, gene_entity, drug=variants.values, batch_size=batch_size, shuffle=True, drop_last=drop_last
         )
         stopping = data.stopping
         if stopping is None or len(stopping) == 0:
             return train_loader, None
-        val_loader = pair_loader(stopping, gene_entity, tokens.values, batch_size=batch_size, shuffle=False)
+        val_loader = pair_loader(stopping, gene_entity, drug=tokens.values, batch_size=batch_size, shuffle=False)
         return train_loader, val_loader
 
     def _fit(self, data: PredictorInput) -> None:

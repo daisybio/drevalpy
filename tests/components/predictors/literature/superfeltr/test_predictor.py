@@ -8,11 +8,14 @@ import pytorch_lightning as pl
 import torch
 from torch import nn
 
-from drevalpy.components.predictors.literature._omics import OmicsSplit
+from drevalpy.components.contracts.training_context import TrainingContext
 from drevalpy.components.predictors.literature.superfeltr import predictor as superfeltr_predictor
 from drevalpy.components.predictors.literature.superfeltr.predictor import SuperFELTRPredictor
 from drevalpy.components.predictors.literature.superfeltr.utils import SuperFELTEncoder, SuperFELTRegressor
 from drevalpy.registry.predictor import get as get_predictor
+from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
+from drevalpy.types.data.predictor_input import PredictorInput
+from drevalpy.types.data.response_table import ResponseTable
 from tests.components.predictors.literature._helpers import (
     assert_frozen_reference,
     assert_pickle_round_trip,
@@ -116,21 +119,28 @@ def _omics() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     )
 
 
-def _pairs() -> tuple[np.ndarray, np.ndarray]:
-    response = np.linspace(0.0, 1.0, N_PAIRS, dtype=np.float32)
-    pair_idx = np.arange(N_PAIRS, dtype=np.int64) % N_ENTITIES
-    return response, pair_idx
-
-
-def _split(response: np.ndarray | None = None) -> OmicsSplit:
+def _omics_batch(tmp_path, *, with_val: bool = False) -> PredictorInput:
     expr, mut, cnv = _omics()
-    default_response, pair_idx = _pairs()
-    return OmicsSplit(
-        gene_expression=expr,
-        mutations=mut,
-        copy_number=cnv,
-        response=default_response if response is None else response,
-        pair_idx=pair_idx,
+    entity_ids = np.array([f"s{i}" for i in range(N_ENTITIES)])
+    pair_ids = entity_ids[np.arange(N_PAIRS) % N_ENTITIES]
+    pairs = ResponseTable(
+        response=np.linspace(0.0, 1.0, N_PAIRS, dtype=np.float32),
+        sample_ids=pair_ids,
+        drug_ids=np.repeat("d1", N_PAIRS),
+    )
+    sample = FeaturizerOutput(
+        entity_ids=entity_ids,
+        blocks={
+            "gene_expression": FeatureBlock(expr),
+            "mutations": FeatureBlock(mut),
+            "copy_number_variation_gistic": FeatureBlock(cnv),
+        },
+    )
+    return PredictorInput(
+        pairs=pairs,
+        sample=sample,
+        early_stopping=pairs if with_val else None,
+        training_context=TrainingContext(checkpoint_dir=tmp_path),
     )
 
 
@@ -250,9 +260,9 @@ def test_regressor_steps_return_a_scalar_loss(step: str) -> None:
     assert getattr(_regressor(), step)(batch, 0).ndim == 0
 
 
-def _fit_module(module, tmp_path, *, val: OmicsSplit | None = None, split: OmicsSplit | None = None, **overrides):
+def _fit_module(module, tmp_path, *, with_val: bool = False, **overrides):
     predictor = SuperFELTRPredictor(hyperparameters={**_hpams(), **overrides})
-    return predictor._fit_module(module, _split() if split is None else split, val, str(tmp_path))
+    return predictor._fit_module(module, _omics_batch(tmp_path, with_val=with_val))
 
 
 @pytest.mark.parametrize("hyperparameter", ["epochs", "mini_batch"])
@@ -263,7 +273,7 @@ def test_fit_rejects_non_integer_epochs_and_mini_batch(hyperparameter: str, tmp_
 
 @pytest.mark.parametrize(("with_val", "monitor"), [(False, "train_loss"), (True, "val_loss")])
 def test_fit_encoder_monitors_the_available_loss_and_writes_a_checkpoint(with_val, monitor, tmp_path) -> None:
-    checkpoint = _fit_module(_encoder(), tmp_path, val=_split() if with_val else None)
+    checkpoint = _fit_module(_encoder(), tmp_path, with_val=with_val)
 
     assert isinstance(checkpoint, pl.callbacks.ModelCheckpoint)
     assert checkpoint.monitor == monitor
@@ -275,10 +285,8 @@ def test_fit_encoder_monitors_the_available_loss_and_writes_a_checkpoint(with_va
     assert restored.encode[0].out_features == OUT_EXPR
 
 
-def test_fit_regressor_accepts_a_two_dimensional_response(tmp_path) -> None:
-    response, _ = _pairs()
-
-    checkpoint = _fit_module(_regressor(), tmp_path, split=_split(response=response.reshape(-1, 1)))
+def test_fit_regressor_writes_a_checkpoint(tmp_path) -> None:
+    checkpoint = _fit_module(_regressor(), tmp_path)
 
     assert checkpoint.best_model_path
 

@@ -120,8 +120,8 @@ class PharmaFormerPredictor(DevicePicklingMixin, Predictor):
         gene_entity, drug_entity = declared_blocks(self, data)
         batch_size = self._hyperparameters["batch_size"]
 
-        train_loader = pair_loader(data, gene_entity, drug_entity, batch_size=batch_size, shuffle=True)
-        val_loader = pair_loader(stopping, gene_entity, drug_entity, batch_size=batch_size, shuffle=False)
+        train_loader = pair_loader(data, gene_entity, drug=drug_entity, batch_size=batch_size, shuffle=True)
+        val_loader = pair_loader(stopping, gene_entity, drug=drug_entity, batch_size=batch_size, shuffle=False)
         return train_loader, val_loader
 
     def _fit(self, data: PredictorInput) -> None:

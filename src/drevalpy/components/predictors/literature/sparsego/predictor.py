@@ -156,10 +156,12 @@ class SparseGOPredictor(DevicePicklingMixin, Predictor):
 
         self._layer_connections, self._gene2id_mapping_ont, _ = resolve_ontology_metadata(dict(block.annotations))
 
-        blocks = self._entity_matrices(data, active_view)
-        self._hyperparameters["drug_dim"] = int(blocks[1].shape[1])
+        cell_entity, drug_entity = self._entity_matrices(data, active_view)
+        self._hyperparameters["drug_dim"] = int(drug_entity.shape[1])
         model = self._build_network()
-        loader = pair_loader(data, *blocks, batch_size=self._hyperparameters["batch_size"], shuffle=True)
+        loader = pair_loader(
+            data, cell_entity, drug=drug_entity, batch_size=self._hyperparameters["batch_size"], shuffle=True
+        )
         self._run_training(model, loader)
 
     def _run_training(self, model: SparseGONetwork, loader: DataLoader) -> None:

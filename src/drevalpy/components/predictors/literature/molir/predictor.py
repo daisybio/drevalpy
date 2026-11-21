@@ -4,14 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import numpy as np
-
-from drevalpy.components.predictors.literature._omics import (
-    OmicsSplit,
-    SingleDrugOmicsPredictor,
-    omic_matrices,
-    validation_split,
-)
+from drevalpy.components.predictors.literature._omics import OMIC_BLOCK_NAMES, SingleDrugOmicsPredictor
 from drevalpy.registry._component import LiteratureReference
 from drevalpy.registry.predictor import register
 from drevalpy.types.data.predictor_input import PredictorInput
@@ -72,19 +65,11 @@ class MOLIRPredictor(SingleDrugOmicsPredictor):
         :param data: Subset batch for this drug.
         :returns: The model; left untrained when the drug has fewer pairs than one mini-batch.
         """
-        matrices = omic_matrices(data)
-        model = self._build_model(tuple(matrix.shape[1] for matrix in matrices))
+        widths = tuple(data.sample.blocks[name].values.shape[1] for name in OMIC_BLOCK_NAMES)
+        model = self._build_model(widths)
 
         if len(data) >= self._hyperparameters["mini_batch"]:
-            model.fit(
-                train=OmicsSplit(
-                    *matrices,
-                    response=np.asarray(data.response, dtype=np.float32),
-                    pair_idx=data.sample_pair_idx,
-                ),
-                val=validation_split(matrices, data),
-                model_checkpoint_dir=str(data.training_context.checkpoint_dir),
-            )
+            model.fit(data)
 
         return model
 

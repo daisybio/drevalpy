@@ -1,6 +1,8 @@
 """Utility functions for the SuperFELTR model."""
 
-from typing import cast
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, cast
 
 import pytorch_lightning as pl
 import torch
@@ -8,6 +10,9 @@ from torch import nn
 
 from drevalpy.components.predictors._lightning_training import LossSteps
 from drevalpy.components.predictors.literature.molir.utils import OmicsRegressionModule, generate_triplets_indices
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 #: The encoder omic types in the order of a batch's three omic views, each with the hyperparameter holding
 #: its encoder's output width.
@@ -97,7 +102,7 @@ class SuperFELTEncoder(LossSteps, pl.LightningModule):
         triplet_loss = self.triplet_loss(encoded, encoded[positive_indices], encoded[negative_indices])
         return triplet_loss
 
-    def _loss_and_log(self, batch: list[torch.Tensor], key: str) -> torch.Tensor:
+    def _loss_and_log(self, batch: Sequence[torch.Tensor], key: str) -> torch.Tensor:
         """Compute and log the triplet loss of one batch on this encoder's omic view.
 
         :param batch: batch containing the omic data and response
@@ -106,7 +111,7 @@ class SuperFELTEncoder(LossSteps, pl.LightningModule):
         :returns: triplet loss
         """
         *views, response = batch
-        response = response.squeeze(-1)
+        response = response.reshape(-1)
         encoded = self.encode(views[list(ENCODER_DIM_KEYS).index(self.omic_type)])
         triplet_loss = self._compute_loss(encoded, response)
         self.log(key, triplet_loss, on_step=False, on_epoch=True, prog_bar=True)
@@ -157,7 +162,7 @@ class SuperFELTRegressor(LossSteps, OmicsRegressionModule):
             encoder.requires_grad_(False)
         self.regression_loss = nn.MSELoss()
 
-    def train(self, mode: bool = True) -> "SuperFELTRegressor":
+    def train(self, mode: bool = True) -> SuperFELTRegressor:
         """Set training mode on the regressor while keeping the encoders in eval mode.
 
         Lightning calls ``train()`` when the fit loop starts, which would otherwise
@@ -189,7 +194,7 @@ class SuperFELTRegressor(LossSteps, OmicsRegressionModule):
         """
         return torch.optim.Adagrad(self.regressor.parameters(), lr=self.lr, weight_decay=self.weight_decay)
 
-    def _encoder(self, index: int) -> "SuperFELTEncoder":
+    def _encoder(self, index: int) -> SuperFELTEncoder:
         """Return the registered encoder at ``index`` with its concrete type.
 
         ``nn.ModuleList.__getitem__`` is typed as ``Tensor | Module``, so the cast
@@ -216,7 +221,7 @@ class SuperFELTRegressor(LossSteps, OmicsRegressionModule):
         encoded_cnv = self._encoder(2).encode(copy_number)
         return torch.cat((encoded_expr, encoded_mut, encoded_cnv), dim=1)
 
-    def _loss_and_log(self, batch: list[torch.Tensor], key: str) -> torch.Tensor:
+    def _loss_and_log(self, batch: Sequence[torch.Tensor], key: str) -> torch.Tensor:
         """Compute and log the regression loss of one batch.
 
         :param batch: batch containing the omic data and response
@@ -225,7 +230,7 @@ class SuperFELTRegressor(LossSteps, OmicsRegressionModule):
         :returns: regression loss
         """
         data_expr, data_mut, data_cnv, response = batch
-        response = response.squeeze(-1)
+        response = response.reshape(-1)
         encoded = self._encode_and_concatenate(data_expr, data_mut, data_cnv)
         pred = self.regressor(encoded)
         loss = self.regression_loss(pred.squeeze(), response)

@@ -105,7 +105,7 @@ class PrecilyPredictor(DevicePicklingMixin, Predictor):
         self._model = model
 
         train_loader = pair_loader(
-            data, pathway_entity, drug_entity, batch_size=self._hyperparameters["batch_size"], shuffle=True
+            data, pathway_entity, drug=drug_entity, batch_size=self._hyperparameters["batch_size"], shuffle=True
         )
 
         loss_func = nn.MSELoss()
