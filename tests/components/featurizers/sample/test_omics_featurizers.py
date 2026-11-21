@@ -38,7 +38,8 @@ def test_molir_omics_selects_expression_and_round_trips_through_pickle() -> None
     assert set(blocks) == {"gene_expression", "mutations", "copy_number_variation_gistic"}
     assert blocks["gene_expression"].values.shape == (2, 2)
     np.testing.assert_allclose(
-        pickled(featurizer).transform(features, np.array(["cl0", "cl2"])).matrix, blocks["gene_expression"].values
+        pickled(featurizer).transform(features, np.array(["cl0", "cl2"])).blocks["gene_expression"].values,
+        blocks["gene_expression"].values,
     )
     (gene_expression, *_) = MOLIROmicsFeaturizer.output_blocks({})
     assert gene_expression.name == "gene_expression"
@@ -81,7 +82,7 @@ def test_selection_ranks_training_variance_before_standardization() -> None:
     featurizer = MOLIROmicsFeaturizer(n_gene_expression_features=1).fit(features, np.array(["cl0", "cl1"]))
     result = featurizer.transform(features, np.array(["cl0", "cl1"]))
     assert result.blocks["gene_expression"].feature_names == ("variable",)
-    np.testing.assert_allclose(result.matrix, [[-1.0], [1.0]])
+    np.testing.assert_allclose(result.blocks["gene_expression"].values, [[-1.0], [1.0]])
 
 
 def _molir_omics() -> MockFeatureSource:
@@ -118,7 +119,10 @@ def test_molir_omics_gene_lists_select_each_view_and_name_the_variance_selection
     assert set(blocks["gene_expression"].feature_names) <= {"a", "b", "d"}
     assert blocks["gene_expression"].values.shape == (3, 2)
     restored = pickled(featurizer)
-    np.testing.assert_allclose(restored.transform(_molir_omics(), ids).matrix, blocks["gene_expression"].values)
+    np.testing.assert_allclose(
+        restored.transform(_molir_omics(), ids).blocks["gene_expression"].values,
+        blocks["gene_expression"].values,
+    )
     assert restored._gene_lists == {"gene_expression": "ge", "mutations": "mut"}
 
 
@@ -151,7 +155,8 @@ def test_superfeltr_omics_selects_each_view_and_round_trips_through_pickle() -> 
     blocks = featurizer.transform(features, np.array(["cl0", "cl2"])).blocks
     assert all(block.values.shape == (2, 2) for block in blocks.values())
     np.testing.assert_allclose(
-        pickled(featurizer).transform(features, np.array(["cl0", "cl2"])).matrix, blocks["gene_expression"].values
+        pickled(featurizer).transform(features, np.array(["cl0", "cl2"])).blocks["gene_expression"].values,
+        blocks["gene_expression"].values,
     )
 
 
@@ -230,7 +235,10 @@ def test_superfeltr_omics_gene_lists_restrict_the_variance_selection_per_view(
     assert blocks["gene_expression"].feature_names == ("gene_expression3",)
     restored = pickled(featurizer)
     assert restored._gene_lists == {"mutations": "two"}
-    np.testing.assert_allclose(restored.transform(_superfeltr_omics(), ids).matrix, blocks["gene_expression"].values)
+    np.testing.assert_allclose(
+        restored.transform(_superfeltr_omics(), ids).blocks["gene_expression"].values,
+        blocks["gene_expression"].values,
+    )
 
 
 def test_superfeltr_omics_gene_lists_raise_when_a_view_lacks_genes(
@@ -257,7 +265,8 @@ def test_pharmaformer_gene_expression_round_trips_through_pickle() -> None:
     blocks = featurizer.transform(features, np.array(["cl0", "cl2"])).blocks
     assert blocks["gene_expression"].feature_names == ("a", "b")
     np.testing.assert_allclose(
-        pickled(featurizer).transform(features, np.array(["cl0", "cl2"])).matrix, blocks["gene_expression"].values
+        pickled(featurizer).transform(features, np.array(["cl0", "cl2"])).blocks["gene_expression"].values,
+        blocks["gene_expression"].values,
     )
     assert featurizer.transform(features, np.array([], dtype=str)).matrix.shape == (0, 2)
 

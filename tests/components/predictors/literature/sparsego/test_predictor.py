@@ -12,8 +12,8 @@ from drevalpy.components.predictors.literature.sparsego.algorithm import SparseL
 from drevalpy.components.predictors.literature.sparsego.predictor import SparseGOPredictor, _resolve_active_view
 from drevalpy.components.predictors.literature.sparsego.utils import load_ontology, resolve_ontology_metadata
 from drevalpy.registry.predictor import get as get_predictor
-from drevalpy.types.data.batch.feature_block import numeric_feature_block
-from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
+from drevalpy.types.data.feature_block import FeatureBlock
+from drevalpy.types.data.predictor_input import PredictorInput
 from tests.components.predictors.literature._helpers import (
     assert_frozen_reference,
     assert_pickle_round_trip,
@@ -29,11 +29,11 @@ _LAYER_CONNECTIONS = [np.array([[0, 1], [1, 2]])]
 _GENE2ID = {"TP53": 0, "EGFR": 1}
 
 
-def _batch(sample_block_names: tuple[str, ...], *, metadata: dict | None = None) -> ModelInputBatch:
+def _batch(sample_block_names: tuple[str, ...], *, metadata: dict | None = None) -> PredictorInput:
     values = np.array([[0.1, 0.2], [0.3, 0.4]], dtype=np.float32)
     return two_by_two_batch(
-        sample_blocks={name: numeric_feature_block(values, annotations=metadata) for name in sample_block_names},
-        drug_blocks={"fingerprints": numeric_feature_block(np.eye(2, dtype=np.float32))},
+        sample_blocks={name: FeatureBlock(values, annotations=metadata) for name in sample_block_names},
+        drug_blocks={"fingerprints": FeatureBlock(np.eye(2, dtype=np.float32))},
     )
 
 
@@ -67,15 +67,13 @@ class TestTinySparseGOFit:
         }
         batch = two_by_two_batch(
             sample_blocks={
-                "gene_expression": numeric_feature_block(
+                "gene_expression": FeatureBlock(
                     np.array([[0.1, 0.7, 1.4], [1.3, -0.2, 0.4]], dtype=np.float32),
                     annotations=metadata,
                 )
             },
             drug_blocks={
-                "fingerprints": numeric_feature_block(
-                    np.array([[1.0, 0.0, 1.0, 0.0], [0.0, 1.0, 0.0, 1.0]], dtype=np.float32)
-                )
+                "fingerprints": FeatureBlock(np.array([[1.0, 0.0, 1.0, 0.0], [0.0, 1.0, 0.0, 1.0]], dtype=np.float32))
             },
         )
         hyperparameters = {

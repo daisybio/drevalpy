@@ -15,10 +15,9 @@ from sklearn.linear_model import Ridge
 
 from drevalpy.plugin import (
     BlockSpec,
-    FeatureFormat,
     Inputs,
-    ModelInputBatch,
     Predictor,
+    PredictorInput,
     register_predictor,
 )
 
@@ -32,7 +31,7 @@ BLOCK = "gene_expression"
 class ToyBlockRidgePredictor(Predictor):
     """Read one named block instead of the flattened design matrix."""
 
-    sample_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec(BLOCK, FeatureFormat.NUMERIC_MATRIX))
+    sample_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec(BLOCK))
     drug_inputs: ClassVar[Inputs] = Inputs.matrix()
 
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
@@ -43,26 +42,26 @@ class ToyBlockRidgePredictor(Predictor):
         super().__init__(hyperparameters)
         self._estimator: Ridge | None = None
 
-    def _fit(self, batch: ModelInputBatch) -> None:
+    def _fit(self, data: PredictorInput) -> None:
         """Train on the named block, widened with the drug features when present."""
         self._estimator = Ridge(alpha=1.0)
-        self._estimator.fit(self._design_matrix(batch), batch.response)
+        self._estimator.fit(self._design_matrix(data), data.response)
 
-    def _predict(self, batch: ModelInputBatch) -> np.ndarray:
+    def _predict(self, data: PredictorInput) -> np.ndarray:
         """Score the same design matrix ``_fit`` was trained on."""
         if self._estimator is None:
             msg = "ToyBlockRidgePredictor must be fitted before predicting"
             raise RuntimeError(msg)
-        return np.asarray(self._estimator.predict(self._design_matrix(batch)), dtype=np.float64)
+        return np.asarray(self._estimator.predict(self._design_matrix(data)), dtype=np.float64)
 
     @staticmethod
-    def _design_matrix(batch: ModelInputBatch) -> np.ndarray:
+    def _design_matrix(data: PredictorInput) -> np.ndarray:
         """Expand the entity-level block to one row per pair.
 
         Blocks are indexed by entity, not by pair, so they have to be expanded
         through ``sample_pair_idx`` before a pair-level model can use them.
         """
-        matrix = batch.sample.blocks[BLOCK].values[batch.sample_pair_idx]
-        if batch.drug is not None and batch.drug_pair_idx is not None:
-            matrix = np.hstack([matrix, batch.drug.matrix[batch.drug_pair_idx]])
+        matrix = data.sample.blocks[BLOCK].values[data.sample_pair_idx]
+        if data.drug is not None and data.drug_pair_idx is not None:
+            matrix = np.hstack([matrix, data.drug.matrix[data.drug_pair_idx]])
         return matrix

@@ -20,9 +20,9 @@ from drevalpy.components.predictors.literature._omics_loaders import OmicsSplit,
 from drevalpy.components.predictors.literature._single_drug_omics import SingleDrugOmicsPredictor
 from drevalpy.components.predictors.literature.molir.predictor import MOLIRPredictor
 from drevalpy.components.predictors.literature.superfeltr.predictor import SuperFELTRPredictor
-from drevalpy.types.data.batch.feature_block import numeric_feature_block
-from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
-from drevalpy.types.data.batch.response_batch import ResponseBatch
+from drevalpy.types.data.feature_block import FeatureBlock
+from drevalpy.types.data.predictor_input import PredictorInput
+from drevalpy.types.data.response_table import ResponseTable
 from tests.components.predictors.literature._helpers import two_by_two_batch
 
 EXPRESSION = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]], dtype=np.float32)
@@ -35,12 +35,12 @@ CNV_FEATURES = ("cnvA",)
 
 def _batch(
     *,
-    early_stopping_response: ResponseBatch | None = None,
+    early_stopping: ResponseTable | None = None,
     expression: np.ndarray = EXPRESSION,
     expression_features: tuple[str, ...] = EXPRESSION_FEATURES,
     checkpoint_dir: str = "/base",
-) -> ModelInputBatch:
-    response = ResponseBatch(
+) -> PredictorInput:
+    response = ResponseTable(
         response=np.array([1.0, 2.0, 3.0, 4.0]),
         sample_ids=np.array(["cl1", "cl1", "cl2", "cl2"]),
         drug_ids=np.array(["d1", "d2", "d1", "d2"]),
@@ -48,15 +48,15 @@ def _batch(
     return two_by_two_batch(
         response=response,
         sample_blocks={
-            "gene_expression": numeric_feature_block(expression, feature_names=expression_features),
-            "mutations": numeric_feature_block(MUTATIONS, feature_names=MUTATION_FEATURES),
-            "copy_number_variation_gistic": numeric_feature_block(CNV, feature_names=CNV_FEATURES),
+            "gene_expression": FeatureBlock(expression, feature_names=expression_features),
+            "mutations": FeatureBlock(MUTATIONS, feature_names=MUTATION_FEATURES),
+            "copy_number_variation_gistic": FeatureBlock(CNV, feature_names=CNV_FEATURES),
         },
         drug_blocks={
-            "oneHot": numeric_feature_block(np.eye(2, dtype=np.float32)),
-            "oneHot_categories": numeric_feature_block(np.array([["d1", "d2"]], dtype=object)),
+            "oneHot": FeatureBlock(np.eye(2, dtype=np.float32)),
+            "oneHot_categories": FeatureBlock(np.array([["d1", "d2"]], dtype=object)),
         },
-        early_stopping_response=early_stopping_response,
+        early_stopping=early_stopping,
         checkpoint_dir=checkpoint_dir,
     )
 
@@ -71,8 +71,8 @@ def _trained_names() -> OmicFeatureNames:
     )
 
 
-def _validation(sample_ids: list[str], values: list[float]) -> ResponseBatch:
-    return ResponseBatch(
+def _validation(sample_ids: list[str], values: list[float]) -> ResponseTable:
+    return ResponseTable(
         response=np.array(values), sample_ids=np.array(sample_ids), drug_ids=np.repeat("d1", len(values))
     )
 
@@ -103,11 +103,11 @@ def test_feature_names_are_recorded_and_frozen() -> None:
 
 def test_early_stopping_needs_at_least_two_validation_pairs() -> None:
     assert validation_split(_matrices(), _batch()) is None
-    assert validation_split(_matrices(), _batch(early_stopping_response=_validation(["cl1"], [1.0]))) is None
+    assert validation_split(_matrices(), _batch(early_stopping=_validation(["cl1"], [1.0]))) is None
 
 
 def test_validation_samples_map_onto_entity_rows_and_share_matrices() -> None:
-    batch = _batch(early_stopping_response=_validation(["cl2", "cl1"], [7.0, 8.0]))
+    batch = _batch(early_stopping=_validation(["cl2", "cl1"], [7.0, 8.0]))
     matrices = _matrices()
     split = validation_split(matrices, batch)
     assert split is not None
@@ -169,10 +169,10 @@ def test_feature_names_are_recorded_once_and_drugs_without_a_model_are_skipped()
 
 
 def test_a_drug_batch_keeps_its_early_stopping_pairs_and_their_samples() -> None:
-    stopping = ResponseBatch(np.array([7.0, 8.0, 9.0]), np.array(["cl2", "cl1", "cl2"]), np.array(["d1", "d1", "d2"]))
+    stopping = ResponseTable(np.array([7.0, 8.0, 9.0]), np.array(["cl2", "cl1", "cl2"]), np.array(["d1", "d1", "d2"]))
     predictor = _RecordingPredictor()
 
-    predictor.fit(_batch(early_stopping_response=stopping))
+    predictor.fit(_batch(early_stopping=stopping))
 
     drug_batch = predictor._models["d1"]
     split = validation_split(omic_matrices(drug_batch), drug_batch)

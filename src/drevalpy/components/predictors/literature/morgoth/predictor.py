@@ -11,12 +11,11 @@ from typing import Any, ClassVar
 
 import numpy as np
 
-from drevalpy.components.predictors.abstract.base import fit_response
 from drevalpy.components.predictors.literature._metadata import MORGOTH_REFERENCE
 from drevalpy.components.predictors.single_drug_sklearn import SingleDrugSklearnPredictor, _sample_matrix
 from drevalpy.log import get_logger
 from drevalpy.registry.predictor import register
-from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
+from drevalpy.types.data.predictor_input import PredictorInput
 
 logger = get_logger(__name__)
 
@@ -67,31 +66,31 @@ class SingleDrugMorgothPredictor(SingleDrugSklearnPredictor):
         forest = MorgothRegressor(**{name: self._hyperparameters[name] for name in _FOREST_PARAMETERS})
         return Pipeline([("mrmr", MRMRSelector(k=int(self._hyperparameters["mrmr_k"]))), ("morgoth", forest)])
 
-    def _fit(self, batch: ModelInputBatch) -> None:
+    def _fit(self, data: PredictorInput) -> None:
         """Warn once when the dataset has no ``regulation`` layer, then fit one forest per drug.
 
-        :param batch: Training batch.
+        :param data: Training batch.
         """
-        if REGULATION not in batch.response_layers:
+        if REGULATION not in data.response_layers:
             logger.warning(
                 "SingleDrugMorgoth: the dataset has no %r response layer; the class of each pair is whether its "
                 "response is below the threshold_quantile quantile of its drug.",
                 REGULATION,
             )
-        super()._fit(batch)
+        super()._fit(data)
 
-    def _fit_drug(self, drug_id: str, batch: ModelInputBatch) -> Any | None:
+    def _fit_drug(self, drug_id: str, data: PredictorInput) -> Any | None:
         """Fit the pipeline of one drug on its pairs with a regulation verdict.
 
-        :param drug_id: Drug whose pairs *batch* holds; the pipeline does not depend on it.
-        :param batch: The drug's training pairs.
+        :param drug_id: Drug whose pairs *data* holds; the pipeline does not depend on it.
+        :param data: The drug's training pairs.
         :returns: The fitted pipeline, or ``None`` when no pair has a verdict.
         """
-        keep, y_class = class_labels(batch.response_layers.get(REGULATION), batch.n_pairs)
+        keep, y_class = class_labels(data.response_layers.get(REGULATION), len(data))
         if not keep.any():
             return None
         estimator = self._make_estimator()
-        estimator.fit(_sample_matrix(batch)[keep], fit_response(batch)[keep], morgoth__y_class=y_class)
+        estimator.fit(_sample_matrix(data)[keep], data.response[keep], morgoth__y_class=y_class)
         return estimator
 
     @classmethod

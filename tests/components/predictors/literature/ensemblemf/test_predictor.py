@@ -11,9 +11,9 @@ from drevalpy.components.predictors.literature.ensemblemf.data import sorted_ent
 from drevalpy.components.predictors.literature.ensemblemf.predictor import EnsembleMFPredictor
 from drevalpy.components.predictors.literature.ensemblemf.training import PairTensors
 from drevalpy.registry.predictor import get as get_predictor
-from drevalpy.types.data.batch.feature_block import FeaturizerResult, numeric_feature_block
-from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
-from drevalpy.types.data.batch.response_batch import ResponseBatch
+from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
+from drevalpy.types.data.predictor_input import PredictorInput
+from drevalpy.types.data.response_table import ResponseTable
 from tests.components.predictors._helpers import pickle_round_trip
 from tests.components.predictors.literature._helpers import entity_pair_batch
 
@@ -32,18 +32,16 @@ SAMPLE_IDS = np.array(["s3", "s0", "s2", "s1", "v1", "v0"])
 DRUG_IDS = np.array(["d2", "d0", "d1"])
 
 
-def _tables() -> tuple[FeaturizerResult, FeaturizerResult]:
+def _tables() -> tuple[FeaturizerOutput, FeaturizerOutput]:
     rng = np.random.default_rng(3)
-    sample = FeaturizerResult.from_blocks(
-        {"gene_expression": numeric_feature_block(rng.normal(size=(6, 9)).astype(np.float32))}, SAMPLE_IDS
-    )
-    drug = FeaturizerResult.from_blocks(
-        {"fingerprints": numeric_feature_block(rng.integers(0, 2, size=(3, 12)).astype(np.float32))}, DRUG_IDS
+    sample = FeaturizerOutput(SAMPLE_IDS, {"gene_expression": FeatureBlock(rng.normal(size=(6, 9)).astype(np.float32))})
+    drug = FeaturizerOutput(
+        DRUG_IDS, {"fingerprints": FeatureBlock(rng.integers(0, 2, size=(3, 12)).astype(np.float32))}
     )
     return sample, drug
 
 
-def _batch(tmp_path, *, early_stopping: bool = True) -> ModelInputBatch:
+def _batch(tmp_path, *, early_stopping: bool = True) -> PredictorInput:
     sample, drug = _tables()
     return entity_pair_batch(
         sample,
@@ -56,7 +54,7 @@ def _batch(tmp_path, *, early_stopping: bool = True) -> ModelInputBatch:
     )
 
 
-def _query(sample_ids: list[str], drug_ids: list[str]) -> ModelInputBatch:
+def _query(sample_ids: list[str], drug_ids: list[str]) -> PredictorInput:
     return entity_pair_batch(*_tables(), sample_ids, drug_ids)
 
 
@@ -123,7 +121,7 @@ def test_without_an_early_stopping_set_a_seeded_tenth_is_held_out(tmp_path) -> N
 
 
 def test_the_fallback_split_needs_two_pairs(tmp_path) -> None:
-    batch = _batch(tmp_path, early_stopping=False).subset_pairs(np.array([True] + [False] * 7))
+    batch = _batch(tmp_path, early_stopping=False)[np.array([True] + [False] * 7)]
 
     with pytest.raises(ValueError, match="at least two training pairs"):
         EnsembleMFPredictor(TINY).fit(batch)
@@ -176,8 +174,8 @@ def test_unfitted_predictor_refuses_to_predict() -> None:
 
 def test_a_batch_without_drug_features_is_rejected(tmp_path) -> None:
     sample, _ = _tables()
-    batch = ModelInputBatch.from_response(
-        ResponseBatch(
+    batch = PredictorInput(
+        ResponseTable(
             response=np.zeros(2, dtype=np.float32), sample_ids=np.array(["s0", "s1"]), drug_ids=np.array(["d0", "d0"])
         ),
         sample=sample,
@@ -195,7 +193,7 @@ def _pairs(n: int) -> PairTensors:
 def test_sorted_entities_orders_rows_by_id_and_maps_original_rows() -> None:
     ids = np.array(["b", "c", "a"])
     values = np.array([[1.0], [2.0], [3.0]], dtype=np.float32)
-    result = FeaturizerResult.from_blocks({"x": numeric_feature_block(values)}, ids)
+    result = FeaturizerOutput(ids, {"x": FeatureBlock(values)})
 
     sorted_ids, matrix, position = sorted_entities(result, "x")
 

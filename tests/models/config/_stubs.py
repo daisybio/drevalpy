@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from drevalpy.components.contracts.feature_format import FeatureFormat
+from drevalpy.components.contracts.feature_format import BlockSpec, FeatureFormat
 from drevalpy.components.featurizers.featurizer import Featurizer
 from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
@@ -24,7 +24,7 @@ from drevalpy.components.predictors.abstract.matrix import MatrixPredictor
 from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.registry.featurizer import register as register_featurizer
 from drevalpy.registry.predictor import register as register_predictor
-from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult
+from drevalpy.types.data.feature_block import FeaturizerOutput
 from drevalpy.types.enums.prediction_mode import PredictionMode
 
 REGRESSION_ONLY = frozenset({PredictionMode.REGRESSION})
@@ -61,8 +61,8 @@ def register_featurizer_stub(
         def fit(self, source, train_ids, *, train_pair_ids=None, es_pair_ids=None):
             return self
 
-        def transform(self, source, ids) -> FeaturizerResult:
-            return FeaturizerResult(ids, {}, ())
+        def transform(self, source, ids) -> FeaturizerOutput:
+            return FeaturizerOutput(ids, {})
 
     return register_featurizer(name, side=side, description=f"{side} stub")(Stub)
 
@@ -111,7 +111,7 @@ def register_block_predictor_stub(
             return None
 
         def _predict(self, batch):
-            return np.zeros(batch.n_pairs, dtype=np.float64)
+            return np.zeros(len(batch), dtype=np.float64)
 
     return Stub
 
@@ -129,7 +129,7 @@ def register_feature_free_predictor_stub(name: str = "naiveMean") -> type:
             return None
 
         def _predict(self, batch):
-            return np.zeros(batch.n_pairs, dtype=np.float64)
+            return np.zeros(len(batch), dtype=np.float64)
 
     return Stub
 

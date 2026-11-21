@@ -13,7 +13,7 @@ from drevalpy.cli.main import app
 from drevalpy.cli.predict import _checkpoint_path
 from drevalpy.data.quality import CurveQuality
 from drevalpy.errors import InputNotFoundError
-from drevalpy.types import Fold, PairMask
+from drevalpy.types import Fold, SelectionMask
 from drevalpy.types.results.run import RunResult
 from tests.cli._helpers import HELP_ENV, FakeDataset, Recorder, make_runner, patch_worker, plain
 
@@ -149,9 +149,9 @@ def _write_fold(path: UPath, *, metadata: dict[str, object] | None = None) -> No
     train, test, val = (np.zeros((2, 2), dtype=bool) for _ in range(3))
     train[0, 0] = test[1, 1] = val[0, 1] = True
     Fold(
-        train=PairMask(train),
-        test=PairMask(test),
-        val=PairMask(val),
+        train=SelectionMask(train),
+        test=SelectionMask(test),
+        val=SelectionMask(val),
         metadata=dict(metadata or {"fold_index": 3}),
     ).save(path)
 

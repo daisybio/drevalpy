@@ -10,8 +10,8 @@ Each ``check_*`` function raises :class:`ConformanceError` with a message naming
 the component and the broken expectation, and otherwise returns ``None``.
 
 Every check in a family takes the same arguments - ``(cls, fixture, **kwargs)``,
-where the fixture is a dataset for featurizers and a batch for predictors and may
-be omitted - so a suite can parametrize over :data:`FEATURIZER_CHECKS` or
+where the fixture is a dataset for featurizers and a :class:`~drevalpy.plugin.PredictorInput`
+for predictors and may be omitted - so a suite can parametrize over :data:`FEATURIZER_CHECKS` or
 :data:`PREDICTOR_CHECKS` directly::
 
     @pytest.mark.parametrize("check", FEATURIZER_CHECKS)
@@ -31,13 +31,13 @@ from drevalpy.components.featurizers.featurizer import Featurizer
 from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.components.predictors.inputs import predictor_inputs
 from drevalpy.data import synthetic
-from drevalpy.types.data.batch.feature_block import FeaturizerResult
-from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.types.data.dataset import Dataset
+from drevalpy.types.data.feature_block import FeaturizerOutput
 from drevalpy.types.data.feature_source import FeatureSource, Side
+from drevalpy.types.data.predictor_input import PredictorInput
 from drevalpy.types.enums.model_scope import ModelScope
 
-from .batch import build_synthetic_batch
+from .inputs import build_synthetic_input
 
 
 class ConformanceError(AssertionError):
@@ -80,10 +80,10 @@ def _entity_ids(cls: type[Featurizer], dataset: Dataset) -> np.ndarray:
     return np.asarray(dataset.drug_ids if _side(cls) == "drug" else dataset.sample_ids)
 
 
-def _features(featurizer: Featurizer, source: FeatureSource, ids: np.ndarray, *, fit: bool) -> FeaturizerResult:
-    from drevalpy.models._feature_preparation import FitIds, prepare_features
+def _features(featurizer: Featurizer, source: FeatureSource, ids: np.ndarray, *, fit: bool) -> FeaturizerOutput:
+    from drevalpy.models._feature_preparation import prepare_features
 
-    return prepare_features(featurizer, source, ids, fit=FitIds(ids) if fit else None)
+    return prepare_features(featurizer, source, ids, train_pair_ids=ids if fit else None)
 
 
 def check_featurizer_instantiates(
@@ -215,37 +215,37 @@ def check_featurizer_pickle_round_trip(
         )
 
 
-def _default_batch(cls: type[Predictor]) -> ModelInputBatch:
-    """Return the synthetic batch a predictor check runs on when the caller passes none.
+def _default_input(cls: type[Predictor]) -> PredictorInput:
+    """Return the synthetic input a predictor check runs on when the caller passes none.
 
     A predictor that declares ``drug_inputs = Inputs.none()`` gets no drug features, as
-    in a real run, where it is configured without a drug featurizer. The batch carries the
+    in a real run, where it is configured without a drug featurizer. The input carries the
     response layers the predictor declares in ``response_layers``.
 
     :param cls: Predictor class under check.
-    :returns: A featurized batch over the synthetic dataset.
+    :returns: A featurized :class:`PredictorInput` over the synthetic dataset.
     """
     if predictor_inputs(cls, Side.DRUG).kind == "none":
-        return build_synthetic_batch(synthetic(), n_drug_features=None, response_layers=cls.response_layers)
-    return build_synthetic_batch(synthetic(), response_layers=cls.response_layers)
+        return build_synthetic_input(synthetic(), n_drug_features=None, response_layers=cls.response_layers)
+    return build_synthetic_input(synthetic(), response_layers=cls.response_layers)
 
 
 def check_predictor_instantiates(
     cls: type[Predictor],
-    batch: ModelInputBatch | None = None,
+    data: PredictorInput | None = None,
     **kwargs: Any,
 ) -> Predictor:
     r"""Check that *cls* can be constructed with its declared defaults.
 
     :param cls: Predictor class to instantiate.
-    :param batch: Unused; accepted so every entry of :data:`PREDICTOR_CHECKS` takes
+    :param data: Unused; accepted so every entry of :data:`PREDICTOR_CHECKS` takes
         the same arguments and a suite can parametrize over the tuple.
     :param \*\*kwargs: Constructor keyword arguments, typically ``hyperparameters=``.
     :returns: The constructed instance.
     :raises ConformanceError: If construction fails, or the result is not a
         :class:`~drevalpy.plugin.Predictor`.
     """
-    _ = batch
+    _ = data
     try:
         instance = cls(**kwargs)
     except TypeError as exc:
@@ -257,7 +257,7 @@ def check_predictor_instantiates(
 
 def check_predictor_fit_predict(
     cls: type[Predictor],
-    batch: ModelInputBatch | None = None,
+    data: PredictorInput | None = None,
     **kwargs: Any,
 ) -> None:
     r"""Check that *cls* trains and returns one finite prediction per pair.
@@ -270,20 +270,20 @@ def check_predictor_fit_predict(
     the wrong length or not finite.
 
     :param cls: Predictor class to exercise.
-    :param batch: Featurized batch. Defaults to
-        :func:`~drevalpy.testing.build_synthetic_batch` over the synthetic
+    :param data: Featurized model input. Defaults to
+        :func:`~drevalpy.testing.build_synthetic_input` over the synthetic
         dataset, without drug features for a predictor that reads none.
     :param \*\*kwargs: Constructor keyword arguments.
     """
-    batch = batch if batch is not None else _default_batch(cls)
+    data = data if data is not None else _default_input(cls)
     instance = check_predictor_instantiates(cls, **kwargs)
 
-    instance.fit(batch)
-    predictions = np.asarray(instance.predict(batch))
+    instance.fit(data)
+    predictions = np.asarray(instance.predict(data))
 
     _require(
-        predictions.shape == (batch.n_pairs,),
-        f"{cls.__name__}.predict returned shape {predictions.shape}, expected ({batch.n_pairs},)",
+        predictions.shape == (len(data),),
+        f"{cls.__name__}.predict returned shape {predictions.shape}, expected ({len(data)},)",
     )
     _require(
         np.isfinite(predictions).all(),
@@ -294,7 +294,7 @@ def check_predictor_fit_predict(
 
 def check_predictor_pickle_round_trip(
     cls: type[Predictor],
-    batch: ModelInputBatch | None = None,
+    data: PredictorInput | None = None,
     **kwargs: Any,
 ) -> None:
     r"""Check that a trained predictor survives a joblib dump and load.
@@ -303,18 +303,18 @@ def check_predictor_pickle_round_trip(
     picklable attributes.
 
     :param cls: Predictor class to exercise.
-    :param batch: Featurized batch; defaults to the synthetic one.
+    :param data: Featurized model input; defaults to the synthetic one.
     :param \*\*kwargs: Constructor keyword arguments.
     :raises ConformanceError: If the predictor cannot be pickled or the loaded copy
         predicts differently.
     """
     import joblib
 
-    batch = batch if batch is not None else _default_batch(cls)
+    data = data if data is not None else _default_input(cls)
 
     trained = check_predictor_instantiates(cls, **kwargs)
-    trained.fit(batch)
-    expected = np.asarray(trained.predict(batch))
+    trained.fit(data)
+    expected = np.asarray(trained.predict(data))
     _require(
         np.isfinite(expected).all(),
         f"{cls.__name__} produced non-finite predictions before the round trip, so it cannot be compared",
@@ -327,7 +327,7 @@ def check_predictor_pickle_round_trip(
         raise ConformanceError(f"{cls.__name__} could not be pickled: {exc}") from exc
     buffer.seek(0)
     restored = joblib.load(buffer)
-    actual = np.asarray(restored.predict(batch))
+    actual = np.asarray(restored.predict(data))
 
     _require(
         np.allclose(actual, expected, equal_nan=False),
@@ -338,7 +338,7 @@ def check_predictor_pickle_round_trip(
 
 def check_predictor_single_drug_routing(
     cls: type[Predictor],
-    batch: ModelInputBatch | None = None,
+    data: PredictorInput | None = None,
     **kwargs: Any,
 ) -> None:
     r"""Check that a single-drug predictor predicts NaN for a drug it was not trained on.
@@ -346,36 +346,36 @@ def check_predictor_single_drug_routing(
     DrEvalPy scores the pairs of an unseen drug as missing, so a single-drug predictor
     must return NaN for them rather than invent a prediction, such as the mean over the
     drugs it did see. The check holds out the first drug ID in sorted order, fits on the
-    pairs of the other drugs and predicts the whole batch. It returns without checking
+    pairs of the other drugs and predicts the whole input. It returns without checking
     unless ``cls.scope`` is :attr:`~drevalpy.plugin.ModelScope.SINGLE_DRUG`.
 
-    Raises ``ConformanceError`` if the batch has pairs of fewer than two drugs, the
+    Raises ``ConformanceError`` if the input has pairs of fewer than two drugs, the
     held-out drug gets a non-NaN prediction, or a trained drug gets a non-finite one.
 
     :param cls: Predictor class to exercise.
-    :param batch: Featurized batch with pairs of at least two drugs; defaults to the
+    :param data: Featurized model input with pairs of at least two drugs; defaults to the
         synthetic one.
     :param \*\*kwargs: Constructor keyword arguments.
     """
     if cls.scope is not ModelScope.SINGLE_DRUG:
         return
-    batch = batch if batch is not None else _default_batch(cls)
-    drugs = np.unique(batch.drug_ids)
+    data = data if data is not None else _default_input(cls)
+    drugs = np.unique(data.drug_ids)
     _require(
         len(drugs) >= 2,
-        f"the batch for {cls.__name__} has pairs of {len(drugs)} drug(s); the single-drug routing check "
+        f"the input for {cls.__name__} has pairs of {len(drugs)} drug(s); the single-drug routing check "
         "holds one drug out and trains on the rest, so it needs pairs of at least two drugs",
     )
     held_out = drugs[0]
-    unseen = batch.drug_ids == held_out
+    unseen = data.drug_ids == held_out
 
     instance = check_predictor_instantiates(cls, **kwargs)
-    instance.fit(batch.subset_pairs(~unseen))
-    predictions = np.asarray(instance.predict(batch))
+    instance.fit(data[~unseen])
+    predictions = np.asarray(instance.predict(data))
 
     _require(
-        predictions.shape == (batch.n_pairs,),
-        f"{cls.__name__}.predict returned shape {predictions.shape}, expected ({batch.n_pairs},)",
+        predictions.shape == (len(data),),
+        f"{cls.__name__}.predict returned shape {predictions.shape}, expected ({len(data)},)",
     )
     _require(
         np.isnan(predictions[unseen]).all(),

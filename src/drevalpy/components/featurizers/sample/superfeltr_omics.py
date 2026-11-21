@@ -7,12 +7,12 @@ from typing import Any, ClassVar, Self
 
 import numpy as np
 
-from drevalpy.components.contracts.feature_format import FeatureFormat
+from drevalpy.components.contracts.feature_format import BlockSpec
 from drevalpy.components.featurizers._dense import view_matrix
 from drevalpy.components.featurizers.featurizer import Featurizer
 from drevalpy.components.featurizers.sample.gene_lists import checked_view_gene_lists, view_genes
 from drevalpy.registry.featurizer import register
-from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult, numeric_feature_block
+from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
 from drevalpy.types.data.feature_source import FeatureSource, Side
 
 _VIEWS = ("gene_expression", "mutations", "copy_number_variation_gistic")
@@ -46,7 +46,7 @@ class SuperFELTROmicsFeaturizer(Featurizer):
         :returns: The ``gene_expression``, ``mutations`` and ``copy_number_variation_gistic`` blocks.
         """
         _ = config
-        return tuple(BlockSpec(view, FeatureFormat.NUMERIC_MATRIX) for view in _VIEWS)
+        return tuple(BlockSpec(view) for view in _VIEWS)
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
@@ -91,7 +91,7 @@ class SuperFELTROmicsFeaturizer(Featurizer):
         matrix = view_matrix(source, view, ids, self._source_names.get(view))
         return np.arcsinh(matrix) if view == "gene_expression" else matrix
 
-    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerResult:
+    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerOutput:
         """Return per-omics numeric blocks with variance-selected columns.
 
         :param source: Feature source of the sample side.
@@ -103,10 +103,10 @@ class SuperFELTROmicsFeaturizer(Featurizer):
             msg = "SuperFELTROmicsFeaturizer must be fit before transform"
             raise RuntimeError(msg)
         blocks = {
-            view: numeric_feature_block(
+            view: FeatureBlock(
                 self._view_matrix(source, view, ids)[:, mask].astype(np.float32),
                 feature_names=self._feature_names.get(view),
             )
             for view, mask in self._masks.items()
         }
-        return FeaturizerResult(ids, blocks, ("gene_expression",))
+        return FeaturizerOutput(ids, blocks)

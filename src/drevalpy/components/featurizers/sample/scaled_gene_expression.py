@@ -7,13 +7,13 @@ from typing import TYPE_CHECKING, Any, ClassVar, Self
 
 import numpy as np
 
-from drevalpy.components.contracts.feature_format import FeatureFormat
+from drevalpy.components.contracts.feature_format import BlockSpec
 from drevalpy.components.featurizers._dense import dense_result, view_matrix
 from drevalpy.components.featurizers.featurizer import Featurizer, all_nan_rows_mask
 from drevalpy.components.featurizers.sample.gene_lists import view_genes
 from drevalpy.errors import InvalidInputError
 from drevalpy.registry.featurizer import register
-from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult
+from drevalpy.types.data.feature_block import FeaturizerOutput
 from drevalpy.types.data.feature_source import FeatureSource, Side
 
 if TYPE_CHECKING:
@@ -77,7 +77,7 @@ class ScaledGeneExpressionFeaturizer(Featurizer):
         :returns: The ``gene_expression`` block.
         """
         _ = config
-        return (BlockSpec(_BLOCK, FeatureFormat.NUMERIC_MATRIX),)
+        return (BlockSpec(_BLOCK),)
 
     def valid_mask(self, source: FeatureSource, ids: np.ndarray) -> np.ndarray:
         """Return which samples have a row of the bound view that is not all NaN.
@@ -124,7 +124,7 @@ class ScaledGeneExpressionFeaturizer(Featurizer):
             return np.arcsinh(matrix)
         return rank_transform(matrix.astype(np.float64), self._rank_reference)
 
-    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerResult:
+    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerOutput:
         """Transform and scale the view's rows for *ids*.
 
         :param source: Feature source of the sample side.

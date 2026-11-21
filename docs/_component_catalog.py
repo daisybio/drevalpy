@@ -8,8 +8,8 @@ from typing import Any
 
 from _generated_io import write_text_if_changed
 
-from drevalpy.components.featurizers._featurizer_label import requires_explicit_view
 from drevalpy.components.predictors.inputs import Inputs, predictor_inputs
+from drevalpy.models.config.featurizer import requires_explicit_view
 from drevalpy.plugin import PrecomputableFeaturizer
 from drevalpy.registry._builtins import builtin_names, get_skipped_builtin_modules, register_builtins
 from drevalpy.registry._component import component_license

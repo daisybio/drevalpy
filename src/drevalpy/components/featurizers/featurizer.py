@@ -1,7 +1,7 @@
 """The featurizer interface: declarations plus ``fit`` and ``transform``.
 
 A featurizer turns the views of one entity side into a
-:class:`~drevalpy.types.data.batch.feature_block.FeaturizerResult`. What it
+:class:`~drevalpy.types.data.feature_block.FeaturizerOutput`. What it
 declares on the class body is read without instantiating it: the views it
 reads (``input_views``, empty for a featurizer that needs only entity IDs), the
 raw views it computes from when a view is absent (``source_views``) and, through
@@ -21,11 +21,14 @@ from typing import Any, ClassVar, Self
 
 import numpy as np
 
-from drevalpy.components.contracts.feature_format import FeatureFormat
+from drevalpy.components.contracts.feature_format import BlockSpec
 from drevalpy.components.contracts.hyperparameter_space import TunableComponent
-from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult
+from drevalpy.types.data.feature_block import FeaturizerOutput
 from drevalpy.types.data.feature_source import FeatureSource, Side
 from drevalpy.types.enums.accelerator import Accelerator
+
+#: Registry name of the featurizer that concatenates its children; a ``+`` recipe stands for it.
+CONCAT = "concatFeaturizers"
 
 
 class Featurizer(TunableComponent, ABC):
@@ -67,7 +70,7 @@ class Featurizer(TunableComponent, ABC):
             view = cls.input_views[0] if cls.input_views else None
         if view is None:
             return ()
-        return (BlockSpec(view, FeatureFormat.NUMERIC_MATRIX),)
+        return (BlockSpec(view),)
 
     @classmethod
     def views(cls, config: Mapping[str, Any]) -> tuple[str, ...]:
@@ -118,7 +121,7 @@ class Featurizer(TunableComponent, ABC):
         """
 
     @abstractmethod
-    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerResult:
+    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerOutput:
         """Compute the feature blocks of *ids*.
 
         :param source: Feature source of the featurizer's side.

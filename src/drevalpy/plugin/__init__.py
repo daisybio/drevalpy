@@ -3,7 +3,7 @@
 Everything a plugin needs to write a featurizer, predictor, splitter or plot is
 re-exported here, so a plugin imports from exactly one module::
 
-    from drevalpy.plugin import Featurizer, FeaturizerResult, register_featurizer
+    from drevalpy.plugin import Featurizer, FeaturizerOutput, register_featurizer
 
 Nothing is defined in this module. Every name is an alias for a symbol that lives in
 the package's internal layout, which stays free to move: only the aliases below are a
@@ -16,7 +16,7 @@ live in the underscore-private ``featurizers/_dense.py``; the alias here is the 
 The conformance checks for a plugin's own test suite are in :mod:`drevalpy.testing`.
 """
 
-from drevalpy.components.contracts.feature_format import FeatureFormat
+from drevalpy.components.contracts.feature_format import BlockSpec, FeatureFormat
 from drevalpy.components.featurizers._dense import (
     FeatureMismatchError,
     PrecomputableFeaturizer,
@@ -29,7 +29,7 @@ from drevalpy.components.predictors.abstract.feature_free import FeatureFreePred
 from drevalpy.components.predictors.abstract.matrix import MatrixPredictor
 from drevalpy.components.predictors.abstract.single_drug import SingleDrugPredictor
 from drevalpy.components.predictors.inputs import Inputs
-from drevalpy.data.quality import CurveQuality, curve_quality_mask
+from drevalpy.data.quality import CurveQuality
 from drevalpy.data.splitters import observed_mask
 from drevalpy.errors import DrEvalError, InvalidInputError, UnknownNameError
 from drevalpy.registry import load_extensions
@@ -39,12 +39,12 @@ from drevalpy.registry.predictor import register as register_predictor
 from drevalpy.registry.splitter import Splitter, SplitValidationError, Validation
 from drevalpy.registry.splitter import register as register_splitter
 from drevalpy.registry.visualization import register as register_visualization
-from drevalpy.types.data.batch.feature_block import BlockSpec, FeatureBlock, FeaturizerResult, global_feature_block
-from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 from drevalpy.types.data.dataset import Dataset
+from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
 from drevalpy.types.data.feature_source import FeatureSource, Side
 from drevalpy.types.data.fold import Fold
-from drevalpy.types.data.pair_mask import PairMask
+from drevalpy.types.data.predictor_input import PredictorInput
+from drevalpy.types.data.selection_mask import SelectionMask
 from drevalpy.types.enums.accelerator import Accelerator
 from drevalpy.types.enums.model_scope import ModelScope
 from drevalpy.types.enums.prediction_mode import PredictionMode
@@ -65,22 +65,22 @@ __all__ = [
     "FeatureMismatchError",
     "FeatureSource",
     "Featurizer",
-    "FeaturizerResult",
+    "FeaturizerOutput",
     "Fold",
     "Inputs",
     "InvalidInputError",
     "LiteratureReference",
     "MatrixPredictor",
-    "ModelInputBatch",
     "ModelResult",
     "ModelScope",
-    "PairMask",
     "Plot",
     "PlotRequirement",
     "PrecomputableFeaturizer",
     "PredictionMode",
     "Predictor",
+    "PredictorInput",
     "Section",
+    "SelectionMask",
     "Side",
     "SingleDrugPredictor",
     "SplitValidationError",
@@ -88,9 +88,7 @@ __all__ = [
     "UnknownNameError",
     "Validation",
     "all_nan_rows_mask",
-    "curve_quality_mask",
     "dense_result",
-    "global_feature_block",
     "load_extensions",
     "observed_mask",
     "register_featurizer",

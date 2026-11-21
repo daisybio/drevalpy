@@ -22,7 +22,7 @@ without a deprecation cycle.
    from drevalpy.plugin import (
        FeatureSource,
        Featurizer,
-       FeaturizerResult,
+       FeaturizerOutput,
        register_featurizer,
    )
 
@@ -52,12 +52,12 @@ does not know the name. The featurizer implements two methods:
        early-stopping pair, for a featurizer that weights entities by their pairs. Return
        ``self``.
    * - ``transform(source, ids)``
-     - Return a ``FeaturizerResult(ids, blocks, projection)``: the entity IDs, a mapping of
-       block name to ``FeatureBlock``, and the names of the blocks that make up the flat matrix.
-       Keep the order of ``ids``, which may be empty.
+     - Return a ``FeaturizerOutput(ids, blocks)``: the entity IDs and a mapping of block name to
+       ``FeatureBlock``. Keep the order of ``ids``, which may be empty. ``result.matrix``
+       concatenates all entity-aligned numeric blocks in insertion order.
 
 ``source`` is a ``FeatureSource`` for the featurizer's side. ``source.view(view, ids)`` reads rows of a view, ``source.feature_names(view)`` its
-column names, and ``source.has_view(view)`` tells whether the dataset holds it. ``smiles(ids)``,
+column names, and ``view in source`` tells whether the dataset holds it. ``smiles(ids)``,
 ``graphs(ids)``, ``tissue(ids)`` and ``uns(key)`` read the SMILES strings, drug graphs, tissue
 labels and dataset-level payloads.
 
@@ -132,7 +132,6 @@ side, as a subclass each. The two registrations may share the name. The built-in
 
    from drevalpy.plugin import (
        BlockSpec,
-       FeatureFormat,
        Featurizer,
        dense_result,
        Side,
@@ -145,7 +144,7 @@ side, as a subclass each. The two registrations may share the name. The built-in
 
        @classmethod
        def output_blocks(cls, config: Mapping[str, Any]) -> tuple[BlockSpec, ...]:
-           return (BlockSpec("ones", FeatureFormat.NUMERIC_MATRIX),)
+           return (BlockSpec("ones"),)
 
        def fit(self, source, train_ids, *, train_pair_ids=None, es_pair_ids=None):
            return self

@@ -71,7 +71,7 @@ and gets the canonical mode back.
    import numpy as np
 
    import drevalpy
-   from drevalpy.plugin import PairMask, Fold, observed_mask, register_splitter
+   from drevalpy.plugin import SelectionMask, Fold, observed_mask, register_splitter
 
 
    @register_splitter(
@@ -92,9 +92,9 @@ and gets the canonical mode back.
 
        return [
            Fold(
-               train=PairMask(keep(train_rows[1:])),
-               test=PairMask(keep(test_rows)),
-               val=PairMask(keep(train_rows[:1])),
+               train=SelectionMask(keep(train_rows[1:])),
+               test=SelectionMask(keep(test_rows)),
+               val=SelectionMask(keep(train_rows[:1])),
            )
        ]
 
@@ -136,10 +136,10 @@ To tighten the rule, change it before the call:
    everything = observed_mask(dataset, CurveQuality.off())
    assert strict.sum() <= everything.sum()
 
-``curve_quality_mask`` computes the same mask from keyword options when you want a rule of your
-own instead of the user's. Called bare, it applies the default rule, ``relevance_score >=
--log10(0.05)`` and ``abs(fold_change) >= 0.45``. Every other quality metric is a keyword option
-(and a ``CurveQuality`` field), and its default ``None`` means "not checked":
+``CurveQuality(...).mask(dataset)`` computes the same mask from keyword options when you want a
+rule of your own instead of the user's. Called bare, ``CurveQuality()`` applies the default rule,
+``relevance_score >= -log10(0.05)`` and ``abs(fold_change) >= 0.45``. Every other quality metric
+is a ``CurveQuality`` field, and its default ``None`` means "not checked":
 
 .. list-table::
    :header-rows: 1
@@ -169,15 +169,15 @@ own instead of the user's. Called bare, it applies the default rule, ``relevance
 A metric that is NaN always fails, because a curve CurveCurator could not score is not worth
 training on. Requesting a metric whose layer is absent from the dataset raises ``KeyError``
 rather than being skipped silently. That includes the default rule: a splitter that calls
-``curve_quality_mask`` reads the layers even when the run used ``CurveQuality.off()``, so it
-fails on a dataset that has none. Prefer ``observed_mask(dataset, quality)`` unless you need a
-rule that ignores the user's.
+``CurveQuality(...).mask(dataset)`` reads the layers even when the run used ``CurveQuality.off()``,
+so it fails on a dataset that has none. Prefer ``observed_mask(dataset, quality)`` unless you need
+a rule that ignores the user's.
 
 .. code-block:: python
 
-   from drevalpy.plugin import curve_quality_mask
+   from drevalpy.plugin import CurveQuality
 
-   strict = curve_quality_mask(dataset, min_r2=0.8, regulation=("down",))
+   strict = CurveQuality(min_r2=0.8, regulation=("down",)).mask(dataset)
    assert strict.shape == dataset.response_matrix.shape
 
 Test the splitter

@@ -217,14 +217,13 @@ def cache(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
     return tmp_path / "cache" / "msigdb" / GMT_FILENAME
 
 
-def _fake_download(content: str, calls: list[str]):
-    def download(remote, local_path, label):
+def _fake_stream(content: str, calls: list[str]):
+    def stream(remote, local_path, label, progress):
         calls.append(str(remote))
         local_path.parent.mkdir(parents=True, exist_ok=True)
         local_path.write_bytes(content.encode())
-        return local_path
 
-    return download
+    return stream
 
 
 def test_pinned_source_is_msigdb_release_6_1() -> None:
@@ -234,7 +233,7 @@ def test_pinned_source_is_msigdb_release_6_1() -> None:
 
 def test_first_use_downloads_into_the_cache(monkeypatch: pytest.MonkeyPatch, cache: Path) -> None:
     calls: list[str] = []
-    monkeypatch.setattr(_transfer, "download_file", _fake_download(FIXTURE_GMT, calls))
+    monkeypatch.setattr(_transfer, "_stream", _fake_stream(FIXTURE_GMT, calls))
 
     path = get_precily_gmt()
 
@@ -247,7 +246,7 @@ def test_cached_file_is_reused_without_downloading(monkeypatch: pytest.MonkeyPat
     cache.parent.mkdir(parents=True)
     cache.write_bytes(FIXTURE_GMT.encode())
     calls: list[str] = []
-    monkeypatch.setattr(_transfer, "download_file", _fake_download("unused", calls))
+    monkeypatch.setattr(_transfer, "_stream", _fake_stream("unused", calls))
 
     assert Path(str(get_precily_gmt())) == cache
     assert calls == []
@@ -257,14 +256,14 @@ def test_cached_file_with_the_wrong_hash_is_replaced(monkeypatch: pytest.MonkeyP
     cache.parent.mkdir(parents=True)
     cache.write_text("truncated", encoding="utf-8")
     calls: list[str] = []
-    monkeypatch.setattr(_transfer, "download_file", _fake_download(FIXTURE_GMT, calls))
+    monkeypatch.setattr(_transfer, "_stream", _fake_stream(FIXTURE_GMT, calls))
 
     assert get_precily_gmt().read_text(encoding="utf-8") == FIXTURE_GMT
     assert calls == [GMT_URL]
 
 
 def test_download_with_the_wrong_hash_is_deleted_and_reported(monkeypatch: pytest.MonkeyPatch, cache: Path) -> None:
-    monkeypatch.setattr(_transfer, "download_file", _fake_download("not the gene sets", []))
+    monkeypatch.setattr(_transfer, "_stream", _fake_stream("not the gene sets", []))
 
     with pytest.raises(InvalidInputError, match="does not match the pinned sha256") as info:
         get_precily_gmt()
@@ -276,10 +275,10 @@ def test_download_with_the_wrong_hash_is_deleted_and_reported(monkeypatch: pytes
 @pytest.mark.usefixtures("cache")
 @pytest.mark.parametrize("failure", [OSError("no route to host"), aiohttp.ClientConnectionError("refused")])
 def test_download_failure_names_the_url(monkeypatch: pytest.MonkeyPatch, failure: Exception) -> None:
-    def failing(remote, local_path, label):
+    def failing(remote, local_path, label, progress):
         raise failure
 
-    monkeypatch.setattr(_transfer, "download_file", failing)
+    monkeypatch.setattr(_transfer, "_stream", failing)
 
     with pytest.raises(InputNotFoundError) as info:
         get_precily_gmt()

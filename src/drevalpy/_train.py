@@ -15,7 +15,7 @@ from drevalpy.experiment._fit import fit
 from drevalpy.log import get_logger
 from drevalpy.models.drp_model import DRPModel
 from drevalpy.models.spec import ModelSpec
-from drevalpy.types import Fold, PairMask
+from drevalpy.types import Fold, SelectionMask
 from drevalpy.types.data.dataset import Dataset
 
 if TYPE_CHECKING:
@@ -42,9 +42,9 @@ def _holdout_folds(dataset: Dataset, quality: CurveQuality | None, seed: int) ->
         raise InvalidInputError(f"Dataset '{dataset.name}' has {len(pairs)} usable pair(s); training needs at least 2.")
     n_val = max(1, int(len(pairs) * VALIDATION_RATIO))
     order = np.random.default_rng(seed).permutation(len(pairs))
-    val = PairMask.from_pairs(pairs[order[:n_val]], observed.shape)
-    train = PairMask.from_pairs(pairs[order[n_val:]], observed.shape)
-    nothing = PairMask(np.zeros(observed.shape, dtype=bool))
+    val = SelectionMask.from_pairs(pairs[order[:n_val]], observed.shape)
+    train = SelectionMask.from_pairs(pairs[order[n_val:]], observed.shape)
+    nothing = SelectionMask(np.zeros(observed.shape, dtype=bool))
     return Fold(train, nothing, val, {"split_mode": "LPO", "fold_index": 0})
 
 

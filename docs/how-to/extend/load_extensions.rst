@@ -63,7 +63,7 @@ only, so a predictor needs a preset before ``drevalpy run`` can use it.
                  self._mean = float(np.mean(batch.response))
 
              def _predict(self, batch):
-                 return np.full(batch.n_pairs, self._mean)
+                 return np.full(len(batch), self._mean)
 
       Create ``my_extensions/zoo.yaml``:
 
@@ -117,7 +117,7 @@ only, so a predictor needs a preset before ``drevalpy run`` can use it.
                  self._mean = float(np.mean(batch.response))
 
              def _predict(self, batch):
-                 return np.full(batch.n_pairs, self._mean)
+                 return np.full(len(batch), self._mean)
          ''')
 
          (extensions / "zoo.yaml").write_text("""

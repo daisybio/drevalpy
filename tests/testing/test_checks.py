@@ -12,7 +12,7 @@ from typing import ClassVar
 import numpy as np
 import pytest
 
-from drevalpy.components.contracts.feature_format import FeatureFormat
+from drevalpy.components.contracts.feature_format import BlockSpec, FeatureFormat
 from drevalpy.components.featurizers.featurizer import Featurizer
 from drevalpy.components.predictors.abstract.matrix import MatrixPredictor
 from drevalpy.components.predictors.inputs import Inputs
@@ -21,7 +21,6 @@ from drevalpy.plugin import Predictor
 from drevalpy.registry import predictor
 from drevalpy.registry.featurizer import featurizer_registry, get_featurizer, register
 from drevalpy.testing import plugins as plugins_module
-from drevalpy.testing.batch import build_synthetic_batch
 from drevalpy.testing.conformance import (
     FEATURIZER_CHECKS,
     PREDICTOR_CHECKS,
@@ -35,13 +34,14 @@ from drevalpy.testing.conformance import (
     check_predictor_single_drug_routing,
     feature_source_for,
 )
+from drevalpy.testing.inputs import build_synthetic_input
 from drevalpy.testing.plugins import (
     ENTRY_POINT_GROUP,
     PluginCheckError,
     PluginReport,
     check_plugin,
 )
-from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult, numeric_feature_block
+from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
 from drevalpy.types.data.feature_source import FeatureSource, Side
 from drevalpy.types.enums.model_scope import ModelScope
 
@@ -69,7 +69,7 @@ class GoodFeaturizer(Featurizer):
     def transform(self, source, ids):
         values = np.arange(len(ids) * self._n_features, dtype=np.float32)
         values = values.reshape(len(ids), self._n_features) + self._offset
-        return FeaturizerResult(ids, {BLOCK: numeric_feature_block(values)}, (BLOCK,))
+        return FeaturizerOutput(ids, {BLOCK: FeatureBlock(values)})
 
 
 class GoodDrugFeaturizer(GoodFeaturizer):
@@ -99,9 +99,7 @@ class MisalignedBlockFeaturizer(GoodFeaturizer):
 
     def transform(self, source, ids):
         result = super().transform(source, ids)
-        return FeaturizerResult(
-            result.entity_ids[:-1], {BLOCK: numeric_feature_block(result.blocks[BLOCK].values[:-1])}, (BLOCK,)
-        )
+        return FeaturizerOutput(result.entity_ids[:-1], {BLOCK: FeatureBlock(result.blocks[BLOCK].values[:-1])})
 
 
 class EmptyBlocksFeaturizer(GoodFeaturizer):
@@ -112,7 +110,7 @@ class EmptyBlocksFeaturizer(GoodFeaturizer):
         return ()
 
     def transform(self, source, ids):
-        return FeaturizerResult(np.asarray(ids), {}, ())
+        return FeaturizerOutput(np.asarray(ids), {})
 
 
 class ForgetfulStateFeaturizer(GoodFeaturizer):
@@ -220,7 +218,7 @@ def dataset():
 
 @pytest.fixture(scope="module")
 def batch(dataset):
-    return build_synthetic_batch(dataset)
+    return build_synthetic_input(dataset)
 
 
 def test_feature_source_for_matches_the_featurizer_side(dataset):
@@ -248,12 +246,12 @@ def test_a_conforming_single_drug_predictor_passes_every_check_on_the_default_ba
 
 
 def test_single_drug_routing_skips_multi_drug_predictors(batch):
-    one_drug = batch.subset_pairs(batch.drug_ids == np.unique(batch.drug_ids)[0])
+    one_drug = batch[batch.drug_ids == np.unique(batch.drug_ids)[0]]
     check_predictor_single_drug_routing(GoodPredictor, one_drug)
 
 
 def test_single_drug_routing_needs_two_drugs(batch):
-    one_drug = batch.subset_pairs(batch.drug_ids == np.unique(batch.drug_ids)[0])
+    one_drug = batch[batch.drug_ids == np.unique(batch.drug_ids)[0]]
     with pytest.raises(ConformanceError, match="at least two drugs"):
         check_predictor_single_drug_routing(PerDrugMeanPredictor, one_drug)
 
@@ -356,7 +354,7 @@ def fake_plugin_package(monkeypatch):
 
         def transform(self, source, ids):
             values = np.zeros((len(ids), 1), dtype=np.float32)
-            return FeaturizerResult(ids, {"fake": numeric_feature_block(values)}, ("fake",))
+            return FeaturizerOutput(ids, {"fake": FeatureBlock(values)})
 
     FakeFeaturizer.__module__ = f"{PLUGIN_NAME}.components"
     components.FakeFeaturizer = FakeFeaturizer

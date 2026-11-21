@@ -38,7 +38,8 @@ def _side(side: Side | str) -> Side:
     try:
         return Side(side)
     except ValueError:
-        msg = f"Unknown featurizer side {side!r}. Available: drug, sample"
+        available = ", ".join(sorted(s.value for s in Side))
+        msg = f"Unknown featurizer side {side!r}. Available: {available}"
         raise ValueError(msg) from None
 
 

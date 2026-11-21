@@ -67,7 +67,7 @@ These affect only code, configurations and datasets written for an unreleased 2.
   ``stored_params`` and ``from_stored`` are removed: a featurizer that can be precomputed subclasses
   ``PrecomputableFeaturizer`` (see :ref:`how-to/extend/write_featurizer:Reuse pre-computed features`).
 - **Featurizers read data through** ``FeatureSource(dataset, side)``: ``view(name, ids)``,
-  ``feature_names(name)``, ``has_view``, ``smiles``, ``graphs``, ``tissue``, ``uns`` and
+  ``feature_names(name)``, ``name in source``, ``smiles``, ``graphs``, ``tissue``, ``uns`` and
   ``view_settings``. ``get_view_matrix``, ``get_feature_names``, ``get_metadata`` and
   ``get_entity_view`` are renamed or removed, and ``Dataset.get_sample_features``,
   ``get_drug_features``, ``get_sample_feature_names``, ``get_drug_feature_names``,
@@ -83,15 +83,25 @@ These affect only code, configurations and datasets written for an unreleased 2.
   ``drevalpy.data.splitter_registry``, the registry names in ``drevalpy.data.datasets`` (only
   ``load`` stays) and in ``drevalpy.data.splitters`` (only ``observed_mask`` stays) are removed, as
   are ``DatasetRegistry.builtin_sources``, ``builtin_datasets``, ``custom_sources``,
-  ``source_names``, ``unregister_dataset`` and ``unregister_source``. The LSO and LDO splitters
-  live in ``drevalpy.data.splitters.entity``, and the built-in split modes are listed as LDO, LSO,
+  ``source_names``, ``unregister_dataset`` and ``unregister_source``. The built-in splitters
+  live in ``drevalpy.data.splitters.builtins``, and the built-in split modes are listed as LDO, LSO,
   LPO, LStO, LTO. ``register_splitter(validation=...)`` takes only canonical names, not ``"LCO"``.
-- ``graph_feature_block``, ``numeric_feature_block``, ``ragged_feature_block`` and
-  ``merge_feature_blocks`` are no longer in ``drevalpy.plugin``; import them from
-  ``drevalpy.types.data.batch.feature_block``. ``drevalpy.evaluation.GroupBy``,
-  ``PairMask.__and__``, ``__invert__`` and ``sum()``, and ``ModelResult.n_runs`` are removed.
-- **``SplitMasks`` is now ``Fold`` and ``SplitMask`` is ``PairMask``**, in
-  ``drevalpy.types.data.fold`` and ``drevalpy.types.data.pair_mask``. Parameters that take a fold
+  ``curve_quality_mask`` is removed in favour of ``CurveQuality(...).mask(dataset)``.
+- ``ModelInputBatch`` is now ``PredictorInput``, ``ResponseBatch`` is ``ResponseTable``,
+  ``FeaturizerResult`` is ``FeaturizerOutput``, and ``build_synthetic_batch`` in
+  ``drevalpy.testing`` is ``build_synthetic_input``. The three data modules moved out of
+  ``drevalpy.types.data.batch`` to ``drevalpy.types.data`` (``feature_block``,
+  ``predictor_input``, ``response_table``), and ``BlockSpec`` moved next to
+  ``FeatureFormat`` in ``drevalpy.components.contracts.feature_format`` with
+  ``FeatureFormat.NUMERIC_MATRIX`` as its default format. ``FeaturizerOutput`` no longer takes a
+  ``projection`` argument (``matrix`` concatenates entity-aligned numeric blocks in order),
+  ``PredictorInput.early_stopping_response`` is ``early_stopping``, and ``graph_feature_block``,
+  ``numeric_feature_block``, ``ragged_feature_block``, ``global_feature_block`` and
+  ``merge_feature_blocks`` are removed in favour of ``FeatureBlock(values, ...)``.
+  ``drevalpy.evaluation.GroupBy``, ``SelectionMask.__and__``, ``__invert__`` and ``sum()``, and
+  ``ModelResult.n_runs`` are removed.
+- **``SplitMasks`` is now ``Fold`` and ``SplitMask`` is ``SelectionMask``**, in
+  ``drevalpy.types.data.fold`` and ``drevalpy.types.data.selection_mask``. Parameters that take a fold
   are called ``fold``: ``drevalpy.single(..., fold, ...)``, ``drevalpy.robustness(fold, n_repeats)``
   and the ``FOLD`` argument of ``drevalpy single``. Fold files keep their format.
 - **Hyperparameter values are checked against the search space.** A ``default``, and every value
@@ -421,26 +431,26 @@ Components and imports
   ``drevalpy.components.predictors.single_drug_routing`` is removed. See
   :ref:`how-to/extend/write_predictor:Fit one model per drug`.
 - A predictor names the response layers its fit reads, such as ``regulation``, in the class attribute
-  ``response_layers``. The fit finds them in ``batch.response_layers``, one value per pair and untransformed;
-  a layer the dataset lacks is left out, and the mapping is empty at prediction. ``ResponseBatch.layers``,
-  ``ResponseBatch.from_dataset(..., layers=)`` and ``build_synthetic_batch(..., response_layers=)`` carry
+  ``response_layers``. The fit finds them in ``data.response_layers``, one value per pair and untransformed;
+  a layer the dataset lacks is left out, and the mapping is empty at prediction. ``ResponseTable.layers``,
+  ``ResponseTable.from_dataset(..., layers=)`` and ``build_synthetic_input(..., response_layers=)`` carry
   them, and the conformance checks pass the predictor's layers. See
   :ref:`how-to/extend/write_predictor:Read response layers`.
 - ``PREDICTOR_CHECKS`` in ``drevalpy.testing`` holds a fourth check,
   ``check_predictor_single_drug_routing``: a single-drug predictor must predict NaN for a drug it was
-  not trained on. The default batch of a predictor check has no drug features when the predictor
+  not trained on. The default input of a predictor check has no drug features when the predictor
   reads none. See :doc:`/how-to/extend/test_components`.
-- A global feature block is made with ``global_feature_block``, and its side information is
-  ``annotations``.
+- A global feature block is made with ``FeatureBlock(values, entity_aligned=False)``, and its side
+  information is ``annotations``.
 - ``precompute(dataset, featurizer_name, side)`` and ``precompute_all(dataset)`` in
   ``drevalpy.data.precompute`` store the output of a featurizer that needs no fitting as a view, at its
   default settings; a featurizer reads that view only when its own settings match. See
   :ref:`reference/components:Precomputable featurizers`.
 - A file may store a sample view under its public name or under the stored name (``copy_number_variation``
   for ``copy_number_variation_gistic``); the public name wins when both exist.
-- ``drevalpy.types`` exports only ``Dataset``, ``PairMask`` and ``Fold``, and
+- ``drevalpy.types`` exports only ``Dataset``, ``SelectionMask`` and ``Fold``, and
   ``drevalpy.types.results`` only ``ExperimentResult``, ``ModelResult``, ``RunResult`` and
-  ``ExperimentFailedError``. Import every other type from the module that defines it. A ``PairMask`` is
+  ``ExperimentFailedError``. Import every other type from the module that defines it. A ``SelectionMask`` is
   read-only and has a public ``pair_seed``.
 - A plot declares its ``PlotRequirement`` values, and
   ``drevalpy.visualization.requirements.requirements_met(experiment, requirements)`` checks them against an

@@ -32,7 +32,7 @@ from drevalpy.components.featurizers.featurizer import Featurizer
 from drevalpy.components.featurizers.sample.gene_lists import view_genes
 from drevalpy.errors import InvalidInputError
 from drevalpy.registry.featurizer import register
-from drevalpy.types.data.batch.feature_block import FeaturizerResult
+from drevalpy.types.data.feature_block import FeaturizerOutput
 from drevalpy.types.data.feature_source import FeatureSource, Side
 from drevalpy.types.enums.accelerator import Accelerator
 
@@ -190,7 +190,7 @@ class DIPKGeneExpressionFeaturizer(Featurizer):
         )
         return self
 
-    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerResult:
+    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerOutput:
         """Encode the rows of *ids* into DIPK latent vectors.
 
         :param source: Feature source of the sample side.

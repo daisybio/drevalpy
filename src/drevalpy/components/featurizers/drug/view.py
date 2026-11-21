@@ -9,7 +9,7 @@ import numpy as np
 from drevalpy.components.featurizers._dense import dense_result, view_matrix
 from drevalpy.components.featurizers.featurizer import Featurizer
 from drevalpy.registry.featurizer import register
-from drevalpy.types.data.batch.feature_block import FeaturizerResult
+from drevalpy.types.data.feature_block import FeaturizerOutput
 from drevalpy.types.data.feature_source import FeatureSource, Side
 
 
@@ -46,7 +46,7 @@ class ViewDrugFeaturizer(Featurizer):
         self._view_names = source.feature_names(self._view)
         return self
 
-    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerResult:
+    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerOutput:
         """Return the view's rows, columns in fitted order.
 
         :param source: Drug feature source.

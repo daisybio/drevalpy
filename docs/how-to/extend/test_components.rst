@@ -5,7 +5,7 @@ Test your components
 
 ``drevalpy.testing`` ships in the wheel so that a plugin's own test suite can import it.
 Together with ``drevalpy.synthetic``, it removes the two things that otherwise block an offline CI job for a plugin: every registered
-dataset lives in a credentialed bucket, and a predictor needs a fully featurized batch.
+dataset lives in a credentialed bucket, and a predictor needs a fully featurized input.
 
 What ``drevalpy.synthetic`` and ``drevalpy.testing`` provide
 ------------------------------------------------------------
@@ -20,11 +20,11 @@ What ``drevalpy.synthetic`` and ``drevalpy.testing`` provide
      - An in-memory ``Dataset`` (60 samples, 8 drugs and 6 tissues by default). It holds the
        ``gene_expression`` view by default; pass ``omics=[...]`` for the sample views your
        featurizer reads, or ``omics=()`` for a response-only dataset.
-   * - ``build_synthetic_batch(dataset, sample_block_names=(), drug_block_names=(), ...)``
-     - A ``ModelInputBatch`` with drawn features and a learnable response, so a predictor is
+   * - ``build_synthetic_input(dataset, sample_block_names=(), drug_block_names=(), ...)``
+     - A ``PredictorInput`` with drawn features and a learnable response, so a predictor is
        testable without composing a model.
    * - ``observed_pairs(dataset)``
-     - Every measured sample-drug pair, as a ``ResponseBatch``.
+     - Every measured sample-drug pair, as a ``ResponseTable``.
    * - ``FEATURIZER_CHECKS`` / ``PREDICTOR_CHECKS``
      - Tuples of conformance checks, ready to parametrize over: three for featurizers and four
        for predictors. The third check of each is a pickle round trip
@@ -78,34 +78,34 @@ reads no view works against a response-only dataset (``omics=()``) too.
 Check a predictor
 -----------------
 
-For predictors the fixture is a batch. Ask ``build_synthetic_batch`` for the sample and drug
+For predictors the fixture is a ``PredictorInput``. Ask ``build_synthetic_input`` for the sample and drug
 blocks the predictor requires by name; a matrix predictor only needs some features. The first
 three checks verify that the predictor instantiates, that it returns one finite prediction per
 pair after training, and that a trained predictor dumped and loaded with joblib predicts the same
 values. The fourth, ``check_predictor_single_drug_routing``, runs only for a single-drug predictor
 (see :ref:`how-to/extend/write_predictor:Fit one model per drug`): it trains on every drug but
 the first, and requires NaN for the pairs of that drug and finite predictions for the others.
-The batch needs pairs of at least two drugs. Without a batch, a check builds one from
+The input needs pairs of at least two drugs. Without an input, a check builds one from
 ``drevalpy.synthetic()``, with no drug features for a predictor that reads none.
 
 .. code-block:: python
 
    from drevalpy.plugin import FeatureFreePredictor, register_predictor
-   from drevalpy.testing import PREDICTOR_CHECKS, build_synthetic_batch
+   from drevalpy.testing import PREDICTOR_CHECKS, build_synthetic_input
 
 
    @register_predictor("meanBaseline", description="Predict the mean training response.")
    class MeanBaseline(FeatureFreePredictor):
-       def _fit(self, batch):
-           self._mean = float(np.mean(batch.response))
+       def _fit(self, data):
+           self._mean = float(np.mean(data.response))
 
-       def _predict(self, batch):
-           return np.full(batch.n_pairs, self._mean)
+       def _predict(self, data):
+           return np.full(len(data), self._mean)
 
 
-   batch = build_synthetic_batch(dataset, sample_block_names=("gene_expression",))
+   data = build_synthetic_input(dataset, sample_block_names=("gene_expression",))
    for check in PREDICTOR_CHECKS:
-       check(MeanBaseline, batch)
+       check(MeanBaseline, data)
 
 Check a splitter
 ----------------

@@ -10,7 +10,7 @@ from drevalpy.cli.experiments import experiments_app
 from drevalpy.cli.experiments.randomization import randomization_cmd
 from drevalpy.cli.experiments.robustness import robustness_cmd
 from drevalpy.cli.main import app
-from drevalpy.types import Fold, PairMask
+from drevalpy.types import Fold, SelectionMask
 from tests.cli._helpers import (
     FakeDataset,
     GroupSurface,
@@ -205,8 +205,12 @@ class TestOnRealFiles:
 
     def test_a_cached_dataset_is_randomized_by_name(self, monkeypatch: pytest.MonkeyPatch, tmp_path: UPath) -> None:
         from drevalpy.data import synthetic
+        from drevalpy.registry.dataset import register_dataset, register_source
 
         monkeypatch.setenv("DREVALPY_CACHE_DIR", str(tmp_path / "cache"))
+        monkeypatch.setenv("DREVALPY_CONFIG_DIR", str(tmp_path / "config"))
+        register_source("local", f"file://{tmp_path / 'remote'}")
+        register_dataset("CACHED", source="local", file="CACHED.h5mu")
         synthetic().save(tmp_path / "cache" / "CACHED.h5mu")
 
         result = runner.invoke(app, ["experiments", "randomization", "ElasticNet", "CACHED", str(tmp_path / "rand")])
@@ -233,9 +237,9 @@ def _write_fold(path: UPath, fold_index: int) -> None:
     rng = np.random.default_rng(fold_index)
     assignment = rng.integers(0, 3, size=(3, 3))
     Fold(
-        train=PairMask(assignment == 0),
-        test=PairMask(assignment == 1),
-        val=PairMask(assignment == 2),
+        train=SelectionMask(assignment == 0),
+        test=SelectionMask(assignment == 1),
+        val=SelectionMask(assignment == 2),
         metadata={"fold_index": fold_index},
     ).save(path)
 

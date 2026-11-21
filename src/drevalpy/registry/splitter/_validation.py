@@ -15,7 +15,7 @@ from itertools import combinations
 
 import numpy as np
 
-from drevalpy.types import Dataset, Fold, PairMask
+from drevalpy.types import Dataset, Fold, SelectionMask
 
 from ._groups import MODES, LeakageGroups, Validation, pair_groups
 
@@ -48,7 +48,7 @@ def validate_folds(
 
 
 def validate_parts(
-    parts: Mapping[str, PairMask],
+    parts: Mapping[str, SelectionMask],
     validation: Validation,
     dataset: Dataset,
     *,
@@ -69,7 +69,7 @@ def validate_parts(
 
 
 def _check_parts(
-    parts: Mapping[str, PairMask],
+    parts: Mapping[str, SelectionMask],
     validation: Validation,
     dataset: Dataset,
     groups: np.ndarray,
@@ -89,7 +89,7 @@ def _check_parts(
 
 
 def _check_groups(
-    parts: Mapping[str, PairMask],
+    parts: Mapping[str, SelectionMask],
     validation: Validation,
     dataset: Dataset,
     groups: np.ndarray,

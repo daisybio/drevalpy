@@ -7,9 +7,9 @@ import numpy as np
 from drevalpy.errors import InvalidInputError
 from drevalpy.evaluation import evaluate
 from drevalpy.models.drp_model import DRPModel
-from drevalpy.types import PairMask
-from drevalpy.types.data.batch.response_batch import ResponseBatch
+from drevalpy.types import SelectionMask
 from drevalpy.types.data.dataset import Dataset
+from drevalpy.types.data.response_table import ResponseTable
 from drevalpy.types.results.run import RunResult
 
 
@@ -34,8 +34,8 @@ def predict_observed(model: DRPModel, dataset: Dataset) -> RunResult:
         msg = f"Model {model.name!r} was trained on {measure!r}, but the dataset is set to {dataset.measure!r}"
         raise InvalidInputError(msg)
     dataset = dataset.with_measure(measure)
-    scope = PairMask(np.isfinite(dataset.response_matrix))
-    observed = ResponseBatch.from_dataset(dataset, scope)
+    scope = SelectionMask(np.isfinite(dataset.response_matrix))
+    observed = ResponseTable.from_dataset(dataset, scope)
     predictions = model.predict(dataset, scope)
     return RunResult(
         model_name=model.name,

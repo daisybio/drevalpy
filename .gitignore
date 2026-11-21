@@ -70,6 +70,7 @@ cover/
 
 # Sphinx documentation
 docs/_build/
+docs/jupyter_execute/
 docs/reference/_autosummary/
 docs/reference/_generated_*.rst
 

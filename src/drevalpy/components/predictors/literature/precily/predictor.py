@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
 
-from drevalpy.components.contracts.feature_format import FeatureFormat
+from drevalpy.components.contracts.feature_format import BlockSpec
 from drevalpy.components.contracts.hyperparameter_space import fixed_entries
 from drevalpy.components.predictors._pair_loader import make_pair_loader
 from drevalpy.components.predictors.abstract.base import Predictor
@@ -30,8 +30,7 @@ from drevalpy.components.predictors.literature._torch_utils import DevicePicklin
 from drevalpy.experiment._tracking import log_metrics
 from drevalpy.log import get_logger
 from drevalpy.registry.predictor import register
-from drevalpy.types.data.batch.feature_block import BlockSpec
-from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
+from drevalpy.types.data.predictor_input import PredictorInput
 from drevalpy.types.enums.accelerator import Accelerator
 
 if TYPE_CHECKING:
@@ -50,10 +49,10 @@ logger = get_logger(__name__)
     accelerator=Accelerator.OPTIONAL,
 )
 class PrecilyPredictor(DevicePicklingMixin, Predictor):
-    """Registered Precily predictor consuming ModelInputBatch directly."""
+    """Registered Precily predictor consuming PredictorInput directly."""
 
-    sample_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("pathways", FeatureFormat.NUMERIC_MATRIX))
-    drug_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("smilesvec", FeatureFormat.NUMERIC_MATRIX))
+    sample_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("pathways"))
+    drug_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("smilesvec"))
     supports_early_stopping: ClassVar[bool] = False
 
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
@@ -90,16 +89,16 @@ class PrecilyPredictor(DevicePicklingMixin, Predictor):
 
         return PrecilyNetwork(input_dim=input_dim, dropout=dropout).to(self._device)
 
-    def _fit(self, batch: ModelInputBatch) -> None:
+    def _fit(self, data: PredictorInput) -> None:
         """Train the Precily model on the batch.
 
-        :param batch: Training batch with pathways and smilesvec blocks.
+        :param data: Training batch with pathways and smilesvec blocks.
         """
         import torch
         import torch.nn as nn
         import torch.optim as optim
 
-        pathway_entity, drug_entity = declared_blocks(self, batch)
+        pathway_entity, drug_entity = declared_blocks(self, data)
         model = self._build_model(
             pathway_entity.shape[1] + drug_entity.shape[1],
             self._hyperparameters["dropout"],
@@ -107,9 +106,9 @@ class PrecilyPredictor(DevicePicklingMixin, Predictor):
         self._model = model
 
         train_loader = make_pair_loader(
-            (pathway_entity, batch.sample_pair_idx),
-            (drug_entity, require_drug_pair_idx(batch.drug_pair_idx)),
-            response=np.asarray(batch.response, dtype=np.float32),
+            (pathway_entity, data.sample_pair_idx),
+            (drug_entity, require_drug_pair_idx(data.drug_pair_idx)),
+            response=np.asarray(data.response, dtype=np.float32),
             batch_size=self._hyperparameters["batch_size"],
             shuffle=True,
         )
@@ -127,10 +126,10 @@ class PrecilyPredictor(DevicePicklingMixin, Predictor):
             logger.info("Precily: Epoch [%d/%d] Training Loss: %.4f", epoch + 1, epochs, epoch_loss)
             log_metrics({"epoch": epoch + 1, "train_loss": epoch_loss})
 
-    def _predict(self, batch: ModelInputBatch) -> np.ndarray:
+    def _predict(self, data: PredictorInput) -> np.ndarray:
         """Run Precily inference on the given batch.
 
-        :param batch: Featurized pairs to score.
+        :param data: Featurized pairs to score.
         :returns: One predicted response per pair.
         :raises ValueError: If the model has not been trained yet.
         """
@@ -138,10 +137,10 @@ class PrecilyPredictor(DevicePicklingMixin, Predictor):
             msg = "Precily model not initialized."
             raise ValueError(msg)
 
-        pathway_entity, drug_entity = declared_blocks(self, batch)
+        pathway_entity, drug_entity = declared_blocks(self, data)
         return predict_pairs(
             self._model,
-            batch,
+            data,
             PairEvalSpec(
                 sample_blocks=(pathway_entity,),
                 drug_blocks=(drug_entity,),

@@ -15,7 +15,7 @@ import numpy as np
 from drevalpy.components.featurizers._dense import dense_result, view_matrix
 from drevalpy.components.featurizers.featurizer import Featurizer, all_nan_rows_mask
 from drevalpy.registry.featurizer import register
-from drevalpy.types.data.batch.feature_block import FeaturizerResult
+from drevalpy.types.data.feature_block import FeaturizerOutput
 from drevalpy.types.data.feature_source import FeatureSource, Side
 
 if TYPE_CHECKING:
@@ -123,7 +123,7 @@ class NormalizedProteomicsSampleFeaturizer(Featurizer):
         self._transformer = ProteomicsMedianCenterAndImputeTransformer(**self._settings).fit(matrix)
         return self
 
-    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerResult:
+    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerOutput:
         """Log10-transform the rows of *ids* and normalize them one sample at a time.
 
         :param source: Feature source of the sample side.

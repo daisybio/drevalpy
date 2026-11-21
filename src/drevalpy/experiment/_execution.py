@@ -8,7 +8,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, cast
 
-from drevalpy.data.splitters._early_stopping import early_stopping_split
+from drevalpy.data.splitters._folds import early_stopping_split
 from drevalpy.errors import InvalidInputError
 from drevalpy.evaluation import Metric
 from drevalpy.models.config.immutable import freeze_value, thaw_value
@@ -16,12 +16,12 @@ from drevalpy.models.spec import ModelSpec
 from drevalpy.registry.splitter import Validation, canonical, splitter_registry
 from drevalpy.registry.splitter._groups import MODES
 from drevalpy.registry.splitter._validation import validate_folds
-from drevalpy.types import Dataset, Fold, PairMask
+from drevalpy.types import Dataset, Fold, SelectionMask
 from drevalpy.types.enums.model_scope import ModelScope
 from drevalpy.types.results._identity import RunIdentity
 
 
-def _scope_provenance(scope: PairMask | None) -> dict[str, Any] | None:
+def _scope_provenance(scope: SelectionMask | None) -> dict[str, Any] | None:
     if scope is None:
         return None
     return {
@@ -36,11 +36,11 @@ def _scope_provenance(scope: PairMask | None) -> dict[str, Any] | None:
 class FitScopes:
     """Selections for tuning and final fitting, in their original pair order."""
 
-    training: PairMask
-    stopping: PairMask | None
-    validation: PairMask
-    final_training: PairMask
-    test: PairMask
+    training: SelectionMask
+    stopping: SelectionMask | None
+    validation: SelectionMask
+    final_training: SelectionMask
+    test: SelectionMask
 
     def provenance(self) -> dict[str, Any]:
         """Return serializable scope checksums, counts, and pair-order seeds."""
@@ -121,7 +121,7 @@ def build_execution(
     An unknown *hpo_metric* raises ``ValueError`` from ``Metric``. A single-drug model under LDO
     raises ``InvalidInputError`` from :func:`check_mode_supported`. A model that stops early gets
     whole groups of the split mode cut out of the validation set as its stopping set by
-    :func:`~drevalpy.data.splitters._early_stopping.early_stopping_split`, which raises
+    :func:`~drevalpy.data.splitters._folds.early_stopping_split`, which raises
     ``InvalidInputError`` when the validation set has fewer than two groups.
 
     :param model: Named model recipe.

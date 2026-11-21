@@ -16,7 +16,7 @@ from tests._barrel_surface import DeclaredSurface
 #: ``exported name -> module that defines it``.
 EXPECTED_ORIGINS: dict[str, str] = {
     "Dataset": "drevalpy.types.data.dataset._dataset",
-    "PairMask": "drevalpy.types.data.pair_mask",
+    "SelectionMask": "drevalpy.types.data.selection_mask",
     "Fold": "drevalpy.types.data.fold",
 }
 

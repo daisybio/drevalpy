@@ -16,10 +16,9 @@ import numpy as np
 
 from drevalpy.plugin import (
     BlockSpec,
-    FeatureFormat,
     FeatureSource,
     Featurizer,
-    FeaturizerResult,
+    FeaturizerOutput,
     Side,
     dense_result,
     register_featurizer,
@@ -45,7 +44,7 @@ class ToyDrugHashFeaturizer(Featurizer):
     def output_blocks(cls, config: Mapping[str, Any]) -> tuple[BlockSpec, ...]:
         """Declare the one numeric block, whatever the config."""
         _ = config
-        return (BlockSpec(BLOCK, FeatureFormat.NUMERIC_MATRIX),)
+        return (BlockSpec(BLOCK),)
 
     def fit(
         self,
@@ -59,7 +58,7 @@ class ToyDrugHashFeaturizer(Featurizer):
         _ = source, train_ids, train_pair_ids, es_pair_ids
         return self
 
-    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerResult:
+    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerOutput:
         """Return one row of hashed bytes per drug."""
         _ = source
         rows = [self._hash_row(str(entity_id)) for entity_id in ids]

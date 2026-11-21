@@ -1,7 +1,9 @@
 """Concatenating featurizer, registered as ``concatFeaturizers`` on both sides.
 
 Each child is fitted and transformed on the entities that are usable for every child, and the
-children's numeric blocks are merged into one result.
+children's named numeric blocks are collected into one :class:`FeaturizerOutput`. Block
+predictors read each child's block by name; matrix predictors get the blocks horizontally
+concatenated via :attr:`FeaturizerOutput.matrix`.
 """
 
 from __future__ import annotations
@@ -11,11 +13,10 @@ from typing import Any, Self
 
 import numpy as np
 
-from drevalpy.components.contracts.feature_format import FeatureFormat
-from drevalpy.components.featurizers._featurizer_label import CONCAT
-from drevalpy.components.featurizers.featurizer import Featurizer
+from drevalpy.components.contracts.feature_format import BlockSpec, FeatureFormat
+from drevalpy.components.featurizers.featurizer import CONCAT, Featurizer
 from drevalpy.registry.featurizer import register
-from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult, merge_feature_blocks
+from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
 from drevalpy.types.data.feature_source import FeatureSource, Side
 
 
@@ -38,7 +39,7 @@ def _build_children(featurizers: list[Any], side: Side | None) -> list[Featurize
 
 
 class ConcatFeaturizer(Featurizer):
-    """Fit child featurizers independently and concatenate their dense outputs."""
+    """Fit child featurizers independently and collect their numeric blocks for block or matrix access."""
 
     def __init__(self, *, featurizers: list[Any] | None = None) -> None:
         """Bind the child featurizers.
@@ -103,23 +104,30 @@ class ConcatFeaturizer(Featurizer):
             child.fit(source, train_ids, train_pair_ids=train_pair_ids, es_pair_ids=es_pair_ids)
         return self
 
-    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerResult:
-        """Transform with every child and merge their blocks.
+    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerOutput:
+        """Transform with every child and combine their named numeric blocks into one result.
+
+        Named blocks stay addressable individually in ``result.blocks``, and
+        ``result.matrix`` concatenates all entity-aligned numeric blocks horizontally in child order.
 
         :param source: Feature source of the featurizer's side.
         :param ids: Entity IDs usable for every child, in output order.
-        :returns: The children's feature blocks merged into one result.
-        :raises ValueError: If a child emits a block that is not a numeric matrix.
+        :returns: Combined feature blocks of all children.
+        :raises ValueError: If a child emits a non-numeric block or two children emit the same block name.
         """
-        child_blocks = []
+        merged: dict[str, FeatureBlock] = {}
         for child in self._children:
             blocks = child.transform(source, ids).blocks
             wrong = [name for name, block in blocks.items() if block.format != FeatureFormat.NUMERIC_MATRIX]
             if wrong:
                 msg = f"concat featurizer child {type(child).__name__} emits non-numeric blocks {wrong}"
                 raise ValueError(msg)
-            child_blocks.append(blocks)
-        return FeaturizerResult.from_blocks(merge_feature_blocks(*child_blocks), ids)
+            for name, block in blocks.items():
+                if name in merged:
+                    msg = f"Duplicate featurizer block name {name!r}"
+                    raise ValueError(msg)
+                merged[name] = block
+        return FeaturizerOutput(ids, merged)
 
 
 @register(CONCAT, side=Side.SAMPLE, description="Concatenate the dense outputs of several sample featurizers.")

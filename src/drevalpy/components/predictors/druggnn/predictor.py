@@ -14,14 +14,13 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import numpy as np
 
 from drevalpy._utils.accelerator import lightning_accelerator
-from drevalpy.components.contracts.feature_format import FeatureFormat
+from drevalpy.components.contracts.feature_format import BlockSpec, FeatureFormat
 from drevalpy.components.predictors._lightning_training import LightningRun, reload_best_weights, run_lightning_fit
-from drevalpy.components.predictors.abstract.base import Predictor, fit_response
+from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.components.predictors.literature._pair_predict import require_drug_pair_idx
 from drevalpy.registry.predictor import register
-from drevalpy.types.data.batch.feature_block import BlockSpec
-from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
+from drevalpy.types.data.predictor_input import PredictorInput
 from drevalpy.types.enums.accelerator import Accelerator
 
 # torch, pytorch_lightning and torch_geometric are imported inside the methods
@@ -97,7 +96,7 @@ class DrugGNNPredictor(Predictor):
     """Simple GCN baseline inspired by GraphDRP (Nguyen et al., 2021, doi:10.1109/TCBB.2021.3060430)."""
 
     supports_early_stopping: ClassVar[bool] = True
-    sample_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX))
+    sample_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("gene_expression"))
     drug_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("drug_graph", FeatureFormat.GRAPH))
 
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
@@ -128,25 +127,25 @@ class DrugGNNPredictor(Predictor):
     # Fit
     # ------------------------------------------------------------------
 
-    def _fit(self, batch: ModelInputBatch) -> None:
+    def _fit(self, data: PredictorInput) -> None:
         """Train the DrugGNN model on the batch.
 
-        :param batch: Training batch with gene_expression and drug_graph blocks.
+        :param data: Training batch with gene_expression and drug_graph blocks.
         """
-        sample_matrix = batch.sample.blocks["gene_expression"].values
-        drug_graphs = batch.drug.blocks["drug_graph"].values
+        sample_matrix = data.sample.blocks["gene_expression"].values
+        drug_graphs = data.drug.blocks["drug_graph"].values
 
         self._model = self._build_model(sample_matrix, drug_graphs)
         train_loader = self._graph_loader(
-            batch.sample_pair_idx,
-            require_drug_pair_idx(batch.drug_pair_idx),
+            data.sample_pair_idx,
+            require_drug_pair_idx(data.drug_pair_idx),
             sample_matrix,
             drug_graphs,
-            fit_response(batch),
+            data.response,
             batch_size=int(self._hyperparameters["batch_size"]),
             shuffle=True,
         )
-        val_loader = self._build_val_loader(batch, sample_matrix, drug_graphs)
+        val_loader = self._build_val_loader(data, sample_matrix, drug_graphs)
         self._run_training(train_loader, val_loader)
 
     def _build_model(self, sample_matrix: np.ndarray, drug_graphs: np.ndarray) -> DrugGNNModule:
@@ -224,28 +223,28 @@ class DrugGNNPredictor(Predictor):
 
     def _build_val_loader(
         self,
-        batch: ModelInputBatch,
+        data: PredictorInput,
         sample_matrix: np.ndarray,
         drug_graphs: np.ndarray,
     ) -> DataLoader | None:
         """Build a validation DataLoader from the early-stopping response if available.
 
-        :param batch: Full training batch (for entity ID lookups).
+        :param data: Full training batch (for entity ID lookups).
         :param sample_matrix: Sample feature matrix.
         :param drug_graphs: Array of drug graph objects.
         :returns: Validation DataLoader or None if no early-stopping data.
         :raises ValueError: If the batch has early-stopping pairs but no drug features.
         """
-        es = batch.early_stopping_response
+        es = data.early_stopping
         if es is None or len(es) == 0:
             return None
 
-        if batch.drug is None:
+        if data.drug is None:
             raise ValueError("DrugGNN requires drug features for early stopping")
 
         return self._graph_loader(
-            batch.sample.rows_for(es.sample_ids),
-            batch.drug.rows_for(es.drug_ids),
+            data.sample.rows_for(es.sample_ids),
+            data.drug.rows_for(es.drug_ids),
             sample_matrix,
             drug_graphs,
             es.response,
@@ -256,10 +255,10 @@ class DrugGNNPredictor(Predictor):
     # Predict
     # ------------------------------------------------------------------
 
-    def _predict(self, batch: ModelInputBatch) -> np.ndarray:
+    def _predict(self, data: PredictorInput) -> np.ndarray:
         """Predict responses for the given batch.
 
-        :param batch: Featurized pairs to score.
+        :param data: Featurized pairs to score.
         :returns: One predicted response per pair.
         :raises RuntimeError: If the model has not been trained yet.
         """
@@ -268,15 +267,15 @@ class DrugGNNPredictor(Predictor):
 
         if self._model is None:
             raise RuntimeError("Model has not been trained yet.")
-        if batch.n_pairs == 0:
+        if len(data) == 0:
             return np.array([])
 
         predict_loader = self._graph_loader(
-            batch.sample_pair_idx,
-            require_drug_pair_idx(batch.drug_pair_idx),
-            batch.sample.blocks["gene_expression"].values,
-            batch.drug.blocks["drug_graph"].values,
-            np.zeros(batch.n_pairs, dtype=np.float32),
+            data.sample_pair_idx,
+            require_drug_pair_idx(data.drug_pair_idx),
+            data.sample.blocks["gene_expression"].values,
+            data.drug.blocks["drug_graph"].values,
+            np.zeros(len(data), dtype=np.float32),
             batch_size=int(self._hyperparameters["batch_size"]),
         )
 

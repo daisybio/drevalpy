@@ -119,8 +119,7 @@ class ChemBertaFeaturizer(PrecomputableFeaturizer):
         tokenizer, model = load_chemberta()
 
         embeddings = []
-        for drug_id in ids:
-            smi = smiles.get(drug_id)
+        for smi in smiles:
             if smi and isinstance(smi, str):
                 inputs = tokenizer(smi, return_tensors="pt", truncation=True, max_length=self._max_length)
                 with torch.no_grad():

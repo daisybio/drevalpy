@@ -1,4 +1,4 @@
-"""DIPK predictor consuming ModelInputBatch directly.
+"""DIPK predictor consuming PredictorInput directly.
 
 ``torch`` is imported inside the methods that use it, and the DIPK network comes
 from ``.model_utils`` only when a model is actually built. ``drevalpy.registry``
@@ -13,10 +13,10 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
 
-from drevalpy.components.contracts.feature_format import FeatureFormat
+from drevalpy.components.contracts.feature_format import BlockSpec, FeatureFormat
 from drevalpy.components.contracts.hyperparameter_space import fixed_entries
 from drevalpy.components.predictors._pair_loader import collect_predictions
-from drevalpy.components.predictors.abstract.base import Predictor, response_rows
+from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.components.predictors.literature._early_stopping import (
     EarlyStoppingRun,
@@ -26,8 +26,7 @@ from drevalpy.components.predictors.literature._early_stopping import (
 from drevalpy.components.predictors.literature._metadata import DIPK_REFERENCE
 from drevalpy.components.predictors.literature._torch_utils import DevicePicklingMixin
 from drevalpy.registry.predictor import register
-from drevalpy.types.data.batch.feature_block import BlockSpec
-from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
+from drevalpy.types.data.predictor_input import PredictorInput
 from drevalpy.types.enums.accelerator import Accelerator
 
 if TYPE_CHECKING:
@@ -48,8 +47,8 @@ class DIPKPredictor(DevicePicklingMixin, Predictor):
     """DIPK predictor that trains an attention-based model on gene expression, BIONIC, and MolGNet features."""
 
     sample_inputs: ClassVar[Inputs] = Inputs.blocks(
-        BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),
-        BlockSpec("bionic_features", FeatureFormat.NUMERIC_MATRIX),
+        BlockSpec("gene_expression"),
+        BlockSpec("bionic_features"),
     )
     drug_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("molgnet_features", FeatureFormat.RAGGED_SEQUENCE))
     supports_early_stopping: ClassVar[bool] = True
@@ -101,22 +100,22 @@ class DIPKPredictor(DevicePicklingMixin, Predictor):
         self,
         sample_pair_idx: np.ndarray,
         drug_pair_idx: np.ndarray,
-        batch: ModelInputBatch,
+        data: PredictorInput,
         response: np.ndarray | None = None,
     ) -> list[dict[str, torch.Tensor]]:
         """Construct per-pair dictionaries from batch blocks using pair indices.
 
         :param sample_pair_idx: Indices mapping pairs to sample entities.
         :param drug_pair_idx: Indices mapping pairs to drug entities.
-        :param batch: Model input batch with feature blocks.
+        :param data: Model input batch with feature blocks.
         :param response: Optional response values per pair.
         :returns: List of pair dictionaries with tensor values.
         """
         import torch
 
-        gene_block = batch.sample.blocks["gene_expression"].values
-        bionic_block = batch.sample.blocks["bionic_features"].values
-        drug_block = batch.drug.blocks["molgnet_features"].values
+        gene_block = data.sample.blocks["gene_expression"].values
+        bionic_block = data.sample.blocks["bionic_features"].values
+        drug_block = data.drug.blocks["molgnet_features"].values
 
         pairs: list[dict[str, torch.Tensor]] = []
         for i in range(len(sample_pair_idx)):
@@ -133,36 +132,36 @@ class DIPKPredictor(DevicePicklingMixin, Predictor):
             pairs.append(pair)
         return pairs
 
-    def _build_loaders(self, batch: ModelInputBatch) -> tuple[DataLoader, DataLoader]:
+    def _build_loaders(self, data: PredictorInput) -> tuple[DataLoader, DataLoader]:
         """Build the training and early-stopping loaders.
 
-        :param batch: Featurized training batch.
+        :param data: Featurized training batch.
         :returns: Tuple of ``(train_loader, es_loader)``.
         :raises ValueError: If drug features or early stopping data is missing.
         """
-        if batch.drug_pair_idx is None:
+        if data.drug_pair_idx is None:
             msg = "DIPK requires drug features"
             raise ValueError(msg)
-        if batch.early_stopping_response is None:
+        if data.early_stopping is None:
             msg = "DIPK requires early stopping data"
             raise ValueError(msg)
 
         train_pairs = self._build_pairs(
-            batch.sample_pair_idx,
-            batch.drug_pair_idx,
-            batch,
-            response=batch.response,
+            data.sample_pair_idx,
+            data.drug_pair_idx,
+            data,
+            response=data.response,
         )
 
-        es_response = batch.early_stopping_response
-        cl_pair_idx_es, drug_pair_idx_es = response_rows(batch, es_response)
+        es_response = data.early_stopping
+        cl_pair_idx_es, drug_pair_idx_es = data.early_stopping_sample_idx, data.early_stopping_drug_idx
         if drug_pair_idx_es is None:
             msg = "DIPK requires drug pair indices for early stopping"
             raise ValueError(msg)
         es_pairs = self._build_pairs(
             cl_pair_idx_es,
             drug_pair_idx_es,
-            batch,
+            data,
             response=es_response.response,
         )
 
@@ -188,15 +187,15 @@ class DIPKPredictor(DevicePicklingMixin, Predictor):
             collate_fn=_CollateFn(train=train),
         )
 
-    def _fit(self, batch: ModelInputBatch) -> None:
+    def _fit(self, data: PredictorInput) -> None:
         """Train the DIPK model on a batch of pairs.
 
-        :param batch: Featurized batch with gene_expression, bionic_features, molgnet_features blocks.
+        :param data: Featurized batch with gene_expression, bionic_features, molgnet_features blocks.
         """
         import torch
         from torch import nn, optim
 
-        train_loader, es_loader = self._build_loaders(batch)
+        train_loader, es_loader = self._build_loaders(data)
 
         model = self._build_model()
         self._model = model
@@ -214,7 +213,7 @@ class DIPKPredictor(DevicePicklingMixin, Predictor):
             EarlyStoppingRun(
                 epochs=hp["epochs"],
                 patience=hp["patience"],
-                checkpoint_dir=batch.training_context.checkpoint_dir,
+                checkpoint_dir=data.training_context.checkpoint_dir,
                 model_name="DIPK",
             ),
             train_epoch=lambda: run_epoch(model, train_loader, batch_loss, optimizer),
@@ -236,20 +235,20 @@ class DIPKPredictor(DevicePicklingMixin, Predictor):
             molgnet_mask=dl_batch["molgnet_mask"].to(self._device),
         )
 
-    def _predict(self, batch: ModelInputBatch) -> np.ndarray:
+    def _predict(self, data: PredictorInput) -> np.ndarray:
         """Run DIPK inference on the given batch.
 
-        :param batch: Featurized pairs to score.
+        :param data: Featurized pairs to score.
         :returns: One predicted response per pair.
         :raises ValueError: If drug pair indices are missing.
         """
         if self._model is None:
-            return np.full(batch.n_pairs, np.nan, dtype=np.float64)
-        if batch.drug_pair_idx is None:
+            return np.full(len(data), np.nan, dtype=np.float64)
+        if data.drug_pair_idx is None:
             msg = "DIPK requires drug features for prediction"
             raise ValueError(msg)
 
-        pairs = self._build_pairs(batch.sample_pair_idx, batch.drug_pair_idx, batch)
+        pairs = self._build_pairs(data.sample_pair_idx, data.drug_pair_idx, data)
         test_loader = self._loader(pairs, train=False, shuffle=False)
 
         model = self._model

@@ -14,12 +14,12 @@ from typing import Any, ClassVar, Final, Self
 
 import numpy as np
 
-from drevalpy.components.contracts.feature_format import FeatureFormat
+from drevalpy.components.contracts.feature_format import BlockSpec
 from drevalpy.components.featurizers.drug.molgnet import molgnet_node_matrices
 from drevalpy.components.featurizers.featurizer import Featurizer
 from drevalpy.errors import InvalidInputError
 from drevalpy.registry.featurizer import register
-from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult, numeric_feature_block
+from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
 from drevalpy.types.data.feature_source import FeatureSource, Side
 
 _BLOCK = "molgnet_pooled"
@@ -106,7 +106,7 @@ class MolGNetPooledFeaturizer(Featurizer):
         :param config: Featurizer config; unused.
         :returns: One numeric block spec.
         """
-        return (BlockSpec(_BLOCK, FeatureFormat.NUMERIC_MATRIX),)
+        return (BlockSpec(_BLOCK),)
 
     def fit(
         self,
@@ -126,7 +126,7 @@ class MolGNetPooledFeaturizer(Featurizer):
         """
         return self
 
-    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerResult:
+    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerOutput:
         """Return the pooled vectors as one named ``molgnet_pooled`` block.
 
         :param source: Drug feature source.
@@ -138,5 +138,5 @@ class MolGNetPooledFeaturizer(Featurizer):
             for nodes in molgnet_node_matrices(source, self._view, ids)
         ]
         matrix = np.stack(rows) if rows else np.empty((0, 0), dtype=np.float32)
-        block = numeric_feature_block(matrix, feature_names=molgnet_feature_names(matrix.shape[1], self._pooling))
-        return FeaturizerResult(ids, {_BLOCK: block}, (_BLOCK,))
+        block = FeatureBlock(matrix, feature_names=molgnet_feature_names(matrix.shape[1], self._pooling))
+        return FeaturizerOutput(ids, {_BLOCK: block})

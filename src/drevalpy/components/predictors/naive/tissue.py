@@ -6,14 +6,13 @@ from typing import ClassVar
 
 import numpy as np
 
-from drevalpy.components.contracts.feature_format import FeatureFormat
-from drevalpy.components.predictors.abstract.base import Predictor, fit_response
+from drevalpy.components.contracts.feature_format import BlockSpec
+from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.components.predictors.naive._matrix_means import require_pair_matrix
 from drevalpy.components.predictors.naive._single_entity import SingleEntityNaivePredictor
 from drevalpy.registry.predictor import register
-from drevalpy.types.data.batch.feature_block import BlockSpec
-from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
+from drevalpy.types.data.predictor_input import PredictorInput
 
 
 @register(
@@ -24,16 +23,16 @@ from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
 class NaiveTissueMeanPredictor(SingleEntityNaivePredictor):
     """Naive tissue mean predictor component."""
 
-    sample_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("tissue", FeatureFormat.NUMERIC_MATRIX))
+    sample_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("tissue"))
 
-    def _design(self, batch: ModelInputBatch) -> np.ndarray:
+    def _design(self, data: PredictorInput) -> np.ndarray:
         """Return the pair-level one-hot tissue matrix.
 
-        :param batch: Batch to read.
+        :param data: Batch to read.
         :returns: One row per pair, one column per tissue.
         :raises ValueError: If the tissue featurizer produced no columns.
         """
-        design = super()._design(batch)
+        design = super()._design(data)
         if design.shape[1] == 0:
             msg = "NaiveTissueMeanPredictor requires tissue featurizer output"
             raise ValueError(msg)
@@ -48,24 +47,24 @@ class NaiveTissueMeanPredictor(SingleEntityNaivePredictor):
 class NaiveTissueDrugMeanPredictor(Predictor):
     """Naive tissue drug mean predictor component."""
 
-    sample_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("tissue", FeatureFormat.NUMERIC_MATRIX))
-    drug_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("oneHot", FeatureFormat.NUMERIC_MATRIX))
+    sample_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("tissue"))
+    drug_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("oneHot"))
 
     _dataset_mean: float | None = None
     _effects: np.ndarray | None = None
 
-    def _fit(self, batch: ModelInputBatch) -> None:
+    def _fit(self, data: PredictorInput) -> None:
         """Fit on training data.
 
-        :param batch: Training batch.
+        :param data: Training batch.
         :raises ValueError: If the tissue or drug featurizer produced no columns.
         """
-        tissue = require_pair_matrix(batch, side="sample")
-        drugs = require_pair_matrix(batch, side="drug")
+        tissue = require_pair_matrix(data, side="sample")
+        drugs = require_pair_matrix(data, side="drug")
         if tissue.shape[1] == 0 or drugs.shape[1] == 0:
             msg = "NaiveTissueDrugMeanPredictor requires tissue featurizer output"
             raise ValueError(msg)
-        y = fit_response(batch)
+        y = data.response
         self._dataset_mean = float(np.mean(y))
         tissue64 = np.asarray(tissue, dtype=np.float64)
         drugs64 = np.asarray(drugs, dtype=np.float64)
@@ -77,10 +76,10 @@ class NaiveTissueDrugMeanPredictor(Predictor):
         effects = np.where(counts > 0, effects, 0.0)
         self._effects = effects
 
-    def _predict(self, batch: ModelInputBatch) -> np.ndarray:
+    def _predict(self, data: PredictorInput) -> np.ndarray:
         """Predict responses for each pair in the batch.
 
-        :param batch: Pairs to score.
+        :param data: Pairs to score.
         :returns: Dataset mean plus the effect of each pair's tissue-drug combination.
         :raises RuntimeError: If the predictor has not been fitted.
         :raises ValueError: If the tissue or drug featurizer produced no columns.
@@ -88,8 +87,8 @@ class NaiveTissueDrugMeanPredictor(Predictor):
         if self._dataset_mean is None or self._effects is None:
             msg = "Call fit before predict"
             raise RuntimeError(msg)
-        tissue = require_pair_matrix(batch, side="sample")
-        drugs = require_pair_matrix(batch, side="drug")
+        tissue = require_pair_matrix(data, side="sample")
+        drugs = require_pair_matrix(data, side="drug")
         if tissue.shape[1] == 0 or drugs.shape[1] == 0:
             msg = "NaiveTissueDrugMeanPredictor requires tissue featurizer output"
             raise ValueError(msg)

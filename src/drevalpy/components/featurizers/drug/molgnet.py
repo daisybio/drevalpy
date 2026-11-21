@@ -7,12 +7,12 @@ from typing import Any, ClassVar, Self
 
 import numpy as np
 
-from drevalpy.components.contracts.feature_format import FeatureFormat
+from drevalpy.components.contracts.feature_format import BlockSpec, FeatureFormat
 from drevalpy.components.featurizers.featurizer import Featurizer
 from drevalpy.data.artifacts import get_artifact
 from drevalpy.log import get_logger
 from drevalpy.registry.featurizer import register
-from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult, ragged_feature_block
+from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
 from drevalpy.types.data.feature_source import FeatureSource, Side
 
 _logger = get_logger(__name__)
@@ -66,7 +66,7 @@ class MolGNetDrugFeaturizer(Featurizer):
         """
         return self
 
-    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerResult:
+    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerOutput:
         """Return one MolGNet node matrix per drug.
 
         :param source: Drug feature source.
@@ -74,7 +74,10 @@ class MolGNetDrugFeaturizer(Featurizer):
         :returns: Result with the ragged ``molgnet_features`` block.
         """
         rows = molgnet_node_matrices(source, self._view, ids)
-        return FeaturizerResult(ids, {_BLOCK: ragged_feature_block(np.array(rows, dtype=object))}, (_BLOCK,))
+        return FeaturizerOutput(
+            ids,
+            {_BLOCK: FeatureBlock(np.array(rows, dtype=object), FeatureFormat.RAGGED_SEQUENCE)},
+        )
 
 
 def molgnet_node_matrices(source: FeatureSource, view: str, ids: np.ndarray) -> list[np.ndarray]:
@@ -86,18 +89,20 @@ def molgnet_node_matrices(source: FeatureSource, view: str, ids: np.ndarray) -> 
     :returns: One ``(n_atoms, n_dim)`` matrix per ID.
     :raises KeyError: If a drug has no stored matrix and none can be computed from its SMILES.
     """
-    stored = source.view(view, ids) if source.has_view(view) else [None] * len(ids)
-    smiles = None
+    stored = source.view(view, ids) if view in source else [None] * len(ids)
+    smiles: np.ndarray | None = None
+    smiles_loaded = False
     rows: list[np.ndarray] = []
-    for drug_id, entity_view in zip(ids, stored, strict=True):
+    for row, (drug_id, entity_view) in enumerate(zip(ids, stored, strict=True)):
         key = str(drug_id)
         if entity_view is not None:
             rows.append(np.asarray(entity_view))
             continue
-        if smiles is None:
+        if not smiles_loaded:
             _logger.info("Computing %s on the fly from SMILES.", _BLOCK)
-            smiles = source.smiles(np.unique(ids))
-        smi = None if smiles is None else smiles.get(key)
+            smiles = source.smiles(ids)
+            smiles_loaded = True
+        smi = None if smiles is None else smiles[row]
         computed = _compute_molgnet_embedding(smi) if smi and isinstance(smi, str) else None
         if computed is None:
             msg = f"View {view!r} missing for drug {key!r} and on-the-fly computation failed"

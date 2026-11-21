@@ -127,10 +127,10 @@ def _graph_to_dict(graph: Any) -> dict[str, np.ndarray]:
 def _drug_graphs(dataset: Dataset) -> dict[str, dict[str, np.ndarray]]:
     """Featurize every drug's SMILES into a molecular graph with the real featurizer."""
     from drevalpy.components.featurizers.drug.drug_graph import DrugGraphFeaturizer
-    from drevalpy.types.data.feature_source import FeatureSource
+    from drevalpy.types.data.feature_source import FeatureSource, Side
 
     drug_ids = dataset.drug_ids
-    source = FeatureSource(dataset, "drug")
+    source = FeatureSource(dataset, Side.DRUG)
     graphs = DrugGraphFeaturizer().fit(source, drug_ids).transform(source, drug_ids).blocks["drug_graph"].values
     return {str(drug_id): _graph_to_dict(graph) for drug_id, graph in zip(drug_ids, graphs, strict=True)}
 
@@ -138,10 +138,10 @@ def _drug_graphs(dataset: Dataset) -> dict[str, dict[str, np.ndarray]]:
 def _fingerprints(dataset: Dataset) -> np.ndarray:
     """Featurize every drug's SMILES into Morgan fingerprints with the real featurizer."""
     from drevalpy.components.featurizers.drug.fingerprints import FingerprintsFeaturizer
-    from drevalpy.types.data.feature_source import FeatureSource
+    from drevalpy.types.data.feature_source import FeatureSource, Side
 
     drug_ids = dataset.drug_ids
-    source = FeatureSource(dataset, "drug")
+    source = FeatureSource(dataset, Side.DRUG)
     return FingerprintsFeaturizer(n_bits=FINGERPRINT_BITS).fit(source, drug_ids).transform(source, drug_ids).matrix
 
 

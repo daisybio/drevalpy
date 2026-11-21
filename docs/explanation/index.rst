@@ -7,6 +7,7 @@ Explanation
    evaluation_design
    metrics
    models_from_components
+   data_flow
    training_lifecycle
    registries_and_plugins
    reproducibility

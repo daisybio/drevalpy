@@ -1,7 +1,7 @@
 """Degenerate variants of the synthetic dataset, plus the model support matrix.
 
 :func:`build_partial_coverage_dataset` reproduces the ragged modality coverage of published datasets, which drives
-the NaN-filtering path in ``PredictorBase.fit`` and ``ModelInputBatch.subset_pairs``.
+the NaN-filtering path in ``PredictorBase.fit`` and ``PredictorInput.__getitem__``.
 """
 
 from __future__ import annotations

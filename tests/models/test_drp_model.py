@@ -12,7 +12,7 @@ from drevalpy.errors import DrEvalError, InvalidInputError
 from drevalpy.models import DRPModel, ModelSpec
 from drevalpy.models.drp_model import ModelState, _build_components, validate_fit_scopes
 from drevalpy.registry.predictor import get as get_predictor
-from drevalpy.types import PairMask
+from drevalpy.types import SelectionMask
 from drevalpy.types.enums.accelerator import Accelerator
 from tests.models.synthetic_fixtures import (
     lso_fold,
@@ -65,14 +65,14 @@ def test_train_predict_and_load_preserve_original_response_units(tmp_path) -> No
 
 def test_fit_scope_validation() -> None:
     dataset = synthetic_model_dataset_identity()
-    scope = PairMask.from_pairs(np.array([[0, 0]]), shape=dataset.response_matrix.shape)
+    scope = SelectionMask.from_pairs(np.array([[0, 0]]), shape=dataset.response_matrix.shape)
 
     with pytest.raises(ValueError, match="response-disjoint"):
         validate_fit_scopes(dataset, scope, scope)
     with pytest.raises(TypeError, match="Dataset"):
-        validate_fit_scopes(object(), PairMask(np.zeros((2, 2), dtype=bool)), None)  # type: ignore[arg-type]
+        validate_fit_scopes(object(), SelectionMask(np.zeros((2, 2), dtype=bool)), None)  # type: ignore[arg-type]
     with pytest.raises(ValueError, match="shape"):
-        validate_fit_scopes(dataset, PairMask(np.zeros((1, 1), dtype=bool)), None)
+        validate_fit_scopes(dataset, SelectionMask(np.zeros((1, 1), dtype=bool)), None)
 
 
 def test_train_without_a_checkpoint_dir_uses_a_temporary_one_and_removes_it(tmp_path, monkeypatch) -> None:
@@ -136,7 +136,7 @@ def test_model_starts_untrained_and_predict_rejects_it() -> None:
 def test_empty_fit_returns_aligned_nan_predictions() -> None:
     model = DRPModel(ModelSpec.from_name("NaivePredictor"))
     dataset = synthetic_model_dataset_identity()
-    empty = PairMask(np.zeros(dataset.response_matrix.shape, dtype=bool))
+    empty = SelectionMask(np.zeros(dataset.response_matrix.shape, dtype=bool))
 
     model.train(dataset, empty)
 
@@ -151,7 +151,7 @@ def test_retraining_resets_previous_fitted_state() -> None:
 
     model.train(dataset, fold.train)
     assert model.state is ModelState.FITTED
-    model.train(dataset, PairMask(np.zeros(dataset.response_matrix.shape, dtype=bool)))
+    model.train(dataset, SelectionMask(np.zeros(dataset.response_matrix.shape, dtype=bool)))
 
     assert model.state is ModelState.EMPTY
     assert np.isnan(model.predict(dataset, fold.test)).all()
@@ -206,7 +206,7 @@ def test_entered_training_failure_invalidates_previous_model(monkeypatch, failur
     elif failure == "fit":
         monkeypatch.setattr(type(model._predictor), "fit", fail)
     else:
-        scope = PairMask(np.zeros((1, 1), dtype=bool))
+        scope = SelectionMask(np.zeros((1, 1), dtype=bool))
     with pytest.raises(ValueError):
         model.train(dataset, scope)
     assert model.state is ModelState.UNTRAINED
@@ -251,7 +251,7 @@ def test_unfitted_or_empty_model_cannot_be_saved(tmp_path, trained) -> None:
     model = DRPModel(ModelSpec.from_name("NaivePredictor"))
     if trained:
         dataset = synthetic_model_dataset_identity()
-        model.train(dataset, PairMask(np.zeros((2, 2), dtype=bool)))
+        model.train(dataset, SelectionMask(np.zeros((2, 2), dtype=bool)))
     with pytest.raises(RuntimeError, match="must be trained first"):
         model.save(tmp_path / "model.zip")
 
@@ -259,13 +259,13 @@ def test_unfitted_or_empty_model_cannot_be_saved(tmp_path, trained) -> None:
 def test_empty_prediction_does_not_access_dataset_features(monkeypatch) -> None:
     dataset = synthetic_model_dataset_identity()
     model = DRPModel(ModelSpec.from_name("NaivePredictor"))
-    model.train(dataset, PairMask(np.zeros((2, 2), dtype=bool)))
+    model.train(dataset, SelectionMask(np.zeros((2, 2), dtype=bool)))
 
     def fail(*args, **kwargs):
         raise AssertionError("Empty model must not read features")
 
     monkeypatch.setattr(model, "_feature_sources", fail)
-    scope = PairMask(np.ones((2, 2), dtype=bool)).shuffled(7)
+    scope = SelectionMask(np.ones((2, 2), dtype=bool)).shuffled(7)
     values = model.predict(dataset, scope)
     assert values.shape == (4,)
     assert np.isnan(values).all()

@@ -8,7 +8,7 @@ from upath import UPath
 
 from drevalpy.cli.main import app
 from drevalpy.data.quality import CurveQuality
-from drevalpy.types import Fold, PairMask
+from drevalpy.types import Fold, SelectionMask
 from drevalpy.types.data.dataset import Dataset
 from tests.cli._helpers import FakeDataset, Recorder, make_runner, patch_worker, plain
 
@@ -25,9 +25,9 @@ def _make_fold(fold_index: int) -> Fold:
     val = np.zeros((2, 2), dtype=bool)
     val[0, 1] = True
     return Fold(
-        train=PairMask(train),
-        test=PairMask(test),
-        val=PairMask(val),
+        train=SelectionMask(train),
+        test=SelectionMask(test),
+        val=SelectionMask(val),
         metadata={"fold_index": fold_index},
     )
 
@@ -150,8 +150,12 @@ def test_the_quality_rule_reaches_the_written_folds_and_lco_writes_lso_folds(
 @pytest.mark.slow
 def test_a_cached_dataset_splits_by_name(monkeypatch: pytest.MonkeyPatch, tmp_path: UPath) -> None:
     from drevalpy.data import synthetic
+    from drevalpy.registry.dataset import register_dataset, register_source
 
     monkeypatch.setenv("DREVALPY_CACHE_DIR", str(tmp_path / "cache"))
+    monkeypatch.setenv("DREVALPY_CONFIG_DIR", str(tmp_path / "config"))
+    register_source("local", f"file://{tmp_path / 'remote'}")
+    register_dataset("CACHED", source="local", file="CACHED.h5mu")
     synthetic().save(tmp_path / "cache" / "CACHED.h5mu")
 
     result = runner.invoke(app, ["data", "split", "CACHED", str(tmp_path / "folds"), "-n", "2"])

@@ -10,9 +10,9 @@ from typing import Any
 import numpy as np
 
 from drevalpy.components.contracts.training_context import TrainingContext
-from drevalpy.types.data.batch.feature_block import FeatureBlock, FeaturizerResult, numeric_feature_block
-from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
-from drevalpy.types.data.batch.response_batch import ResponseBatch
+from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
+from drevalpy.types.data.predictor_input import PredictorInput
+from drevalpy.types.data.response_table import ResponseTable
 from tests.components.predictors._helpers import pickle_round_trip
 from tests.models.synthetic_fixtures import multi_drug_response
 
@@ -83,7 +83,7 @@ def assert_corrected_training_result(
 
 def train_validation_batch(
     sample_blocks: dict[str, FeatureBlock], drug_blocks: dict[str, FeatureBlock], checkpoint_dir: Any
-) -> ModelInputBatch:
+) -> PredictorInput:
     """Build a batch of two training samples by two drugs with a validation pair per drug for early stopping.
 
     :param sample_blocks: Per-sample blocks over the entities ``train-1, train-2, val-1, val-2``.
@@ -92,53 +92,55 @@ def train_validation_batch(
     :returns: The training batch with its early-stopping response attached.
     """
     drug_ids = np.array(["d1", "d2"])
-    training = ResponseBatch(
+    training = ResponseTable(
         response=np.array([-1.0, 0.5, 1.5, 3.0], dtype=np.float32),
         sample_ids=np.array(["train-1", "train-1", "train-2", "train-2"]),
         drug_ids=np.array(["d1", "d2", "d1", "d2"]),
     )
-    validation = ResponseBatch(
+    validation = ResponseTable(
         response=np.array([0.25, 2.25], dtype=np.float32), sample_ids=np.array(["val-1", "val-2"]), drug_ids=drug_ids
     )
-    return ModelInputBatch.from_response(
+    return PredictorInput(
         training,
-        sample=FeaturizerResult.from_blocks(sample_blocks, np.array(["train-1", "train-2", "val-1", "val-2"])),
-        drug=FeaturizerResult.from_blocks(drug_blocks, drug_ids),
-        early_stopping_response=validation,
+        sample=FeaturizerOutput(np.array(["train-1", "train-2", "val-1", "val-2"]), sample_blocks),
+        drug=FeaturizerOutput(drug_ids, drug_blocks),
+        early_stopping=validation,
         training_context=TrainingContext(checkpoint_dir=checkpoint_dir),
     )
 
 
 def entity_pair_batch(
-    sample: FeaturizerResult,
-    drug: FeaturizerResult,
+    sample: FeaturizerOutput,
+    drug: FeaturizerOutput,
     sample_ids: Any,
     drug_ids: Any,
     *,
     response: np.ndarray | None = None,
     early_stopping: bool = False,
     checkpoint_dir: Any = None,
-) -> ModelInputBatch:
+) -> PredictorInput:
     """Pair named entities of two feature tables; *early_stopping* attaches the shared validation pairs."""
-    stopping = ResponseBatch(
+    stopping = ResponseTable(
         response=np.array([0.5, 1.5], dtype=np.float32),
         sample_ids=np.array(["v0", "v1"]),
         drug_ids=np.array(["d0", "d1"]),
     )
-    return ModelInputBatch.from_response(
-        ResponseBatch(
+    return PredictorInput(
+        ResponseTable(
             response=np.zeros(len(sample_ids), dtype=np.float32) if response is None else response,
             sample_ids=np.asarray(sample_ids),
             drug_ids=np.asarray(drug_ids),
         ),
         sample=sample,
         drug=drug,
-        early_stopping_response=stopping if early_stopping else None,
-        training_context=None if checkpoint_dir is None else TrainingContext(checkpoint_dir=checkpoint_dir),
+        early_stopping=stopping if early_stopping else None,
+        training_context=TrainingContext()
+        if checkpoint_dir is None
+        else TrainingContext(checkpoint_dir=checkpoint_dir),
     )
 
 
-def finite_predictions(predictor: Any, batch: ModelInputBatch) -> np.ndarray:
+def finite_predictions(predictor: Any, batch: PredictorInput) -> np.ndarray:
     predictions = np.asarray(predictor.predict(batch))
     assert np.isfinite(predictions).all()
     assert np.isfinite(np.mean((predictions - batch.response) ** 2))
@@ -146,7 +148,7 @@ def finite_predictions(predictor: Any, batch: ModelInputBatch) -> np.ndarray:
 
 
 def assert_pickle_round_trip(
-    predictor: Any, batch: ModelInputBatch, predictions: np.ndarray, *, rtol: float = 1e-5, atol: float = 1e-5
+    predictor: Any, batch: PredictorInput, predictions: np.ndarray, *, rtol: float = 1e-5, atol: float = 1e-5
 ) -> Any:
     restored = pickle_round_trip(predictor)
     assert restored.is_fitted()
@@ -154,35 +156,32 @@ def assert_pickle_round_trip(
     return restored
 
 
-def single_drug_omics_batch(checkpoint_dir: Any) -> ModelInputBatch:
+def single_drug_omics_batch(checkpoint_dir: Any) -> PredictorInput:
     rng = np.random.default_rng(2025)
     sample_ids = np.array([*(f"train-{idx}" for idx in range(6)), "val-0", "val-1"])
-    training = ResponseBatch(
+    training = ResponseTable(
         response=np.array([0.0, 0.02, 0.3, 0.7, 0.98, 1.0], dtype=np.float32),
         sample_ids=sample_ids[:6],
         drug_ids=np.repeat("d1", 6),
     )
-    validation = ResponseBatch(
+    validation = ResponseTable(
         response=np.array([0.15, 0.85], dtype=np.float32),
         sample_ids=sample_ids[6:],
         drug_ids=np.repeat("d1", 2),
     )
     widths = {"gene_expression": 6, "mutations": 5, "copy_number_variation_gistic": 4}
-    blocks = {
-        name: numeric_feature_block(rng.normal(size=(8, width)).astype(np.float32)) for name, width in widths.items()
-    }
-    return ModelInputBatch.from_response(
+    blocks = {name: FeatureBlock(rng.normal(size=(8, width)).astype(np.float32)) for name, width in widths.items()}
+    return PredictorInput(
         training,
-        sample=FeaturizerResult.from_blocks(blocks, sample_ids),
-        drug=FeaturizerResult(
+        sample=FeaturizerOutput(sample_ids, blocks),
+        drug=FeaturizerOutput(
             np.array(["d1"]),
             {
-                "oneHot": numeric_feature_block(np.ones((1, 1), dtype=np.float32)),
-                "oneHot_categories": numeric_feature_block(np.array([["d1"]], dtype=object)),
+                "oneHot": FeatureBlock(np.ones((1, 1), dtype=np.float32)),
+                "oneHot_categories": FeatureBlock(np.array([["d1"]], dtype=object)),
             },
-            ("oneHot",),
         ),
-        early_stopping_response=validation,
+        early_stopping=validation,
         training_context=TrainingContext(checkpoint_dir=checkpoint_dir),
     )
 
@@ -349,28 +348,19 @@ def assert_frozen_reference(model: str, seed: int) -> None:
         assert actual["molir_triplets"] == expected["molir_triplets"]
 
 
-#: Distinguishes "use :data:`DRUG_PAIR_IDX`" from an explicit ``drug_pair_idx=None``,
-#: which is how a single-drug-side predictor says it has no per-drug axis.
-_DEFAULT = object()
-
-
 def two_by_two_batch(
     *,
     sample_blocks: dict[str, FeatureBlock],
     drug_blocks: dict[str, FeatureBlock],
-    response: ResponseBatch | None = None,
-    sample_pair_idx: np.ndarray | None = None,
-    drug_pair_idx: Any = _DEFAULT,
-    early_stopping_response: ResponseBatch | None = None,
+    response: ResponseTable | None = None,
+    early_stopping: ResponseTable | None = None,
     checkpoint_dir: Any = ".",
-) -> ModelInputBatch:
+) -> PredictorInput:
     response = multi_drug_response() if response is None else response
-    return ModelInputBatch(
-        response.sample_ids,
-        response.drug_ids,
-        response.response,
-        FeaturizerResult.from_blocks(sample_blocks, SAMPLE_IDS),
-        FeaturizerResult(
+    return PredictorInput(
+        response,
+        FeaturizerOutput(SAMPLE_IDS, sample_blocks),
+        FeaturizerOutput(
             DRUG_IDS,
             {
                 name: (
@@ -382,17 +372,14 @@ def two_by_two_batch(
                 )
                 for name, block in drug_blocks.items()
             },
-            tuple(name for name, block in drug_blocks.items() if block.values.dtype.kind in "biufc"),
         ),
-        SAMPLE_PAIR_IDX if sample_pair_idx is None else sample_pair_idx,
-        DRUG_PAIR_IDX if drug_pair_idx is _DEFAULT else drug_pair_idx,
-        early_stopping_response,
+        early_stopping,
         TrainingContext(checkpoint_dir=checkpoint_dir),
     )
 
 
-def early_stopping_response() -> ResponseBatch:
-    return ResponseBatch(
+def early_stopping() -> ResponseTable:
+    return ResponseTable(
         response=np.array([1.5, 2.5]),
         sample_ids=SAMPLE_IDS,
         drug_ids=DRUG_IDS,

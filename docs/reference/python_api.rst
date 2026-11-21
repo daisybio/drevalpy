@@ -38,7 +38,7 @@ Subpackages
    * - ``drevalpy.data``
      - Dataset loading, ``concat``, splitting, synthetic datasets and the ``CurveQuality`` rule
    * - ``drevalpy.types``
-     - ``Dataset``, ``Fold`` and ``PairMask``, and results; enums and other value types live in their defining modules
+     - ``Dataset``, ``Fold`` and ``SelectionMask``, and results; enums and other value types live in their defining modules
    * - ``drevalpy.experiment``
      - The ``randomization`` and ``robustness`` stress tests
    * - ``drevalpy.evaluation``

@@ -1,4 +1,4 @@
-"""Tests for :func:`drevalpy.data.splitters._early_stopping.early_stopping_split`."""
+"""Tests for :func:`drevalpy.data.splitters._folds.early_stopping_split`."""
 
 from __future__ import annotations
 
@@ -7,11 +7,11 @@ import pytest
 
 import drevalpy
 from drevalpy.data import concat
-from drevalpy.data.splitters._early_stopping import early_stopping_split
+from drevalpy.data.splitters._folds import early_stopping_split
 from drevalpy.errors import InvalidInputError
 from drevalpy.experiment import robustness
 from drevalpy.registry.splitter._groups import pair_groups
-from drevalpy.types import Dataset, Fold, PairMask
+from drevalpy.types import Dataset, Fold, SelectionMask
 
 pytestmark = pytest.mark.slow
 
@@ -27,7 +27,7 @@ def concatenated() -> Dataset:
     return concat([drevalpy.synthetic(name="GDSC2"), drevalpy.synthetic(name="CTRPv2", seed=1)])
 
 
-def _groups_of(groups: np.ndarray, mask: PairMask) -> set[int]:
+def _groups_of(groups: np.ndarray, mask: SelectionMask) -> set[int]:
     return set(np.unique(groups[mask.mask]).tolist())
 
 

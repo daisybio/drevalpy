@@ -8,7 +8,7 @@ import numpy as np
 
 
 @dataclass(frozen=True)
-class PairMask:
+class SelectionMask:
     """2D boolean mask defining which (sample, drug) pairs to operate on.
 
     The ``mask`` array has shape (n_samples, n_drugs) with True at positions
@@ -29,7 +29,7 @@ class PairMask:
         object.__setattr__(self, "mask", mask)
 
     @classmethod
-    def from_pairs(cls, pairs: np.ndarray, shape: tuple[int, int], pair_seed: int | None = None) -> PairMask:
+    def from_pairs(cls, pairs: np.ndarray, shape: tuple[int, int], pair_seed: int | None = None) -> SelectionMask:
         """Construct from a (n_pairs, 2) index array and matrix shape.
 
         :param pairs: (n_pairs, 2) array of (sample, drug) indices.
@@ -42,13 +42,13 @@ class PairMask:
             mask[pairs[:, 0], pairs[:, 1]] = True
         return cls(mask, pair_seed)
 
-    def shuffled(self, seed: int) -> PairMask:
-        """Return a new PairMask whose .pairs are in shuffled order.
+    def shuffled(self, seed: int) -> SelectionMask:
+        """Return a new SelectionMask whose .pairs are in shuffled order.
 
         :param seed: Random seed for reproducible pair ordering.
-        :returns: PairMask with same content but shuffled .pairs output.
+        :returns: SelectionMask with same content but shuffled .pairs output.
         """
-        return PairMask(mask=self.mask, pair_seed=seed)
+        return SelectionMask(mask=self.mask, pair_seed=seed)
 
     @property
     def pairs(self) -> np.ndarray:
@@ -71,12 +71,12 @@ class PairMask:
         """Return the number of True entries in the mask."""
         return int(self.mask.sum())
 
-    def __or__(self, other: PairMask) -> PairMask:
+    def __or__(self, other: SelectionMask) -> SelectionMask:
         """Logical OR of two masks."""
         seed = self._combined_seed(other)
-        return PairMask(self.mask | other.mask, seed)
+        return SelectionMask(self.mask | other.mask, seed)
 
-    def _combined_seed(self, other: PairMask) -> int | None:
+    def _combined_seed(self, other: SelectionMask) -> int | None:
         """Preserve pair-order provenance, refusing incompatible combinations."""
         if self.shape != other.shape:
             raise ValueError(f"Cannot combine mask shapes {self.shape} and {other.shape}")
@@ -86,6 +86,6 @@ class PairMask:
 
     def __eq__(self, other: object) -> bool:
         """Equality based on mask contents."""
-        if not isinstance(other, PairMask):
+        if not isinstance(other, SelectionMask):
             return NotImplemented
         return np.array_equal(self.mask, other.mask)

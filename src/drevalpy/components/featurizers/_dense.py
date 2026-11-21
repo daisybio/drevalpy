@@ -3,7 +3,7 @@
 :func:`view_matrix` reads a view with its columns in the order recorded at fit,
 so a source holding the same features in another order gives the same matrix and
 one lacking a fitted feature raises :class:`FeatureMismatchError`; reading columns by
-position instead would silently mix up genes. :func:`dense_result` wraps a matrix in the
+position instead would silently mix up genes. :func:`dense_result` wraps a matrix in a
 single-block result.
 
 A :class:`PrecomputableFeaturizer` needs no fitting: it computes one dense row per entity from
@@ -22,9 +22,9 @@ from typing import Any, ClassVar, Self
 
 import numpy as np
 
-from drevalpy.components.contracts.feature_format import FeatureFormat
+from drevalpy.components.contracts.feature_format import BlockSpec
 from drevalpy.components.featurizers.featurizer import Featurizer, all_nan_rows_mask
-from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult, numeric_feature_block
+from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
 from drevalpy.types.data.feature_source import FeatureSource
 
 _SHOWN_NAMES = 5
@@ -34,25 +34,25 @@ class FeatureMismatchError(ValueError):
     """A source view lacks features the featurizer was fitted on."""
 
 
-def align_to_fitted(
+def view_matrix(
     source: FeatureSource,
     view: str,
-    matrix: np.ndarray,
+    ids: np.ndarray,
     fitted_names: tuple[str, ...] | None,
 ) -> np.ndarray:
-    """Return *matrix* with its columns in the order of *fitted_names*.
+    """Return the rows of *view* for *ids*, with columns in fitted order.
 
-    The matrix is returned as is when the source names already equal the fitted
-    ones, and when either side has no names to compare. Source columns that are not
-    in *fitted_names* are dropped.
+    Returns the matrix as is when the source names already equal *fitted_names* or
+    either side has no names. Source columns not in *fitted_names* are dropped.
 
-    :param source: Feature source *matrix* was read from.
-    :param view: View *matrix* was read from.
-    :param matrix: ``(n_entities, n_source_features)`` matrix of that view.
-    :param fitted_names: Feature names recorded at fit, in fitted order.
-    :returns: ``(n_entities, len(fitted_names))`` matrix.
+    :param source: Feature source holding *view*.
+    :param view: View to read.
+    :param ids: Entity IDs, in row order.
+    :param fitted_names: Feature names recorded at fit; ``None`` keeps the source's columns.
+    :returns: Matrix with one row per ID.
     :raises FeatureMismatchError: If a fitted feature is absent from the source view.
     """
+    matrix = source.view(view, ids)
     if fitted_names is None:
         return matrix
     names = source.feature_names(view)
@@ -70,41 +70,21 @@ def align_to_fitted(
     return matrix[:, [position[name] for name in fitted_names]]
 
 
-def view_matrix(
-    source: FeatureSource,
-    view: str,
-    ids: np.ndarray,
-    fitted_names: tuple[str, ...] | None,
-) -> np.ndarray:
-    """Return the rows of *view* for *ids*, with columns in fitted order.
-
-    :class:`FeatureMismatchError` is raised when a fitted feature is absent from the view.
-
-    :param source: Feature source holding *view*.
-    :param view: View to read.
-    :param ids: Entity IDs, in row order.
-    :param fitted_names: Feature names recorded at fit; ``None`` keeps the source's columns.
-    :returns: Matrix with one row per ID.
-    """
-    return align_to_fitted(source, view, source.view(view, ids), fitted_names)
-
-
 def dense_result(
     ids: np.ndarray,
     block: str,
     matrix: np.ndarray,
     names: tuple[str, ...] | None,
-) -> FeaturizerResult:
+) -> FeaturizerOutput:
     """Wrap *matrix* as the single numeric block of a result.
 
     :param ids: Entity IDs, one per row of *matrix*.
     :param block: Block name.
     :param matrix: Feature matrix; cast to float32.
     :param names: Column names of *matrix*, or ``None``.
-    :returns: Result holding *matrix* as block *block*, projected as the matrix.
+    :returns: Result holding *matrix* as block *block*.
     """
-    values = numeric_feature_block(matrix.astype(np.float32), feature_names=names)
-    return FeaturizerResult(ids, {block: values}, (block,))
+    return FeaturizerOutput(ids, {block: FeatureBlock(matrix.astype(np.float32), feature_names=names)})
 
 
 class PrecomputableFeaturizer(Featurizer):
@@ -142,7 +122,7 @@ class PrecomputableFeaturizer(Featurizer):
         """
         if cls.block is None:
             return super().output_blocks(config)
-        return (BlockSpec(cls.block, FeatureFormat.NUMERIC_MATRIX),)
+        return (BlockSpec(cls.block),)
 
     def reads_view(self, source: FeatureSource) -> bool:
         """Return whether *source* holds the view computed with this featurizer's settings, or unrecorded.
@@ -150,7 +130,7 @@ class PrecomputableFeaturizer(Featurizer):
         :param source: Feature source of the featurizer's side.
         :returns: ``True`` to read the view, ``False`` to compute.
         """
-        if not source.has_view(self._view):
+        if self._view not in source:
             return False
         recorded = source.view_settings(self._view)
         return recorded is None or recorded == self._settings
@@ -186,7 +166,7 @@ class PrecomputableFeaturizer(Featurizer):
         self._view_names = source.feature_names(self._view) if self.reads_view(source) else None
         return self
 
-    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerResult:
+    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerOutput:
         """Read the rows of *ids* from the view, or compute them.
 
         :param source: Feature source of the featurizer's side.

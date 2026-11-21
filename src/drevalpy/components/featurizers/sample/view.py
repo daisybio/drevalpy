@@ -10,7 +10,7 @@ from drevalpy.components.featurizers._dense import dense_result, view_matrix
 from drevalpy.components.featurizers.featurizer import Featurizer, all_nan_rows_mask
 from drevalpy.components.featurizers.sample.gene_lists import view_genes
 from drevalpy.registry.featurizer import register
-from drevalpy.types.data.batch.feature_block import FeaturizerResult
+from drevalpy.types.data.feature_block import FeaturizerOutput
 from drevalpy.types.data.feature_source import FeatureSource, Side
 
 
@@ -62,7 +62,7 @@ class ViewSampleFeaturizer(Featurizer):
         self._names = view_genes(source, self._view, self._gene_list)
         return self
 
-    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerResult:
+    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerOutput:
         """Return the view's rows for *ids*, with columns in fitted order.
 
         :param source: Feature source of the sample side.

@@ -83,6 +83,9 @@ docs = [
     "sphinx-design>=0.7.0",
     "sphinxcontrib-mermaid>=2.1.0",
     "myst-parser>=4.0.0",
+    "myst-nb>=1.3.0",
+    "jupytext>=1.16.0",
+    "ipykernel>=6.0.0",
     "pydata-sphinx-theme>=0.16",
 ]
 

@@ -14,7 +14,7 @@ side:
 Dense views come back as float32 rows aligned to the requested IDs, NaN rows for unknown IDs.
 
 A view written by :func:`drevalpy.data.precompute.precompute` has the settings it was computed
-with recorded under :data:`PRECOMPUTED_VIEWS_KEY` in ``mdata.uns``;
+with recorded under :data:`~drevalpy.types.data.views.PRECOMPUTED_VIEWS_KEY` in ``mdata.uns``;
 :meth:`FeatureSource.view_settings` reads them.
 """
 
@@ -22,26 +22,24 @@ from __future__ import annotations
 
 import json
 from enum import StrEnum
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import numpy as np
 
 from drevalpy.errors import InvalidInputError
 from drevalpy.types.data.dataset import Dataset
+from drevalpy.types.data.dataset._aligned_fetch import aligned_fetch
 from drevalpy.types.data.dataset._anndata import to_dense
-from drevalpy.types.data.dataset.aligned_fetch import aligned_fetch
 from drevalpy.types.data.views import (
     DRUG_GRAPH_VIEW,
     DRUG_GRAPHS_KEY,
     EXPRESSION_UNIT_KEY,
+    PRECOMPUTED_VIEWS_KEY,
     SMILES_COLUMN,
     TISSUE_IDENTIFIER,
     find_view,
     public_view_name,
 )
-
-if TYPE_CHECKING:
-    import pandas as pd
 
 
 class Side(StrEnum):
@@ -49,10 +47,6 @@ class Side(StrEnum):
 
     SAMPLE = "sample"
     DRUG = "drug"
-
-
-#: ``mdata.uns`` key of the settings of precomputed views, a JSON object ``{side: {view: settings}}``.
-PRECOMPUTED_VIEWS_KEY = "precomputed_views"
 
 
 def precomputed_views(mdata: Any) -> dict[str, dict[str, dict[str, Any]]]:
@@ -70,35 +64,56 @@ def precomputed_views(mdata: Any) -> dict[str, dict[str, dict[str, Any]]]:
 class FeatureSource:
     """The views of one entity side of a dataset, as featurizers read them."""
 
-    def __init__(self, dataset: Dataset, side: Side) -> None:
+    def __init__(self, dataset: Dataset, side: Side | str) -> None:
         """Wrap *dataset* for feature access on *side*.
 
         :param dataset: The backing dataset.
         :param side: The side to read.
         :raises ValueError: If *side* is not a side.
         """
-        if side not in tuple(Side):
-            msg = f"Unknown feature source side {side!r}. Available: drug, sample"
-            raise ValueError(msg)
-        self.side = Side(side)
+        try:
+            self.side = Side(side)
+        except ValueError as err:
+            available = ", ".join(sorted(s.value for s in Side))
+            msg = f"Unknown feature source side {side!r}. Available: {available}"
+            raise ValueError(msg) from err
         self._dataset = dataset
 
-    def _dense(self, name: str) -> tuple[Any, np.ndarray] | None:
-        """Return the entity index and the matrix of dense view *name*, or ``None`` if this side lacks it."""
+    def _require_side(self, expected: Side) -> None:
+        """Reject calls made on the wrong entity side."""
+        if self.side != expected:
+            msg = f"This accessor requires a {expected.value!r} FeatureSource, got {self.side.value!r}."
+            raise ValueError(msg)
+
+    def _dense(self, name: str) -> tuple[Any, Any, Any] | None:
+        """Return ``(index, matrix, raw_feature_names)`` for dense view *name*, or ``None`` if absent."""
         mdata = self._dataset.mdata
         response = self._dataset.response
-        if self.side == "drug":
-            if name not in (response.varm or {}):
+        if self.side == Side.DRUG:
+            varm = response.varm or {}
+            if name not in varm:
                 return None
-            return response.var_names, response.varm[name]
-        stored = find_view(name, mdata.mod)
-        if stored is not None:
-            return mdata.mod[stored].obs_names, mdata.mod[stored].X
+            data = varm[name]
+            names = data.columns if hasattr(data, "columns") else (range(data.shape[1]) if data.ndim > 1 else None)
+            return response.var_names, data, names
+        if name != "response":
+            stored = find_view(name, mdata.mod)
+            if stored is not None:
+                mod = mdata.mod[stored]
+                return mod.obs_names, mod.X, mod.var_names
         if name in response.obsm:
-            return response.obs_names, response.obsm[name]
+            return response.obs_names, response.obsm[name], None
         return None
 
-    def has_view(self, name: str) -> bool:
+    def _available_dense_views(self) -> list[str]:
+        """Return the sorted public names of every dense view on this side."""
+        response = self._dataset.response
+        if self.side == Side.DRUG:
+            return sorted(response.varm or ())
+        modalities = (public_view_name(key) for key in self._dataset.mdata.mod if key != "response")
+        return sorted({*modalities, *response.obsm})
+
+    def __contains__(self, name: str) -> bool:
         """Return whether the dataset holds view *name* for this side.
 
         Besides the dense views, the sample side has ``"tissue"`` (sample metadata) and the drug
@@ -108,11 +123,11 @@ class FeatureSource:
         :param name: View name.
         :returns: ``True`` when *name* can be read from this source.
         """
-        if self.side == "sample" and name == TISSUE_IDENTIFIER:
+        if self.side == Side.SAMPLE and name == TISSUE_IDENTIFIER:
             return TISSUE_IDENTIFIER in self._dataset.sample_meta.columns
-        if self.side == "drug" and name == SMILES_COLUMN:
+        if self.side == Side.DRUG and name == SMILES_COLUMN:
             return SMILES_COLUMN in self._dataset.response.var.columns
-        if self.side == "drug" and name == DRUG_GRAPH_VIEW:
+        if self.side == Side.DRUG and name == DRUG_GRAPH_VIEW:
             return DRUG_GRAPHS_KEY in self._dataset.mdata.uns
         return self._dense(name) is not None
 
@@ -130,12 +145,10 @@ class FeatureSource:
 
         found = self._dense(name)
         if found is None:
-            if self.side == "drug":
-                available = sorted(self._dataset.response.varm or ())
-            else:
-                available = sorted(public_view_name(key) for key in self._dataset.mdata.mod)
-            raise KeyError(f"{self.side.capitalize()} view '{name}' not found. Available: {available}")
-        index, data = found
+            raise KeyError(
+                f"{self.side.capitalize()} view '{name}' not found. Available: {self._available_dense_views()}"
+            )
+        index, data, _ = found
         data = np.asarray(to_dense(data))
         if data.dtype == object:
             try:
@@ -156,15 +169,10 @@ class FeatureSource:
         :returns: Column names (positions as strings for an unnamed drug view), or ``None`` when the view is
             absent or, as for ``response.obsm`` views, has no names.
         """
-        if self.side == "drug":
-            data = (self._dataset.response.varm or {}).get(name)
-            if data is None:
-                return None
-            if hasattr(data, "columns"):
-                return tuple(data.columns.astype(str))
-            return tuple(str(i) for i in range(data.shape[1]))
-        stored = find_view(name, self._dataset.mdata.mod)
-        return None if stored is None else tuple(self._dataset.mdata.mod[stored].var_names)
+        found = self._dense(name)
+        if found is None or found[2] is None:
+            return None
+        return tuple(str(col) for col in found[2])
 
     def view_settings(self, name: str) -> dict[str, Any] | None:
         """Return the settings view *name* was precomputed with, or ``None`` when none are recorded.
@@ -177,43 +185,58 @@ class FeatureSource:
     def expression_unit(self, name: str) -> str | None:
         """Return the ``expression_unit`` recorded in the ``uns`` of sample view *name*.
 
+        Requires a sample source (raises ``ValueError`` on a drug source).
+
         :param name: View name.
         :returns: The unit, or ``None`` when the view is absent or records none.
         """
+        self._require_side(Side.SAMPLE)
+        if name == "response":
+            return None
         stored = find_view(name, self._dataset.mdata.mod)
         if stored is None:
             return None
         unit = self._dataset.mdata.mod[stored].uns.get(EXPRESSION_UNIT_KEY)
         return None if unit is None else str(unit)
 
-    def smiles(self, ids: np.ndarray) -> pd.Series | None:
+    def smiles(self, ids: np.ndarray) -> np.ndarray | None:
         """Return the canonical SMILES of the drugs *ids*.
 
+        Requires a drug source (raises ``ValueError`` on a sample source).
+
         :param ids: Drug IDs.
-        :returns: SMILES indexed by *ids* (NaN for unknown drugs), or ``None`` when the dataset has none.
+        :returns: One SMILES string per ID (NaN for unknown drugs), or ``None`` when the dataset has none.
         """
+        self._require_side(Side.DRUG)
         var = self._dataset.response.var
         if SMILES_COLUMN not in var.columns:
             return None
-        return var[SMILES_COLUMN].reindex(ids)
+        return var[SMILES_COLUMN].reindex(np.asarray(ids, dtype=str)).to_numpy()
 
-    def graphs(self, ids: np.ndarray) -> list[dict[str, np.ndarray] | None]:
+    def graphs(self, ids: np.ndarray) -> list[dict[str, np.ndarray] | None] | None:
         """Return the stored graph of every drug in *ids*.
 
-        Each graph dict has the keys ``"x"``, ``"edge_index"`` and ``"edge_attr"``.
+        Each graph dict has the keys ``"x"``, ``"edge_index"`` and ``"edge_attr"``. Requires a drug
+        source (raises ``ValueError`` on a sample source).
 
         :param ids: Drug IDs.
-        :returns: One graph per ID, ``None`` for a drug without one (every drug when none are stored).
+        :returns: One graph per ID (``None`` for a drug without one), or ``None`` when none are stored.
         """
-        graphs = self._dataset.mdata.uns.get(DRUG_GRAPHS_KEY, {})
+        self._require_side(Side.DRUG)
+        graphs = self._dataset.mdata.uns.get(DRUG_GRAPHS_KEY)
+        if graphs is None:
+            return None
         return [graphs.get(drug_id) for drug_id in np.asarray(ids, dtype=str)]
 
     def tissue(self, ids: np.ndarray) -> np.ndarray | None:
         """Return the tissue label of every sample in *ids*.
 
+        Requires a sample source (raises ``ValueError`` on a drug source).
+
         :param ids: Sample IDs.
         :returns: One label per ID (NaN for unknown samples), or ``None`` when the dataset has no tissues.
         """
+        self._require_side(Side.SAMPLE)
         if TISSUE_IDENTIFIER not in self._dataset.sample_meta.columns:
             return None
         return self._dataset.get_tissue(ids)

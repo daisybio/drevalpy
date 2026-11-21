@@ -23,7 +23,7 @@ from drevalpy.experiment._execution import build_execution
 from drevalpy.models import DRPModel, ModelSpec
 from drevalpy.models.response_transformation import GroupMeanCenterer
 from drevalpy.models.tuning.hpo import hpam_tune
-from drevalpy.types import Fold, PairMask
+from drevalpy.types import Fold, SelectionMask
 from drevalpy.types.results.run import RunResult
 
 HPO_TRIALS = 2
@@ -137,7 +137,7 @@ class TestFittedOnTheTrainingScopeOnly:
         assert not hasattr(prototype, "mean_")
 
     def test_unmeasured_pairs_do_not_poison_the_fit(self, synthetic_dataset) -> None:
-        everything = PairMask(np.ones(synthetic_dataset.response_matrix.shape, dtype=bool))
+        everything = SelectionMask(np.ones(synthetic_dataset.response_matrix.shape, dtype=bool))
 
         fitted = _fitted_transform(StandardScaler(), synthetic_dataset, everything)
 

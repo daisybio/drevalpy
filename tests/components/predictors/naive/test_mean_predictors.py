@@ -57,8 +57,8 @@ def test_predicts_the_dataset_mean_for_any_batch_and_round_trips_through_pickle(
     ],
 )
 def test_fitting_without_a_response_and_predicting_before_fit_are_rejected(predictor_class) -> None:
-    with pytest.raises(RuntimeError, match="batch.response is required for fit"):
-        predictor_class()._fit(naive_batch(n_pairs=2))
+    with pytest.raises(ValueError, match="require response values during fit"):
+        predictor_class().fit(naive_batch(n_pairs=2))
     with pytest.raises(RuntimeError, match="Call fit before predict"):
         predictor_class()._predict(naive_batch(n_pairs=2))
 

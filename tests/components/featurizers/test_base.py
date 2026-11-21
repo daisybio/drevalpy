@@ -5,8 +5,8 @@ from __future__ import annotations
 import pytest
 
 from drevalpy.components.contracts.feature_format import FeatureFormat
-from drevalpy.components.featurizers._featurizer_label import requires_explicit_view
 from drevalpy.components.featurizers.featurizer import Featurizer
+from drevalpy.models.config.featurizer import requires_explicit_view
 from drevalpy.registry.featurizer import featurizer_registries, get_featurizer, names_for_side
 from drevalpy.types.data.dataset import Dataset
 from drevalpy.types.data.feature_source import FeatureSource, Side
@@ -113,6 +113,6 @@ def test_literature_featurizer_views_exist_in_the_fixture(name: str, synthetic_d
     views = cls.views(_config(name, side))
     if not views:
         pytest.skip(f"{name} reads no view")
-    present = all(source.has_view(view) for view in views)
-    from_source = bool(cls.source_views) and all(source.has_view(view) for view in cls.source_views)
+    present = all(view in source for view in views)
+    from_source = bool(cls.source_views) and all(view in source for view in cls.source_views)
     assert present or from_source, f"{name} reads {views} (source views {cls.source_views}), absent from the fixture"

@@ -10,7 +10,7 @@ import pytest
 
 from drevalpy.components.predictors.literature.srmf.predictor import SRMFPredictor
 from drevalpy.registry.predictor import get as get_predictor
-from drevalpy.types.data.batch.feature_block import numeric_feature_block
+from drevalpy.types.data.feature_block import FeatureBlock
 from tests.components.predictors.literature._helpers import (
     assert_frozen_reference,
     assert_pickle_round_trip,
@@ -48,14 +48,10 @@ class TestTinySRMFFit:
         seed_literature(seed)
         batch = two_by_two_batch(
             sample_blocks={
-                "gene_expression": numeric_feature_block(
-                    np.array([[0.1, 0.4, 0.9], [1.1, -0.2, 0.5]], dtype=np.float32)
-                )
+                "gene_expression": FeatureBlock(np.array([[0.1, 0.4, 0.9], [1.1, -0.2, 0.5]], dtype=np.float32))
             },
             drug_blocks={
-                "fingerprints": numeric_feature_block(
-                    np.array([[1.0, 0.0, 1.0, 0.0], [0.0, 1.0, 0.0, 1.0]], dtype=np.float32)
-                )
+                "fingerprints": FeatureBlock(np.array([[1.0, 0.0, 1.0, 0.0], [0.0, 1.0, 0.0, 1.0]], dtype=np.float32))
             },
         )
         predictor = SRMFPredictor(hyperparameters={"K": 2, "max_iter": 3, "seed": seed})

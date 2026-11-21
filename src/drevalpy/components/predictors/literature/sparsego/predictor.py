@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
 
-from drevalpy.components.contracts.feature_format import FeatureFormat
+from drevalpy.components.contracts.feature_format import BlockSpec
 from drevalpy.components.contracts.hyperparameter_space import fixed_entries
 from drevalpy.components.predictors._pair_loader import make_pair_loader
 from drevalpy.components.predictors.abstract.base import Predictor
@@ -27,8 +27,7 @@ from drevalpy.components.predictors.literature._pair_predict import (
 )
 from drevalpy.components.predictors.literature._torch_utils import DevicePicklingMixin
 from drevalpy.registry.predictor import register
-from drevalpy.types.data.batch.feature_block import BlockSpec
-from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
+from drevalpy.types.data.predictor_input import PredictorInput
 from drevalpy.types.enums.accelerator import Accelerator
 
 if TYPE_CHECKING:
@@ -37,17 +36,17 @@ if TYPE_CHECKING:
     from drevalpy.components.predictors.literature.sparsego.algorithm import SparseGONetwork
 
 
-def _resolve_active_view(batch: ModelInputBatch) -> str:
+def _resolve_active_view(data: PredictorInput) -> str:
     """Determine which sample block is the active ontology view.
 
     SparseGO supports either 'gene_expression' or 'mutations' (exactly one).
 
-    :param batch: Input batch with sample blocks.
+    :param data: Input batch with sample blocks.
     :returns: Name of the active sample view.
     :raises ValueError: If zero or multiple valid views are present.
     """
     candidates = {"gene_expression", "mutations"}
-    active = [name for name in candidates if name in batch.sample.blocks]
+    active = [name for name in candidates if name in data.sample.blocks]
     if len(active) != 1:
         raise ValueError("SparseGOPredictor requires exactly one sample block from ['gene_expression', 'mutations']")
     return active[0]
@@ -61,15 +60,15 @@ def _resolve_active_view(batch: ModelInputBatch) -> str:
     accelerator=Accelerator.OPTIONAL,
 )
 class SparseGOPredictor(DevicePicklingMixin, Predictor):
-    """SparseGO predictor consuming ModelInputBatch directly."""
+    """SparseGO predictor consuming PredictorInput directly."""
 
     sample_inputs: ClassVar[Inputs] = Inputs.blocks(
         (
-            BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX),
-            BlockSpec("mutations", FeatureFormat.NUMERIC_MATRIX),
+            BlockSpec("gene_expression"),
+            BlockSpec("mutations"),
         ),
     )
-    drug_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("fingerprints", FeatureFormat.NUMERIC_MATRIX))
+    drug_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("fingerprints"))
     supports_early_stopping: ClassVar[bool] = False
 
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
@@ -134,42 +133,42 @@ class SparseGOPredictor(DevicePicklingMixin, Predictor):
         self._model = model
         return model
 
-    def _entity_matrices(self, batch: ModelInputBatch, active_view: str) -> tuple[np.ndarray, np.ndarray]:
+    def _entity_matrices(self, data: PredictorInput, active_view: str) -> tuple[np.ndarray, np.ndarray]:
         """Return the entity-level sample and fingerprint matrices as float32.
 
-        :param batch: Batch to read the blocks from.
+        :param data: Batch to read the blocks from.
         :param active_view: Name of the sample block holding the ontology view.
         :returns: Tuple of ``(sample_matrix, fingerprint_matrix)``.
         """
         return (
-            np.asarray(batch.sample.blocks[active_view].values, dtype=np.float32),
-            np.asarray(batch.drug.blocks["fingerprints"].values, dtype=np.float32),
+            np.asarray(data.sample.blocks[active_view].values, dtype=np.float32),
+            np.asarray(data.drug.blocks["fingerprints"].values, dtype=np.float32),
         )
 
-    def _build_train_loader(self, batch: ModelInputBatch, blocks: tuple[np.ndarray, np.ndarray]) -> DataLoader:
+    def _build_train_loader(self, data: PredictorInput, blocks: tuple[np.ndarray, np.ndarray]) -> DataLoader:
         """Build the shuffled training loader over the entity matrices in *blocks*.
 
-        :param batch: Training batch supplying the pair indices and response.
+        :param data: Training batch supplying the pair indices and response.
         :param blocks: Tuple of ``(sample_matrix, fingerprint_matrix)``.
         :returns: Training loader yielding sample, drug and response tensors.
         """
         cell_entity, drug_entity = blocks
         return make_pair_loader(
-            (cell_entity, batch.sample_pair_idx),
-            (drug_entity, require_drug_pair_idx(batch.drug_pair_idx)),
-            response=np.asarray(batch.response, dtype=np.float32).reshape(-1, 1),
+            (cell_entity, data.sample_pair_idx),
+            (drug_entity, require_drug_pair_idx(data.drug_pair_idx)),
+            response=np.asarray(data.response, dtype=np.float32).reshape(-1, 1),
             batch_size=self._hyperparameters["batch_size"],
             shuffle=True,
         )
 
-    def _fit(self, batch: ModelInputBatch) -> None:
+    def _fit(self, data: PredictorInput) -> None:
         """Train SparseGO on the batch.
 
-        :param batch: Training batch with responses and sample/drug blocks.
+        :param data: Training batch with responses and sample/drug blocks.
         :raises ValueError: If ontology metadata is missing.
         """
-        active_view = _resolve_active_view(batch)
-        block = batch.sample.blocks[active_view]
+        active_view = _resolve_active_view(data)
+        block = data.sample.blocks[active_view]
         if block.annotations is None:
             raise ValueError("SparseGOPredictor requires ontology metadata on its active sample block")
 
@@ -177,10 +176,10 @@ class SparseGOPredictor(DevicePicklingMixin, Predictor):
 
         self._layer_connections, self._gene2id_mapping_ont, _ = resolve_ontology_metadata(dict(block.annotations))
 
-        blocks = self._entity_matrices(batch, active_view)
+        blocks = self._entity_matrices(data, active_view)
         self._hyperparameters["drug_dim"] = int(blocks[1].shape[1])
         model = self._build_network()
-        self._run_training(model, self._build_train_loader(batch, blocks))
+        self._run_training(model, self._build_train_loader(data, blocks))
 
     def _run_training(self, model: SparseGONetwork, loader: DataLoader) -> None:
         """Run the SGD training loop with the paper's per-epoch learning-rate decay.
@@ -210,20 +209,20 @@ class SparseGOPredictor(DevicePicklingMixin, Predictor):
                 param_group["lr"] = lr * (1 / (1 + decay_rate * epoch))
             run_epoch(model, loader, batch_loss, optimizer)
 
-    def _predict(self, batch: ModelInputBatch) -> np.ndarray:
+    def _predict(self, data: PredictorInput) -> np.ndarray:
         """Predict drug response for pairs in the batch.
 
-        :param batch: Featurized pairs to score.
+        :param data: Featurized pairs to score.
         :returns: Predicted response values as a 1D numpy array.
         :raises ValueError: If the model is not fitted.
         """
         if self._model is None:
             raise ValueError("SparseGOPredictor must be fitted before predict().")
 
-        cell_entity, drug_entity = self._entity_matrices(batch, _resolve_active_view(batch))
+        cell_entity, drug_entity = self._entity_matrices(data, _resolve_active_view(data))
         return predict_pairs(
             self._model,
-            batch,
+            data,
             PairEvalSpec(
                 sample_blocks=(cell_entity,),
                 drug_blocks=(drug_entity,),

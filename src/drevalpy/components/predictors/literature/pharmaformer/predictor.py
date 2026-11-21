@@ -12,10 +12,10 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
 
-from drevalpy.components.contracts.feature_format import FeatureFormat
+from drevalpy.components.contracts.feature_format import BlockSpec
 from drevalpy.components.contracts.hyperparameter_space import fixed_entries
 from drevalpy.components.predictors._pair_loader import make_pair_loader
-from drevalpy.components.predictors.abstract.base import Predictor, response_rows
+from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.components.predictors.literature._early_stopping import (
     EarlyStoppingRun,
@@ -31,8 +31,7 @@ from drevalpy.components.predictors.literature._pair_predict import (
 )
 from drevalpy.components.predictors.literature._torch_utils import DevicePicklingMixin
 from drevalpy.registry.predictor import register
-from drevalpy.types.data.batch.feature_block import BlockSpec
-from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
+from drevalpy.types.data.predictor_input import PredictorInput
 from drevalpy.types.enums.accelerator import Accelerator
 
 if TYPE_CHECKING:
@@ -72,10 +71,10 @@ def _build_combined_model(gene_input_size: int, hyperparameters: dict[str, Any],
     accelerator=Accelerator.OPTIONAL,
 )
 class PharmaFormerPredictor(DevicePicklingMixin, Predictor):
-    """Registered PharmaFormer predictor consuming ModelInputBatch directly."""
+    """Registered PharmaFormer predictor consuming PredictorInput directly."""
 
-    sample_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX))
-    drug_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("bpe_smiles", FeatureFormat.NUMERIC_MATRIX))
+    sample_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("gene_expression"))
+    drug_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("bpe_smiles"))
     supports_early_stopping: ClassVar[bool] = True
     requires_early_stopping: ClassVar[bool] = True
 
@@ -109,30 +108,30 @@ class PharmaFormerPredictor(DevicePicklingMixin, Predictor):
             }
         )
 
-    def _build_loaders(self, batch: ModelInputBatch) -> tuple[DataLoader, DataLoader]:
+    def _build_loaders(self, data: PredictorInput) -> tuple[DataLoader, DataLoader]:
         """Build the training and early-stopping loaders.
 
-        :param batch: Training batch with an early-stopping response.
+        :param data: Training batch with an early-stopping response.
         :returns: Tuple of ``(train_loader, val_loader)``.
         :raises ValueError: If early stopping data is not provided.
         """
-        if batch.early_stopping_response is None:
+        if data.early_stopping is None:
             msg = "PharmaFormer model requires early stopping data."
             raise ValueError(msg)
 
-        gene_entity, drug_entity = declared_blocks(self, batch)
+        gene_entity, drug_entity = declared_blocks(self, data)
         batch_size = self._hyperparameters["batch_size"]
 
         train_loader = make_pair_loader(
-            (gene_entity, batch.sample_pair_idx),
-            (drug_entity, require_drug_pair_idx(batch.drug_pair_idx)),
-            response=np.asarray(batch.response, dtype=np.float32),
+            (gene_entity, data.sample_pair_idx),
+            (drug_entity, require_drug_pair_idx(data.drug_pair_idx)),
+            response=np.asarray(data.response, dtype=np.float32),
             batch_size=batch_size,
             shuffle=True,
         )
 
-        es_response = batch.early_stopping_response
-        es_cell_pair_idx, es_drug_pair_idx = response_rows(batch, es_response)
+        es_response = data.early_stopping
+        es_cell_pair_idx, es_drug_pair_idx = data.early_stopping_sample_idx, data.early_stopping_drug_idx
         val_loader = make_pair_loader(
             (gene_entity, es_cell_pair_idx),
             (drug_entity, require_drug_pair_idx(es_drug_pair_idx)),
@@ -142,17 +141,17 @@ class PharmaFormerPredictor(DevicePicklingMixin, Predictor):
         )
         return train_loader, val_loader
 
-    def _fit(self, batch: ModelInputBatch) -> None:
+    def _fit(self, data: PredictorInput) -> None:
         """Train the PharmaFormer model with early stopping.
 
-        :param batch: Training batch with gene_expression and bpe_smiles blocks.
+        :param data: Training batch with gene_expression and bpe_smiles blocks.
         """
         import torch.nn as nn
         import torch.optim as optim
 
-        train_loader, val_loader = self._build_loaders(batch)
+        train_loader, val_loader = self._build_loaders(data)
 
-        gene_entity, _ = declared_blocks(self, batch)
+        gene_entity, _ = declared_blocks(self, data)
         model = _build_combined_model(gene_entity.shape[1], self._hyperparameters, self._device)
         self._model = model
 
@@ -168,7 +167,7 @@ class PharmaFormerPredictor(DevicePicklingMixin, Predictor):
             EarlyStoppingRun(
                 epochs=self._hyperparameters["epochs"],
                 patience=self._hyperparameters["patience"],
-                checkpoint_dir=batch.training_context.checkpoint_dir,
+                checkpoint_dir=data.training_context.checkpoint_dir,
                 model_name="PharmaFormer",
                 verbose=True,
             ),
@@ -177,10 +176,10 @@ class PharmaFormerPredictor(DevicePicklingMixin, Predictor):
             device=self._device,
         )
 
-    def _predict(self, batch: ModelInputBatch) -> np.ndarray:
+    def _predict(self, data: PredictorInput) -> np.ndarray:
         """Run PharmaFormer inference on the given batch.
 
-        :param batch: Featurized pairs to score.
+        :param data: Featurized pairs to score.
         :returns: One predicted response per pair.
         :raises ValueError: If the model has not been trained yet.
         """
@@ -188,10 +187,10 @@ class PharmaFormerPredictor(DevicePicklingMixin, Predictor):
             msg = "PharmaFormer model not initialized."
             raise ValueError(msg)
 
-        gene_entity, drug_entity = declared_blocks(self, batch)
+        gene_entity, drug_entity = declared_blocks(self, data)
         return predict_pairs(
             self._model,
-            batch,
+            data,
             PairEvalSpec(
                 sample_blocks=(gene_entity,),
                 drug_blocks=(drug_entity,),

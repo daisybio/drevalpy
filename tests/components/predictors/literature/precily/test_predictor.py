@@ -11,7 +11,7 @@ from drevalpy.components.predictors.literature.precily.model_utils import Precil
 from drevalpy.components.predictors.literature.precily.predictor import PrecilyPredictor
 from drevalpy.experiment._tracking import tracking_run
 from drevalpy.registry.predictor import get as get_predictor
-from drevalpy.types.data.batch.feature_block import numeric_feature_block
+from drevalpy.types.data.feature_block import FeatureBlock
 from tests._fake_wandb import install_fake_wandb
 from tests.components.predictors.literature._helpers import (
     assert_frozen_reference,
@@ -36,14 +36,10 @@ class TestTinyPrecilyFit:
     def test_updates_parameters_and_round_trips_through_pickle(self, seed: int) -> None:
         batch = two_by_two_batch(
             sample_blocks={
-                "pathways": numeric_feature_block(
-                    np.array([[0.1, 0.4, 0.8, 1.2], [1.3, 0.7, -0.2, 0.5]], dtype=np.float32)
-                )
+                "pathways": FeatureBlock(np.array([[0.1, 0.4, 0.8, 1.2], [1.3, 0.7, -0.2, 0.5]], dtype=np.float32))
             },
             drug_blocks={
-                "smilesvec": numeric_feature_block(
-                    np.array([[1.0, 0.0, 0.5, -0.5], [0.0, 1.0, -0.4, 0.6]], dtype=np.float32)
-                )
+                "smilesvec": FeatureBlock(np.array([[1.0, 0.0, 0.5, -0.5], [0.0, 1.0, -0.4, 0.6]], dtype=np.float32))
             },
         )
         hyperparameters = {"epochs": 1, "batch_size": 4, "dropout": 0.0, "learning_rate": 0.01}
@@ -66,8 +62,8 @@ class TestTinyPrecilyFit:
 def test_epoch_losses_are_logged_not_printed_and_sent_to_the_tracking_run(caplog, capsys, monkeypatch) -> None:
     fake = install_fake_wandb(monkeypatch)
     batch = two_by_two_batch(
-        sample_blocks={"pathways": numeric_feature_block(np.ones((2, 4), dtype=np.float32))},
-        drug_blocks={"smilesvec": numeric_feature_block(np.ones((2, 4), dtype=np.float32))},
+        sample_blocks={"pathways": FeatureBlock(np.ones((2, 4), dtype=np.float32))},
+        drug_blocks={"smilesvec": FeatureBlock(np.ones((2, 4), dtype=np.float32))},
     )
 
     with caplog.at_level("INFO", logger="drevalpy"), tracking_run("proj", name="r"):

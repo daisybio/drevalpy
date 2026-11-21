@@ -5,7 +5,7 @@ A predictor declares ``sample_inputs`` and ``drug_inputs``, each an :class:`Inpu
 * ``Inputs.none()`` - the predictor uses no features on that side (feature-free);
 * ``Inputs.matrix()`` - any numeric output, flattened into one design matrix;
 * ``Inputs.blocks(*specs)`` - the featurizer must emit every spec; a spec is a
-  :class:`~drevalpy.types.data.batch.feature_block.BlockSpec` or a tuple of
+  :class:`~drevalpy.components.contracts.feature_format.BlockSpec` or a tuple of
   alternative specs of which one must be emitted. ``Inputs.blocks()`` with no spec
   takes the featurizer's blocks as they are.
 
@@ -17,7 +17,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from drevalpy.types.data.batch.feature_block import BlockSpec
+from drevalpy.components.contracts.feature_format import BlockSpec
 from drevalpy.types.data.feature_source import Side
 
 InputSpec = BlockSpec | tuple[BlockSpec, ...]

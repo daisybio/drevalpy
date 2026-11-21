@@ -19,9 +19,9 @@ from drevalpy.components.predictors.literature.paccmann.predictor import (
     PaccMannPredictor,
 )
 from drevalpy.registry.predictor import get as get_predictor
-from drevalpy.types.data.batch.feature_block import FeaturizerResult, numeric_feature_block
-from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
-from drevalpy.types.data.batch.response_batch import ResponseBatch
+from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
+from drevalpy.types.data.predictor_input import PredictorInput
+from drevalpy.types.data.response_table import ResponseTable
 from tests.components.predictors._helpers import pickle_round_trip
 from tests.components.predictors.literature._helpers import entity_pair_batch
 
@@ -42,27 +42,28 @@ SAMPLE_IDS = np.array(["s0", "s1", "s2", "s3", "v0", "v1"])
 DRUG_IDS = np.array(["d0", "d1", "d2"])
 
 
-def _tables(*, metadata: bool = True) -> tuple[FeaturizerResult, FeaturizerResult]:
+def _tables(*, metadata: bool = True) -> tuple[FeaturizerOutput, FeaturizerOutput]:
     rng = np.random.default_rng(5)
-    sample = FeaturizerResult.from_blocks(
-        {"gene_expression": numeric_feature_block(rng.normal(size=(6, GENES)).astype(np.float32))}, SAMPLE_IDS
+    sample = FeaturizerOutput(
+        SAMPLE_IDS,
+        {"gene_expression": FeatureBlock(rng.normal(size=(6, GENES)).astype(np.float32))},
     )
     info = {"vocabulary_size": VOCABULARY, "padding_length": PADDING, "n_variants": VARIANTS} if metadata else None
-    drug = FeaturizerResult.from_blocks(
+    drug = FeaturizerOutput(
+        DRUG_IDS,
         {
-            TOKENS_BLOCK: numeric_feature_block(
+            TOKENS_BLOCK: FeatureBlock(
                 rng.integers(2, VOCABULARY, size=(3, PADDING)).astype(np.float32), annotations=info
             ),
-            VARIANTS_BLOCK: numeric_feature_block(
+            VARIANTS_BLOCK: FeatureBlock(
                 rng.integers(2, VOCABULARY, size=(3, VARIANTS * PADDING)).astype(np.float32), annotations=info
             ),
         },
-        DRUG_IDS,
     )
     return sample, drug
 
 
-def _batch(tmp_path, *, early_stopping: bool = True, n_pairs: int = 8, metadata: bool = True) -> ModelInputBatch:
+def _batch(tmp_path, *, early_stopping: bool = True, n_pairs: int = 8, metadata: bool = True) -> PredictorInput:
     sample, drug = _tables(metadata=metadata)
     return entity_pair_batch(
         sample,
@@ -75,7 +76,7 @@ def _batch(tmp_path, *, early_stopping: bool = True, n_pairs: int = 8, metadata:
     )
 
 
-def _query(sample_ids: list[str], drug_ids: list[str]) -> ModelInputBatch:
+def _query(sample_ids: list[str], drug_ids: list[str]) -> PredictorInput:
     return entity_pair_batch(*_tables(), sample_ids, drug_ids)
 
 
@@ -179,8 +180,8 @@ def test_inputs_missing_vocabulary_metadata_or_drug_features_are_rejected(tmp_pa
         PaccMannPredictor(TINY).fit(_batch(tmp_path, metadata=False))
 
     sample, _ = _tables()
-    batch = ModelInputBatch.from_response(
-        ResponseBatch(
+    batch = PredictorInput(
+        ResponseTable(
             response=np.zeros(2, dtype=np.float32), sample_ids=np.array(["s0", "s1"]), drug_ids=np.array(["d0", "d0"])
         ),
         sample=sample,

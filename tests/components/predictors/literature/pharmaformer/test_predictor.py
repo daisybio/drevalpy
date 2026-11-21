@@ -17,8 +17,8 @@ from drevalpy.components.predictors.literature.pharmaformer.predictor import (
     _build_combined_model,
 )
 from drevalpy.registry.predictor import get as get_predictor
-from drevalpy.types.data.batch.feature_block import numeric_feature_block
-from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
+from drevalpy.types.data.feature_block import FeatureBlock
+from drevalpy.types.data.predictor_input import PredictorInput
 from tests.components.predictors.literature._helpers import (
     assert_frozen_reference,
     assert_pickle_round_trip,
@@ -35,11 +35,11 @@ def test_registry_name() -> None:
     assert get_predictor("pharmaFormer") is PharmaFormerPredictor
 
 
-def _trainable_batch(tmp_path) -> ModelInputBatch:
+def _trainable_batch(tmp_path) -> PredictorInput:
     rng = np.random.default_rng(987)
     return train_validation_batch(
-        {"gene_expression": numeric_feature_block(rng.normal(size=(4, 6)).astype(np.float32))},
-        {"bpe_smiles": numeric_feature_block(rng.normal(size=(2, 128)).astype(np.float32))},
+        {"gene_expression": FeatureBlock(rng.normal(size=(4, 6)).astype(np.float32))},
+        {"bpe_smiles": FeatureBlock(rng.normal(size=(2, 128)).astype(np.float32))},
         tmp_path,
     )
 

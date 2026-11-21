@@ -39,16 +39,16 @@ def test_returns_none_without_a_mudata_backing_or_smiles_column() -> None:
     assert source.smiles(dataset.drug_ids) is None
 
 
-def test_returns_smiles_indexed_by_the_requested_drug_ids(drug_source: FeatureSource, drug_ids: np.ndarray) -> None:
+def test_returns_smiles_aligned_to_the_requested_drug_ids(drug_source: FeatureSource, drug_ids: np.ndarray) -> None:
     drug_ids = drug_ids[:3]
 
     smiles = drug_source.smiles(drug_ids)
 
-    assert smiles is not None
-    assert list(smiles.index) == list(drug_ids)
+    assert isinstance(smiles, np.ndarray)
+    assert len(smiles) == len(drug_ids)
     assert all(isinstance(value, str) and value for value in smiles)
     unknown = drug_source.smiles(np.array(["not-a-drug"]))
-    assert unknown is not None and unknown.isna().all()
+    assert unknown is not None and np.isnan(unknown[0])
 
 
 def test_portable_graph_conversion_preserves_arrays_and_index_dtype() -> None:
@@ -156,7 +156,8 @@ def test_tokens_block_holds_the_padded_token_indices_and_block_metadata() -> Non
     tokens = result.blocks[TOKENS_BLOCK].values
     assert tokens.shape == (4, 8)
     assert tokens.dtype == np.float32
-    np.testing.assert_array_equal(result.matrix, tokens)
+    assert result.matrix.shape == (4, 8 + 3 * 8)
+    np.testing.assert_array_equal(result.matrix[:, :8], tokens)
     vocabulary_size = int(tokens.max()) + 1
     for block in result.blocks.values():
         annotations = dict(block.annotations or {})

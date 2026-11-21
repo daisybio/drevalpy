@@ -7,11 +7,11 @@ from typing import Any, ClassVar, Self
 
 import numpy as np
 
-from drevalpy.components.contracts.feature_format import FeatureFormat
+from drevalpy.components.contracts.feature_format import BlockSpec, FeatureFormat
 from drevalpy.components.featurizers.featurizer import Featurizer
 from drevalpy.log import get_logger
 from drevalpy.registry.featurizer import register
-from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult, graph_feature_block
+from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
 from drevalpy.types.data.feature_source import FeatureSource, Side
 
 _logger = get_logger(__name__)
@@ -76,7 +76,7 @@ class DrugGraphFeaturizer(Featurizer):
         """
         return self
 
-    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerResult:
+    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerOutput:
         """Return one graph per drug: the stored graph when the source has one, else computed from the SMILES.
 
         :param source: Drug feature source.
@@ -84,22 +84,26 @@ class DrugGraphFeaturizer(Featurizer):
         :returns: Result with the ``drug_graph`` block.
         :raises KeyError: If a drug has no stored graph and none can be computed from its SMILES.
         """
-        stored = source.graphs(ids) if source.has_view(self._view) else [None] * len(ids)
-        smiles = None
+        stored = source.graphs(ids) if self._view in source else None
+        if stored is None:
+            stored = [None] * len(ids)
+        smiles: np.ndarray | None = None
+        smiles_loaded = False
         graphs = np.empty(len(ids), dtype=object)
         for row, (drug_id, stored_graph) in enumerate(zip(ids, stored, strict=True)):
             key = str(drug_id)
             graph = as_pyg_graph(stored_graph)
             if graph is None:
-                if smiles is None:
+                if not smiles_loaded:
                     _logger.info("Computing %s on the fly from SMILES.", _BLOCK)
-                    smiles = source.smiles(np.unique(ids))
-                graph = self._graph_from_smiles(None if smiles is None else smiles.get(key))
+                    smiles = source.smiles(ids)
+                    smiles_loaded = True
+                graph = self._graph_from_smiles(None if smiles is None else smiles[row])
             if graph is None:
                 msg = f"View {self._view!r} missing for drug {key!r} and SMILES-based graph computation failed"
                 raise KeyError(msg)
             graphs[row] = graph
-        return FeaturizerResult(ids, {_BLOCK: graph_feature_block(graphs)}, (_BLOCK,))
+        return FeaturizerOutput(ids, {_BLOCK: FeatureBlock(graphs, FeatureFormat.GRAPH)})
 
     def _graph_from_smiles(self, smiles: object) -> Any:
         """Compute the graph of one SMILES string.

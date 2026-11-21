@@ -17,9 +17,10 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from drevalpy.errors import UnknownNameError
+from drevalpy.errors import InvalidInputError, UnknownNameError
 from drevalpy.registry.splitter._groups import MODES, in_groups, pair_groups
-from drevalpy.types import Fold, PairMask
+from drevalpy.registry.splitter._validation import validate_parts
+from drevalpy.types import Fold, SelectionMask
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -117,9 +118,9 @@ def grouped_folds(
     present = np.unique(groups[observed])
     return [
         Fold(
-            train=PairMask(observed & in_groups(groups, present[train])),
-            test=PairMask(observed & in_groups(groups, present[test])),
-            val=PairMask(observed & in_groups(groups, present[validation])),
+            train=SelectionMask(observed & in_groups(groups, present[train])),
+            test=SelectionMask(observed & in_groups(groups, present[test])),
+            val=SelectionMask(observed & in_groups(groups, present[validation])),
         )
         for train, validation, test in group_folds(
             len(present), n_splits=n_splits, validation_ratio=validation_ratio, random_state=random_state
@@ -153,5 +154,51 @@ def group_out_folds(
         rest = observed & ~in_group
         _, validation = validation_split(np.unique(cut[rest]), validation_ratio, random_state)
         val = rest & in_groups(cut, validation)
-        folds.append(Fold(train=PairMask(rest & ~val), test=PairMask(observed & in_group), val=PairMask(val)))
+        folds.append(
+            Fold(train=SelectionMask(rest & ~val), test=SelectionMask(observed & in_group), val=SelectionMask(val))
+        )
     return folds
+
+
+def early_stopping_split(
+    dataset: Dataset, fold: Fold, mode: Validation, *, fraction: float = 0.25
+) -> tuple[SelectionMask, SelectionMask]:
+    """Cut a seeded *fraction* of the validation groups out of *fold* as its early-stopping set.
+
+    ``max(1, int(n_groups * fraction))`` groups are drawn with a generator seeded from the
+    validation mask's ``pair_seed`` (or the fold's ``random_state``, default 0), then all four
+    parts (train, stopping, remaining validation, test) are validated against *mode*.
+
+    :param dataset: Dataset the fold indexes.
+    :param fold: Fold whose validation set is cut.
+    :param mode: Leakage constraint of the fold's split mode.
+    :param fraction: Share of the validation groups held out for early stopping.
+    :returns: ``(stopping, rest)`` with the validation mask's ``pair_seed``.
+    :raises InvalidInputError: If the validation set has fewer than two groups of *mode*.
+    """
+    cut = MODES[mode].cut
+    groups = pair_groups(dataset, cut)
+    validation = fold.val
+    fold_index = fold.metadata.get("fold_index", 0)
+    present = np.unique(groups[validation.mask])
+    if len(present) < 2:
+        ratio = fold.metadata.get("validation_ratio", "unknown")
+        raise InvalidInputError(
+            f"Early stopping under {mode} needs at least two {MODES[cut].unit} in the validation set, to hold "
+            f"whole ones out, but the validation set of fold {fold_index} has {len(present)} of the dataset's "
+            f"{len(np.unique(groups))}. Raise validation_ratio (now {ratio}): "
+            "drevalpy.run(validation_ratio=...), drevalpy run --validation-ratio, or "
+            "drevalpy.split(..., validation_ratio=...)."
+        )
+    seed = validation.pair_seed if validation.pair_seed is not None else fold.metadata.get("random_state", 0)
+    chosen = np.random.default_rng(seed).permutation(present)[: max(1, int(len(present) * fraction))]
+    in_stopping = validation.mask & in_groups(groups, chosen)
+    stopping = SelectionMask(in_stopping, validation.pair_seed)
+    rest = SelectionMask(validation.mask & ~in_stopping, validation.pair_seed)
+    validate_parts(
+        {"train": fold.train, "stopping": stopping, "validation": rest, "test": fold.test},
+        mode,
+        dataset,
+        context=f"early stopping of fold {fold_index}",
+    )
+    return stopping, rest

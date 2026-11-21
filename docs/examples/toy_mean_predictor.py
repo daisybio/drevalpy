@@ -11,7 +11,7 @@ import numpy as np
 
 from drevalpy.plugin import (
     FeatureFreePredictor,
-    ModelInputBatch,
+    PredictorInput,
     register_predictor,
 )
 
@@ -29,17 +29,17 @@ class ToyMeanPredictor(FeatureFreePredictor):
         super().__init__(hyperparameters)
         self._mean: float | None = None
 
-    def _fit(self, batch: ModelInputBatch) -> None:
+    def _fit(self, data: PredictorInput) -> None:
         """Store the mean response.
 
-        ``Predictor.fit`` has already rejected a batch without responses and
+        ``Predictor.fit`` has already rejected an input without responses and
         dropped pairs whose features are NaN, so ``_fit`` never has to.
         """
-        self._mean = float(np.mean(batch.response))
+        self._mean = float(np.mean(data.response))
 
-    def _predict(self, batch: ModelInputBatch) -> np.ndarray:
+    def _predict(self, data: PredictorInput) -> np.ndarray:
         """Return the stored mean once per pair."""
         if self._mean is None:
             msg = "ToyMeanPredictor must be fitted before predicting"
             raise RuntimeError(msg)
-        return np.full(batch.n_pairs, self._mean, dtype=np.float64)
+        return np.full(len(data), self._mean, dtype=np.float64)

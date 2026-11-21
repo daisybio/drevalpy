@@ -266,7 +266,7 @@ def _quality_layers(
         return np.where(good, good_value, bad_value).astype(np.float32)
 
     # Values sit far from the thresholds on both sides, so a boundary change in
-    # curve_quality_mask cannot silently reclassify a synthetic pair.
+    # CurveQuality cannot silently reclassify a synthetic pair.
     return {
         "relevance_score": _pick(9.0, 0.01),
         "fold_change": _pick(-2.0, -0.01),
@@ -357,7 +357,7 @@ def synthetic(
         and drug keeps at least one measurement regardless.
     :param low_quality_fraction: Share of response pairs whose curve-quality
         metrics fail the thresholds
-        :func:`~drevalpy.data.quality.curve_quality_mask` applies, so the
+        :class:`~drevalpy.data.quality.CurveQuality` applies, so the
         built-in splitters drop them. Defaults to ``0.0``, i.e. every curve
         passes and a split is determined by *missing_fraction* alone.
     :param seed: Seed for every drawn matrix, making the dataset reproducible.

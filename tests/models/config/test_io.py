@@ -74,10 +74,10 @@ def test_external_extension_resolved_through_spec(tmp_path: Path) -> None:
     (ext_dir / "components.py").write_text(
         """
 import numpy as np
-from drevalpy.components.contracts.feature_format import FeatureFormat
+from drevalpy.components.contracts.feature_format import BlockSpec, FeatureFormat
 from drevalpy.components.featurizers.featurizer import Featurizer
-from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult, numeric_feature_block
-from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
+from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
+from drevalpy.types.data.predictor_input import PredictorInput
 from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
 from drevalpy.registry.predictor import register as register_predictor
 from drevalpy.registry.featurizer import register as register_featurizer
@@ -93,21 +93,21 @@ class ResolverSampleFeaturizer(Featurizer):
 
     def transform(self, source, ids):
         values = np.ones((len(ids), 1), dtype=np.float32)
-        return FeaturizerResult(ids, {"ext": numeric_feature_block(values)}, ("ext",))
+        return FeaturizerOutput(ids, {"ext": FeatureBlock(values)})
 
 @register_predictor(
     "resolverPredictor",
     description="ext",
 )
 class ResolverPredictor(FeatureFreePredictor):
-    def _fit(self, batch: ModelInputBatch) -> None:
+    def _fit(self, batch: PredictorInput) -> None:
         if batch.response is None:
             msg = "response required"
             raise ValueError(msg)
         self._mean = float(np.mean(batch.response))
 
-    def _predict(self, batch: ModelInputBatch) -> np.ndarray:
-        return np.full(batch.n_pairs, self._mean, dtype=np.float64)
+    def _predict(self, batch: PredictorInput) -> np.ndarray:
+        return np.full(len(batch), self._mean, dtype=np.float64)
 """,
         encoding="utf-8",
     )

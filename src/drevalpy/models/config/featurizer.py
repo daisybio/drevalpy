@@ -2,21 +2,42 @@
 
 from __future__ import annotations
 
+import inspect
 from collections.abc import Iterator, Mapping
 from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
 from drevalpy.components.contracts.hyperparameter_space import validate_hyperparameter_space
-from drevalpy.components.featurizers._featurizer_label import CONCAT, requires_explicit_view
+from drevalpy.components.featurizers.featurizer import CONCAT
 from drevalpy.models.config._parse import normalize_featurizer
 from drevalpy.models.config.immutable import FrozenMapping, thaw_value
 from drevalpy.registry.featurizer import get_featurizer
 from drevalpy.types.data.feature_source import Side
 
 if TYPE_CHECKING:
+    from drevalpy.components.contracts.feature_format import BlockSpec
     from drevalpy.components.featurizers.featurizer import Featurizer
-    from drevalpy.types.data.batch.feature_block import BlockSpec
+
+
+def requires_explicit_view(name: str, side: Side) -> bool:
+    """Return whether a featurizer registry name requires an explicit view.
+
+    A featurizer requires one when it declares no ``input_views`` but takes a ``view``
+    argument, such as the sample ``view`` and ``pca``.
+
+    :param name: Featurizer registry name.
+    :param side: The side it is registered on.
+    :returns: ``True`` for such a featurizer; ``False`` for other and unregistered names.
+    """
+    try:
+        cls = get_featurizer(name, side)
+    except (ValueError, ImportError):
+        return False
+    if cls.input_views:
+        return False
+    parameter = inspect.signature(cls.__init__).parameters.get("view")
+    return parameter is not None and parameter.default is inspect.Parameter.empty
 
 
 class FeaturizerConfig(BaseModel):

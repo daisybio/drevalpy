@@ -4,10 +4,9 @@ from __future__ import annotations
 
 import numpy as np
 
-from drevalpy.components.predictors.abstract.base import fit_response
 from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
 from drevalpy.registry.predictor import register
-from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
+from drevalpy.types.data.predictor_input import PredictorInput
 
 
 @register(
@@ -20,21 +19,21 @@ class NaiveMeanPredictor(FeatureFreePredictor):
 
     _dataset_mean: float | None = None
 
-    def _fit(self, batch: ModelInputBatch) -> None:
+    def _fit(self, data: PredictorInput) -> None:
         """Fit on training data.
 
-        :param batch: Training batch; only its responses are used.
+        :param data: Training batch; only its responses are used.
         """
-        self._dataset_mean = float(np.mean(fit_response(batch)))
+        self._dataset_mean = float(np.mean(data.response))
 
-    def _predict(self, batch: ModelInputBatch) -> np.ndarray:
+    def _predict(self, data: PredictorInput) -> np.ndarray:
         """Predict responses for each pair in the batch.
 
-        :param batch: Pairs to score.
+        :param data: Pairs to score.
         :returns: The dataset mean for every pair.
         :raises RuntimeError: If the predictor has not been fitted.
         """
         if self._dataset_mean is None:
             msg = "Call fit before predict"
             raise RuntimeError(msg)
-        return np.full(batch.n_pairs, self._dataset_mean, dtype=np.float64)
+        return np.full(len(data), self._dataset_mean, dtype=np.float64)

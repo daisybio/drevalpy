@@ -119,7 +119,7 @@ class MockFeatureSource(FeatureSource):
         """Direct access to the backing features dict."""
         return self._features
 
-    def has_view(self, name: str) -> bool:
+    def __contains__(self, name: str) -> bool:
         """Report the views that have feature names."""
         return self.feature_names(name) is not None
 
@@ -141,7 +141,7 @@ class MockFeatureSource(FeatureSource):
         """No view of a mock records a unit."""
         return None
 
-    def smiles(self, ids: np.ndarray) -> Any:
+    def smiles(self, ids: np.ndarray) -> np.ndarray | None:
         """A mock has no SMILES."""
         return None
 

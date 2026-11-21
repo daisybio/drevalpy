@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import numpy as np
 
-from drevalpy.types import Fold, PairMask
-from drevalpy.types.data.batch.response_batch import ResponseBatch
+from drevalpy.types import Fold, SelectionMask
+from drevalpy.types.data.response_table import ResponseTable
 from tests.conftest import MockFeatureSource
 
 
-def multi_drug_response() -> ResponseBatch:
-    return ResponseBatch(
+def multi_drug_response() -> ResponseTable:
+    return ResponseTable(
         response=np.array([1.0, 2.0, 3.0, 4.0]),
         sample_ids=np.array(["cl1", "cl1", "cl2", "cl2"]),
         drug_ids=np.array(["d1", "d2", "d1", "d2"]),
@@ -165,12 +165,12 @@ def synthetic_model_dataset_identity():
     return Dataset(mdata, name="test")
 
 
-def _mask_2x2(*positions: tuple[int, int]) -> PairMask:
-    """Build a 2x2 PairMask with True at the given (row, col) positions."""
+def _mask_2x2(*positions: tuple[int, int]) -> SelectionMask:
+    """Build a 2x2 SelectionMask with True at the given (row, col) positions."""
     mask = np.zeros((2, 2), dtype=bool)
     for r, c in positions:
         mask[r, c] = True
-    return PairMask(mask)
+    return SelectionMask(mask)
 
 
 def lso_fold() -> Fold:
@@ -178,5 +178,5 @@ def lso_fold() -> Fold:
     return Fold(
         train=_mask_2x2((0, 0), (0, 1)),
         test=_mask_2x2((1, 0), (1, 1)),
-        val=PairMask(np.zeros((2, 2), dtype=bool)),
+        val=SelectionMask(np.zeros((2, 2), dtype=bool)),
     )

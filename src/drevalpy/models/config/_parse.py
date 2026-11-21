@@ -41,7 +41,7 @@ from typing import TYPE_CHECKING, Any, NoReturn
 
 import pyparsing as pp
 
-from drevalpy.components.featurizers._featurizer_label import CONCAT
+from drevalpy.components.featurizers.featurizer import CONCAT
 from drevalpy.registry.featurizer import get_featurizer
 from drevalpy.registry.predictor import get as get_predictor
 

@@ -1,4 +1,4 @@
-"""SuperFELTR literature predictor consuming ModelInputBatch directly."""
+"""SuperFELTR literature predictor consuming PredictorInput directly."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from drevalpy.components.predictors.literature._omic_helpers import (
 )
 from drevalpy.components.predictors.literature._single_drug_omics import SingleDrugOmicsPredictor
 from drevalpy.registry.predictor import register
-from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
+from drevalpy.types.data.predictor_input import PredictorInput
 from drevalpy.types.enums.accelerator import Accelerator
 
 # .utils imports pytorch_lightning at module scope, and this module is imported
@@ -44,24 +44,24 @@ class SuperFELTRPredictor(SingleDrugOmicsPredictor):
 
     _models: dict[str, SuperFELTRegressor]
 
-    def _fit_drug(self, drug_id: str, batch: ModelInputBatch) -> SuperFELTRegressor:
+    def _fit_drug(self, drug_id: str, data: PredictorInput) -> SuperFELTRegressor:
         """Fit a single-drug SuperFELTR model including encoders and regressor.
 
         :param drug_id: Identifier of the drug to train on.
-        :param batch: Subset batch for this drug.
+        :param data: Subset batch for this drug.
         :returns: The fitted regressor, which holds the fitted encoders.
         """
-        matrices = omic_matrices(batch)
-        response = np.asarray(batch.response, dtype=np.float32)
+        matrices = omic_matrices(data)
+        response = np.asarray(data.response, dtype=np.float32)
         std = float(np.std(response))
         ranges = (std * 0.1, std)
 
-        train = matrices.split(batch.sample_pair_idx, response)
-        val = validation_split(matrices, batch)
-        checkpoint_dir = str(batch.training_context.checkpoint_dir)
+        train = matrices.split(data.sample_pair_idx, response)
+        val = validation_split(matrices, data)
+        checkpoint_dir = str(data.training_context.checkpoint_dir)
         #: Below one mini-batch the training loader's ``drop_last`` empties it, so the
         #: encoders and regressor stay randomly initialized rather than being fitted.
-        trainable = batch.n_pairs >= self._hyperparameters["mini_batch"]
+        trainable = len(data) >= self._hyperparameters["mini_batch"]
 
         encoders = self._fit_encoders(matrices.widths(), ranges, train, val, checkpoint_dir, trainable)
         return self._fit_regressor(encoders, train, val, checkpoint_dir, trainable)

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from dataclasses import dataclass, field
 from typing import Any
@@ -9,20 +10,20 @@ from typing import Any
 import numpy as np
 from upath import UPath as Path
 
-from .pair_mask import PairMask
+from .selection_mask import SelectionMask
 
 
 @dataclass(frozen=True, slots=True)
 class Fold:
     """One cross-validation fold: the pairs to train on, to validate on and to test on.
 
-    Each field is a ``PairMask`` with shape (n_samples, n_drugs).
+    Each field is a ``SelectionMask`` with shape (n_samples, n_drugs).
     This format is uniform across all split modes (LPO, LSO, LDO, LTO, LStO).
     """
 
-    train: PairMask
-    test: PairMask
-    val: PairMask
+    train: SelectionMask
+    test: SelectionMask
+    val: SelectionMask
     metadata: dict[str, Any] = field(default_factory=dict, hash=False)
 
     @property
@@ -31,9 +32,18 @@ class Fold:
         return self.train.shape
 
     @property
-    def train_val(self) -> PairMask:
+    def train_val(self) -> SelectionMask:
         """Merged train | val mask for final retraining."""
         return self.train | self.val
+
+    @property
+    def fold_id(self) -> str:
+        """Deterministic 12-character SHA-256 hex digest of the train, test, and val masks."""
+        hasher = hashlib.sha256()
+        hasher.update(self.train.mask.tobytes())
+        hasher.update(self.test.mask.tobytes())
+        hasher.update(self.val.mask.tobytes())
+        return hasher.hexdigest()[:12]
 
     def save(self, path: str | Path) -> None:
         """Save to a .npz file (compressed bool arrays + JSON-encoded metadata).
@@ -66,9 +76,9 @@ class Fold:
         metadata = json.loads(str(data["_metadata"])) if "_metadata" in data else {}
         seeds = json.loads(str(data["pair_seeds"])) if "pair_seeds" in data else {}
         return cls(
-            train=PairMask(data["train"], seeds.get("train")),
-            test=PairMask(data["test"], seeds.get("test")),
-            val=PairMask(data["val"], seeds.get("val")),
+            train=SelectionMask(data["train"], seeds.get("train")),
+            test=SelectionMask(data["test"], seeds.get("test")),
+            val=SelectionMask(data["val"], seeds.get("val")),
             metadata=metadata,
         )
 

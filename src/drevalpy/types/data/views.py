@@ -35,6 +35,8 @@ PATHWAYS_GMT_KEY: Final = "pathways_gmt"
 SPARSEGO_KEY: Final = "sparsego"
 #: Key in the ``uns`` of an expression modality naming its unit, such as ``log2_tpm_plus_1``.
 EXPRESSION_UNIT_KEY: Final = "expression_unit"
+#: ``mdata.uns`` key of the settings of precomputed views, a JSON object ``{side: {view: settings}}``.
+PRECOMPUTED_VIEWS_KEY: Final = "precomputed_views"
 
 _STORED_NAMES: Final = MappingProxyType({"copy_number_variation_gistic": "copy_number_variation"})
 _PUBLIC_NAMES: Final = MappingProxyType({stored: public for public, stored in _STORED_NAMES.items()})

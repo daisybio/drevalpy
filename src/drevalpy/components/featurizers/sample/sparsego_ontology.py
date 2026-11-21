@@ -7,14 +7,14 @@ from typing import Any, Self
 
 import numpy as np
 
-from drevalpy.components.contracts.feature_format import FeatureFormat
+from drevalpy.components.contracts.feature_format import BlockSpec, FeatureFormat
 from drevalpy.components.featurizers.featurizer import Featurizer, all_nan_rows_mask
 from drevalpy.components.featurizers.sample._sparsego_metadata import (
     SparseGOOntologyMetadata,
     read_sparsego_ontology_metadata,
 )
 from drevalpy.registry.featurizer import register
-from drevalpy.types.data.batch.feature_block import BlockSpec, FeaturizerResult, numeric_feature_block
+from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
 from drevalpy.types.data.feature_source import FeatureSource, Side
 
 _INPUT_TYPES = frozenset({"expression", "mutations"})
@@ -110,7 +110,7 @@ class SparseGOOntologyFeaturizer(Featurizer):
         self._metadata = _required_metadata(source)
         return self
 
-    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerResult:
+    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerOutput:
         """Return the active view's rows for *ids* in ontology gene order, with the ontology attached.
 
         :param source: Feature source of the sample side.
@@ -132,7 +132,7 @@ class SparseGOOntologyFeaturizer(Featurizer):
         indices = [columns[name] for name in metadata["ontology_gene_order"]]
         return self._result(ids, source.view(self._view, ids)[:, indices], metadata)
 
-    def _result(self, ids: np.ndarray, matrix: np.ndarray, metadata: SparseGOOntologyMetadata) -> FeaturizerResult:
+    def _result(self, ids: np.ndarray, matrix: np.ndarray, metadata: SparseGOOntologyMetadata) -> FeaturizerOutput:
         """Wrap *matrix* as the active view's block, annotated with *metadata*.
 
         :param ids: Sample IDs, one per row of *matrix*.
@@ -140,12 +140,12 @@ class SparseGOOntologyFeaturizer(Featurizer):
         :param metadata: Ontology metadata to attach.
         :returns: Result with one metadata-rich numeric block.
         """
-        block = numeric_feature_block(
+        block = FeatureBlock(
             matrix.astype(np.float32),
             feature_names=metadata["ontology_gene_order"],
             annotations=dict(metadata),
         )
-        return FeaturizerResult(ids, {self._view: block}, (self._view,))
+        return FeaturizerOutput(ids, {self._view: block})
 
 
 def _required_metadata(source: FeatureSource) -> SparseGOOntologyMetadata:

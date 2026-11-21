@@ -1,33 +1,33 @@
-"""The single boolean PairMask and the Fold that holds a train, test and val PairMask."""
+"""The single boolean SelectionMask and the Fold that holds a train, test and val SelectionMask."""
 
 from __future__ import annotations
 
 import numpy as np
 import pytest
 
-from drevalpy.types import Fold, PairMask
+from drevalpy.types import Fold, SelectionMask
 
 
-def _mask(*rows: list[bool]) -> PairMask:
-    return PairMask(np.array(rows))
+def _mask(*rows: list[bool]) -> SelectionMask:
+    return SelectionMask(np.array(rows))
 
 
 class TestConstruction:
     def test_creation_and_coercion(self):
-        scope = PairMask(mask=np.array([[True, False], [False, True]]))
+        scope = SelectionMask(mask=np.array([[True, False], [False, True]]))
         assert scope.pairs.shape == (2, 2)
         assert len(scope) == 2
         assert scope.shape == (2, 2)
 
-        coerced = PairMask(mask=np.array([[1, 0], [0, 2]]))
+        coerced = SelectionMask(mask=np.array([[1, 0], [0, 2]]))
         assert coerced.mask.dtype == np.bool_
         assert len(coerced) == 2
 
     def test_from_pairs(self):
-        scope = PairMask.from_pairs(np.array([[0, 0], [1, 1]]), shape=(2, 2))
+        scope = SelectionMask.from_pairs(np.array([[0, 0], [1, 1]]), shape=(2, 2))
         assert scope.mask.tolist() == [[True, False], [False, True]]
 
-        empty = PairMask.from_pairs(np.empty((0, 2), dtype=int), shape=(3, 2))
+        empty = SelectionMask.from_pairs(np.empty((0, 2), dtype=int), shape=(3, 2))
         assert empty.shape == (3, 2)
         assert len(empty) == 0
 
@@ -35,7 +35,7 @@ class TestConstruction:
 class TestImmutability:
     def test_the_mask_is_read_only_and_does_not_alias_a_writable_input(self):
         source = np.ones((2, 2), dtype=bool)
-        scope = PairMask(source)
+        scope = SelectionMask(source)
 
         source[0, 0] = False
 
@@ -44,12 +44,12 @@ class TestImmutability:
             scope.mask[0, 0] = False
 
     def test_an_already_read_only_mask_is_shared(self):
-        scope = PairMask(np.ones((2, 2), dtype=bool))
+        scope = SelectionMask(np.ones((2, 2), dtype=bool))
 
-        assert PairMask(scope.mask).mask is scope.mask
+        assert SelectionMask(scope.mask).mask is scope.mask
 
     def test_from_pairs_carries_the_pair_seed(self):
-        scope = PairMask.from_pairs(np.array([[0, 0], [1, 1]]), shape=(2, 2), pair_seed=4)
+        scope = SelectionMask.from_pairs(np.array([[0, 0], [1, 1]]), shape=(2, 2), pair_seed=4)
 
         assert scope.pair_seed == 4
 
@@ -57,11 +57,11 @@ class TestImmutability:
 class TestPairs:
     def test_pairs_match_the_mask_in_row_major_order(self):
         mask = np.array([[True, False, True], [False, True, False]])
-        np.testing.assert_array_equal(PairMask(mask=mask).pairs, np.argwhere(mask))
-        assert PairMask(np.ones((2, 2), dtype=bool)).pairs.tolist() == [[0, 0], [0, 1], [1, 0], [1, 1]]
+        np.testing.assert_array_equal(SelectionMask(mask=mask).pairs, np.argwhere(mask))
+        assert SelectionMask(np.ones((2, 2), dtype=bool)).pairs.tolist() == [[0, 0], [0, 1], [1, 0], [1, 1]]
 
     def test_shuffled_is_a_reproducible_permutation_of_the_same_pairs(self):
-        scope = PairMask(np.ones((4, 4), dtype=bool))
+        scope = SelectionMask(np.ones((4, 4), dtype=bool))
 
         shuffled = scope.shuffled(seed=0)
 
@@ -79,15 +79,15 @@ class TestSetOperations:
         ]
 
     def test_pair_order_seed_is_preserved_or_conflicts(self):
-        left = PairMask(np.ones((2, 2), dtype=bool)).shuffled(seed=3)
+        left = SelectionMask(np.ones((2, 2), dtype=bool)).shuffled(seed=3)
 
-        assert (left | PairMask(np.zeros((2, 2), dtype=bool))).pair_seed == 3
+        assert (left | SelectionMask(np.zeros((2, 2), dtype=bool))).pair_seed == 3
         with pytest.raises(ValueError, match="conflicting pair-order seeds"):
-            left | PairMask(np.ones((2, 2), dtype=bool)).shuffled(seed=4)
+            left | SelectionMask(np.ones((2, 2), dtype=bool)).shuffled(seed=4)
 
     def test_set_operations_reject_mismatched_shapes(self):
         with pytest.raises(ValueError, match="Cannot combine mask shapes"):
-            PairMask(np.ones((2, 2), dtype=bool)) | PairMask(np.ones((3, 2), dtype=bool))
+            SelectionMask(np.ones((2, 2), dtype=bool)) | SelectionMask(np.ones((3, 2), dtype=bool))
 
 
 class TestValueSemantics:
@@ -95,21 +95,21 @@ class TestValueSemantics:
         mask = np.array([[True, False], [False, True]])
         ones, zeros = np.ones((2, 2), dtype=bool), np.zeros((2, 2), dtype=bool)
 
-        assert PairMask(mask) == PairMask(mask.copy())
-        assert PairMask(ones) != PairMask(zeros)
-        assert PairMask(ones) == PairMask(ones).shuffled(seed=3)
-        assert PairMask(ones) != "not a mask"
+        assert SelectionMask(mask) == SelectionMask(mask.copy())
+        assert SelectionMask(ones) != SelectionMask(zeros)
+        assert SelectionMask(ones) == SelectionMask(ones).shuffled(seed=3)
+        assert SelectionMask(ones) != "not a mask"
 
 
-def _pairs_mask(shape: tuple[int, int], *positions: tuple[int, int]) -> PairMask:
+def _pairs_mask(shape: tuple[int, int], *positions: tuple[int, int]) -> SelectionMask:
     m = np.zeros(shape, dtype=bool)
     for r, c in positions:
         m[r, c] = True
-    return PairMask(m)
+    return SelectionMask(m)
 
 
-def _empty(shape: tuple[int, int]) -> PairMask:
-    return PairMask(np.zeros(shape, dtype=bool))
+def _empty(shape: tuple[int, int]) -> SelectionMask:
+    return SelectionMask(np.zeros(shape, dtype=bool))
 
 
 def _seeds(fold: Fold) -> list:
@@ -179,3 +179,18 @@ class TestFold:
             tmp_path / "legacy.npz", **{n: np.zeros((2, 2), dtype=bool) for n in ("train", "test", "val")}
         )
         assert _seeds(Fold.load(tmp_path / "legacy.npz")) == [None, None, None]
+
+    def test_fold_id_is_deterministic_and_sensitive_to_masks(self):
+        shape = (3, 2)
+        a = Fold(train=_pairs_mask(shape, (0, 0)), test=_pairs_mask(shape, (1, 0)), val=_pairs_mask(shape, (2, 0)))
+        b = Fold(
+            train=_pairs_mask(shape, (0, 0)),
+            test=_pairs_mask(shape, (1, 0)),
+            val=_pairs_mask(shape, (2, 0)),
+            metadata={"note": "different"},
+        )
+        c = Fold(train=_pairs_mask(shape, (0, 1)), test=_pairs_mask(shape, (1, 0)), val=_pairs_mask(shape, (2, 0)))
+
+        assert len(a.fold_id) == 12
+        assert a.fold_id == b.fold_id
+        assert a.fold_id != c.fold_id

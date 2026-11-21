@@ -3,9 +3,10 @@ Write a predictor
 
 .. interface: python
 
-A predictor is the model proper: it learns from a batch of sample-drug pairs and scores new
-pairs. This page shows how to write one for each kind of input and how to declare its
-hyperparameters and provenance. For the featurizers that feed it, see :doc:`write_featurizer`.
+A predictor is the model proper: it learns from a :class:`~drevalpy.plugin.PredictorInput` of
+sample-drug pairs and scores new pairs. This page shows how to write one for each kind of input
+and how to declare its hyperparameters and provenance. For the featurizers that feed it, see
+:doc:`write_featurizer`.
 
 Declare what the predictor reads
 --------------------------------
@@ -33,16 +34,16 @@ side is its ``sample_inputs`` and ``drug_inputs`` declaration, an ``Inputs``:
      - You implement
    * - ``FeatureFreePredictor``
      - ``Inputs.none()`` on both sides
-     - ``_fit(batch)``, ``_predict(batch)``
+     - ``_fit(data)``, ``_predict(data)``
    * - ``MatrixPredictor``
      - ``Inputs.matrix()`` on both sides
      - ``_fit_matrix(x, y)``, ``_predict_matrix(x)``
    * - ``SingleDrugPredictor``
      - ``Inputs.none()`` on the drug side: set ``sample_inputs`` yourself
-     - ``_fit_drug(drug_id, batch)``, ``_predict_drug(drug_id, model, batch)``
+     - ``_fit_drug(drug_id, data)``, ``_predict_drug(drug_id, model, data)``
    * - ``Predictor``
      - Nothing: set ``sample_inputs`` and ``drug_inputs`` yourself
-     - ``_fit(batch)``, ``_predict(batch)``
+     - ``_fit(data)``, ``_predict(data)``
 
 Set or override a declaration on a subclass, for example ``sample_inputs = Inputs.matrix()`` on
 a ``SingleDrugPredictor`` (see :ref:`how-to/extend/write_predictor:Fit one model per drug`).
@@ -51,7 +52,7 @@ featurizer emits, so a recipe that cannot work fails before training. A grid ski
 combination and reports the reason; see :doc:`/how-to/evaluate_component_grids`.
 
 The public ``fit`` and ``predict`` are implemented on the base class. ``fit`` raises
-``ValueError`` for a batch without responses and drops pairs whose features are NaN;
+``ValueError`` for an input without responses and drops pairs whose features are NaN;
 ``predict`` returns NaN for those pairs. Your methods never see them.
 
 .. tab-set::
@@ -66,7 +67,7 @@ The public ``fit`` and ``predict`` are implemented on the base class. ``fit`` ra
 
    .. tab-item:: Matrix
 
-      ``MatrixPredictor`` calls ``batch.to_feature_matrix()`` for you, so you work on a plain
+      ``MatrixPredictor`` calls ``data.to_feature_matrix()`` for you, so you work on a plain
       array. This example wraps scikit-learn's ridge regression and also declares a
       hyperparameter space and a literature reference.
 
@@ -76,10 +77,10 @@ The public ``fit`` and ``predict`` are implemented on the base class. ``fit`` ra
 
    .. tab-item:: Blocks
 
-      A block predictor reads named blocks from ``batch.sample`` and ``batch.drug`` (each a
-      ``FeaturizerResult``) instead of one flattened matrix. Blocks are indexed by entity, so
-      expand them to one row per pair with ``batch.sample_pair_idx`` and
-      ``batch.drug_pair_idx``, as the example does.
+      A block predictor reads named blocks from ``data.sample`` and ``data.drug`` (each a
+      ``FeaturizerOutput``) instead of one flattened matrix. Blocks are indexed by entity, so
+      expand them to one row per pair with ``data.sample_pair_idx`` and
+      ``data.drug_pair_idx``, as the example does.
 
       .. literalinclude:: /examples/toy_block_predictor.py
          :language: python
@@ -204,25 +205,25 @@ ids are accepted.
        artifact_license="CC-BY-4.0",
    )
    class PortedMean(FeatureFreePredictor):
-       def _fit(self, batch):
-           self._mean = float(np.mean(batch.response))
+       def _fit(self, data):
+           self._mean = float(np.mean(data.response))
 
-       def _predict(self, batch):
-           return np.full(batch.n_pairs, self._mean)
+       def _predict(self, data):
+           return np.full(len(data), self._mean)
 
 Fit one model per drug
 ----------------------
 
 A single-drug predictor fits one model per drug and reads no drug features. Subclass
 ``SingleDrugPredictor``, declare ``sample_inputs`` and implement two hooks, each of which sees a
-batch with the pairs of one drug:
+``PredictorInput`` with the pairs of one drug:
 
-``_fit_drug(drug_id, batch)``
+``_fit_drug(drug_id, data)``
    Returns the fitted model of the drug, or ``None`` to leave the drug without one.
-``_predict_drug(drug_id, model, batch)``
+``_predict_drug(drug_id, model, data)``
    Scores the drug's pairs with what ``_fit_drug`` returned.
 
-The base class routes the pairs by ``batch.drug_ids`` and predicts NaN for the pairs of a drug
+The base class routes the pairs by ``data.drug_ids`` and predicts NaN for the pairs of a drug
 it has no model for, such as a drug that was not in the training data. With ``--n-jobs``
 (``n_jobs`` in Python) above 1 it fits the drugs in parallel worker processes, and it seeds
 each drug from the run seed and the drug ID, so the fitted models do not depend on ``n_jobs``.
@@ -238,7 +239,7 @@ This example fits one ridge regression per drug:
   ``n_jobs``. Use ``num_workers=0`` for a PyTorch ``DataLoader``, and leave the thread count of
   scikit-learn and PyTorch alone: the worker already limits it to one.
 - **Do not write to a fixed path that the drugs share.** Write checkpoints below
-  ``batch.training_context.checkpoint_dir``: in the batch of ``_fit_drug`` it is already a
+  ``data.training_context.checkpoint_dir``: in the input of ``_fit_drug`` it is already a
   directory of the drug's own. Turn off the default logger of PyTorch Lightning, which
   writes to ``lightning_logs/`` in the working directory and makes concurrent fits race for the
   same version directory. The built-in neural predictors do it with
@@ -254,13 +255,13 @@ Read response layers
 A predictor can train on more of a pair than its response, such as the CurveCurator verdict
 ``regulation`` that ``SingleDrugMorgoth`` turns into classes. Name the response layers the fit
 reads in the class attribute ``response_layers``. The fit then finds them in
-``batch.response_layers``, a mapping from each name to one value per pair:
+``data.response_layers``, a mapping from each name to one value per pair:
 
 - **Training only.** The mapping is empty at prediction, so ``_predict`` must not read it.
-- **Not transformed.** The response transformation changes ``batch.response`` but leaves the
+- **Not transformed.** The response transformation changes ``data.response`` but leaves the
   layers as the dataset stores them.
 - **Possibly missing.** A layer the dataset lacks is left out of the mapping, so the fit must
-  cope without it, for example with ``batch.response_layers.get(name)``.
+  cope without it, for example with ``data.response_layers.get(name)``.
 
 This baseline predicts the mean response of the training pairs whose curve goes down, and the
 mean of all pairs when the dataset has no ``regulation`` layer:
@@ -276,34 +277,34 @@ mean of all pairs when the dataset has no ``regulation`` layer:
    class DownMean(FeatureFreePredictor):
        response_layers = ("regulation",)
 
-       def _fit(self, batch):
-           regulation = batch.response_layers.get("regulation")
-           down = np.ones(batch.n_pairs, dtype=bool) if regulation is None else regulation == -1
-           self._mean = float(np.mean(batch.response[down if down.any() else slice(None)]))
+       def _fit(self, data):
+           regulation = data.response_layers.get("regulation")
+           down = np.ones(len(data), dtype=bool) if regulation is None else regulation == -1
+           self._mean = float(np.mean(data.response[down if down.any() else slice(None)]))
 
-       def _predict(self, batch):
-           return np.full(batch.n_pairs, self._mean)
+       def _predict(self, data):
+           return np.full(len(data), self._mean)
 
-``build_synthetic_batch(..., response_layers=)`` from ``drevalpy.testing`` builds a batch that
+``build_synthetic_input(..., response_layers=)`` from ``drevalpy.testing`` builds an input that
 carries the layers, and the conformance checks below pass the predictor's ``response_layers``
 for you.
 
 Check that it works
 -------------------
 
-Run the shipped conformance checks on your predictor with a batch from ``drevalpy.testing``,
+Run the shipped conformance checks on your predictor with a synthetic input from ``drevalpy.testing``,
 then use it in a model. The first block needs no dataset files; the second trains the
 feature-free baseline defined below through the Python API.
 
 .. code-block:: python
 
    from drevalpy import synthetic
-   from drevalpy.testing import PREDICTOR_CHECKS, build_synthetic_batch
+   from drevalpy.testing import PREDICTOR_CHECKS, build_synthetic_input
 
    dataset = synthetic(omics=["gene_expression"])
-   batch = build_synthetic_batch(dataset, sample_block_names=("gene_expression",))
+   data = build_synthetic_input(dataset, sample_block_names=("gene_expression",))
    for check in PREDICTOR_CHECKS:
-       check(LeastSquaresPredictor, batch)
+       check(LeastSquaresPredictor, data)
 
 .. code-block:: python
 
@@ -316,11 +317,11 @@ feature-free baseline defined below through the Python API.
 
    @register_predictor("meanBaseline", description="Predict the mean training response.")
    class MeanBaseline(FeatureFreePredictor):
-       def _fit(self, batch):
-           self._mean = float(np.mean(batch.response))
+       def _fit(self, data):
+           self._mean = float(np.mean(data.response))
 
-       def _predict(self, batch):
-           return np.full(batch.n_pairs, self._mean)
+       def _predict(self, data):
+           return np.full(len(data), self._mean)
 
 
    spec = ModelSpec.from_name("meanBaseline")

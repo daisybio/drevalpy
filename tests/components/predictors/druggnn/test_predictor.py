@@ -18,15 +18,15 @@ from drevalpy.components.predictors.druggnn.predictor import DrugGNNPredictor
 from drevalpy.models import ModelSpec
 from drevalpy.registry._component import predictor_component_metadata
 from drevalpy.registry.predictor import get as get_predictor
-from drevalpy.types.data.batch.feature_block import graph_feature_block, numeric_feature_block
-from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
+from drevalpy.types.data.feature_block import FeatureBlock
+from drevalpy.types.data.predictor_input import PredictorInput
 from tests.components.predictors._helpers import pickle_round_trip
 from tests.components.predictors.literature._helpers import (
     assert_frozen_reference,
     assert_pickle_round_trip,
     assert_trainable_parameters_changed,
     assert_training_predictions,
-    early_stopping_response,
+    early_stopping,
     finite_predictions,
     seed_literature,
     trainable_parameter_vector,
@@ -42,17 +42,15 @@ def _drug_graph(*, num_features: int = 9, offset: float = 0.0) -> Data:
     )
 
 
-def _druggnn_batch(*, with_early_stopping: bool = False) -> ModelInputBatch:
+def _druggnn_batch(*, with_early_stopping: bool = False) -> PredictorInput:
     graphs = np.empty(2, dtype=object)
     graphs[:] = [_drug_graph(), _drug_graph(offset=0.5)]
     return two_by_two_batch(
         sample_blocks={
-            "gene_expression": numeric_feature_block(np.array([[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]])),
+            "gene_expression": FeatureBlock(np.array([[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]])),
         },
-        drug_blocks={"drug_graph": graph_feature_block(graphs)},
-        sample_pair_idx=np.array([0, 0, 1, 1]),
-        drug_pair_idx=np.array([0, 1, 0, 1]),
-        early_stopping_response=early_stopping_response() if with_early_stopping else None,
+        drug_blocks={"drug_graph": FeatureBlock(graphs, FeatureFormat.GRAPH)},
+        early_stopping=early_stopping() if with_early_stopping else None,
         checkpoint_dir=Path(tempfile.mkdtemp()),
     )
 

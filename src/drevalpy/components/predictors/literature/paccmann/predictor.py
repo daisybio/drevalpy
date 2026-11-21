@@ -13,10 +13,10 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
 
-from drevalpy.components.contracts.feature_format import FeatureFormat
+from drevalpy.components.contracts.feature_format import BlockSpec
 from drevalpy.components.contracts.hyperparameter_space import fixed_entries
 from drevalpy.components.predictors._pair_loader import make_pair_loader
-from drevalpy.components.predictors.abstract.base import Predictor, response_rows
+from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.components.predictors.literature._early_stopping import (
     EarlyStoppingRun,
@@ -31,8 +31,8 @@ from drevalpy.components.predictors.literature._pair_predict import (
 )
 from drevalpy.components.predictors.literature._torch_utils import DevicePicklingMixin
 from drevalpy.registry.predictor import register
-from drevalpy.types.data.batch.feature_block import BlockSpec, FeatureBlock
-from drevalpy.types.data.batch.model_input_batch import ModelInputBatch
+from drevalpy.types.data.feature_block import FeatureBlock
+from drevalpy.types.data.predictor_input import PredictorInput
 from drevalpy.types.enums.accelerator import Accelerator
 
 if TYPE_CHECKING:
@@ -45,17 +45,17 @@ TOKENS_BLOCK = "smiles_tokens"
 VARIANTS_BLOCK = "smiles_token_variants"
 
 
-def _drug_blocks(batch: ModelInputBatch) -> tuple[FeatureBlock, FeatureBlock]:
+def _drug_blocks(data: PredictorInput) -> tuple[FeatureBlock, FeatureBlock]:
     """Return the SMILES token and variant blocks of a batch.
 
-    :param batch: Batch to read.
+    :param data: Batch to read.
     :returns: ``(smiles_tokens, smiles_token_variants)`` feature blocks.
     :raises RuntimeError: If the batch carries no drug features.
     """
-    if batch.drug is None:
+    if data.drug is None:
         msg = "PaccMann requires drug features (smilesTokens)."
         raise RuntimeError(msg)
-    return batch.drug.blocks[TOKENS_BLOCK], batch.drug.blocks[VARIANTS_BLOCK]
+    return data.drug.blocks[TOKENS_BLOCK], data.drug.blocks[VARIANTS_BLOCK]
 
 
 def _build_network(
@@ -81,12 +81,12 @@ def _build_network(
     accelerator=Accelerator.OPTIONAL,
 )
 class PaccMannPredictor(DevicePicklingMixin, Predictor):
-    """Registered PaccMann predictor consuming ModelInputBatch directly."""
+    """Registered PaccMann predictor consuming PredictorInput directly."""
 
-    sample_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("gene_expression", FeatureFormat.NUMERIC_MATRIX))
+    sample_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("gene_expression"))
     drug_inputs: ClassVar[Inputs] = Inputs.blocks(
-        BlockSpec(TOKENS_BLOCK, FeatureFormat.NUMERIC_MATRIX),
-        BlockSpec(VARIANTS_BLOCK, FeatureFormat.NUMERIC_MATRIX),
+        BlockSpec(TOKENS_BLOCK),
+        BlockSpec(VARIANTS_BLOCK),
     )
     supports_early_stopping: ClassVar[bool] = True
 
@@ -127,14 +127,14 @@ class PaccMannPredictor(DevicePicklingMixin, Predictor):
         )
 
     @staticmethod
-    def _architecture_from(batch: ModelInputBatch) -> dict[str, int]:
+    def _architecture_from(data: PredictorInput) -> dict[str, int]:
         """Read the data-derived network sizes from the featurized batch.
 
-        :param batch: Batch holding the gene-expression and SMILES token blocks.
+        :param data: Batch holding the gene-expression and SMILES token blocks.
         :returns: Vocabulary size, padding length, gene count and variants per drug.
         :raises ValueError: If the SMILES token block carries no vocabulary metadata.
         """
-        tokens = _drug_blocks(batch)[0]
+        tokens = _drug_blocks(data)[0]
         metadata = tokens.annotations or {}
         if not {"vocabulary_size", "padding_length", "n_variants"} <= metadata.keys():
             msg = "PaccMann needs the vocabulary metadata that the smilesTokens featurizer attaches to its blocks"
@@ -142,7 +142,7 @@ class PaccMannPredictor(DevicePicklingMixin, Predictor):
         return {
             "smiles_vocabulary_size": int(metadata["vocabulary_size"]),
             "smiles_padding_length": int(metadata["padding_length"]),
-            "number_of_genes": int(batch.sample.blocks["gene_expression"].values.shape[1]),
+            "number_of_genes": int(data.sample.blocks["gene_expression"].values.shape[1]),
             "n_variants": int(metadata["n_variants"]),
         }
 
@@ -168,31 +168,31 @@ class PaccMannPredictor(DevicePicklingMixin, Predictor):
 
         return batch_loss
 
-    def _loaders(self, batch: ModelInputBatch) -> tuple[DataLoader, DataLoader | None]:
+    def _loaders(self, data: PredictorInput) -> tuple[DataLoader, DataLoader | None]:
         """Build the training and early-stopping loaders.
 
-        :param batch: Training batch, possibly with an early-stopping response.
+        :param data: Training batch, possibly with an early-stopping response.
         :returns: ``(train_loader, val_loader)``; the latter is ``None`` without early-stopping pairs.
         """
-        gene_entity = batch.sample.blocks["gene_expression"].values
-        tokens, variants = _drug_blocks(batch)
+        gene_entity = data.sample.blocks["gene_expression"].values
+        tokens, variants = _drug_blocks(data)
         batch_size = int(self._hyperparameters["batch_size"])
-        n_pairs = batch.n_pairs
+        n_pairs = len(data)
         # The batch norm layers cannot process a batch of one sample. Drop a trailing batch of one, and
         # only then, so that training sets smaller than a batch stay usable.
         drop_last = n_pairs > batch_size and n_pairs % batch_size == 1
         train_loader = make_pair_loader(
-            (gene_entity, batch.sample_pair_idx),
-            (variants.values, require_drug_pair_idx(batch.drug_pair_idx)),
-            response=np.asarray(batch.response, dtype=np.float32),
+            (gene_entity, data.sample_pair_idx),
+            (variants.values, require_drug_pair_idx(data.drug_pair_idx)),
+            response=np.asarray(data.response, dtype=np.float32),
             batch_size=batch_size,
             shuffle=True,
             drop_last=drop_last,
         )
-        stopping = batch.early_stopping_response
+        stopping = data.early_stopping
         if stopping is None or len(stopping) == 0:
             return train_loader, None
-        stop_sample_idx, stop_drug_idx = response_rows(batch, stopping)
+        stop_sample_idx, stop_drug_idx = data.early_stopping_sample_idx, data.early_stopping_drug_idx
         val_loader = make_pair_loader(
             (gene_entity, stop_sample_idx),
             (tokens.values, require_drug_pair_idx(stop_drug_idx)),
@@ -202,21 +202,21 @@ class PaccMannPredictor(DevicePicklingMixin, Predictor):
         )
         return train_loader, val_loader
 
-    def _fit(self, batch: ModelInputBatch) -> None:
+    def _fit(self, data: PredictorInput) -> None:
         """Train the network, keeping the weights of the epoch with the lowest early-stopping loss.
 
         Each row is seen through one of the equivalent SMILES of its drug, drawn anew for every batch.
         Without early-stopping pairs the full epoch budget runs and the last weights are kept.
 
-        :param batch: Training batch with gene_expression, smiles_tokens and smiles_token_variants blocks.
+        :param data: Training batch with gene_expression, smiles_tokens and smiles_token_variants blocks.
         """
         import torch.optim as optim
 
         hp = self._hyperparameters
-        self._architecture = self._architecture_from(batch)
+        self._architecture = self._architecture_from(data)
         model = _build_network(hp, self._architecture, self._device)
         self._model = model
-        train_loader, val_loader = self._loaders(batch)
+        train_loader, val_loader = self._loaders(data)
         optimizer = optim.Adam(model.parameters(), lr=hp["learning_rate"], weight_decay=hp["weight_decay"])
         train_epoch = self._batch_loss(model, self._architecture["n_variants"])
         if val_loader is None:
@@ -229,7 +229,7 @@ class PaccMannPredictor(DevicePicklingMixin, Predictor):
             EarlyStoppingRun(
                 epochs=int(hp["epochs"]),
                 patience=int(hp["patience"]),
-                checkpoint_dir=batch.training_context.checkpoint_dir,
+                checkpoint_dir=data.training_context.checkpoint_dir,
                 model_name="PaccMann",
             ),
             train_epoch=lambda: run_epoch(model, train_loader, train_epoch, optimizer),
@@ -237,10 +237,10 @@ class PaccMannPredictor(DevicePicklingMixin, Predictor):
             device=self._device,
         )
 
-    def _predict(self, batch: ModelInputBatch) -> np.ndarray:
+    def _predict(self, data: PredictorInput) -> np.ndarray:
         """Predict with each drug's own SMILES.
 
-        :param batch: Featurized pairs to score.
+        :param data: Featurized pairs to score.
         :returns: One predicted response per pair.
         :raises ValueError: If the model has not been trained yet.
         """
@@ -248,12 +248,12 @@ class PaccMannPredictor(DevicePicklingMixin, Predictor):
             msg = "PaccMann model not initialized."
             raise ValueError(msg)
         model = self._model
-        tokens = _drug_blocks(batch)[0]
+        tokens = _drug_blocks(data)[0]
         return predict_pairs(
             model,
-            batch,
+            data,
             PairEvalSpec(
-                sample_blocks=(batch.sample.blocks["gene_expression"].values,),
+                sample_blocks=(data.sample.blocks["gene_expression"].values,),
                 drug_blocks=(tokens.values,),
                 batch_size=int(self._hyperparameters["batch_size"]),
                 device=self._device,

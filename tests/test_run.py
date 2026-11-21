@@ -21,7 +21,7 @@ from drevalpy import run, single, split, synthetic
 from drevalpy.errors import InvalidInputError, OutputDirectoryConflictError
 from drevalpy.models import ModelSpec
 from drevalpy.models.response_transformation import get_response_transformation
-from drevalpy.types import Fold, PairMask
+from drevalpy.types import Fold, SelectionMask
 from drevalpy.types.results import ExperimentResult
 from drevalpy.types.results.failure import ExperimentFailedError
 from tests.synthetic.results import DEFAULT_DATASET_NAME, make_run_result
@@ -51,9 +51,9 @@ def _make_fold(*, fold_index: int, shape: tuple[int, int] = (4, 3)) -> Fold:
     test[2, :] = True
     val[3, :] = True
     return Fold(
-        train=PairMask(train),
-        test=PairMask(test),
-        val=PairMask(val),
+        train=SelectionMask(train),
+        test=SelectionMask(test),
+        val=SelectionMask(val),
         metadata={"fold_index": fold_index, "split_mode": "LSO", "fold_id": f"fold_{fold_index}"},
     )
 

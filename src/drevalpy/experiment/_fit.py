@@ -24,7 +24,7 @@ from drevalpy.experiment._tracking import log_summary, tracking_run
 from drevalpy.log import get_logger
 from drevalpy.models.drp_model import DRPModel
 from drevalpy.models.tuning.hpo import hpam_tune
-from drevalpy.types.data.batch.response_batch import ResponseBatch
+from drevalpy.types.data.response_table import ResponseTable
 
 if TYPE_CHECKING:
     from drevalpy.experiment._execution import ExecutionSpec
@@ -47,7 +47,7 @@ class FinalFit:
     best_hyperparameters: dict[str, Any]
     trials: list[TrialResult]
     #: Test scope, as the pairs in scope order with their observed responses.
-    test: ResponseBatch
+    test: ResponseTable
     #: One prediction per test pair, in scope order.
     predictions: np.ndarray
     metrics: dict[str, float]
@@ -103,7 +103,7 @@ def fit(
     ):
         seed_everything(rng_seed)
         model.train(dataset, scopes.final_training, early_stopping_scope=scopes.stopping, n_jobs=n_jobs)
-        test = ResponseBatch.from_dataset(dataset, scopes.test)
+        test = ResponseTable.from_dataset(dataset, scopes.test)
         if len(test.response) == 0:  # ``drevalpy.train`` has no test set
             return FinalFit(model, best, trials, test, np.empty(0), {})
         predictions = model.predict(dataset, scopes.test)

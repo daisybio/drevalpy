@@ -15,7 +15,7 @@ import numpy as np
 from drevalpy.plugin import (
     FeatureSource,
     Featurizer,
-    FeaturizerResult,
+    FeaturizerOutput,
     Side,
     dense_result,
     register_featurizer,
@@ -63,7 +63,7 @@ class ToySampleFeaturizer(Featurizer):
         self._scale = np.where(scale > 0.0, scale, 1.0)
         return self
 
-    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerResult:
+    def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerOutput:
         """Return the standardized rows of *ids* as one numeric block.
 
         The block is named after the view, which is the name the default

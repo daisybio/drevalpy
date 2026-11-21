@@ -12,7 +12,8 @@ import pytest
 
 from drevalpy.errors import InvalidInputError
 from drevalpy.types.data.dataset import Dataset
-from drevalpy.types.data.feature_source import PRECOMPUTED_VIEWS_KEY, FeatureSource, precomputed_views
+from drevalpy.types.data.feature_source import FeatureSource, Side, precomputed_views
+from drevalpy.types.data.views import PRECOMPUTED_VIEWS_KEY
 from tests.synthetic import BPE_LENGTH, CHEMBERTA_DIM, FINGERPRINT_BITS, N_GENES, N_PATHWAYS
 
 SAMPLES = np.array(["cl1", "cl2", "cl3"])
@@ -78,6 +79,17 @@ def test_an_unknown_side_is_rejected(synthetic_dataset: Dataset):
         FeatureSource(synthetic_dataset, "cell")  # type: ignore[arg-type]
 
 
+def test_side_specific_accessors_reject_the_wrong_side(sample_source: FeatureSource, drug_source: FeatureSource):
+    with pytest.raises(ValueError, match="requires a 'drug' FeatureSource"):
+        sample_source.smiles(DRUGS)
+    with pytest.raises(ValueError, match="requires a 'drug' FeatureSource"):
+        sample_source.graphs(DRUGS)
+    with pytest.raises(ValueError, match="requires a 'sample' FeatureSource"):
+        drug_source.tissue(SAMPLES)
+    with pytest.raises(ValueError, match="requires a 'sample' FeatureSource"):
+        drug_source.expression_unit("gene_expression")
+
+
 def test_uns_returns_the_value_or_none(sample_source: FeatureSource):
     assert set(sample_source.uns("sparsego")) == {"gene2ind", "ontology"}
     assert all("\t" in line for line in sample_source.uns("pathways_gmt").strip().splitlines())
@@ -120,7 +132,12 @@ class TestSampleViews:
         source = FeatureSource(_dataset(obsm={"pathway_features": np.ones((3, 4), dtype=np.float32)}), "sample")
 
         assert source.view("pathway_features", SAMPLES[:2]).shape == (2, 4)
-        with pytest.raises(KeyError, match="Sample view 'pathway_features' not found"):
+        with pytest.raises(KeyError, match=r"Available: \['gene_expression', 'pathway_features'\]"):
+            source.view("absent", SAMPLES)
+        with pytest.raises(
+            KeyError,
+            match=r"Sample view 'pathway_features' not found\. Available: \['gene_expression'\]",
+        ):
             FeatureSource(_dataset(), "sample").view("pathway_features", SAMPLES)
 
     def test_tissue(self, synthetic_dataset: Dataset, sample_source: FeatureSource):
@@ -177,20 +194,21 @@ class TestDrugViews:
 
         smiles = drug_source.smiles(ids)
 
-        assert smiles is not None
-        assert list(smiles.index) == list(ids)
+        assert isinstance(smiles, np.ndarray)
+        assert len(smiles) == len(ids)
         assert all(isinstance(value, str) and value for value in smiles)
         unknown = drug_source.smiles(np.array(["not-a-drug"]))
-        assert unknown is not None and unknown.isna().all()
+        assert unknown is not None and np.isnan(unknown[0])
         assert FeatureSource(_dataset(), "drug").smiles(DRUGS) is None
 
     def test_graphs(self, synthetic_dataset: Dataset, drug_source: FeatureSource):
         graphs = drug_source.graphs(np.array([synthetic_dataset.drug_ids[0], "NOT_A_DRUG"]))
 
+        assert graphs is not None
         assert graphs[0] is not None
         assert set(graphs[0]) >= {"x", "edge_index", "edge_attr"}
         assert graphs[1] is None
-        assert FeatureSource(_dataset(), "drug").graphs(DRUGS) == [None, None]
+        assert FeatureSource(_dataset(), "drug").graphs(DRUGS) is None
 
 
 class TestRaggedDrugView:
@@ -209,15 +227,15 @@ class TestRaggedDrugView:
 
     def test_the_molgnet_featurizer_surfaces_the_error_instead_of_computing_over_it(self):
         from drevalpy.components.featurizers.drug.molgnet import MolGNetDrugFeaturizer
-        from drevalpy.models._feature_preparation import FitIds, prepare_features
+        from drevalpy.models._feature_preparation import prepare_features
 
         source = FeatureSource(_dataset(varm={"molgnet_features": self._ragged()}), "drug")
 
         with pytest.raises(InvalidInputError, match="object array"):
-            prepare_features(MolGNetDrugFeaturizer(), source, DRUGS, fit=FitIds(DRUGS))
+            prepare_features(MolGNetDrugFeaturizer(), source, DRUGS, train_pair_ids=DRUGS)
 
 
-class TestHasView:
+class TestContains:
     @pytest.mark.parametrize(
         ("view", "expected"),
         [
@@ -225,12 +243,13 @@ class TestHasView:
             ("copy_number_variation_gistic", True),
             ("pathway_features", True),
             ("tissue", True),
+            ("response", False),
             ("chemberta", False),
             ("absent_view", False),
         ],
     )
     def test_sample_views(self, sample_source: FeatureSource, view: str, expected: bool):
-        assert sample_source.has_view(view) is expected
+        assert (view in sample_source) is expected
 
     @pytest.mark.parametrize(
         ("view", "expected"),
@@ -244,11 +263,11 @@ class TestHasView:
         ],
     )
     def test_drug_views(self, drug_source: FeatureSource, view: str, expected: bool):
-        assert drug_source.has_view(view) is expected
+        assert (view in drug_source) is expected
 
     def test_sides(self, sample_source: FeatureSource, drug_source: FeatureSource):
-        assert sample_source.side == "sample"
-        assert drug_source.side == "drug"
+        assert sample_source.side is Side.SAMPLE
+        assert drug_source.side is Side.DRUG
 
 
 _SAMPLES = np.array(["s1", "s2"])
