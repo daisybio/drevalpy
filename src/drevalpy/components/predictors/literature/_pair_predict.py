@@ -1,0 +1,119 @@
+"""Eval-time pair inference shared by the predictors that run their own torch loop.
+
+``pharmaformer``, ``precily`` and ``sparsego`` each resolved the pair indices, built
+an eval ``make_pair_loader`` and accumulated predictions under ``torch.no_grad()``
+themselves. Only the forward call genuinely differed, which is why it is passed in
+rather than unified here.
+
+``torch`` is imported inside the entry points. Every caller lives in a
+``predictor.py`` that ``drevalpy.registry`` imports on ``import drevalpy``, so a
+module-scope import would put the training stack back on the CLI startup path. See
+``tests/test_import_cost_policy.py``.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterator, Sequence
+
+    import numpy as np
+    import torch
+
+    from drevalpy.types.data.predictor_input import PredictorInput
+
+
+@dataclass(frozen=True)
+class PairEvalSpec:
+    """One eval pass: which entity matrices to index, how to batch, where to run.
+
+    The two block groups are kept apart because they are indexed by different arrays:
+    sample blocks by ``sample_pair_idx``, drug blocks by ``drug_pair_idx``.
+    """
+
+    sample_blocks: Sequence[np.ndarray]
+    drug_blocks: Sequence[np.ndarray]
+    batch_size: int
+    device: torch.device
+
+
+def predict_pairs(
+    model: Any,
+    data: PredictorInput,
+    spec: PairEvalSpec,
+    forward: Callable[..., torch.Tensor] | None = None,
+) -> np.ndarray:
+    """Score every pair in *data* with *model* in eval mode, in pair order.
+
+    :param model: Fitted torch module; switched to eval mode before the pass.
+    :param data: Featurized pairs to score.
+    :param spec: Blocks, batch size and target device for this pass.
+    :param forward: Called with one tensor per block; defaults to ``model(*tensors)``.
+    :returns: One predicted response per pair, flattened.
+    """
+    from drevalpy.components.predictors._pair_loader import collect_predictions
+
+    run_forward = model if forward is None else forward
+    return collect_predictions(model, _iter_pair_batches(data, spec), lambda tensors: run_forward(*tensors))
+
+
+def concatenated_forward(model: Any) -> Callable[..., torch.Tensor]:
+    """Wrap *model* so it receives the per-block tensors concatenated feature-wise.
+
+    :param model: Torch module taking a single ``[batch, sum(dims)]`` tensor.
+    :returns: A forward callable accepting one tensor per block.
+    """
+    import torch
+
+    def forward(*tensors: torch.Tensor) -> torch.Tensor:
+        return model(torch.cat(tensors, dim=1))
+
+    return forward
+
+
+def declared_blocks(predictor: Any, data: PredictorInput) -> tuple[np.ndarray, np.ndarray]:
+    """Return the entity-level values of the one block each side of *predictor* declares.
+
+    :param predictor: Predictor whose ``sample_inputs`` and ``drug_inputs`` each name a single block.
+    :param data: Batch to read the blocks from.
+    :returns: Tuple of ``(sample_block, drug_block)`` values.
+    """
+    (sample_spec,) = predictor.sample_inputs.specs
+    (drug_spec,) = predictor.drug_inputs.specs
+    return data.sample.blocks[sample_spec.name].values, data.drug.blocks[drug_spec.name].values
+
+
+def require_drug_pair_idx(drug_pair_idx: np.ndarray | None) -> np.ndarray:
+    """Narrow a batch's ``drug_pair_idx`` to non-``None``.
+
+    :param drug_pair_idx: The batch's drug pair indices, possibly ``None``.
+    :returns: The same array.
+    :raises RuntimeError: If the batch carries no drug pair indices.
+    """
+    if drug_pair_idx is None:
+        raise RuntimeError("drug_pair_idx is required for this predictor")
+    return drug_pair_idx
+
+
+def _iter_pair_batches(data: PredictorInput, spec: PairEvalSpec) -> Iterator[tuple[Any, ...]]:
+    """Yield mini-batches of entity features for every pair in *data*, in order.
+
+    :param data: Featurized pairs to score.
+    :param spec: Blocks, batch size and target device for this pass.
+    :yields: One tuple of device-resident tensors per mini-batch.
+    """
+    from drevalpy.components.predictors._pair_loader import make_pair_loader
+
+    drug_pair_idx = require_drug_pair_idx(data.drug_pair_idx)
+    sample_pair_idx = data.sample_pair_idx
+
+    loader = make_pair_loader(
+        *((values, sample_pair_idx) for values in spec.sample_blocks),
+        *((values, drug_pair_idx) for values in spec.drug_blocks),
+        batch_size=spec.batch_size,
+        shuffle=False,
+    )
+    for tensors in loader:
+        yield tuple(tensor.to(spec.device) for tensor in tensors)

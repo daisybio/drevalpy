@@ -1,0 +1,1389 @@
+{
+  "atol": 1e-6,
+  "dataset": {
+    "drug_views": [
+      "morgan_fingerprint",
+      "chemberta",
+      "bpe_smiles",
+      "smilesvec"
+    ],
+    "extra_layers": ["AUC", "IC50"],
+    "omics": [
+      "gene_expression",
+      "proteomics",
+      "mutations",
+      "methylation",
+      "copy_number_variation_gistic"
+    ],
+    "sample_views": ["pathway_features"],
+    "seed": 0,
+    "uns_payloads": ["drug_graphs", "pathways_gmt", "sparsego", "bpe_codes"]
+  },
+  "drevalpy_commit": "2fb19c2934c564abf55c1fc664f66896e1b5d8e2",
+  "hpo": {
+    "metric": "RMSE",
+    "model": "ElasticNet",
+    "n_trials": 2,
+    "random_state": 7
+  },
+  "models": {
+    "AdaBoostDecisionTree": {
+      "artifacts": [],
+      "best_hyperparameter_values": [
+        "1",
+        "1.0",
+        "2",
+        "2",
+        "2048",
+        "4",
+        "50",
+        "False",
+        "False"
+      ],
+      "best_hyperparameters_at_record": {
+        "drug_featurizer.fingerprints.n_bits": "2048",
+        "drug_featurizer.fingerprints.radius": "2",
+        "drug_featurizer.fingerprints.use_chirality": "False",
+        "drug_featurizer.fingerprints.use_counts": "False",
+        "predictor.adaboost.learning_rate": "1.0",
+        "predictor.adaboost.max_depth": "4",
+        "predictor.adaboost.min_samples_leaf": "1",
+        "predictor.adaboost.min_samples_split": "2",
+        "predictor.adaboost.n_estimators": "50"
+      },
+      "deterministic": true,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.6980985278985754,
+        "MAE": 0.6296663508422095,
+        "MSE": 0.659955285366518,
+        "Pearson": 0.8554574949764563,
+        "RMSE": 0.8123763200429454,
+        "R^2": 0.7278882560277009,
+        "Spearman": 0.8791904947426727
+      },
+      "model": "AdaBoostDecisionTree",
+      "round_trip_exact": true,
+      "seconds": 3.4
+    },
+    "DIPK": {
+      "artifacts": [
+        "MolGNet.pt",
+        "gene_list_sel.txt",
+        "human_ppi_features.tsv"
+      ],
+      "best_hyperparameter_values": [
+        "'mean'",
+        "0.0001",
+        "0.0001",
+        "0.3",
+        "10",
+        "10",
+        "1024",
+        "2",
+        "256",
+        "3",
+        "3",
+        "3",
+        "64",
+        "[256, 128, 64, 32, 16, 1]"
+      ],
+      "best_hyperparameters_at_record": {
+        "predictor.dipk.batch_size": "64",
+        "predictor.dipk.dropout_rate": "0.3",
+        "predictor.dipk.epochs": "3",
+        "predictor.dipk.fc_layer_dim": "[256, 128, 64, 32, 16, 1]",
+        "predictor.dipk.fc_layer_num": "3",
+        "predictor.dipk.heads": "2",
+        "predictor.dipk.lr": "0.0001",
+        "predictor.dipk.patience": "10",
+        "sample_featurizer.bionic.aggregation": "'mean'",
+        "sample_featurizer.bionic.gene_add_num": "256",
+        "sample_featurizer.dipkGeneExpression.batch_size_autoencoder": "1024",
+        "sample_featurizer.dipkGeneExpression.epochs_autoencoder": "10",
+        "sample_featurizer.dipkGeneExpression.lr_autoencoder": "0.0001",
+        "sample_featurizer.dipkGeneExpression.patience_autoencoder": "3"
+      },
+      "deterministic": true,
+      "hyperparameter_overrides": {
+        "epochs": 3,
+        "epochs_autoencoder": 10
+      },
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.0965121834687052,
+        "MAE": 1.2909755663865286,
+        "MSE": 2.530439834208506,
+        "Pearson": 0.18255016384702616,
+        "RMSE": 1.5907356267489914,
+        "R^2": -0.04334704421837654,
+        "Spearman": 0.15060955874420107
+      },
+      "model": "DIPK",
+      "round_trip_exact": true,
+      "seconds": 57.4
+    },
+    "DrugGNN": {
+      "artifacts": [],
+      "best_hyperparameter_values": [
+        "0.001",
+        "0.2",
+        "100",
+        "1024",
+        "32",
+        "50",
+        "64",
+        "False",
+        "False",
+        "False"
+      ],
+      "best_hyperparameters_at_record": {
+        "drug_featurizer.drugGraph.add_hydrogens": "False",
+        "predictor.drugGNN.batch_size": "1024",
+        "predictor.drugGNN.dropout": "0.2",
+        "predictor.drugGNN.epochs": "100",
+        "predictor.drugGNN.hidden_dim": "64",
+        "predictor.drugGNN.learning_rate": "0.001",
+        "predictor.drugGNN.log_every_n_steps": "50",
+        "predictor.drugGNN.precision": "32",
+        "sample_featurizer.landmarkGenes.minmax_scale": "False",
+        "sample_featurizer.landmarkGenes.standardize": "False"
+      },
+      "deterministic": true,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.26325848064978496,
+        "MAE": 1.271595446554863,
+        "MSE": 2.421853604571993,
+        "Pearson": 0.4128955878884287,
+        "RMSE": 1.5562305756448795,
+        "R^2": 0.0014250622757147058,
+        "Spearman": 0.40668588073917666
+      },
+      "model": "DrugGNN",
+      "round_trip_exact": true,
+      "seconds": 7.8
+    },
+    "ElasticNet": {
+      "artifacts": [],
+      "best_hyperparameter_values": [
+        "'cyclic'",
+        "0.0",
+        "0.0001",
+        "1.0",
+        "1000",
+        "2",
+        "2048",
+        "False",
+        "False",
+        "None"
+      ],
+      "best_hyperparameters_at_record": {
+        "drug_featurizer.fingerprints.n_bits": "2048",
+        "drug_featurizer.fingerprints.radius": "2",
+        "drug_featurizer.fingerprints.use_chirality": "False",
+        "drug_featurizer.fingerprints.use_counts": "False",
+        "predictor.elasticNet.alpha": "1.0",
+        "predictor.elasticNet.l1_ratio": "0.0",
+        "predictor.elasticNet.max_iter": "1000",
+        "predictor.elasticNet.random_state": "None",
+        "predictor.elasticNet.selection": "'cyclic'",
+        "predictor.elasticNet.tol": "0.0001"
+      },
+      "deterministic": true,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.6894409937888198,
+        "MAE": 0.6435223761945963,
+        "MSE": 0.6656513419180691,
+        "Pearson": 0.8529665130017227,
+        "RMSE": 0.8158745871260294,
+        "R^2": 0.7255396667878307,
+        "Spearman": 0.8737573786662145
+      },
+      "model": "ElasticNet",
+      "round_trip_exact": true,
+      "seconds": 0.1
+    },
+    "ElasticNet[hpo]": {
+      "artifacts": [],
+      "best_hyperparameter_values": [
+        "'cyclic'",
+        "0.0001",
+        "0.032033347004714594",
+        "0.07205113335976154",
+        "1",
+        "1000",
+        "2048",
+        "False",
+        "None",
+        "True"
+      ],
+      "best_hyperparameters_at_record": {
+        "drug_featurizer.fingerprints.n_bits": "2048",
+        "drug_featurizer.fingerprints.radius": "1",
+        "drug_featurizer.fingerprints.use_chirality": "False",
+        "drug_featurizer.fingerprints.use_counts": "True",
+        "predictor.elasticNet.alpha": "0.032033347004714594",
+        "predictor.elasticNet.l1_ratio": "0.07205113335976154",
+        "predictor.elasticNet.max_iter": "1000",
+        "predictor.elasticNet.random_state": "None",
+        "predictor.elasticNet.selection": "'cyclic'",
+        "predictor.elasticNet.tol": "0.0001"
+      },
+      "deterministic": true,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": true,
+      "metrics": {
+        "Kendall": 0.692785475394171,
+        "MAE": 0.6338917984748664,
+        "MSE": 0.6475978706968748,
+        "Pearson": 0.85660077884391,
+        "RMSE": 0.804734658565713,
+        "R^2": 0.7329834461584657,
+        "Spearman": 0.8757918098731563
+      },
+      "model": "ElasticNet",
+      "round_trip_exact": true,
+      "seconds": 1.0
+    },
+    "EnsembleMF": {
+      "artifacts": [],
+      "best_hyperparameter_values": [
+        "0",
+        "0.0003",
+        "0.2",
+        "1",
+        "128",
+        "1e-05",
+        "2",
+        "2048",
+        "25",
+        "256",
+        "256",
+        "256",
+        "3",
+        "30",
+        "False",
+        "False",
+        "True",
+        "True"
+      ],
+      "best_hyperparameters_at_record": {
+        "drug_featurizer.fingerprints.n_bits": "256",
+        "drug_featurizer.fingerprints.radius": "2",
+        "drug_featurizer.fingerprints.use_chirality": "False",
+        "drug_featurizer.fingerprints.use_counts": "False",
+        "predictor.ensembleMF.batch_size": "2048",
+        "predictor.ensembleMF.dropout": "0.2",
+        "predictor.ensembleMF.emb_dim": "128",
+        "predictor.ensembleMF.hidden_dim": "256",
+        "predictor.ensembleMF.learning_rate": "0.0003",
+        "predictor.ensembleMF.max_epochs": "30",
+        "predictor.ensembleMF.mlp_hidden": "256",
+        "predictor.ensembleMF.n_ensemble": "3",
+        "predictor.ensembleMF.n_layers": "1",
+        "predictor.ensembleMF.patience": "25",
+        "predictor.ensembleMF.seed": "0",
+        "predictor.ensembleMF.use_drug_id_embedding": "True",
+        "predictor.ensembleMF.use_mlp_head": "True",
+        "predictor.ensembleMF.weight_decay": "1e-05"
+      },
+      "deterministic": true,
+      "hyperparameter_overrides": {
+        "max_epochs": 30,
+        "n_ensemble": 3
+      },
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.7118967988533205,
+        "MAE": 0.5815990775337686,
+        "MSE": 0.6062466720084726,
+        "Pearson": 0.8835513134969998,
+        "RMSE": 0.7786184380095764,
+        "R^2": 0.7500333085354252,
+        "Spearman": 0.8859639659078649
+      },
+      "model": "EnsembleMF",
+      "round_trip_exact": true,
+      "seconds": 4.0
+    },
+    "GradientBoosting": {
+      "artifacts": [],
+      "best_hyperparameter_values": [
+        "0.1",
+        "0.1",
+        "10",
+        "100",
+        "2",
+        "2048",
+        "42",
+        "5",
+        "False",
+        "False"
+      ],
+      "best_hyperparameters_at_record": {
+        "drug_featurizer.fingerprints.n_bits": "2048",
+        "drug_featurizer.fingerprints.radius": "2",
+        "drug_featurizer.fingerprints.use_chirality": "False",
+        "drug_featurizer.fingerprints.use_counts": "False",
+        "predictor.gradientBoosting.learning_rate": "0.1",
+        "predictor.gradientBoosting.max_depth": "5",
+        "predictor.gradientBoosting.max_iter": "100",
+        "predictor.gradientBoosting.n_iter_no_change": "10",
+        "predictor.gradientBoosting.random_state": "42",
+        "predictor.gradientBoosting.validation_fraction": "0.1"
+      },
+      "deterministic": true,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.7290969899665551,
+        "MAE": 0.551307698029778,
+        "MSE": 0.5128088703846673,
+        "Pearson": 0.8914943999142233,
+        "RMSE": 0.7161067451048533,
+        "R^2": 0.7885594385878133,
+        "Spearman": 0.9005902932971657
+      },
+      "model": "GradientBoosting",
+      "round_trip_exact": true,
+      "seconds": 2.5
+    },
+    "KNNRegressor": {
+      "artifacts": [],
+      "best_hyperparameter_values": [
+        "'distance'",
+        "2",
+        "2048",
+        "5",
+        "False",
+        "False"
+      ],
+      "best_hyperparameters_at_record": {
+        "drug_featurizer.fingerprints.n_bits": "2048",
+        "drug_featurizer.fingerprints.radius": "2",
+        "drug_featurizer.fingerprints.use_chirality": "False",
+        "drug_featurizer.fingerprints.use_counts": "False",
+        "predictor.knn.n_neighbors": "5",
+        "predictor.knn.weights": "'distance'"
+      },
+      "deterministic": true,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.04108934543717152,
+        "MAE": 1.3338088359925921,
+        "MSE": 2.803174337743668,
+        "Pearson": 0.10779344932656135,
+        "RMSE": 1.674268299211231,
+        "R^2": -0.15580051348206436,
+        "Spearman": 0.06670468381548325
+      },
+      "model": "KNNRegressor",
+      "round_trip_exact": true,
+      "seconds": 0.1
+    },
+    "Lasso": {
+      "artifacts": [],
+      "best_hyperparameter_values": [
+        "'random'",
+        "0",
+        "0.001",
+        "1.0",
+        "10000",
+        "2",
+        "2048",
+        "False",
+        "False"
+      ],
+      "best_hyperparameters_at_record": {
+        "drug_featurizer.fingerprints.n_bits": "2048",
+        "drug_featurizer.fingerprints.radius": "2",
+        "drug_featurizer.fingerprints.use_chirality": "False",
+        "drug_featurizer.fingerprints.use_counts": "False",
+        "predictor.lasso.alpha": "1.0",
+        "predictor.lasso.max_iter": "10000",
+        "predictor.lasso.random_state": "0",
+        "predictor.lasso.selection": "'random'",
+        "predictor.lasso.tol": "0.001"
+      },
+      "deterministic": true,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.0,
+        "MAE": 1.2807660889204429,
+        "MSE": 2.426277759064572,
+        "Pearson": 0.0,
+        "RMSE": 1.557651359921267,
+        "R^2": -0.0003990982716319813,
+        "Spearman": 0.0
+      },
+      "model": "Lasso",
+      "round_trip_exact": true,
+      "seconds": 0.1
+    },
+    "MOLIR": {
+      "artifacts": [],
+      "best_hyperparameter_values": [
+        "0.0001",
+        "0.01",
+        "0.5",
+        "0.5",
+        "1.5",
+        "1000",
+        "30",
+        "32",
+        "64",
+        "64",
+        "64"
+      ],
+      "best_hyperparameters_at_record": {
+        "predictor.molir.dropout_rate": "0.5",
+        "predictor.molir.epochs": "30",
+        "predictor.molir.gamma": "0.5",
+        "predictor.molir.h_dim1": "64",
+        "predictor.molir.h_dim2": "64",
+        "predictor.molir.h_dim3": "64",
+        "predictor.molir.learning_rate": "0.01",
+        "predictor.molir.margin": "1.5",
+        "predictor.molir.mini_batch": "32",
+        "predictor.molir.weight_decay": "0.0001",
+        "sample_featurizer.molirOmics.n_gene_expression_features": "1000"
+      },
+      "deterministic": true,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.36311514572384135,
+        "MAE": 2.194275068503845,
+        "MSE": 6.337055637313625,
+        "Pearson": 0.47896209692087366,
+        "RMSE": 2.5173509166013437,
+        "R^2": -1.6128849928995264,
+        "Spearman": 0.5199821216651511
+      },
+      "model": "MOLIR",
+      "round_trip_exact": true,
+      "seconds": 4.9
+    },
+    "MultiViewLightGBM": {
+      "artifacts": [],
+      "best_hyperparameter_values": [
+        "-1",
+        "0.0",
+        "0.0",
+        "0.1",
+        "0.6",
+        "0.8",
+        "100",
+        "2",
+        "2048",
+        "31",
+        "42",
+        "6",
+        "False",
+        "False"
+      ],
+      "best_hyperparameters_at_record": {
+        "drug_featurizer.fingerprints.n_bits": "2048",
+        "drug_featurizer.fingerprints.radius": "2",
+        "drug_featurizer.fingerprints.use_chirality": "False",
+        "drug_featurizer.fingerprints.use_counts": "False",
+        "predictor.lightgbm.colsample_bytree": "0.6",
+        "predictor.lightgbm.learning_rate": "0.1",
+        "predictor.lightgbm.max_depth": "6",
+        "predictor.lightgbm.n_estimators": "100",
+        "predictor.lightgbm.n_jobs": "-1",
+        "predictor.lightgbm.num_leaves": "31",
+        "predictor.lightgbm.random_state": "42",
+        "predictor.lightgbm.reg_alpha": "0.0",
+        "predictor.lightgbm.reg_lambda": "0.0",
+        "predictor.lightgbm.subsample": "0.8"
+      },
+      "deterministic": true,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.7415193502150024,
+        "MAE": 0.5264988979584322,
+        "MSE": 0.48679910378340024,
+        "Pearson": 0.8965540138676031,
+        "RMSE": 0.6977098994448913,
+        "R^2": 0.7992837453811934,
+        "Spearman": 0.9062466285467687
+      },
+      "model": "MultiViewLightGBM",
+      "round_trip_exact": true,
+      "seconds": 51.1
+    },
+    "MultiViewNeuralNetwork": {
+      "artifacts": [],
+      "best_hyperparameter_values": [
+        "0.3",
+        "100",
+        "16",
+        "2",
+        "2048",
+        "5",
+        "False",
+        "False",
+        "[16, 8, 4]"
+      ],
+      "best_hyperparameters_at_record": {
+        "drug_featurizer.fingerprints.n_bits": "2048",
+        "drug_featurizer.fingerprints.radius": "2",
+        "drug_featurizer.fingerprints.use_chirality": "False",
+        "drug_featurizer.fingerprints.use_counts": "False",
+        "predictor.neuralNetwork.batch_size": "16",
+        "predictor.neuralNetwork.dropout_prob": "0.3",
+        "predictor.neuralNetwork.max_epochs": "100",
+        "predictor.neuralNetwork.patience": "5",
+        "predictor.neuralNetwork.units_per_layer": "[16, 8, 4]"
+      },
+      "deterministic": true,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.7037744863831821,
+        "MAE": 0.666670963411098,
+        "MSE": 0.7778436407115842,
+        "Pearson": 0.8328704923319281,
+        "RMSE": 0.881954443671318,
+        "R^2": 0.6792807114284385,
+        "Spearman": 0.8851625233111908
+      },
+      "model": "MultiViewNeuralNetwork",
+      "round_trip_exact": true,
+      "seconds": 6.8
+    },
+    "MultiViewRandomForest": {
+      "artifacts": [],
+      "best_hyperparameter_values": [
+        "'squared_error'",
+        "-1",
+        "0.2",
+        "100",
+        "2",
+        "2048",
+        "42",
+        "5",
+        "False",
+        "False"
+      ],
+      "best_hyperparameters_at_record": {
+        "drug_featurizer.fingerprints.n_bits": "2048",
+        "drug_featurizer.fingerprints.radius": "2",
+        "drug_featurizer.fingerprints.use_chirality": "False",
+        "drug_featurizer.fingerprints.use_counts": "False",
+        "predictor.randomForest.criterion": "'squared_error'",
+        "predictor.randomForest.max_depth": "5",
+        "predictor.randomForest.max_samples": "0.2",
+        "predictor.randomForest.n_estimators": "100",
+        "predictor.randomForest.n_jobs": "-1",
+        "predictor.randomForest.random_state": "42"
+      },
+      "deterministic": false,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.7080745341614907,
+        "MAE": 0.6085834676495415,
+        "MSE": 0.5847353041660787,
+        "Pearson": 0.8750282611984453,
+        "RMSE": 0.7646798703811148,
+        "R^2": 0.7589028425002492,
+        "Spearman": 0.8855324198942712
+      },
+      "model": "MultiViewRandomForest",
+      "round_trip_exact": false,
+      "seconds": 1.7
+    },
+    "MultiViewXGBoost": {
+      "artifacts": [],
+      "best_hyperparameter_values": [
+        "0.0",
+        "0.1",
+        "0.1",
+        "0.6",
+        "0.8",
+        "10",
+        "100",
+        "2",
+        "2048",
+        "42",
+        "False",
+        "False"
+      ],
+      "best_hyperparameters_at_record": {
+        "drug_featurizer.fingerprints.n_bits": "2048",
+        "drug_featurizer.fingerprints.radius": "2",
+        "drug_featurizer.fingerprints.use_chirality": "False",
+        "drug_featurizer.fingerprints.use_counts": "False",
+        "predictor.xgboost.colsample_bytree": "0.6",
+        "predictor.xgboost.learning_rate": "0.1",
+        "predictor.xgboost.max_depth": "10",
+        "predictor.xgboost.n_estimators": "100",
+        "predictor.xgboost.random_state": "42",
+        "predictor.xgboost.reg_alpha": "0.0",
+        "predictor.xgboost.reg_lambda": "0.1",
+        "predictor.xgboost.subsample": "0.8"
+      },
+      "deterministic": true,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.7290969899665551,
+        "MAE": 0.5282055524218342,
+        "MSE": 0.5456289959390687,
+        "Pearson": 0.8822696083504961,
+        "RMSE": 0.7386670399706953,
+        "R^2": 0.7750270951093636,
+        "Spearman": 0.8973691105528413
+      },
+      "model": "MultiViewXGBoost",
+      "round_trip_exact": true,
+      "seconds": 18.9
+    },
+    "NaiveDrugMeanPredictor": {
+      "artifacts": [],
+      "best_hyperparameter_values": [],
+      "best_hyperparameters_at_record": {},
+      "deterministic": true,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.5645823584951559,
+        "MAE": 0.9048299434963056,
+        "MSE": 1.2553505243801937,
+        "Pearson": 0.7158121406932925,
+        "RMSE": 1.120424260885221,
+        "R^2": 0.48239581065568204,
+        "Spearman": 0.7264948876073274
+      },
+      "model": "NaiveDrugMeanPredictor",
+      "round_trip_exact": true,
+      "seconds": 0.0
+    },
+    "NaiveMeanEffectsPredictor": {
+      "artifacts": [],
+      "best_hyperparameter_values": [],
+      "best_hyperparameters_at_record": {},
+      "deterministic": true,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.6407071189679885,
+        "MAE": 0.7158723189246621,
+        "MSE": 0.772150181414902,
+        "Pearson": 0.8268242632281327,
+        "RMSE": 0.878720764187863,
+        "R^2": 0.6816282297721927,
+        "Spearman": 0.8350415363038084
+      },
+      "model": "NaiveMeanEffectsPredictor",
+      "round_trip_exact": true,
+      "seconds": 0.0
+    },
+    "NaivePredictor": {
+      "artifacts": [],
+      "best_hyperparameter_values": [],
+      "best_hyperparameters_at_record": {},
+      "deterministic": true,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.0,
+        "MAE": 1.28076608618599,
+        "MSE": 2.4262777512378317,
+        "Pearson": 0.0,
+        "RMSE": 1.5576513574089137,
+        "R^2": -0.00039909504452251277,
+        "Spearman": 0.0
+      },
+      "model": "NaivePredictor",
+      "round_trip_exact": true,
+      "seconds": 0.0
+    },
+    "NaiveSampleMeanPredictor": {
+      "artifacts": [],
+      "best_hyperparameter_values": [],
+      "best_hyperparameters_at_record": {},
+      "deterministic": true,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.007458385852082519,
+        "MAE": 1.3688648305660764,
+        "MSE": 3.0183117694925206,
+        "Pearson": 0.04528338633325554,
+        "RMSE": 1.7373289180499243,
+        "R^2": -0.24450564706454592,
+        "Spearman": 0.017691680146908695
+      },
+      "model": "NaiveSampleMeanPredictor",
+      "round_trip_exact": true,
+      "seconds": 0.0
+    },
+    "NaiveTissueDrugMeanPredictor": {
+      "artifacts": [],
+      "best_hyperparameter_values": [],
+      "best_hyperparameters_at_record": {},
+      "deterministic": true,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.5462192333468634,
+        "MAE": 0.8708949923113609,
+        "MSE": 1.1774276903472247,
+        "Pearson": 0.7288148382258731,
+        "RMSE": 1.0850934016697478,
+        "R^2": 0.5145248332336274,
+        "Spearman": 0.7304874563817316
+      },
+      "model": "NaiveTissueDrugMeanPredictor",
+      "round_trip_exact": true,
+      "seconds": 0.0
+    },
+    "NaiveTissueMeanPredictor": {
+      "artifacts": [],
+      "best_hyperparameter_values": [],
+      "best_hyperparameters_at_record": {},
+      "deterministic": true,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.044108187258076095,
+        "MAE": 1.2830026650529036,
+        "MSE": 2.59366869696816,
+        "Pearson": 0.04208601697140287,
+        "RMSE": 1.6104870992864737,
+        "R^2": -0.06941747125550446,
+        "Spearman": 0.05453046998393572
+      },
+      "model": "NaiveTissueMeanPredictor",
+      "round_trip_exact": true,
+      "seconds": 0.0
+    },
+    "PaccMann": {
+      "artifacts": [],
+      "best_hyperparameter_values": [
+        "0.0",
+        "0.001",
+        "0.5",
+        "1",
+        "1",
+        "1.0",
+        "1.0",
+        "10",
+        "64",
+        "64",
+        "8",
+        "False",
+        "True",
+        "True",
+        "[16, 16, 16]",
+        "[2, 2, 2, 2]",
+        "[2, 2, 2, 2]",
+        "[512, 256]"
+      ],
+      "best_hyperparameters_at_record": {
+        "predictor.paccMann.batch_norm": "True",
+        "predictor.paccMann.batch_size": "64",
+        "predictor.paccMann.dropout": "0.5",
+        "predictor.paccMann.epochs": "1",
+        "predictor.paccMann.filters": "[16, 16, 16]",
+        "predictor.paccMann.gene_attention_size": "1",
+        "predictor.paccMann.gene_heads": "[2, 2, 2, 2]",
+        "predictor.paccMann.gene_temperature": "1.0",
+        "predictor.paccMann.learning_rate": "0.001",
+        "predictor.paccMann.molecule_heads": "[2, 2, 2, 2]",
+        "predictor.paccMann.molecule_temperature": "1.0",
+        "predictor.paccMann.patience": "10",
+        "predictor.paccMann.smiles_attention_size": "64",
+        "predictor.paccMann.smiles_embedding_size": "8",
+        "predictor.paccMann.stacked_dense_hidden_sizes": "[512, 256]",
+        "predictor.paccMann.weight_decay": "0.0",
+        "sample_featurizer.landmarkGenes.minmax_scale": "False",
+        "sample_featurizer.landmarkGenes.standardize": "True"
+      },
+      "deterministic": true,
+      "hyperparameter_overrides": {
+        "epochs": 1
+      },
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.29240324892498804,
+        "MAE": 2.106856730726102,
+        "MSE": 5.985962871397675,
+        "Pearson": 0.37950090167075656,
+        "RMSE": 2.4466227480749203,
+        "R^2": -1.468122965914032,
+        "Spearman": 0.4417952314165497
+      },
+      "model": "PaccMann",
+      "round_trip_exact": true,
+      "seconds": 69.4
+    },
+    "PharmaFormer": {
+      "artifacts": [],
+      "best_hyperparameter_values": [
+        "0.1",
+        "10",
+        "10000",
+        "128",
+        "128",
+        "128",
+        "1e-05",
+        "2",
+        "2048",
+        "256",
+        "3",
+        "8",
+        "8192"
+      ],
+      "best_hyperparameters_at_record": {
+        "drug_featurizer.bpePharmaformer.max_length": "128",
+        "drug_featurizer.bpePharmaformer.num_symbols": "10000",
+        "predictor.pharmaFormer.batch_size": "128",
+        "predictor.pharmaFormer.dim_feedforward": "2048",
+        "predictor.pharmaFormer.dropout": "0.1",
+        "predictor.pharmaFormer.drug_hidden_size": "256",
+        "predictor.pharmaFormer.epochs": "2",
+        "predictor.pharmaFormer.feature_dim": "128",
+        "predictor.pharmaFormer.gene_hidden_size": "8192",
+        "predictor.pharmaFormer.lr": "1e-05",
+        "predictor.pharmaFormer.nhead": "8",
+        "predictor.pharmaFormer.num_layers": "3",
+        "predictor.pharmaFormer.patience": "10"
+      },
+      "deterministic": true,
+      "hyperparameter_overrides": {
+        "epochs": 2
+      },
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.46201624462494023,
+        "MAE": 1.2370771904192541,
+        "MSE": 2.296475306713156,
+        "Pearson": 0.7078577295689681,
+        "RMSE": 1.5154125862989114,
+        "R^2": 0.05312084840416298,
+        "Spearman": 0.6484595348550468
+      },
+      "model": "PharmaFormer",
+      "round_trip_exact": true,
+      "seconds": 80.6
+    },
+    "Precily": {
+      "artifacts": [],
+      "best_hyperparameter_values": ["0.001", "0.1", "128", "50", "8"],
+      "best_hyperparameters_at_record": {
+        "drug_featurizer.smilesvec.k": "8",
+        "predictor.precily.batch_size": "128",
+        "predictor.precily.dropout": "0.1",
+        "predictor.precily.epochs": "50",
+        "predictor.precily.learning_rate": "0.001"
+      },
+      "deterministic": true,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.5919732441471571,
+        "MAE": 0.8267352886487851,
+        "MSE": 1.126222497337799,
+        "Pearson": 0.7476334788521283,
+        "RMSE": 1.0612363060778682,
+        "R^2": 0.5356376793297001,
+        "Spearman": 0.781637717121588
+      },
+      "model": "Precily",
+      "round_trip_exact": true,
+      "seconds": 9.8
+    },
+    "RandomForest": {
+      "artifacts": [],
+      "best_hyperparameter_values": [
+        "'squared_error'",
+        "-1",
+        "0.2",
+        "100",
+        "2",
+        "2048",
+        "42",
+        "5",
+        "False",
+        "False"
+      ],
+      "best_hyperparameters_at_record": {
+        "drug_featurizer.fingerprints.n_bits": "2048",
+        "drug_featurizer.fingerprints.radius": "2",
+        "drug_featurizer.fingerprints.use_chirality": "False",
+        "drug_featurizer.fingerprints.use_counts": "False",
+        "predictor.randomForest.criterion": "'squared_error'",
+        "predictor.randomForest.max_depth": "5",
+        "predictor.randomForest.max_samples": "0.2",
+        "predictor.randomForest.n_estimators": "100",
+        "predictor.randomForest.n_jobs": "-1",
+        "predictor.randomForest.random_state": "42"
+      },
+      "deterministic": false,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.7023411371237458,
+        "MAE": 0.6166170328460153,
+        "MSE": 0.5943270760167741,
+        "Pearson": 0.8736664101438228,
+        "RMSE": 0.7709261157963025,
+        "R^2": 0.7549479779451034,
+        "Spearman": 0.8809703620362805
+      },
+      "model": "RandomForest",
+      "round_trip_exact": false,
+      "seconds": 1.6
+    },
+    "RandomForestAEMolGNet": {
+      "artifacts": ["MolGNet.pt"],
+      "best_hyperparameter_values": [
+        "'mean_max'",
+        "0.0001",
+        "0.2",
+        "10",
+        "100",
+        "1024",
+        "5",
+        "50"
+      ],
+      "best_hyperparameters_at_record": {
+        "drug_featurizer.molgnetPooled.pooling": "'mean_max'",
+        "predictor.randomForest.max_depth": "5",
+        "predictor.randomForest.max_samples": "0.2",
+        "predictor.randomForest.n_estimators": "100",
+        "sample_featurizer.aeGeneExpression.batch_size_autoencoder": "1024",
+        "sample_featurizer.aeGeneExpression.epochs_autoencoder": "10",
+        "sample_featurizer.aeGeneExpression.lr_autoencoder": "0.0001",
+        "sample_featurizer.aeGeneExpression.patience_autoencoder": "50"
+      },
+      "deterministic": false,
+      "hyperparameter_overrides": {
+        "epochs_autoencoder": 10
+      },
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.6817964644051601,
+        "MAE": 0.654935846028422,
+        "MSE": 0.7111243179778329,
+        "Pearson": 0.841440608475674,
+        "RMSE": 0.8432818733838839,
+        "R^2": 0.7067903195311283,
+        "Spearman": 0.8637701709230461
+      },
+      "model": "RandomForestAEMolGNet",
+      "round_trip_exact": false,
+      "seconds": 48.5
+    },
+    "Ridge": {
+      "artifacts": [],
+      "best_hyperparameter_values": ["1.0", "2", "2048", "False", "False"],
+      "best_hyperparameters_at_record": {
+        "drug_featurizer.fingerprints.n_bits": "2048",
+        "drug_featurizer.fingerprints.radius": "2",
+        "drug_featurizer.fingerprints.use_chirality": "False",
+        "drug_featurizer.fingerprints.use_counts": "False",
+        "predictor.ridge.alpha": "1.0"
+      },
+      "deterministic": true,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.6894409937888198,
+        "MAE": 0.6435223761945963,
+        "MSE": 0.6656513419180691,
+        "Pearson": 0.8529665130017227,
+        "RMSE": 0.8158745871260294,
+        "R^2": 0.7255396667878307,
+        "Spearman": 0.8737573786662145
+      },
+      "model": "Ridge",
+      "round_trip_exact": true,
+      "seconds": 0.1
+    },
+    "SRMF": {
+      "artifacts": [],
+      "best_hyperparameter_values": [
+        "0.0",
+        "0.01",
+        "0.01",
+        "1",
+        "2",
+        "2048",
+        "45",
+        "50",
+        "False",
+        "False"
+      ],
+      "best_hyperparameters_at_record": {
+        "drug_featurizer.fingerprints.n_bits": "2048",
+        "drug_featurizer.fingerprints.radius": "2",
+        "drug_featurizer.fingerprints.use_chirality": "False",
+        "drug_featurizer.fingerprints.use_counts": "False",
+        "predictor.srmf.K": "45",
+        "predictor.srmf.lambda_c": "0.01",
+        "predictor.srmf.lambda_d": "0.0",
+        "predictor.srmf.lambda_l": "0.01",
+        "predictor.srmf.max_iter": "50",
+        "predictor.srmf.seed": "1"
+      },
+      "deterministic": true,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.429526994744386,
+        "MAE": 1.0565791239611177,
+        "MSE": 2.211629093152353,
+        "Pearson": 0.5407464745546122,
+        "RMSE": 1.487154697115385,
+        "R^2": 0.0881045081359797,
+        "Spearman": 0.5684231616910439
+      },
+      "model": "SRMF",
+      "round_trip_exact": true,
+      "seconds": 0.6
+    },
+    "SVR": {
+      "artifacts": [],
+      "best_hyperparameter_values": [
+        "'rbf'",
+        "0.001",
+        "0.001",
+        "2",
+        "2048",
+        "500",
+        "False",
+        "False"
+      ],
+      "best_hyperparameters_at_record": {
+        "drug_featurizer.fingerprints.n_bits": "2048",
+        "drug_featurizer.fingerprints.radius": "2",
+        "drug_featurizer.fingerprints.use_chirality": "False",
+        "drug_featurizer.fingerprints.use_counts": "False",
+        "predictor.svr.C": "0.001",
+        "predictor.svr.epsilon": "0.001",
+        "predictor.svr.kernel": "'rbf'",
+        "predictor.svr.max_iter": "500"
+      },
+      "deterministic": true,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.252269469660774,
+        "MAE": 1.2776402889320386,
+        "MSE": 2.419555574941775,
+        "Pearson": 0.39293418644031347,
+        "RMSE": 1.5554920684277933,
+        "R^2": 0.0023725823035773974,
+        "Spearman": 0.3846616216882697
+      },
+      "model": "SVR",
+      "round_trip_exact": true,
+      "seconds": 0.2
+    },
+    "SimpleNeuralNetwork": {
+      "artifacts": [],
+      "best_hyperparameter_values": [
+        "0.3",
+        "100",
+        "16",
+        "2",
+        "2048",
+        "5",
+        "False",
+        "False",
+        "[32, 16, 8, 4]"
+      ],
+      "best_hyperparameters_at_record": {
+        "drug_featurizer.fingerprints.n_bits": "2048",
+        "drug_featurizer.fingerprints.radius": "2",
+        "drug_featurizer.fingerprints.use_chirality": "False",
+        "drug_featurizer.fingerprints.use_counts": "False",
+        "predictor.neuralNetwork.batch_size": "16",
+        "predictor.neuralNetwork.dropout_prob": "0.3",
+        "predictor.neuralNetwork.max_epochs": "100",
+        "predictor.neuralNetwork.patience": "5",
+        "predictor.neuralNetwork.units_per_layer": "[32, 16, 8, 4]"
+      },
+      "deterministic": true,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.6932632584806497,
+        "MAE": 0.7684482843817576,
+        "MSE": 0.9367389498702295,
+        "Pearson": 0.8294581855309985,
+        "RMSE": 0.9678527521633803,
+        "R^2": 0.6137652429673229,
+        "Spearman": 0.8826040719448852
+      },
+      "model": "SimpleNeuralNetwork",
+      "round_trip_exact": true,
+      "seconds": 6.0
+    },
+    "SingleDrugElasticNet": {
+      "artifacts": [],
+      "best_hyperparameter_values": [
+        "'cyclic'",
+        "0.0001",
+        "0.2",
+        "1.0",
+        "1000",
+        "None"
+      ],
+      "best_hyperparameters_at_record": {
+        "predictor.singleDrugElasticNet.alpha": "1.0",
+        "predictor.singleDrugElasticNet.l1_ratio": "0.2",
+        "predictor.singleDrugElasticNet.max_iter": "1000",
+        "predictor.singleDrugElasticNet.random_state": "None",
+        "predictor.singleDrugElasticNet.selection": "'cyclic'",
+        "predictor.singleDrugElasticNet.tol": "0.0001"
+      },
+      "deterministic": true,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.7262302914476827,
+        "MAE": 0.527864601544064,
+        "MSE": 0.4804504126977379,
+        "Pearson": 0.8984645099435352,
+        "RMSE": 0.6931453041734741,
+        "R^2": 0.8019014278841853,
+        "Spearman": 0.8889539632877641
+      },
+      "model": "SingleDrugElasticNet",
+      "round_trip_exact": true,
+      "seconds": 0.2
+    },
+    "SingleDrugKNN": {
+      "artifacts": [],
+      "best_hyperparameter_values": ["'distance'", "20", "3", "False", "False"],
+      "best_hyperparameters_at_record": {
+        "predictor.singleDrugKnn.mrmr_k": "20",
+        "predictor.singleDrugKnn.n_neighbors": "3",
+        "predictor.singleDrugKnn.weights": "'distance'",
+        "sample_featurizer.landmarkGenes.minmax_scale": "False",
+        "sample_featurizer.landmarkGenes.standardize": "False"
+      },
+      "deterministic": true,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.6985188724319158,
+        "MAE": 0.6060889725214277,
+        "MSE": 0.6127976981273134,
+        "Pearson": 0.8795781325759215,
+        "RMSE": 0.782813961377359,
+        "R^2": 0.7473321995640563,
+        "Spearman": 0.8719695451813264
+      },
+      "model": "SingleDrugKNN",
+      "round_trip_exact": true,
+      "seconds": 0.1
+    },
+    "SingleDrugMorgoth": {
+      "artifacts": [],
+      "best_hyperparameter_values": [
+        "'gini'",
+        "'mse'",
+        "'simple'",
+        "'sqrt'",
+        "0.5",
+        "0.5",
+        "10",
+        "10",
+        "100",
+        "42",
+        "50",
+        "True",
+        "True"
+      ],
+      "best_hyperparameters_at_record": {
+        "predictor.singleDrugMorgoth.criterion_class": "'gini'",
+        "predictor.singleDrugMorgoth.criterion_reg": "'mse'",
+        "predictor.singleDrugMorgoth.fast_split": "True",
+        "predictor.singleDrugMorgoth.impact_classification": "0.5",
+        "predictor.singleDrugMorgoth.max_depth": "10",
+        "predictor.singleDrugMorgoth.max_features": "'sqrt'",
+        "predictor.singleDrugMorgoth.min_samples_leaf": "10",
+        "predictor.singleDrugMorgoth.mrmr_k": "50",
+        "predictor.singleDrugMorgoth.n_estimators": "100",
+        "predictor.singleDrugMorgoth.random_state": "42",
+        "predictor.singleDrugMorgoth.sample_weights": "'simple'",
+        "predictor.singleDrugMorgoth.threshold_quantile": "0.5",
+        "predictor.singleDrugMorgoth.tree_weights": "True"
+      },
+      "deterministic": true,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.7614723623309144,
+        "MAE": 0.49562838876750387,
+        "MSE": 0.43946809604653003,
+        "Pearson": 0.9153279659047455,
+        "RMSE": 0.662923899136643,
+        "R^2": 0.8187991933893011,
+        "Spearman": 0.9145946280889888
+      },
+      "model": "SingleDrugMorgoth",
+      "round_trip_exact": true,
+      "seconds": 23.1
+    },
+    "SingleDrugRandomForest": {
+      "artifacts": [],
+      "best_hyperparameter_values": [
+        "'squared_error'",
+        "-1",
+        "0.2",
+        "100",
+        "42",
+        "5"
+      ],
+      "best_hyperparameters_at_record": {
+        "predictor.singleDrugRandomForest.criterion": "'squared_error'",
+        "predictor.singleDrugRandomForest.max_depth": "5",
+        "predictor.singleDrugRandomForest.max_samples": "0.2",
+        "predictor.singleDrugRandomForest.n_estimators": "100",
+        "predictor.singleDrugRandomForest.n_jobs": "-1",
+        "predictor.singleDrugRandomForest.random_state": "42"
+      },
+      "deterministic": false,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.7171524128045866,
+        "MAE": 0.5650656478592209,
+        "MSE": 0.5496285977798808,
+        "Pearson": 0.8813064630498488,
+        "RMSE": 0.7413694070973531,
+        "R^2": 0.7733779854556788,
+        "Spearman": 0.8830664426737358
+      },
+      "model": "SingleDrugRandomForest",
+      "round_trip_exact": false,
+      "seconds": 2.6
+    },
+    "SparseGO": {
+      "artifacts": [],
+      "best_hyperparameter_values": [
+        "'expression'",
+        "0.0",
+        "0.002",
+        "0.1",
+        "0.15",
+        "0.15",
+        "0.15",
+        "0.9",
+        "12",
+        "2",
+        "20000",
+        "2048",
+        "2048",
+        "30",
+        "400",
+        "6",
+        "False",
+        "False",
+        "[100, 50, 6]"
+      ],
+      "best_hyperparameters_at_record": {
+        "drug_featurizer.fingerprints.n_bits": "2048",
+        "drug_featurizer.fingerprints.radius": "2",
+        "drug_featurizer.fingerprints.use_chirality": "False",
+        "drug_featurizer.fingerprints.use_counts": "False",
+        "predictor.sparsego.batch_size": "20000",
+        "predictor.sparsego.decay_rate": "0.002",
+        "predictor.sparsego.drug_dim": "2048",
+        "predictor.sparsego.epochs": "400",
+        "predictor.sparsego.learning_rate": "0.1",
+        "predictor.sparsego.momentum": "0.9",
+        "predictor.sparsego.num_neurons_drug": "[100, 50, 6]",
+        "predictor.sparsego.num_neurons_final": "12",
+        "predictor.sparsego.num_neurons_per_GO": "6",
+        "predictor.sparsego.num_neurons_per_final_GO": "30",
+        "predictor.sparsego.p_drop_drugs": "0.15",
+        "predictor.sparsego.p_drop_final": "0.0",
+        "predictor.sparsego.p_drop_genes": "0.15",
+        "predictor.sparsego.p_drop_terms": "0.15",
+        "sample_featurizer.sparsegoOntology.input_type": "'expression'"
+      },
+      "deterministic": true,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": 0.7228858098423316,
+        "MAE": 0.6097980203997829,
+        "MSE": 0.5883749774790253,
+        "Pearson": 0.8853876894595898,
+        "RMSE": 0.7670560458525996,
+        "R^2": 0.7574021380212703,
+        "Spearman": 0.8918668988795215
+      },
+      "model": "SparseGO",
+      "round_trip_exact": true,
+      "seconds": 13.0
+    },
+    "SuperFELTR": {
+      "artifacts": [],
+      "best_hyperparameter_values": [
+        "0.01",
+        "0.01",
+        "0.5",
+        "1.0",
+        "1000",
+        "256",
+        "30",
+        "32",
+        "55",
+        "64"
+      ],
+      "best_hyperparameters_at_record": {
+        "predictor.superfeltr.dropout_rate": "0.5",
+        "predictor.superfeltr.epochs": "30",
+        "predictor.superfeltr.learning_rate": "0.01",
+        "predictor.superfeltr.margin": "1.0",
+        "predictor.superfeltr.mini_batch": "55",
+        "predictor.superfeltr.out_dim_cnv_encoder": "64",
+        "predictor.superfeltr.out_dim_expr_encoder": "256",
+        "predictor.superfeltr.out_dim_mutation_encoder": "32",
+        "predictor.superfeltr.weight_decay": "0.01",
+        "sample_featurizer.superfeltrOmics.n_features_per_view": "1000"
+      },
+      "deterministic": true,
+      "hyperparameter_overrides": {},
+      "hyperparameter_tuning": false,
+      "metrics": {
+        "Kendall": -0.010511227902532248,
+        "MAE": 2.4523158231142745,
+        "MSE": 7.936046153044242,
+        "Pearson": -0.0721789190890879,
+        "RMSE": 2.8170988894684266,
+        "R^2": -2.2721782927311676,
+        "Spearman": -0.02264075335604087
+      },
+      "model": "SuperFELTR",
+      "round_trip_exact": true,
+      "seconds": 0.2
+    }
+  },
+  "network_only": {},
+  "seed": 42,
+  "split": {
+    "fold_index": 0,
+    "mode": "LPO",
+    "n_splits": 5,
+    "random_state": 42
+  }
+}

@@ -1,0 +1,260 @@
+Results layout
+===============
+
+``drevalpy run`` and ``drevalpy aggregate`` write an ``ExperimentResult`` directory.
+``drevalpy single`` and ``drevalpy.single`` produce one ``RunResult`` file, and so does
+``drevalpy predict``.
+``ExperimentResult.load(directory)`` reads a directory and ``ExperimentResult.save(directory)``
+writes one. ``RunResult.load(path)`` and ``RunResult.save(path)`` do the same for a file.
+
+Experiment directory
+--------------------
+
+.. code-block:: text
+
+   <output dir>/
+     metadata.json
+     failures.json       (only when a run failed)
+     <model dir>/
+       fold-0_<digest>.npz
+       fold-0_SVRC_gene_expression_<digest>.npz
+       fold-0_repeat-0_<digest>.npz
+       ...
+
+.. list-table::
+   :header-rows: 1
+   :widths: 34 66
+
+   * - File
+     - Content
+   * - ``<output dir>/metadata.json``
+     - ``normalized_by`` (``null`` unless normalized) and ``models``, the list of model names in
+       the order they were written. A directory that ``drevalpy run`` wrote also has ``settings``;
+       see `Resumed runs`_
+   * - ``<output dir>/failures.json``
+     - Written only when at least one run failed; see `Recorded failures`_
+   * - ``<model dir>/<run>.npz``
+     - One run; see `Run file`_
+
+Nothing is stored twice. The dataset name, the split mode and the model name are those of the
+runs, and the runs of a model are the ``.npz`` files of its directory. They are read in the order
+``drevalpy run`` makes them: by fold, the original split before its robustness variants, and the
+original dataset before the randomized ones. The mean and sample standard deviation of each metric
+across folds are computed when a result is read. A model in ``models`` that has no run file, because
+all its runs failed, is left out.
+
+An experiment holds one dataset name and one split mode; ``ExperimentResult`` rejects runs
+that disagree. A model that comes from a grid or a recipe is named by its recipe, such as
+``view[gene_expression]:fingerprints:ridge``. Its directory is that name with each character
+Windows forbids in file names (``<>:"/\|?*``) replaced by ``_``, here
+``view[gene_expression]_fingerprints_ridge``; when two names give the same directory, the later
+ones get the suffix ``-2``, ``-3``, and so on, so the directories follow from the list ``models``
+alone. The rule is the same on every operating system, so a result tree copies between machines
+unchanged. The dataset name of a concatenated dataset is the study names joined by ``+``.
+
+Recorded failures
+~~~~~~~~~~~~~~~~~
+
+``drevalpy.run`` keeps going when a run raises and keeps a ``RunFailure`` for it, in the tuple
+``ExperimentResult.failures``. ``ExperimentResult.save`` writes the records to ``failures.json``
+only when there is at least one, and ``ExperimentResult.load`` reads them back. The file is a
+JSON list; each entry has the keys ``oneHot``, ``error_type`` and ``message``.
+``oneHot`` is the identity of the run that failed:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 70
+
+   * - ``oneHot`` key
+     - Content
+   * - ``model_name``, ``dataset_name``, ``split_mode``
+     - Names
+   * - ``fold_index``, ``fold_id``
+     - The fold of the run
+   * - ``randomization``
+     - ``[mode, view]`` of the randomized dataset, or ``null``
+   * - ``robustness_repeat``
+     - The index of the robustness variant, or ``null`` for an ordinary run
+   * - ``provenance``
+     - Always ``"{}"``: a failed run recorded no provenance
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 70
+
+   * - Key
+     - Content
+   * - ``error_type``
+     - The class name of the exception, such as ``KeyError``
+   * - ``message``
+     - ``str(exception)``
+
+A failed run writes no run file. The runs of the other models and folds are saved
+as usual. ``drevalpy run`` exits with status 1 when ``failures`` is not empty, and
+``drevalpy.run(..., on_error="raise")`` raises the first error instead of recording it; see
+:doc:`/how-to/evaluate_component_grids`.
+
+Run file names
+~~~~~~~~~~~~~~
+
+A run file is named after the run: ``fold-<fold index>``, then the randomization ``<mode>_<view>``
+of a randomized dataset and ``repeat-<i>`` of a robustness variant, then a digest of the run's
+model, dataset, measure, split mode, fold, randomization and robustness repeat. The name does not
+depend on the order the runs finished in, and saving a result again writes the same files.
+``ExperimentResult.save`` also removes the run files of runs that the result no longer holds.
+
+For example, take two models, five folds, ``--robustness-repeats 1`` and ``--randomization-mode SVRC --randomization-mode SVCC``.
+A model with one sample view gets 5 folds x 2 splits x 2 datasets = 20 files: the original
+dataset and the ``SVRC`` dataset. ``SVCC`` would randomize nothing when there is a single view,
+so it is skipped with a warning and gives no dataset. A model with two sample views gets both
+``SVRC`` datasets and both ``SVCC`` datasets, 5 x 2 x 5 = 50 files. A model without views gets
+no randomized datasets and 5 x 2 = 10 files.
+
+``drevalpy aggregate RESULTS... -o DIR`` loads run ``.npz`` files and writes the same layout.
+Its output directory defaults to ``experiment_results``. Two input runs of the same model, fold
+and stress test are an error.
+
+Resumed runs
+~~~~~~~~~~~~
+
+``drevalpy run`` and ``drevalpy.run(..., output_dir=...)`` write ``metadata.json`` before the first
+fit, with ``settings``: every argument that decides the results, that is the models (name,
+configuration and hyperparameters), the dataset (its name and measure, not its content), the
+split mode, number of folds and validation ratio, the curve-quality rule, the response
+transformation (class name and parameters), the tuning, randomization and robustness settings, and
+the seeds, with every default filled in. Each run file is written as soon as the run finishes.
+``ExperimentResult.save`` writes no ``settings``.
+
+A later run with equal ``settings`` loads the run files it finds instead of fitting those runs
+again, and fits the rest. A directory that holds only ``metadata.json`` and ``failures.json`` holds
+no runs, and a run starts it again with its own ``settings``. A directory with runs is refused
+with ``OutputDirectoryConflictError`` when its ``settings`` differ or it has none, as after
+``ExperimentResult.save``, unless ``--overwrite`` (``overwrite=True``) deletes the experiment first.
+``--overwrite`` deletes ``metadata.json``, ``failures.json`` and the directories of the models in
+``models``, and leaves other files alone. A directory that holds files but no readable
+``metadata.json`` with a ``models`` list is always refused. ``failures.json`` is
+written at the end of a run, also when every run failed, and a resumed run retries the runs that
+failed.
+
+Run file
+--------
+
+A run file is a compressed ``.npz`` archive.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 70
+
+   * - Array
+     - Content
+   * - ``predictions``
+     - Predicted response of each test pair
+   * - ``ground_truth``
+     - Observed response, in the same order
+   * - ``sample_ids``, ``drug_ids``
+     - The sample and drug of each pair, as strings
+   * - ``trial_<i>_predictions``
+     - Predictions of tuning trial ``i``; present only when the run has tuning trials
+   * - ``_metadata``
+     - A JSON string with the keys below
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 70
+
+   * - ``_metadata`` key
+     - Content
+   * - ``model_name``, ``dataset_name``, ``split_mode``
+     - Names
+   * - ``fold_index``, ``fold_id``
+     - The fold of the split; see :doc:`split_modes`
+   * - ``best_hyperparameters``
+     - Every hyperparameter value of the final fit, under qualified keys such as
+       ``predictor.elasticNet.alpha``; see :doc:`hyperparameters`
+   * - ``metrics``
+     - The seven metrics of this run; see :doc:`metrics`
+   * - ``fold_metadata``
+     - The metadata of the fold that the keys above do not hold, described below
+   * - ``randomization``
+     - ``[mode, view]``, or ``null`` for an unrandomized dataset
+   * - ``raw_metrics``, ``raw_per_drug_pearson``
+     - Empty and ``null`` until the experiment is normalized: the metrics and the mean
+       per-drug Pearson correlation before normalization
+   * - ``trials``
+     - For each tuning trial its ``hyperparameters``, ``metrics`` and ``optimization_metric``,
+       or ``null``
+
+``fold_metadata`` holds the metadata of the fold that the keys above do not store: ``n_splits``,
+``validation_ratio`` and ``random_state`` and, where they apply:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 70
+
+   * - Key
+     - Content
+   * - ``quality``
+     - The curve-quality rule the split applied; see :doc:`split_modes`
+   * - ``measure``
+     - The response measure the run was trained and scored on, such as ``pEC50``
+   * - ``test_study``
+     - The study of the test set; ``LStO`` only
+   * - ``n_splits``
+     - For ``LStO``, the number of studies
+   * - ``robustness_repeat``
+     - The index of the robustness variant
+   * - ``randomization_provenance``
+     - ``root_seed``, ``effective_seed``, ``type`` and ``views`` of the randomization
+   * - ``execution``
+     - How the run was made: ``config`` (the model configuration), ``scopes``, ``hpo`` and
+       ``seed``
+
+In ``execution``, ``scopes`` maps each of ``training``, ``stopping``, ``validation``,
+``final_training`` and ``test`` to ``null`` or to an object with ``shape``, ``count``,
+``pair_seed`` and ``sha256``. ``hpo`` holds ``enabled``, ``metric``, ``num_trials`` and
+``random_state``.
+
+.. _predictions-file:
+
+Predictions file
+----------------
+
+``drevalpy predict MODEL_DIR -d DATASET -o OUT`` applies a model saved by ``drevalpy train`` to
+every pair of the dataset that has an observed value of the model's response measure. It writes a run file, so ``RunResult.load``
+reads it and the arrays are those of `Run file`_. The differences are in the content:
+
+- ``predictions``, ``ground_truth``, ``sample_ids`` and ``drug_ids`` hold one entry for each
+  observed pair of the dataset, in the row-major order of the response matrix. Predictions are in
+  the units of the response, because the model inverts its response transformation. A pair the model
+  cannot predict, for example because its features are missing, has ``NaN``.
+- ``model_name`` is the model, ``dataset_name`` is the dataset that was predicted, which need not be
+  the dataset the model was trained on, and ``best_hyperparameters`` are the model's
+  hyperparameters.
+- ``metrics`` score the predictions against the observed responses of the same pairs. For the
+  dataset the model was trained on they are in-sample scores.
+- ``split_mode`` and ``fold_id`` are empty, ``fold_index`` is ``0``, ``fold_metadata`` holds only
+  the ``measure`` of the model, and ``trials`` is empty. The file is not a fold of an experiment,
+  so ``drevalpy aggregate`` and ``drevalpy report``, which expect fold files, should not be given
+  it.
+
+The file uses the run-file layout rather than a table so that no new reader is needed and the ids,
+predictions and observed responses stay aligned in one archive. To get a table, build one from the
+arrays, for example with ``pandas.DataFrame``.
+
+The model directory that ``drevalpy train`` writes holds ``model.zip``, the archive that
+``DRPModel.save`` writes, and ``metadata.json`` with the model name, dataset name, ``measure``,
+``seed``, ``response_transformation``, ``hyperparameter_tuning`` and ``drevalpy_version``.
+
+Split file
+----------
+
+``drevalpy data split`` and ``drevalpy experiments robustness`` write fold files with the
+arrays ``train``, ``test`` and ``val`` and the JSON entries ``pair_seeds`` and
+``_metadata``. They are the input of ``drevalpy single``. :doc:`split_modes` describes the contents.
+
+Report
+------
+
+``drevalpy report EXPERIMENT_DIR -o DIR`` reads an experiment directory and writes a MultiQC
+report into ``DIR``, which defaults to ``report``. It never reads the dataset, so it has no
+``--dataset`` option.

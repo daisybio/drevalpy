@@ -1,0 +1,208 @@
+"""Dataset registry: built-in + user-registered sources and datasets."""
+
+from __future__ import annotations
+
+import json
+from importlib import resources
+from typing import TYPE_CHECKING, Any, Literal
+
+from drevalpy.errors import UnknownNameError
+from drevalpy.registry._registry import TableReprMixin
+
+from ._io import config_lock, load_config, save_config
+from ._models import DatasetEntry, DrevalConfig, SourceEntry
+
+if TYPE_CHECKING:
+    import pandas as pd
+
+_REGISTRY_JSON = "available_datasets.json"
+
+_Kind = Literal["sources", "datasets"]
+_LABELS: dict[_Kind, str] = {"sources": "Source", "datasets": "Dataset"}
+
+
+class DatasetRegistry(TableReprMixin):
+    """Dataset registry merging built-in and user-registered datasets.
+
+    It answers the same reads as :class:`~drevalpy.registry._registry.Registry` (``names``,
+    ``get``, ``metadata``, ``items``, ``in``), and ``register`` takes ``replace=`` like it,
+    but entries persist: custom entries live in the user config file, and every mutation
+    is an atomic read-modify-write under the file lock. Built-in and custom entries are
+    stored separately; the combined view is computed on each access.
+    """
+
+    def __init__(self) -> None:
+        """Initialize with lazy loading of built-in and custom registries."""
+        self._builtin: DrevalConfig | None = None
+        self._custom: DrevalConfig | None = None
+
+    def _ensure_loaded(self) -> tuple[DrevalConfig, DrevalConfig]:
+        """Load the built-in and custom registries on first access.
+
+        :returns: The built-in config and the custom config, in that order.
+        """
+        if self._builtin is None:
+            registry_path = resources.files("drevalpy.data.datasets").joinpath(_REGISTRY_JSON)
+            with registry_path.open(encoding="utf-8") as handle:
+                self._builtin = DrevalConfig.from_raw(json.load(handle))
+        if self._custom is None:
+            self._custom = load_config()
+        return self._builtin, self._custom
+
+    @property
+    def sources(self) -> dict[str, SourceEntry]:
+        """All sources (custom overrides built-in)."""
+        builtin, custom = self._ensure_loaded()
+        return {**builtin.sources, **custom.sources}
+
+    @property
+    def datasets(self) -> dict[str, DatasetEntry]:
+        """All datasets (custom overrides built-in)."""
+        builtin, custom = self._ensure_loaded()
+        return {**builtin.datasets, **custom.datasets}
+
+    @property
+    def custom_datasets(self) -> dict[str, DatasetEntry]:
+        """Only user-registered datasets."""
+        return self._ensure_loaded()[1].datasets
+
+    def names(self) -> tuple[str, ...]:
+        """Return every registered dataset name, built-in and custom.
+
+        :returns: Dataset names in sorted order.
+        """
+        return tuple(sorted(self.datasets))
+
+    def get(self, name: str) -> DatasetEntry:
+        """Return the entry of the dataset registered under *name*.
+
+        :param name: Dataset name.
+        :returns: Its source and file.
+        :raises UnknownNameError: If *name* is not registered.
+        """
+        entry = self.datasets.get(name)
+        if entry is None:
+            raise UnknownNameError(f"Unknown dataset {name!r}. Available: {', '.join(self.names()) or '<none>'}")
+        return entry
+
+    def metadata(self, name: str) -> dict[str, str]:
+        """Return the catalog facts of the dataset registered under *name*.
+
+        An unknown *name* raises :class:`~drevalpy.errors.UnknownNameError`.
+
+        :param name: Dataset name.
+        :returns: ``source``, ``file`` and ``origin`` (``"custom"`` or ``"built-in"``).
+        """
+        entry = self.get(name)
+        origin = "custom" if name in self.custom_datasets else "built-in"
+        return {"source": entry.source, "file": entry.file, "origin": origin}
+
+    def items(self) -> tuple[tuple[str, DatasetEntry], ...]:
+        """Return every dataset entry with its name.
+
+        :returns: ``(name, entry)`` pairs in sorted name order.
+        """
+        datasets = self.datasets
+        return tuple((name, datasets[name]) for name in sorted(datasets))
+
+    def __contains__(self, name: object) -> bool:
+        """Return whether *name* is a registered dataset.
+
+        :param name: Candidate dataset name.
+        :returns: ``True`` when *name* is registered.
+        """
+        return name in self.datasets
+
+    def to_dataframe(self) -> pd.DataFrame:
+        """Return registry contents as a pandas DataFrame.
+
+        :returns: One row per dataset, with Name, Source, File and Origin columns.
+        """
+        import pandas as pd
+
+        rows = [
+            {"Name": name, **{key.capitalize(): value for key, value in self.metadata(name).items()}}
+            for name in self.names()
+        ]
+        return pd.DataFrame(rows, columns=["Name", "Source", "File", "Origin"])
+
+    def _register(self, kind: _Kind, name: str, entry: SourceEntry | DatasetEntry, *, replace: bool) -> None:
+        """Add one entry to the custom config under the file lock.
+
+        Atomically reads the config, applies the change, and writes back. An entry identical to the one
+        already in effect (built-in or custom) is a no-op and writes nothing.
+
+        :param kind: Which table of the config to change.
+        :param name: Entry name.
+        :param entry: Entry to store under *name*.
+        :param replace: Replace an existing entry of the same name instead of raising.
+        :raises ValueError: If *name* is already registered with a different entry and *replace* is false.
+        """
+        builtin, _ = self._ensure_loaded()
+        with config_lock():
+            config = load_config()
+            existing = {**getattr(builtin, kind), **getattr(config, kind)}.get(name)
+            if existing == entry:
+                self._custom = config
+                return
+            if existing is not None and not replace:
+                raise ValueError(f"{_LABELS[kind]} {name!r} already registered")
+            getattr(config, kind)[name] = entry
+            save_config(config)
+            self._custom = config
+
+    def register_source(
+        self,
+        name: str,
+        base_url: str,
+        storage_options: dict[str, Any] | None = None,
+        *,
+        replace: bool = False,
+    ) -> None:
+        """Register a custom source (base URL + optional fsspec storage options).
+
+        Registering an entry identical to the one already in effect (built-in or custom) is a no-op
+        and writes nothing; the same source and file count as identical and keep the entry's
+        ``sha256``. Raises ``ValueError`` if *name* is already registered with a different
+        entry and *replace* is false.
+
+        :param name: Source name (used to reference from dataset entries).
+        :param base_url: Base URL (any fsspec-compatible protocol: https, s3, gs, az, ...).
+        :param storage_options: Optional dict passed to fsspec for auth/config.
+        :param replace: Replace an existing source of the same name instead of raising.
+        """
+        entry = SourceEntry(url=base_url, storage_options=storage_options or {})
+        self._register("sources", name, entry, replace=replace)
+
+    def register(self, name: str, source: str, file: str, *, replace: bool = False) -> None:
+        """Register a custom dataset under an existing source.
+
+        Registering an entry identical to the one already in effect (built-in or custom) is a no-op
+        and writes nothing; the same source and file count as identical and keep the entry's
+        ``sha256``. Raises ``ValueError`` if *name* is already registered with a different
+        entry and *replace* is false.
+
+        :param name: Dataset name (used with ``drevalpy.data.load``).
+        :param source: Source name (must be registered).
+        :param file: Filename of the .h5mu file at the source URL.
+        :param replace: Replace an existing dataset of the same name instead of raising.
+        :raises UnknownNameError: If the source is not registered.
+        """
+        if source not in self.sources:
+            raise UnknownNameError(f"Source '{source}' not registered. Register it first with register_source().")
+        entry = DatasetEntry(source=source, file=file)
+        current = self.datasets.get(name)
+        if current is not None and (current.source, current.file) == (source, file):
+            entry = current
+        self._register("datasets", name, entry, replace=replace)
+
+    def reload(self) -> None:
+        """Re-read the custom registry from disk.
+
+        Useful after external modifications to the config file.
+        """
+        self._ensure_loaded()
+        self._custom = load_config()
+
+
+dataset_registry = DatasetRegistry()

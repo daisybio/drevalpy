@@ -1,0 +1,66 @@
+"""``drevalpy.testing`` ships in the wheel for plugin authors, so its ``__all__`` is a compatibility promise."""
+
+from __future__ import annotations
+
+import pytest
+
+import drevalpy
+from drevalpy import testing
+from tests._barrel_surface import DeclaredSurface
+from tests._trusted_subprocess import run_trusted_python
+
+EXPECTED_ORIGINS: dict[str, str] = {
+    "ConformanceError": "drevalpy.testing.conformance",
+    "ENTRY_POINT_GROUP": "drevalpy.registry._plugins",
+    "FEATURIZER_CHECKS": "drevalpy.testing.conformance",
+    "PREDICTOR_CHECKS": "drevalpy.testing.conformance",
+    "PluginCheckError": "drevalpy.testing.plugins",
+    "PluginReport": "drevalpy.testing.plugins",
+    "build_synthetic_input": "drevalpy.testing.inputs",
+    "check_featurizer_fit_transform": "drevalpy.testing.conformance",
+    "check_featurizer_instantiates": "drevalpy.testing.conformance",
+    "check_featurizer_pickle_round_trip": "drevalpy.testing.conformance",
+    "check_plugin": "drevalpy.testing.plugins",
+    "check_predictor_fit_predict": "drevalpy.testing.conformance",
+    "check_predictor_instantiates": "drevalpy.testing.conformance",
+    "check_predictor_pickle_round_trip": "drevalpy.testing.conformance",
+    "check_predictor_single_drug_routing": "drevalpy.testing.conformance",
+    "feature_source_for": "drevalpy.testing.conformance",
+    "observed_pairs": "drevalpy.testing.inputs",
+}
+
+
+class TestTestingSurface(DeclaredSurface):
+    barrel = testing
+    origins = EXPECTED_ORIGINS
+
+
+class TestItShipsInTheWheel:
+    pytestmark = pytest.mark.slow
+
+    def test_every_submodule_is_in_the_built_wheel(self, built_wheel_contents):
+        expected = {f"drevalpy/testing/{name}.py" for name in ("__init__", "inputs", "conformance", "plugins")}
+        assert expected <= built_wheel_contents
+
+    def test_it_is_importable_without_pytest(self):
+        script = (
+            "import sys\n"
+            "sys.modules['pytest'] = None\n"
+            "import drevalpy.testing as t\n"
+            "t.check_featurizer_instantiates\n"
+            "print('ok')\n"
+        )
+        result = run_trusted_python(script)
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip().endswith("ok")
+
+
+def test_the_advertised_workflow_runs_end_to_end():
+    from drevalpy.registry import predictor
+    from drevalpy.registry.featurizer import get_featurizer
+
+    data = testing.build_synthetic_input(drevalpy.synthetic())
+    for check in testing.PREDICTOR_CHECKS:
+        check(predictor.get("ridge"), data)
+    for check in testing.FEATURIZER_CHECKS:
+        check(get_featurizer("oneHot", "sample"))

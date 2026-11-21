@@ -1,0 +1,273 @@
+"""Tests for the DrugGNN predictor lifecycle, graph network and LightningModule wrapper."""
+
+from __future__ import annotations
+
+import tempfile
+from pathlib import Path
+
+import numpy as np
+import pytest
+import torch
+from torch.optim import Adam
+from torch_geometric.data import Data
+
+from drevalpy.cli.describe import describe_row
+from drevalpy.components.contracts.feature_format import FeatureFormat
+from drevalpy.components.predictors.druggnn.algorithm import DrugGNNModule, DrugGraphNet
+from drevalpy.components.predictors.druggnn.predictor import DrugGNNPredictor
+from drevalpy.models import ModelSpec
+from drevalpy.registry._component import predictor_component_metadata
+from drevalpy.registry.predictor import get as get_predictor
+from drevalpy.types.data.feature_block import FeatureBlock
+from drevalpy.types.data.predictor_input import PredictorInput
+from tests.components.predictors._helpers import pickle_round_trip
+from tests.components.predictors.literature._helpers import (
+    assert_frozen_reference,
+    assert_pickle_round_trip,
+    assert_trainable_parameters_changed,
+    assert_training_predictions,
+    early_stopping,
+    finite_predictions,
+    seed_literature,
+    trainable_parameter_vector,
+    two_by_two_batch,
+)
+
+
+def _drug_graph(*, num_features: int = 9, offset: float = 0.0) -> Data:
+    return Data(
+        x=torch.arange(4 * num_features, dtype=torch.float32).reshape(4, num_features) / 10 + offset,
+        edge_index=torch.tensor([[0, 1, 2], [1, 2, 3]], dtype=torch.long),
+        batch=torch.zeros(4, dtype=torch.long),
+    )
+
+
+def _druggnn_batch(*, with_early_stopping: bool = False) -> PredictorInput:
+    graphs = np.empty(2, dtype=object)
+    graphs[:] = [_drug_graph(), _drug_graph(offset=0.5)]
+    return two_by_two_batch(
+        sample_blocks={
+            "gene_expression": FeatureBlock(np.array([[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]])),
+        },
+        drug_blocks={"drug_graph": FeatureBlock(graphs, FeatureFormat.GRAPH)},
+        early_stopping=early_stopping() if with_early_stopping else None,
+        checkpoint_dir=Path(tempfile.mkdtemp()),
+    )
+
+
+TINY = {"epochs": 1, "batch_size": 2, "num_workers": 0}
+
+
+def test_registry_name_contract_and_defaults() -> None:
+    cls = get_predictor("drugGNN")
+    assert cls is DrugGNNPredictor
+    assert [(spec.name, spec.format) for spec in cls.drug_inputs.specs] == [("drug_graph", FeatureFormat.GRAPH)]
+    assert cls.supports_early_stopping is True
+    defaults = DrugGNNPredictor.default_hyperparameters()
+    assert defaults["precision"] == 32
+    assert defaults["log_every_n_steps"] == 50
+    for name, spec in DrugGNNPredictor.get_hyperparameter_space().items():
+        assert defaults[name] == spec["default"]
+
+
+def test_registry_zoo_and_describe_cite_no_literature_reference() -> None:
+    cls = get_predictor("drugGNN")
+    meta = predictor_component_metadata("predictor", "drugGNN", cls)
+    row = describe_row(ModelSpec.from_name("DrugGNN"))
+
+    assert cls.reference is None
+    assert "GCN baseline" in meta["description"]
+    assert not any(meta[key] for key in ("repo_url", "citation", "citation_doi", "citation_text", "deviations"))
+    assert row["predictor"] == "drugGNN"
+    assert "GraphDRP" not in str(meta) + str(row)
+
+
+def test_fit_round_trips_through_pickle_and_records_the_widths() -> None:
+    predictor = DrugGNNPredictor(hyperparameters=TINY)
+    predictor.fit(_druggnn_batch(with_early_stopping=True))
+    assert predictor.is_fitted()
+    assert predictor._model is not None
+    assert (predictor._model.hparams["num_node_features"], predictor._model.hparams["num_cell_features"]) == (9, 3)
+    original_weight = next(predictor._model.parameters()).detach().cpu()
+
+    restored = pickle_round_trip(predictor)
+    assert restored.is_fitted()
+    assert restored._model is not None
+    assert restored._hyperparameters == predictor._hyperparameters
+    assert torch.allclose(original_weight, next(restored._model.parameters()).detach().cpu())
+
+
+class TestTinyDrugGNNFit:
+    pytestmark = pytest.mark.slow
+
+    @pytest.mark.parametrize("seed", [0, 1, 2])
+    def test_updates_parameters_and_round_trips_through_pickle(self, seed: int) -> None:
+        hyperparameters = {
+            "epochs": 1,
+            "batch_size": 2,
+            "hidden_dim": 8,
+            "dropout": 0.0,
+            "learning_rate": 0.01,
+        }
+        batch = _druggnn_batch(with_early_stopping=True)
+        seed_literature(seed)
+        pristine = DrugGNNPredictor(hyperparameters)
+        sample_matrix = batch.sample.blocks["gene_expression"].values
+        drug_graphs = batch.drug.blocks["drug_graph"].values
+        initial = trainable_parameter_vector(pristine._build_model(sample_matrix, drug_graphs))
+
+        seed_literature(seed)
+        predictor = DrugGNNPredictor(hyperparameters=hyperparameters)
+        predictor.fit(batch)
+        assert predictor._model is not None
+        assert_trainable_parameters_changed(initial, predictor._model)
+        expected = finite_predictions(predictor, batch)
+        assert_training_predictions("druggnn", seed, expected)
+        assert_frozen_reference("druggnn", seed)
+
+        assert_pickle_round_trip(predictor, batch, expected)
+
+    def test_restores_best_validation_epoch_when_a_later_epoch_is_worse(self) -> None:
+        import pytorch_lightning as pl
+
+        class ValidationHistory(pl.Callback):
+            def __init__(self) -> None:
+                self.losses: list[float] = []
+
+            def on_validation_epoch_end(self, trainer, pl_module) -> None:
+                if not trainer.sanity_checking:
+                    self.losses.append(float(trainer.callback_metrics["val_loss"]))
+
+        hyperparameters = {
+            "epochs": 4,
+            "batch_size": 2,
+            "hidden_dim": 8,
+            "dropout": 0.0,
+            "learning_rate": 0.5,
+        }
+        batch = _druggnn_batch(with_early_stopping=True)
+
+        seed_literature(0)
+        restored_best = DrugGNNPredictor(hyperparameters)
+        restored_best.fit(batch)
+        assert restored_best._model is not None
+
+        seed_literature(0)
+        final_epoch = DrugGNNPredictor(hyperparameters)
+        cell_matrix = batch.sample.blocks["gene_expression"].values
+        drug_graphs = batch.drug.blocks["drug_graph"].values
+        final_epoch._model = final_epoch._build_model(cell_matrix, drug_graphs)
+        train_loader = final_epoch._graph_loader(
+            batch.sample_pair_idx,
+            batch.drug_pair_idx,
+            cell_matrix,
+            drug_graphs,
+            batch.response,
+            batch_size=2,
+            shuffle=True,
+        )
+        val_loader = final_epoch._build_val_loader(batch, cell_matrix, drug_graphs)
+        assert val_loader is not None
+        history = ValidationHistory()
+        trainer = pl.Trainer(
+            max_epochs=4,
+            accelerator="cpu",
+            devices=1,
+            callbacks=[history],
+            logger=False,
+            enable_checkpointing=False,
+            enable_progress_bar=False,
+        )
+        trainer.fit(final_epoch._model, train_dataloaders=train_loader, val_dataloaders=val_loader)
+
+        evaluator = pl.Trainer(accelerator="cpu", devices=1, logger=False, enable_checkpointing=False)
+        best_loss = evaluator.validate(restored_best._model, dataloaders=val_loader, verbose=False)[0]["val_loss"]
+        final_loss = evaluator.validate(final_epoch._model, dataloaders=val_loader, verbose=False)[0]["val_loss"]
+        assert history.losses[-1] > min(history.losses)
+        assert best_loss == pytest.approx(min(history.losses), rel=1e-6, abs=1e-7)
+        assert best_loss < final_loss
+
+
+NUM_NODE_FEATURES = 5
+NUM_CELL_FEATURES = 7
+
+
+def _graph_batch(*, n_graphs: int = 2, nodes_per_graph: int = 3) -> Data:
+    n_nodes = n_graphs * nodes_per_graph
+    edges = [
+        [node, node + 1]
+        for graph in range(n_graphs)
+        for node in range(graph * nodes_per_graph, (graph + 1) * nodes_per_graph - 1)
+    ]
+    return Data(
+        x=torch.randn(n_nodes, NUM_NODE_FEATURES),
+        edge_index=torch.tensor(edges, dtype=torch.long).t().contiguous(),
+        batch=torch.arange(n_graphs).repeat_interleave(nodes_per_graph),
+    )
+
+
+def _net(*, hidden_dim: int = 8, dropout: float = 0.0) -> DrugGraphNet:
+    net = DrugGraphNet(
+        num_node_features=NUM_NODE_FEATURES,
+        num_cell_features=NUM_CELL_FEATURES,
+        hidden_dim=hidden_dim,
+        dropout=dropout,
+    )
+    net.eval()
+    return net
+
+
+def test_graph_net_shapes_widths_and_gradients() -> None:
+    net = _net(hidden_dim=8, dropout=0.5)
+    graph = _graph_batch(n_graphs=3)
+    cells = torch.randn(3, NUM_CELL_FEATURES)
+
+    with torch.no_grad():
+        first = net(graph, cells)
+        second = net(graph, cells)
+
+    assert first.shape == (3,)
+    assert torch.isfinite(first).all()
+    assert torch.allclose(first, second)
+    assert net.dropout == 0.5
+    assert [net.conv1.out_channels, net.conv2.out_channels, net.conv3.out_channels] == [8, 16, 32]
+    assert net.drug_embed_fc.in_features == 32
+    assert (net.drug_embed_fc.out_features, net.cell_fc2.out_features, net.combiner_fc1.in_features) == (8, 8, 16)
+
+    net.train()
+    net(graph, cells).sum().backward()
+    assert net.conv1.lin.weight.grad is not None
+
+
+def _module(**overrides: object) -> DrugGNNModule:
+    kwargs: dict[str, object] = {
+        "num_node_features": NUM_NODE_FEATURES,
+        "num_cell_features": NUM_CELL_FEATURES,
+        "hidden_dim": 8,
+        "dropout": 0.0,
+    }
+    kwargs.update(overrides)
+    return DrugGNNModule(**kwargs)  # type: ignore[arg-type]
+
+
+def test_module_hyperparameters_forward_steps_and_optimizer() -> None:
+    module = _module(learning_rate=0.01)
+    batch = (_graph_batch(), torch.randn(2, NUM_CELL_FEATURES), torch.randn(2))
+    assert module.hparams["num_node_features"] == NUM_NODE_FEATURES
+    assert module.hparams["hidden_dim"] == 8
+    assert module.hparams["learning_rate"] == pytest.approx(0.01)
+
+    loss = module.training_step(batch, batch_idx=0)
+    assert loss.ndim == 0
+    assert loss.item() >= 0.0
+    assert module.validation_step(batch, batch_idx=0).ndim == 0
+
+    module.eval()
+    with torch.no_grad():
+        output = module(batch)
+        assert output.shape == (2,)
+        assert torch.allclose(module.predict_step(batch, batch_idx=0), output)
+
+    optimizer = module.configure_optimizers()
+    assert isinstance(optimizer, Adam)
+    assert optimizer.param_groups[0]["lr"] == pytest.approx(0.01)

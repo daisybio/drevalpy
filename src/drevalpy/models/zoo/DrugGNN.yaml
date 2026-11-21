@@ -1,0 +1,9 @@
+sample_featurizer:
+  name: landmarkGenes
+  options:
+    gene_list_stem: landmark_genes
+    arcsinh: false
+  defaults:
+    standardize: false
+drug_featurizer: drugGraph
+predictor: drugGNN

@@ -1,0 +1,3 @@
+sample_featurizer: constant
+drug_featurizer: oneHot
+predictor: naiveDrugMean
