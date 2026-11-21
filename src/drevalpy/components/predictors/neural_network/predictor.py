@@ -89,7 +89,7 @@ class NeuralNetworkPredictor(Predictor):
             input_dim=self._compute_input_dim(data),
         )
         self._is_fitted = False
-        if data.n_pairs == 0:
+        if len(data) == 0:
             return
         self._train_with_optional_early_stopping(data, self._model)
         self._is_fitted = True
@@ -168,14 +168,14 @@ class NeuralNetworkPredictor(Predictor):
         :param model: The freshly initialised network.
         """
         y = np.asarray(data.response, dtype=np.float32).reshape(-1)
-        batch_size = min(int(self._hyperparameters["batch_size"]), data.n_pairs)
+        batch_size = min(int(self._hyperparameters["batch_size"]), len(data))
         train_loader = self._build_pair_loader(
             data,
             data.sample_pair_idx,
             data.drug_pair_idx,
             y,
             shuffle=True,
-            drop_last=batch_size < data.n_pairs,
+            drop_last=batch_size < len(data),
         )
         checkpoint = run_lightning_fit(
             model,
@@ -199,8 +199,8 @@ class NeuralNetworkPredictor(Predictor):
         """
         import torch
 
-        if not self._is_fitted or self._model is None or data.n_pairs == 0:
-            return np.full(data.n_pairs, np.nan, dtype=np.float64)
+        if not self._is_fitted or self._model is None or len(data) == 0:
+            return np.full(len(data), np.nan, dtype=np.float64)
 
         loader = self._build_pair_loader(
             data,

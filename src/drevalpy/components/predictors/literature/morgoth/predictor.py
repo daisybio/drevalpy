@@ -87,7 +87,7 @@ class SingleDrugMorgothPredictor(SingleDrugSklearnPredictor):
         :param data: The drug's training pairs.
         :returns: The fitted pipeline, or ``None`` when no pair has a verdict.
         """
-        keep, y_class = class_labels(data.response_layers.get(REGULATION), data.n_pairs)
+        keep, y_class = class_labels(data.response_layers.get(REGULATION), len(data))
         if not keep.any():
             return None
         estimator = self._make_estimator()

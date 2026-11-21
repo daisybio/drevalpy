@@ -111,7 +111,7 @@ def register_block_predictor_stub(
             return None
 
         def _predict(self, batch):
-            return np.zeros(batch.n_pairs, dtype=np.float64)
+            return np.zeros(len(batch), dtype=np.float64)
 
     return Stub
 
@@ -129,7 +129,7 @@ def register_feature_free_predictor_stub(name: str = "naiveMean") -> type:
             return None
 
         def _predict(self, batch):
-            return np.zeros(batch.n_pairs, dtype=np.float64)
+            return np.zeros(len(batch), dtype=np.float64)
 
     return Stub
 

@@ -34,12 +34,12 @@ def test_observed_pairs_cover_exactly_the_measured_entries(dataset):
 
 
 def test_input_shape(model_input, dataset):
-    assert model_input.n_pairs == int((~np.isnan(dataset.response_matrix)).sum())
+    assert len(model_input) == int((~np.isnan(dataset.response_matrix)).sum())
     assert model_input.sample.matrix.shape == (len(dataset.sample_ids), N_SAMPLE_FEATURES)
     assert model_input.drug.matrix.shape == (len(dataset.drug_ids), N_DRUG_FEATURES)
     assert model_input.sample_pair_idx.max() < model_input.sample.matrix.shape[0]
     assert model_input.drug_pair_idx.max() < model_input.drug.matrix.shape[0]
-    assert model_input.to_feature_matrix().shape == (model_input.n_pairs, N_SAMPLE_FEATURES + N_DRUG_FEATURES)
+    assert model_input.to_feature_matrix().shape == (len(model_input), N_SAMPLE_FEATURES + N_DRUG_FEATURES)
     assert np.isfinite(model_input.sample.matrix).all()
     assert np.isfinite(model_input.drug.matrix).all()
     assert set(model_input.sample.blocks) == set(model_input.drug.blocks) == {"features"}

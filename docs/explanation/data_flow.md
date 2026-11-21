@@ -228,7 +228,7 @@ tables into a {py:class}`~drevalpy.types.data.predictor_input.PredictorInput`:
 - **Entity tables**: `sample` (`FeaturizerOutput`) and `drug` (`FeaturizerOutput | None`),
   holding one row per unique entity.
 - **Pair index arrays** (int64, length `n_pairs`): `sample_pair_idx` and `drug_pair_idx`,
-  mapping each pair to its row in `sample` and `drug` (computed once via
+  mapping each pair to its row in `sample` and `drug` (derived on construction via
   `FeaturizerOutput.rows_for`).
 - **Training context**: optional `early_stopping` (`ResponseTable` whose entities are already
   present in `sample` and `drug`) and `training_context` (checkpoint directory and `n_jobs`).
@@ -249,7 +249,7 @@ train_input = PredictorInput.from_response(
     early_stopping=val_table,
 )
 
-print("n_pairs:", train_input.n_pairs)
+print("pairs:", len(train_input))
 print("sample entity table:", train_input.sample.matrix.shape, "| sample_pair_idx:", train_input.sample_pair_idx.shape)
 print("drug entity table:  ", train_input.drug.matrix.shape, "| drug_pair_idx:  ", train_input.drug_pair_idx.shape)
 print("First 5 sample_pair_idx:", train_input.sample_pair_idx[:5])
@@ -263,7 +263,7 @@ assert np.array_equal(
 
 The base {py:class}`~drevalpy.components.predictors.abstract.base.Predictor` wraps every
 subclass's `_fit(data)` and `_predict(data)`. In `fit`, it validates that `data.response` is
-present, drops pairs with `NaN` features or targets (via `data.subset_pairs`), and filters
+present, drops pairs with `NaN` features or targets (via `data[mask]`), and filters
 `data.early_stopping` the same way. In `predict`, it runs `_predict` only on valid pairs and
 returns `NaN` for the rest.
 

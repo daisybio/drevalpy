@@ -243,7 +243,7 @@ class DIPKPredictor(DevicePicklingMixin, Predictor):
         :raises ValueError: If drug pair indices are missing.
         """
         if self._model is None:
-            return np.full(data.n_pairs, np.nan, dtype=np.float64)
+            return np.full(len(data), np.nan, dtype=np.float64)
         if data.drug_pair_idx is None:
             msg = "DIPK requires drug features for prediction"
             raise ValueError(msg)

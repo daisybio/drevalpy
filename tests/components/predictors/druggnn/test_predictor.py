@@ -50,8 +50,6 @@ def _druggnn_batch(*, with_early_stopping: bool = False) -> PredictorInput:
             "gene_expression": FeatureBlock(np.array([[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]])),
         },
         drug_blocks={"drug_graph": FeatureBlock(graphs, FeatureFormat.GRAPH)},
-        sample_pair_idx=np.array([0, 0, 1, 1]),
-        drug_pair_idx=np.array([0, 1, 0, 1]),
         early_stopping=early_stopping() if with_early_stopping else None,
         checkpoint_dir=Path(tempfile.mkdtemp()),
     )

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import inspect
+from dataclasses import replace
 
 import numpy as np
 import pytest
@@ -35,7 +36,7 @@ class _StubPredictor(Predictor):
         _ = batch
 
     def _predict(self, batch: PredictorInput) -> np.ndarray:
-        return np.zeros(batch.n_pairs, dtype=np.float64)
+        return np.zeros(len(batch), dtype=np.float64)
 
 
 EXPECTED = {
@@ -109,8 +110,11 @@ def test_stopping_requirement_is_checked_after_pair_filtering(monkeypatch, requi
     values = np.array([[1.0], [np.nan if invalid == "features" else 2.0]])
     batch = two_by_two_batch(sample_blocks={"gene_expression": FeatureBlock(values)}, drug_blocks={})
     if invalid != "missing":
-        batch.early_stopping = ResponseTable(
-            np.array([np.nan if invalid == "response" else 3.0]), np.array(["cl2"]), np.array(["d1"])
+        batch = replace(
+            batch,
+            early_stopping=ResponseTable(
+                np.array([np.nan if invalid == "response" else 3.0]), np.array(["cl2"]), np.array(["d1"])
+            ),
         )
     monkeypatch.setattr(_StubPredictor, "requires_early_stopping", required)
     if required:
@@ -166,8 +170,6 @@ def test_matrix_predictor_cannot_build_a_design_matrix_without_a_response() -> N
         response=None,
         sample=FeaturizerOutput(np.array(["e0", "e1"]), {"view": FeatureBlock(np.ones((2, 1)))}),
         drug=None,
-        sample_pair_idx=np.array([0, 1], dtype=np.int64),
-        drug_pair_idx=None,
     )
 
     with pytest.raises(RuntimeError, match="data.response is required for fit"):
@@ -175,17 +177,15 @@ def test_matrix_predictor_cannot_build_a_design_matrix_without_a_response() -> N
 
 
 @pytest.mark.parametrize(
-    ("response_length", "pair_idx_length", "message"),
-    [(2, 3, "response must be one-dimensional"), (3, 2, "sample_pair_idx must be one-dimensional")],
+    ("drug_length", "response_length", "message"),
+    [(2, 3, "drug_ids must be one-dimensional"), (3, 2, "response must be one-dimensional")],
 )
-def test_batch_rejects_length_mismatches(response_length: int, pair_idx_length: int, message: str) -> None:
+def test_batch_rejects_length_mismatches(drug_length: int, response_length: int, message: str) -> None:
     with pytest.raises(ValueError, match=message):
         PredictorInput(
             sample_ids=_ids(3),
-            drug_ids=_ids(3),
+            drug_ids=_ids(drug_length),
             response=np.ones(response_length),
-            sample=FeaturizerOutput(np.empty(0), {}),
+            sample=FeaturizerOutput(_ids(3), {}),
             drug=None,
-            sample_pair_idx=np.zeros(pair_idx_length, dtype=np.int64),
-            drug_pair_idx=None,
         )

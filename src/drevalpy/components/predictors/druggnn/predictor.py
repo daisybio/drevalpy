@@ -267,7 +267,7 @@ class DrugGNNPredictor(Predictor):
 
         if self._model is None:
             raise RuntimeError("Model has not been trained yet.")
-        if data.n_pairs == 0:
+        if len(data) == 0:
             return np.array([])
 
         predict_loader = self._graph_loader(
@@ -275,7 +275,7 @@ class DrugGNNPredictor(Predictor):
             require_drug_pair_idx(data.drug_pair_idx),
             data.sample.blocks["gene_expression"].values,
             data.drug.blocks["drug_graph"].values,
-            np.zeros(data.n_pairs, dtype=np.float32),
+            np.zeros(len(data), dtype=np.float32),
             batch_size=int(self._hyperparameters["batch_size"]),
         )
 

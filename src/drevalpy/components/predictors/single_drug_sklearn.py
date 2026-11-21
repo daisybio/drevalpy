@@ -44,5 +44,5 @@ def _sample_matrix(data: PredictorInput) -> np.ndarray:
     :returns: Pair-level sample feature matrix, with no columns when the batch has no sample features.
     """
     if data.sample.matrix.size == 0:
-        return np.empty((data.n_pairs, 0), dtype=np.float32)
+        return np.empty((len(data), 0), dtype=np.float32)
     return data.sample.matrix[data.sample_pair_idx]

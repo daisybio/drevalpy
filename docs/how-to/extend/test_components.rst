@@ -100,7 +100,7 @@ The input needs pairs of at least two drugs. Without an input, a check builds on
            self._mean = float(np.mean(data.response))
 
        def _predict(self, data):
-           return np.full(data.n_pairs, self._mean)
+           return np.full(len(data), self._mean)
 
 
    data = build_synthetic_input(dataset, sample_block_names=("gene_expression",))

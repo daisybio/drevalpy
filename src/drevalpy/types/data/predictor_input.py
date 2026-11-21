@@ -12,63 +12,58 @@ from drevalpy.types.data.feature_block import FeaturizerOutput
 from drevalpy.types.data.response_table import ResponseTable
 
 
-def _validate_pair_indices(
-    table: FeaturizerOutput | None, indices: np.ndarray | None, pair_ids: np.ndarray, *, side: str
-) -> None:
-    if table is None:
-        if indices is not None:
-            raise ValueError(f"{side} pair indices require a feature result")
-        return
-    if indices is None:
-        raise ValueError(f"{side} feature result requires pair indices")
-    if not np.issubdtype(np.asarray(indices).dtype, np.integer):
-        raise ValueError(f"{side} pair indices must be integers")
-    if np.any(indices < 0) or np.any(indices >= len(table.entity_ids)):
-        raise ValueError(f"{side} pair indices are outside the entity table")
-    if not np.array_equal(table.entity_ids[indices], pair_ids):
-        raise ValueError(f"{side} pair identifiers do not match their indexed entity rows")
-
-
-@dataclass
+@dataclass(frozen=True)
 class PredictorInput:
     """Response pairs indexed into canonical per-side featurizer results.
 
-    ``response_layers`` holds the training-time response layers a predictor declares
-    in ``Predictor.response_layers``, one value per pair; it is empty at prediction.
+    ``sample_pair_idx`` and ``drug_pair_idx`` are derived from ``sample`` and ``drug`` on
+    construction. ``response_layers`` holds the training-time response layers a predictor
+    declares in ``Predictor.response_layers``, one value per pair; it is empty at prediction.
     """
 
     sample_ids: np.ndarray
     drug_ids: np.ndarray
     response: np.ndarray | None
     sample: FeaturizerOutput
-    drug: FeaturizerOutput | None
-    sample_pair_idx: np.ndarray
-    drug_pair_idx: np.ndarray | None
+    drug: FeaturizerOutput | None = None
     early_stopping: ResponseTable | None = None
     training_context: TrainingContext = field(default_factory=TrainingContext)
     response_layers: Mapping[str, np.ndarray] = field(default_factory=dict)
+    sample_pair_idx: np.ndarray = field(init=False)
+    drug_pair_idx: np.ndarray | None = field(init=False)
 
     def __post_init__(self) -> None:
-        """Validate pair lengths and indices against canonical entity tables."""
-        n = len(self.sample_ids)
-        for name in ("sample_ids", "drug_ids", "response", "sample_pair_idx", "drug_pair_idx"):
-            value = getattr(self, name)
-            if value is not None and (np.asarray(value).ndim != 1 or len(value) != n):
-                raise ValueError(f"{name} must be one-dimensional with n_pairs ({n}) entries")
-        for name, values in self.response_layers.items():
-            if np.ndim(values) != 1 or len(values) != n:
-                raise ValueError(f"Response layer {name!r} must be one-dimensional with n_pairs ({n}) entries")
+        """Normalize arrays, validate pair lengths, and derive entity row indices."""
+        sample_ids = np.asarray(self.sample_ids)
+        if sample_ids.ndim != 1:
+            raise ValueError("sample_ids must be one-dimensional")
+        n = len(sample_ids)
+        drug_ids = np.asarray(self.drug_ids)
+        if drug_ids.ndim != 1 or len(drug_ids) != n:
+            raise ValueError(f"drug_ids must be one-dimensional with {n} entries")
+        response: np.ndarray | None = None
         if self.response is not None:
-            self.response = np.asarray(self.response, dtype=np.float64)
-        for side, table, indices in (
-            ("sample", self.sample, self.sample_pair_idx),
-            ("drug", self.drug, self.drug_pair_idx),
-        ):
-            _validate_pair_indices(table, indices, getattr(self, f"{side}_ids"), side=side)
+            response = np.asarray(self.response, dtype=np.float64)
+            if response.ndim != 1 or len(response) != n:
+                raise ValueError(f"response must be one-dimensional with {n} entries")
+        layers: dict[str, np.ndarray] = {}
+        for name, values in self.response_layers.items():
+            arr = np.asarray(values)
+            if arr.ndim != 1 or len(arr) != n:
+                raise ValueError(f"Response layer {name!r} must be one-dimensional with {n} entries")
+            layers[name] = arr
+        object.__setattr__(self, "sample_ids", sample_ids)
+        object.__setattr__(self, "drug_ids", drug_ids)
+        object.__setattr__(self, "response", response)
+        object.__setattr__(self, "response_layers", layers)
+        object.__setattr__(self, "sample_pair_idx", self.sample.rows_for(sample_ids))
+        object.__setattr__(self, "drug_pair_idx", None if self.drug is None else self.drug.rows_for(drug_ids))
 
-    @property
-    def n_pairs(self) -> int:
-        """Number of requested sample/drug response pairs."""
+    def __len__(self) -> int:
+        """Return the number of requested sample/drug response pairs.
+
+        :returns: Length of ``sample_ids``.
+        """
         return len(self.sample_ids)
 
     @classmethod
@@ -96,8 +91,6 @@ class PredictorInput:
             response.response,
             sample,
             drug,
-            sample.rows_for(response.sample_ids),
-            None if drug is None else drug.rows_for(response.drug_ids),
             early_stopping,
             training_context or TrainingContext(),
             response.layers,
@@ -120,30 +113,36 @@ class PredictorInput:
                 continue
             arrays.append(matrix[indices])
         if not arrays:
-            return np.empty((self.n_pairs, 0), dtype=np.float32)
-        return np.concatenate(arrays, axis=1)
+            return np.empty((len(self), 0), dtype=np.float32)
+        return arrays[0] if len(arrays) == 1 else np.concatenate(arrays, axis=1)
 
-    def subset_pairs(self, mask: np.ndarray) -> PredictorInput:
-        """Subset pairs, sharing entity payloads and restricting stopping drugs.
+    def __getitem__(self, selector: np.ndarray | slice) -> PredictorInput:
+        """Select pairs by boolean/integer mask or slice, sharing entity payloads and restricting stopping drugs.
 
-        :param mask: One boolean value per pair.
+        :param selector: Boolean mask, integer index array, or slice over the pairs.
         :returns: Independent pair selection over the same canonical features.
-        :raises ValueError: If mask shape does not match n_pairs.
+        :raises ValueError: If a boolean mask does not match ``len(self)``.
         """
-        mask = np.asarray(mask, dtype=bool)
-        if mask.ndim != 1 or len(mask) != self.n_pairs:
-            raise ValueError("subset mask must be a one-dimensional boolean array matching n_pairs")
+        index: np.ndarray | slice
+        if isinstance(selector, slice):
+            index = selector
+        else:
+            index = np.asarray(selector)
+            if index.dtype == bool and (index.ndim != 1 or len(index) != len(self)):
+                raise ValueError("subset mask must be a one-dimensional boolean array matching len(self)")
+        selected_drugs = self.drug_ids[index]
         stopping = self.early_stopping
-        if stopping is not None and mask.any():
-            keep = np.isin(stopping.drug_ids, np.unique(self.drug_ids[mask]))
-            stopping = stopping[keep] if keep.any() else None
+        if stopping is not None:
+            if len(selected_drugs) == 0:
+                stopping = None
+            else:
+                keep = np.isin(stopping.drug_ids, np.unique(selected_drugs))
+                stopping = stopping[keep] if keep.any() else None
         return replace(
             self,
-            sample_ids=self.sample_ids[mask],
-            drug_ids=self.drug_ids[mask],
-            response=None if self.response is None else self.response[mask],
-            sample_pair_idx=self.sample_pair_idx[mask],
-            drug_pair_idx=None if self.drug_pair_idx is None else self.drug_pair_idx[mask],
+            sample_ids=self.sample_ids[index],
+            drug_ids=selected_drugs,
+            response=None if self.response is None else self.response[index],
             early_stopping=stopping,
-            response_layers={name: values[mask] for name, values in self.response_layers.items()},
+            response_layers={name: values[index] for name, values in self.response_layers.items()},
         )

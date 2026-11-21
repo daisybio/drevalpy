@@ -63,7 +63,7 @@ class SingleDrugPredictor(Predictor):
         :param data: Pairs to score.
         :returns: One prediction per pair; NaN for pairs of drugs without a model.
         """
-        predictions = np.full(data.n_pairs, np.nan, dtype=np.float64)
+        predictions = np.full(len(data), np.nan, dtype=np.float64)
         for drug_id, mask in _drug_masks(data):
             model = self._models.get(drug_id)
             if model is not None:
@@ -131,33 +131,29 @@ def _drug_input(data: PredictorInput, drug_id: str, mask: np.ndarray) -> Predict
     context = TrainingContext(
         checkpoint_dir=_checkpoint_dir_for_drug(data.training_context.checkpoint_dir, drug_id), n_jobs=1
     )
-    sub_data = data.subset_pairs(mask)
+    sub_data = data[mask]
     stopping = sub_data.early_stopping
-    sample, sample_pair_idx = _keep_used_rows(
+    sample = _keep_used_rows(
         sub_data.sample, sub_data.sample_pair_idx, None if stopping is None else stopping.sample_ids
     )
-    drug, drug_pair_idx = sub_data.drug, sub_data.drug_pair_idx
-    if drug is not None and drug_pair_idx is not None:
-        drug, drug_pair_idx = _keep_used_rows(drug, drug_pair_idx, None if stopping is None else stopping.drug_ids)
+    drug = sub_data.drug
+    if drug is not None and sub_data.drug_pair_idx is not None:
+        drug = _keep_used_rows(drug, sub_data.drug_pair_idx, None if stopping is None else stopping.drug_ids)
     return replace(
         sub_data,
         sample=sample,
         drug=drug,
-        sample_pair_idx=sample_pair_idx,
-        drug_pair_idx=drug_pair_idx,
         training_context=context,
     )
 
 
-def _keep_used_rows(
-    table: FeaturizerOutput, pair_idx: np.ndarray, extra_ids: np.ndarray | None
-) -> tuple[FeaturizerOutput, np.ndarray]:
+def _keep_used_rows(table: FeaturizerOutput, pair_idx: np.ndarray, extra_ids: np.ndarray | None) -> FeaturizerOutput:
     """Drop the entity rows that neither a pair nor an early-stopping pair uses.
 
     :param table: Entity table the pairs index into.
     :param pair_idx: Row of each pair in *table*.
     :param extra_ids: Further entities to keep, such as the early-stopping ones.
-    :returns: The reduced table and each pair's row in it.
+    :returns: The reduced entity table.
     """
     keep = np.zeros(len(table.entity_ids), dtype=bool)
     keep[pair_idx] = True
@@ -167,8 +163,7 @@ def _keep_used_rows(
         name: replace(block, values=block.values[keep]) if block.entity_aligned else block
         for name, block in table.blocks.items()
     }
-    new_rows = np.cumsum(keep) - 1
-    return FeaturizerOutput(table.entity_ids[keep], blocks), new_rows[pair_idx]
+    return FeaturizerOutput(table.entity_ids[keep], blocks)
 
 
 def _run_per_drug(

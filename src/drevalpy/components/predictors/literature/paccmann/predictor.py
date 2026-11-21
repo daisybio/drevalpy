@@ -177,7 +177,7 @@ class PaccMannPredictor(DevicePicklingMixin, Predictor):
         gene_entity = data.sample.blocks["gene_expression"].values
         tokens, variants = _drug_blocks(data)
         batch_size = int(self._hyperparameters["batch_size"])
-        n_pairs = data.n_pairs
+        n_pairs = len(data)
         # The batch norm layers cannot process a batch of one sample. Drop a trailing batch of one, and
         # only then, so that training sets smaller than a batch stay usable.
         drop_last = n_pairs > batch_size and n_pairs % batch_size == 1

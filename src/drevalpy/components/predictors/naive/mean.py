@@ -37,4 +37,4 @@ class NaiveMeanPredictor(FeatureFreePredictor):
         if self._dataset_mean is None:
             msg = "Call fit before predict"
             raise RuntimeError(msg)
-        return np.full(data.n_pairs, self._dataset_mean, dtype=np.float64)
+        return np.full(len(data), self._dataset_mean, dtype=np.float64)

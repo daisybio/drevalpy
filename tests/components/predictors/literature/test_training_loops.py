@@ -222,11 +222,10 @@ SAMPLE_VALUES = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
 DRUG_VALUES = np.array([[10.0], [20.0]], dtype=np.float32)
 
 
-def _batch(*, with_drug_pair_idx: bool = True) -> PredictorInput:
+def _batch() -> PredictorInput:
     return two_by_two_batch(
         sample_blocks={"view": FeatureBlock(SAMPLE_VALUES)},
         drug_blocks={"view": FeatureBlock(DRUG_VALUES)},
-        drug_pair_idx=np.array([0, 1, 0, 1]) if with_drug_pair_idx else None,
     )
 
 
@@ -290,11 +289,6 @@ def test_a_batch_size_below_the_pair_count_still_covers_every_pair() -> None:
     assert [shape[0] for shape in model.seen_shapes] == [3, 1]
 
 
-def test_a_batch_without_drug_pair_indices_is_rejected() -> None:
-    with pytest.raises(ValueError, match="drug feature result requires pair indices"):
-        _batch(with_drug_pair_idx=False)
-
-
 def test_a_multi_element_output_row_is_flattened() -> None:
     class _ColumnModel(_SumModel):
         def __call__(self, *tensors):
@@ -310,8 +304,6 @@ def test_a_batch_with_no_pairs_yields_an_empty_float64_array() -> None:
         ),
         sample_blocks={"view": FeatureBlock(SAMPLE_VALUES)},
         drug_blocks={"view": FeatureBlock(DRUG_VALUES)},
-        sample_pair_idx=np.empty(0, dtype=np.intp),
-        drug_pair_idx=np.empty(0, dtype=np.intp),
     )
 
     predictions = predict_pairs(_SumModel(), empty, _spec())

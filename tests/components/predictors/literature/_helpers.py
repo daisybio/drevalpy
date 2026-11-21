@@ -346,18 +346,11 @@ def assert_frozen_reference(model: str, seed: int) -> None:
         assert actual["molir_triplets"] == expected["molir_triplets"]
 
 
-#: Distinguishes "use :data:`DRUG_PAIR_IDX`" from an explicit ``drug_pair_idx=None``,
-#: which is how a single-drug-side predictor says it has no per-drug axis.
-_DEFAULT = object()
-
-
 def two_by_two_batch(
     *,
     sample_blocks: dict[str, FeatureBlock],
     drug_blocks: dict[str, FeatureBlock],
     response: ResponseTable | None = None,
-    sample_pair_idx: np.ndarray | None = None,
-    drug_pair_idx: Any = _DEFAULT,
     early_stopping: ResponseTable | None = None,
     checkpoint_dir: Any = ".",
 ) -> PredictorInput:
@@ -380,8 +373,6 @@ def two_by_two_batch(
                 for name, block in drug_blocks.items()
             },
         ),
-        SAMPLE_PAIR_IDX if sample_pair_idx is None else sample_pair_idx,
-        DRUG_PAIR_IDX if drug_pair_idx is _DEFAULT else drug_pair_idx,
         early_stopping,
         TrainingContext(checkpoint_dir=checkpoint_dir),
     )

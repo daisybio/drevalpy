@@ -61,7 +61,7 @@ class SuperFELTRPredictor(SingleDrugOmicsPredictor):
         checkpoint_dir = str(data.training_context.checkpoint_dir)
         #: Below one mini-batch the training loader's ``drop_last`` empties it, so the
         #: encoders and regressor stay randomly initialized rather than being fitted.
-        trainable = data.n_pairs >= self._hyperparameters["mini_batch"]
+        trainable = len(data) >= self._hyperparameters["mini_batch"]
 
         encoders = self._fit_encoders(matrices.widths(), ranges, train, val, checkpoint_dir, trainable)
         return self._fit_regressor(encoders, train, val, checkpoint_dir, trainable)

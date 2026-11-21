@@ -42,4 +42,4 @@ class ToyMeanPredictor(FeatureFreePredictor):
         if self._mean is None:
             msg = "ToyMeanPredictor must be fitted before predicting"
             raise RuntimeError(msg)
-        return np.full(data.n_pairs, self._mean, dtype=np.float64)
+        return np.full(len(data), self._mean, dtype=np.float64)

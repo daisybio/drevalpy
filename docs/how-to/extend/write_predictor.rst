@@ -209,7 +209,7 @@ ids are accepted.
            self._mean = float(np.mean(data.response))
 
        def _predict(self, data):
-           return np.full(data.n_pairs, self._mean)
+           return np.full(len(data), self._mean)
 
 Fit one model per drug
 ----------------------
@@ -279,11 +279,11 @@ mean of all pairs when the dataset has no ``regulation`` layer:
 
        def _fit(self, data):
            regulation = data.response_layers.get("regulation")
-           down = np.ones(data.n_pairs, dtype=bool) if regulation is None else regulation == -1
+           down = np.ones(len(data), dtype=bool) if regulation is None else regulation == -1
            self._mean = float(np.mean(data.response[down if down.any() else slice(None)]))
 
        def _predict(self, data):
-           return np.full(data.n_pairs, self._mean)
+           return np.full(len(data), self._mean)
 
 ``build_synthetic_input(..., response_layers=)`` from ``drevalpy.testing`` builds an input that
 carries the layers, and the conformance checks below pass the predictor's ``response_layers``
@@ -321,7 +321,7 @@ feature-free baseline defined below through the Python API.
            self._mean = float(np.mean(data.response))
 
        def _predict(self, data):
-           return np.full(data.n_pairs, self._mean)
+           return np.full(len(data), self._mean)
 
 
    spec = ModelSpec.from_name("meanBaseline")

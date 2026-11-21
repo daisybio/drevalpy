@@ -66,7 +66,7 @@ from drevalpy.registry.predictor import register as register_predictor
 @register_predictor({name!r}, description='toy')
 class Toy(FeatureFreePredictor):
     def _fit(self, batch): return None
-    def _predict(self, batch): return np.zeros(batch.n_pairs)
+    def _predict(self, batch): return np.zeros(len(batch))
 """
 
 
@@ -228,7 +228,7 @@ class ExternalPredictor(FeatureFreePredictor):
         self._mean = float(np.mean(batch.response))
 
     def _predict(self, batch):
-        return np.full(batch.n_pairs, self._mean, dtype=np.float64)
+        return np.full(len(batch), self._mean, dtype=np.float64)
 """
 
 

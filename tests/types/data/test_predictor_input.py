@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import FrozenInstanceError
+
 import numpy as np
 import pytest
 
@@ -34,8 +36,6 @@ def _model_input(*, drug=True, stopping=None) -> PredictorInput:
         np.array([1.0, 2.0]),
         sample_result,
         drug_result,
-        np.array([0, 1]),
-        np.array([0, 1]) if drug else None,
         stopping,
     )
 
@@ -91,35 +91,22 @@ class TestFromResponse:
 
 
 class TestConstruction:
-    def test_rejects_pair_indices_that_do_not_match_pair_ids(self) -> None:
-        with pytest.raises(ValueError, match="sample pair identifiers"):
-            PredictorInput(
-                np.array(["cl1"]), np.array(["d1"]), np.array([1.0]), _entity_result(), None, np.array([1]), None
-            )
+    def test_rejects_non_1d_sample_ids(self) -> None:
+        with pytest.raises(ValueError, match="sample_ids must be one-dimensional"):
+            PredictorInput(np.array("cl1"), np.array(["d1"]), np.array([1.0]), _entity_result())
 
-    def test_rejects_indices_outside_the_entity_table(self) -> None:
-        with pytest.raises(ValueError, match="outside the entity table"):
-            PredictorInput(
-                np.array(["cl1"]), np.array(["d1"]), np.array([1.0]), _entity_result(), None, np.array([5]), None
-            )
+    def test_coerces_sequences_and_derives_pair_indices(self) -> None:
+        data = PredictorInput(["cl2", "cl1"], ["d1", "d2"], [1.0, 2.0], _entity_result(), _entity_result(("d1", "d2")))
+        assert isinstance(data.sample_ids, np.ndarray)
+        assert isinstance(data.drug_ids, np.ndarray)
+        assert data.sample_pair_idx.tolist() == [1, 0]
+        assert data.drug_pair_idx is not None and data.drug_pair_idx.tolist() == [0, 1]
+        assert len(data) == 2
 
-    def test_rejects_non_integer_indices(self) -> None:
-        with pytest.raises(ValueError, match="must be integers"):
-            PredictorInput(
-                np.array(["cl1"]), np.array(["d1"]), np.array([1.0]), _entity_result(), None, np.array([0.0]), None
-            )
-
-    def test_a_drug_result_requires_pair_indices(self) -> None:
-        with pytest.raises(ValueError, match="drug feature result requires pair indices"):
-            PredictorInput(
-                np.array(["cl1"]),
-                np.array(["d1"]),
-                np.array([1.0]),
-                _entity_result(),
-                _entity_result(("d1",)),
-                np.array([0]),
-                None,
-            )
+    def test_is_immutable(self) -> None:
+        data = _model_input()
+        with pytest.raises(FrozenInstanceError):
+            data.early_stopping = None  # type: ignore[misc]
 
 
 class TestToFeatureMatrix:
@@ -133,7 +120,7 @@ class TestToFeatureMatrix:
 
     def test_featureless_result_has_no_columns(self) -> None:
         empty = FeaturizerOutput(np.array(["cl1"]), {})
-        data = PredictorInput(np.array(["cl1"]), np.array(["d1"]), np.array([1.0]), empty, None, np.array([0]), None)
+        data = PredictorInput(np.array(["cl1"]), np.array(["d1"]), np.array([1.0]), empty)
         assert data.to_feature_matrix().shape == (1, 0)
 
     def test_target_free_input_projects_requested_pairs(self) -> None:
@@ -142,36 +129,43 @@ class TestToFeatureMatrix:
             np.array(["d1", "d1"]),
             None,
             _entity_result(values=np.array([[1.0], [2.0]])),
-            None,
-            np.array([1, 0]),
-            None,
         )
         np.testing.assert_allclose(data.to_feature_matrix(), [[2.0], [1.0]])
 
     def test_rejects_a_non_numeric_block(self) -> None:
         text = FeaturizerOutput(np.array(["cl1"]), {"view": FeatureBlock(np.array([["a"]]))})
-        data = PredictorInput(np.array(["cl1"]), np.array(["d1"]), None, text, None, np.array([0]), None)
+        data = PredictorInput(np.array(["cl1"]), np.array(["d1"]), None, text)
         with pytest.raises(ValueError, match="two-dimensional numeric"):
             data.to_feature_matrix()
 
 
-class TestSubsetPairs:
+class TestIndexing:
     def test_filters_stopping_by_surviving_drugs(self) -> None:
         stopping = ResponseTable(
             np.array([0.5, 0.6, 0.7]), np.array(["cl1", "cl2", "cl1"]), np.array(["d1", "d2", "d3"])
         )
-        subset = _model_input(stopping=stopping).subset_pairs(np.array([True, False]))
-        assert subset.n_pairs == 1
+        subset = _model_input(stopping=stopping)[np.array([True, False])]
+        assert len(subset) == 1
         assert subset.early_stopping is not None
         assert subset.early_stopping.drug_ids.tolist() == ["d1"]
 
-    def test_drops_stopping_when_no_drug_survives(self) -> None:
+    def test_drops_stopping_when_no_drug_survives_or_mask_is_empty(self) -> None:
         stopping = ResponseTable(np.array([0.5]), np.array(["cl1"]), np.array(["d3"]))
-        assert _model_input(stopping=stopping).subset_pairs(np.array([True, False])).early_stopping is None
+        assert _model_input(stopping=stopping)[np.array([True, False])].early_stopping is None
+
+        matching_stopping = ResponseTable(np.array([0.5]), np.array(["cl1"]), np.array(["d1"]))
+        empty = _model_input(stopping=matching_stopping)[np.array([False, False])]
+        assert len(empty) == 0
+        assert empty.early_stopping is None
+
+    def test_supports_slices_and_integer_indices(self) -> None:
+        data = _model_input()
+        assert data[:1].sample_ids.tolist() == ["cl1"]
+        assert data[np.array([1, 0])].sample_ids.tolist() == ["cl2", "cl1"]
 
     def test_rejects_a_mask_of_the_wrong_length(self) -> None:
-        with pytest.raises(ValueError, match="matching n_pairs"):
-            _model_input().subset_pairs(np.array([True]))
+        with pytest.raises(ValueError, match="matching len"):
+            _ = _model_input()[np.array([True])]
 
 
 class TestResponseLayers:
@@ -190,7 +184,7 @@ class TestResponseLayers:
     def test_an_input_has_no_response_layers_by_default(self) -> None:
         assert dict(_model_input().response_layers) == {}
 
-    def test_subset_pairs_keeps_the_response_layers_aligned(self) -> None:
+    def test_indexing_keeps_the_response_layers_aligned(self) -> None:
         data = PredictorInput.from_response(
             ResponseTable(
                 np.array([1.0, 2.0]),
@@ -201,7 +195,7 @@ class TestResponseLayers:
             sample=_entity_result(),
         )
 
-        assert data.subset_pairs(np.array([False, True])).response_layers["regulation"].tolist() == [1.0]
+        assert data[np.array([False, True])].response_layers["regulation"].tolist() == [1.0]
 
     def test_a_response_layer_needs_one_value_per_pair(self) -> None:
         data = _model_input()
@@ -212,7 +206,5 @@ class TestResponseLayers:
                 data.response,
                 data.sample,
                 data.drug,
-                data.sample_pair_idx,
-                data.drug_pair_idx,
                 response_layers={"regulation": np.zeros(3)},
             )

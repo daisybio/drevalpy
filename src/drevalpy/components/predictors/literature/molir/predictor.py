@@ -47,7 +47,7 @@ class MOLIRPredictor(SingleDrugOmicsPredictor):
         matrices = omic_matrices(data)
         model = self._build_model(matrices.widths())
 
-        if data.n_pairs >= self._hyperparameters["mini_batch"]:
+        if len(data) >= self._hyperparameters["mini_batch"]:
             model.fit(
                 train=matrices.split(data.sample_pair_idx, np.asarray(data.response, dtype=np.float32)),
                 val=validation_split(matrices, data),

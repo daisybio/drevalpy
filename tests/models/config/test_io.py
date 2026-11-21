@@ -107,7 +107,7 @@ class ResolverPredictor(FeatureFreePredictor):
         self._mean = float(np.mean(batch.response))
 
     def _predict(self, batch: PredictorInput) -> np.ndarray:
-        return np.full(batch.n_pairs, self._mean, dtype=np.float64)
+        return np.full(len(batch), self._mean, dtype=np.float64)
 """,
         encoding="utf-8",
     )

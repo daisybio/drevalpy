@@ -100,7 +100,7 @@ class Predictor(TunableComponent, ABC):
         valid_mask &= ~np.isnan(data.response)
         self._warn_if_above_threshold(valid_mask, f"{type(self).__name__}.fit")
         if not valid_mask.all():
-            data = data.subset_pairs(valid_mask)
+            data = data[valid_mask]
         self._fit(self._filter_early_stopping(data))
         self._fitted = True
 
@@ -113,14 +113,11 @@ class Predictor(TunableComponent, ABC):
         """
         response = data.early_stopping
         if response is not None:
-            cl_idx, drug_idx = response_rows(data, response)
             stopping = replace(
                 data,
                 sample_ids=response.sample_ids,
                 drug_ids=response.drug_ids,
                 response=response.response,
-                sample_pair_idx=cl_idx,
-                drug_pair_idx=drug_idx,
                 early_stopping=None,
                 response_layers=response.layers,
             )
@@ -147,9 +144,9 @@ class Predictor(TunableComponent, ABC):
         valid_mask = self._valid_pair_mask(data)
         if valid_mask.all():
             return self._predict(data)
-        result = np.full(data.n_pairs, np.nan, dtype=np.float64)
+        result = np.full(len(data), np.nan, dtype=np.float64)
         if valid_mask.any():
-            result[valid_mask] = self._predict(data.subset_pairs(valid_mask))
+            result[valid_mask] = self._predict(data[valid_mask])
         return result
 
     @abstractmethod
@@ -169,10 +166,10 @@ class Predictor(TunableComponent, ABC):
         """Return boolean mask over pairs where features are non-NaN.
 
         :param data: Model input.
-        :returns: Boolean array of shape ``(data.n_pairs,)``.
+        :returns: Boolean array of shape ``(len(data),)``.
         """
-        valid = np.ones(data.n_pairs, dtype=bool)
-        if data.n_pairs == 0:
+        valid = np.ones(len(data), dtype=bool)
+        if len(data) == 0:
             return valid
         for table, indices in ((data.sample, data.sample_pair_idx), (data.drug, data.drug_pair_idx)):
             if table is None or indices is None:

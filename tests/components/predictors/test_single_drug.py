@@ -51,7 +51,7 @@ class _RecordingPredictor(SingleDrugPredictor):
         return _Fitted(draws, torch.get_num_threads(), os.getpid(), batch)
 
     def _predict_drug(self, drug_id: str, model: _Fitted, batch: PredictorInput) -> np.ndarray:
-        return np.full(batch.n_pairs, float(np.mean(model.batch.response)))
+        return np.full(len(batch), float(np.mean(model.batch.response)))
 
 
 def _batch(
@@ -102,7 +102,7 @@ def test_each_drug_gets_its_own_pairs_checkpoint_dir_and_a_single_process() -> N
 
     assert list(models) == sorted(["d2", "d1", "a/b c:*?"])
     for drug_id, model in models.items():
-        assert model.batch.drug_ids.tolist() == [drug_id] * model.batch.n_pairs
+        assert model.batch.drug_ids.tolist() == [drug_id] * len(model.batch)
         assert model.batch.training_context.n_jobs == 1
     np.testing.assert_array_equal(models["d1"].batch.sample_ids, ["s1", "s2"])
     directories = [UPath(model.batch.training_context.checkpoint_dir) for model in models.values()]

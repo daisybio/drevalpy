@@ -64,8 +64,8 @@ class _StubModel(DRPModel):
 
         def fake_prediction(batch):
             if self.prediction_value is None:
-                return np.arange(batch.n_pairs, dtype=float)
-            return np.full(batch.n_pairs, self.prediction_value, dtype=float)
+                return np.arange(len(batch), dtype=float)
+            return np.full(len(batch), self.prediction_value, dtype=float)
 
         self._predictor._predict = fake_prediction
 

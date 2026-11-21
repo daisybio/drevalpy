@@ -121,7 +121,7 @@ def test_without_an_early_stopping_set_a_seeded_tenth_is_held_out(tmp_path) -> N
 
 
 def test_the_fallback_split_needs_two_pairs(tmp_path) -> None:
-    batch = _batch(tmp_path, early_stopping=False).subset_pairs(np.array([True] + [False] * 7))
+    batch = _batch(tmp_path, early_stopping=False)[np.array([True] + [False] * 7)]
 
     with pytest.raises(ValueError, match="at least two training pairs"):
         EnsembleMFPredictor(TINY).fit(batch)

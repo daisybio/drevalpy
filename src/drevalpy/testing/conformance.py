@@ -282,8 +282,8 @@ def check_predictor_fit_predict(
     predictions = np.asarray(instance.predict(data))
 
     _require(
-        predictions.shape == (data.n_pairs,),
-        f"{cls.__name__}.predict returned shape {predictions.shape}, expected ({data.n_pairs},)",
+        predictions.shape == (len(data),),
+        f"{cls.__name__}.predict returned shape {predictions.shape}, expected ({len(data)},)",
     )
     _require(
         np.isfinite(predictions).all(),
@@ -370,12 +370,12 @@ def check_predictor_single_drug_routing(
     unseen = data.drug_ids == held_out
 
     instance = check_predictor_instantiates(cls, **kwargs)
-    instance.fit(data.subset_pairs(~unseen))
+    instance.fit(data[~unseen])
     predictions = np.asarray(instance.predict(data))
 
     _require(
-        predictions.shape == (data.n_pairs,),
-        f"{cls.__name__}.predict returned shape {predictions.shape}, expected ({data.n_pairs},)",
+        predictions.shape == (len(data),),
+        f"{cls.__name__}.predict returned shape {predictions.shape}, expected ({len(data)},)",
     )
     _require(
         np.isnan(predictions[unseen]).all(),

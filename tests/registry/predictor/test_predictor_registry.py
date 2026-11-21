@@ -39,7 +39,7 @@ class _ConcreteBlock(Predictor):
         return None
 
     def _predict(self, batch: PredictorInput) -> np.ndarray:
-        return np.zeros(batch.n_pairs, dtype=np.float64)
+        return np.zeros(len(batch), dtype=np.float64)
 
 
 class _ConcreteFeatureFree(FeatureFreePredictor):
@@ -47,7 +47,7 @@ class _ConcreteFeatureFree(FeatureFreePredictor):
         return None
 
     def _predict(self, batch: PredictorInput) -> np.ndarray:
-        return np.zeros(batch.n_pairs, dtype=np.float64)
+        return np.zeros(len(batch), dtype=np.float64)
 
 
 def _register(name: str, cls: type) -> type:

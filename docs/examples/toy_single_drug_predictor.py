@@ -43,7 +43,7 @@ class ToySingleDrugRidgePredictor(SingleDrugPredictor):
         This may run in a worker process, so it returns the model instead of storing it on
         ``self``; the base class keeps it for ``_predict_drug``.
         """
-        if data.n_pairs < 2:
+        if len(data) < 2:
             return None
         model = Ridge(alpha=float(self._hyperparameters["alpha"]))
         model.fit(_sample_matrix(data), data.response)

@@ -57,7 +57,7 @@ def test_class_labels_without_the_layer_keep_every_pair_and_leave_the_class_to_t
 @pytest.mark.slow
 def test_each_drug_trains_on_its_pairs_with_a_verdict(seen_classes) -> None:
     batch = _batch()
-    regulation = np.where(np.arange(batch.n_pairs) % 3 == 0, np.nan, np.where(np.arange(batch.n_pairs) % 2, -1.0, 1.0))
+    regulation = np.where(np.arange(len(batch)) % 3 == 0, np.nan, np.where(np.arange(len(batch)) % 2, -1.0, 1.0))
     batch = replace(batch, response_layers={"regulation": regulation})
 
     SingleDrugMorgothPredictor(SMALL).fit(batch)

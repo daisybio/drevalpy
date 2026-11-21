@@ -44,7 +44,7 @@ class NaiveMeanEffectsPredictor(Predictor):
         if "tissue" in data.sample.blocks:
             tissue = pair_align(data.sample.blocks["tissue"].values, data.sample_pair_idx)
         else:
-            tissue = np.empty((data.n_pairs, 0), dtype=np.float64)
+            tissue = np.empty((len(data), 0), dtype=np.float64)
         return np.asarray(cell, dtype=np.float64), np.asarray(tissue, dtype=np.float64)
 
     def _fit(self, data: PredictorInput) -> None:
@@ -83,7 +83,7 @@ class NaiveMeanEffectsPredictor(Predictor):
             raise RuntimeError(msg)
         cell, tissue = self._cell_and_tissue(data)
         drugs = np.asarray(require_pair_matrix(data, side="drug"), dtype=np.float64)
-        preds = np.full(data.n_pairs, self._dataset_mean, dtype=np.float64)
+        preds = np.full(len(data), self._dataset_mean, dtype=np.float64)
         if cell.shape[1] > 0:
             preds = preds + cell @ self._sample_effects
         if tissue.shape[1] > 0 and self._tissue_effects.size > 0:

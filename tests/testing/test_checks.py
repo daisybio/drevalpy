@@ -246,12 +246,12 @@ def test_a_conforming_single_drug_predictor_passes_every_check_on_the_default_ba
 
 
 def test_single_drug_routing_skips_multi_drug_predictors(batch):
-    one_drug = batch.subset_pairs(batch.drug_ids == np.unique(batch.drug_ids)[0])
+    one_drug = batch[batch.drug_ids == np.unique(batch.drug_ids)[0]]
     check_predictor_single_drug_routing(GoodPredictor, one_drug)
 
 
 def test_single_drug_routing_needs_two_drugs(batch):
-    one_drug = batch.subset_pairs(batch.drug_ids == np.unique(batch.drug_ids)[0])
+    one_drug = batch[batch.drug_ids == np.unique(batch.drug_ids)[0]]
     with pytest.raises(ConformanceError, match="at least two drugs"):
         check_predictor_single_drug_routing(PerDrugMeanPredictor, one_drug)
 

@@ -104,6 +104,4 @@ def naive_batch(
         response=response,
         sample=FeaturizerOutput(cell_entities, cell_blocks),
         drug=FeaturizerOutput(drug_entities, drug_blocks),
-        sample_pair_idx=np.asarray(sample_pair_idx, dtype=np.int64),
-        drug_pair_idx=np.asarray(drug_pair_idx, dtype=np.int64),
     )
