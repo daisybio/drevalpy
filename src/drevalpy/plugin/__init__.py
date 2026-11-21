@@ -29,7 +29,7 @@ from drevalpy.components.predictors.abstract.feature_free import FeatureFreePred
 from drevalpy.components.predictors.abstract.matrix import MatrixPredictor
 from drevalpy.components.predictors.abstract.single_drug import SingleDrugPredictor
 from drevalpy.components.predictors.inputs import Inputs
-from drevalpy.data.quality import CurveQuality, curve_quality_mask
+from drevalpy.data.quality import CurveQuality
 from drevalpy.data.splitters import observed_mask
 from drevalpy.errors import DrEvalError, InvalidInputError, UnknownNameError
 from drevalpy.registry import load_extensions
@@ -88,7 +88,6 @@ __all__ = [
     "UnknownNameError",
     "Validation",
     "all_nan_rows_mask",
-    "curve_quality_mask",
     "dense_result",
     "load_extensions",
     "observed_mask",

@@ -26,7 +26,7 @@ from drevalpy._utils.accelerator import ensure_available
 from drevalpy._utils.n_jobs import check_n_jobs
 from drevalpy.components.contracts.training_context import TrainingContext
 from drevalpy.components.featurizers.featurizer import CONCAT
-from drevalpy.models._feature_preparation import FitIds, prepare_features, unique_entity_ids, usable_pairs
+from drevalpy.models._feature_preparation import prepare_features, unique_entity_ids, usable_pairs
 from drevalpy.models.config.immutable import thaw_value
 from drevalpy.models.hyperparameters import FEATURIZER_SLOTS, PREDICTOR_SLOT, component_values
 from drevalpy.models.response_transformation._pipeline_ops import (
@@ -268,12 +268,7 @@ class DRPModel:
         return self._predictor
 
     def _transform_responses(self, dataset: Dataset, response: ResponseTable) -> ResponseTable:
-        """Apply the fitted response transformation to *response*, leaving response layers untouched.
-
-        :param dataset: Source of grouping metadata for the response transformation.
-        :param response: Observed response pairs and optional response layers.
-        :returns: ResponseTable with transformed responses and unchanged layers.
-        """
+        """Apply the fitted response transformation to *response*, leaving layers untouched."""
         transformation = self._fitted_response_transformation
         return replace(
             response,
@@ -308,8 +303,15 @@ class DRPModel:
             if featurizer is None or source is None:
                 results.append(FeaturizerOutput(unique_entity_ids(all_ids), {}))
                 continue
-            fit = FitIds(ids, es_ids) if fitting else None
-            results.append(prepare_features(featurizer, source, all_ids, fit=fit))
+            results.append(
+                prepare_features(
+                    featurizer,
+                    source,
+                    all_ids,
+                    train_pair_ids=ids if fitting else None,
+                    es_pair_ids=es_ids if fitting else None,
+                )
+            )
         sample, drug = results
         return PredictorInput.from_response(
             response,

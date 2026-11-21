@@ -433,9 +433,8 @@ quality layers, such as one with only a pEC50 matrix, therefore needs ``CurveQua
 reads the folds it is given and has none. ``--no-quality-filter`` cannot be combined with
 ``--min-relevance-score`` or ``--min-abs-fold-change``.
 
-``drevalpy.data.curve_quality_mask`` remains and computes the same mask as ``CurveQuality`` with
-optional thresholds. ``drevalpy.plugin.observed_mask(dataset, quality)`` is the mask a splitter
-reads: the pairs with a finite response that also pass ``quality``.
+``drevalpy.plugin.observed_mask(dataset, quality)`` is the mask a splitter reads: the pairs with
+a finite response that also pass ``quality`` (computed via ``CurveQuality.mask``).
 
 Synthetic dataset
 -----------------

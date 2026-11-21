@@ -5,7 +5,7 @@ from __future__ import annotations
 from upath import UPath as Path
 
 from drevalpy.data._paths import get_default_data_dir
-from drevalpy.data._transfer import cached_file_matches, download_checked
+from drevalpy.data._transfer import cached_file_matches, download_file
 from drevalpy.errors import InputNotFoundError
 from drevalpy.log import get_logger
 
@@ -44,7 +44,7 @@ def get_precily_gmt() -> Path:
 
     logger.info("Downloading MSigDB gene sets from %s ...", GMT_URL)
     try:
-        download_checked(Path(GMT_URL), local, GMT_FILENAME, GMT_SHA256)
+        download_file(Path(GMT_URL), local, GMT_FILENAME, sha256=GMT_SHA256)
     except _download_failures() as exc:
         raise InputNotFoundError(
             f"Could not download the MSigDB gene sets from {GMT_URL}: {exc}. "

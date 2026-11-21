@@ -209,12 +209,12 @@ class TestRaggedDrugView:
 
     def test_the_molgnet_featurizer_surfaces_the_error_instead_of_computing_over_it(self):
         from drevalpy.components.featurizers.drug.molgnet import MolGNetDrugFeaturizer
-        from drevalpy.models._feature_preparation import FitIds, prepare_features
+        from drevalpy.models._feature_preparation import prepare_features
 
         source = FeatureSource(_dataset(varm={"molgnet_features": self._ragged()}), "drug")
 
         with pytest.raises(InvalidInputError, match="object array"):
-            prepare_features(MolGNetDrugFeaturizer(), source, DRUGS, fit=FitIds(DRUGS))
+            prepare_features(MolGNetDrugFeaturizer(), source, DRUGS, train_pair_ids=DRUGS)
 
 
 class TestHasView:

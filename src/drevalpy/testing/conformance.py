@@ -81,9 +81,9 @@ def _entity_ids(cls: type[Featurizer], dataset: Dataset) -> np.ndarray:
 
 
 def _features(featurizer: Featurizer, source: FeatureSource, ids: np.ndarray, *, fit: bool) -> FeaturizerOutput:
-    from drevalpy.models._feature_preparation import FitIds, prepare_features
+    from drevalpy.models._feature_preparation import prepare_features
 
-    return prepare_features(featurizer, source, ids, fit=FitIds(ids) if fit else None)
+    return prepare_features(featurizer, source, ids, train_pair_ids=ids if fit else None)
 
 
 def check_featurizer_instantiates(

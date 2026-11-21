@@ -244,12 +244,11 @@ class TestChecksummedDownloads:
         monkeypatch.setattr(load_module, "dataset_registry", Registry())
         calls: list[str] = []
 
-        def fake_download(remote: object, local_path: UPath, label: str) -> UPath:
+        def fake_stream(remote: object, local_path: UPath, label: str, progress: object) -> None:
             calls.append(label)
             shutil.copyfile(published, local_path)
-            return local_path
 
-        monkeypatch.setattr(_transfer, "download_file", fake_download)
+        monkeypatch.setattr(_transfer, "_stream", fake_stream)
         return calls
 
     def _register(self, tmp_path: Path, sha256: str | None) -> None:

@@ -5,7 +5,7 @@ from __future__ import annotations
 from upath import UPath as Path
 
 from drevalpy.data._paths import get_default_data_dir, resolve_h5mu_path
-from drevalpy.data._transfer import cached_file_matches, download_checked
+from drevalpy.data._transfer import cached_file_matches, download_file
 from drevalpy.errors import InputNotFoundError
 from drevalpy.log import get_logger
 from drevalpy.registry.dataset._registry import dataset_registry
@@ -15,63 +15,33 @@ logger = get_logger(__name__)
 
 
 def _download(name: str) -> Path:
-    """Download the .h5mu file for a registered dataset.
-
-    When the registry entry carries a ``sha256``, the downloaded file is checked against it.
-    ``InvalidInputError`` (from :func:`~drevalpy.data._transfer.download_checked`) is raised if it does
-    not match; the file is deleted.
-
-    :param name: Dataset name from the registry.
-    :returns: Local path to the downloaded file.
-    """
+    """Download the .h5mu file for a registered dataset, verifying its pinned SHA-256."""
     entry = dataset_registry.datasets[name]
     source = dataset_registry.sources[entry.source]
     remote = Path(source.url, **source.storage_options) / entry.file
-    return download_checked(remote, get_default_data_dir() / entry.file, name, entry.sha256)
+    return download_file(remote, get_default_data_dir() / entry.file, name, sha256=entry.sha256)
 
 
 def _carries_curve_quality(dataset: Dataset) -> bool:
-    """Whether the default curve-quality thresholds can be evaluated on *dataset*.
-
-    The CurveCurator refit of the screens kept the file names of the generation
-    before it, so a cache filled by an older drevalpy holds a file that parses
-    perfectly but has none of the quality layers every splitter now reads. Left
-    alone that surfaces as a ``KeyError`` from deep inside a split, so the loader
-    treats such a file as stale and fetches it again.
-
-    Asking the filter itself, rather than checking a list of layer names, keeps
-    this honest when the default rule changes.
-    """
-    from drevalpy.data.quality import curve_quality_mask
+    """Return whether the default curve-quality thresholds can be evaluated on *dataset*."""
+    from drevalpy.data.quality import CurveQuality
 
     try:
-        curve_quality_mask(dataset)
+        CurveQuality().mask(dataset)
     except KeyError:
         return False
     return True
 
 
 def _is_corruption_error(exc: Exception) -> bool:
-    """Whether *exc* says the file content is unusable, as opposed to the environment failing."""
+    """Return whether *exc* indicates unusable file content rather than an environment error."""
     if isinstance(exc, (ValueError, TypeError, KeyError)):
         return True
     return isinstance(exc, OSError) and not isinstance(exc, (PermissionError, FileNotFoundError))
 
 
 def _load_from_cache(path: Path, sha256: str | None = None) -> Dataset | None:
-    """Load a cached .h5mu, or return ``None`` when it must be fetched again.
-
-    A file whose SHA-256 differs from *sha256* (when given) is deleted without being parsed.
-    Otherwise the file is deleted only when parsing fails with a corruption-type error
-    (``ValueError``, ``TypeError``, ``KeyError``, or an ``OSError`` other than
-    ``PermissionError`` / ``FileNotFoundError``). Any other failure, such as missing
-    permissions or a missing dependency, propagates and leaves the file alone.
-
-    :param path: Local candidate path.
-    :param sha256: Hex SHA-256 the file must have, or ``None`` to skip the check.
-    :returns: The dataset, or ``None`` if the file was unusable and removed.
-    :raises Exception: Any error that is not a corruption-type error, re-raised unchanged.
-    """
+    """Load a cached .h5mu, deleting it and returning ``None`` if corrupted, stale, or mismatched."""
     if sha256 is not None and not cached_file_matches(path, sha256):
         return None
 
@@ -96,13 +66,7 @@ def _load_from_cache(path: Path, sha256: str | None = None) -> Dataset | None:
 
 
 def _load_registered(dataset_name: str, registered_path: Path, sha256: str | None) -> Dataset:
-    """Load a registered dataset from its cache file, downloading it when the cache is unusable.
-
-    :param dataset_name: Registered dataset name.
-    :param registered_path: Cache path of the registered file.
-    :param sha256: Expected hash of the file, if the registry pins one.
-    :returns: Loaded Dataset.
-    """
+    """Load a registered dataset from cache, downloading it if absent or unusable."""
     if registered_path.is_file():
         dataset = _load_from_cache(registered_path, sha256)
         if dataset is not None:

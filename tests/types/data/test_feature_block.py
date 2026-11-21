@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-from types import MappingProxyType
-from typing import Any, cast
-
 import numpy as np
 import pytest
 
@@ -28,13 +25,6 @@ def test_block_spec_defaults_to_numeric_matrix() -> None:
 def test_global_feature_block_is_not_entity_aligned() -> None:
     block = FeatureBlock(np.array(["d1", "d2"], dtype=str), entity_aligned=False)
     assert block.entity_aligned is False
-
-
-def test_feature_block_annotations_are_immutable() -> None:
-    block = FeatureBlock(np.ones((1, 1)), annotations={"dim": 4})
-    assert isinstance(block.annotations, MappingProxyType)
-    with pytest.raises(TypeError):
-        cast(Any, block.annotations)["dim"] = 8
 
 
 def test_graph_and_ragged_blocks_preserve_object_dtype() -> None:

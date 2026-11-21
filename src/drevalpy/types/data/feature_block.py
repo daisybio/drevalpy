@@ -1,11 +1,10 @@
-"""Typed featurizer block payloads and entity-aligned featurizer results."""
+"""Typed featurizer block payloads and entity-aligned featurizer outputs."""
 
 from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
 from functools import cached_property
-from types import MappingProxyType
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -20,9 +19,9 @@ if TYPE_CHECKING:
 class FeatureBlock:
     """Named featurizer output with format and optional annotations.
 
-    ``values`` is always an ``np.ndarray``. Dense numeric blocks use float arrays;
-    graph and ragged blocks use object-dtype arrays whose elements are per-entity payloads.
-    Global blocks set ``entity_aligned=False`` and are not indexed per entity.
+    ``values`` is an ``np.ndarray``: dense numeric blocks use float arrays, graph and ragged
+    blocks use object-dtype arrays of per-entity payloads, and global blocks set
+    ``entity_aligned=False``.
     """
 
     values: np.ndarray
@@ -31,24 +30,18 @@ class FeatureBlock:
     annotations: Mapping[str, object] | None = None
     entity_aligned: bool = True
 
-    def __post_init__(self) -> None:
-        """Freeze annotations into an immutable mapping when provided."""
-        if self.annotations is not None and not isinstance(self.annotations, MappingProxyType):
-            object.__setattr__(self, "annotations", MappingProxyType(dict(self.annotations)))
-
 
 @dataclass(frozen=True)
 class FeaturizerOutput:
     """Named feature blocks aligned to unique entities.
 
-    Block predictors read ``blocks[name]`` directly. Matrix predictors read
-    :attr:`matrix`, which returns the single entity-aligned numeric block as-is or
-    horizontally concatenates multiple entity-aligned numeric blocks in insertion order.
-    Global blocks (``entity_aligned=False``) are never included in :attr:`matrix`.
+    Block predictors read ``blocks[name]`` directly. Matrix predictors read :attr:`matrix`,
+    which horizontally concatenates all entity-aligned numeric blocks in insertion order
+    (skipping non-numeric and ``entity_aligned=False`` blocks).
     """
 
     entity_ids: np.ndarray
-    blocks: Mapping[str, FeatureBlock]
+    blocks: dict[str, FeatureBlock]
 
     def __post_init__(self) -> None:
         """Validate row identities and entity alignment of every block."""
@@ -56,7 +49,7 @@ class FeaturizerOutput:
         if ids.ndim != 1:
             raise ValueError("FeaturizerOutput.entity_ids must be one-dimensional")
         object.__setattr__(self, "entity_ids", ids)
-        object.__setattr__(self, "blocks", MappingProxyType(dict(self.blocks)))
+        object.__setattr__(self, "blocks", dict(self.blocks))
         for name, block in self.blocks.items():
             if block.entity_aligned and (block.values.ndim == 0 or len(block.values) != len(ids)):
                 raise ValueError(f"Feature block {name!r} rows must match entity_ids")

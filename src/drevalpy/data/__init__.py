@@ -10,7 +10,7 @@ from drevalpy.types.data.dataset import Dataset as Dataset
 from ._concat import concat
 from ._synthetic import synthetic
 from .datasets._load import load
-from .quality import CurveQuality, curve_quality_mask
+from .quality import CurveQuality
 
 
 def split(
@@ -73,7 +73,6 @@ def split(
 __all__ = [
     "CurveQuality",
     "concat",
-    "curve_quality_mask",
     "load",
     "split",
     "synthetic",

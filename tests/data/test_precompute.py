@@ -12,7 +12,7 @@ from upath import UPath
 from drevalpy.components.featurizers._dense import PrecomputableFeaturizer
 from drevalpy.components.featurizers.drug.fingerprints import FingerprintsFeaturizer
 from drevalpy.data.precompute import precompute, precompute_all
-from drevalpy.models._feature_preparation import FitIds, prepare_features
+from drevalpy.models._feature_preparation import prepare_features
 from drevalpy.registry.featurizer import register
 from drevalpy.types.data.dataset import Dataset
 from drevalpy.types.data.feature_source import FeatureSource, precomputed_views
@@ -66,8 +66,8 @@ def test_a_sample_view_is_written_with_its_settings_and_read_only_at_those_setti
     ids = dataset.sample_ids
     source = FeatureSource(dataset, "sample")
     cls.computed.clear()
-    read = prepare_features(cls(), source, ids, fit=FitIds(ids))
-    other = prepare_features(cls(scale=2.0), source, ids, fit=FitIds(ids))
+    read = prepare_features(cls(), source, ids, train_pair_ids=ids)
+    other = prepare_features(cls(scale=2.0), source, ids, train_pair_ids=ids)
     assert cls.computed == [2.0]
     expected = FeatureSource(dataset, "sample").view("gene_expression", ids)[:, :1]
     np.testing.assert_allclose(read.matrix, expected, rtol=1e-6)

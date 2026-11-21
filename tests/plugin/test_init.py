@@ -52,7 +52,6 @@ EXPECTED_ORIGINS: dict[str, str] = {
     "UnknownNameError": "drevalpy.errors",
     "Validation": "drevalpy.registry.splitter._validation",
     "all_nan_rows_mask": "drevalpy.components.featurizers.featurizer",
-    "curve_quality_mask": "drevalpy.data.quality",
     "dense_result": "drevalpy.components.featurizers._dense",
     "load_extensions": "drevalpy.registry._extensions",
     "observed_mask": "drevalpy.data.splitters._folds",

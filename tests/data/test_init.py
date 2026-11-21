@@ -7,13 +7,12 @@ import pytest
 from upath import UPath
 
 from drevalpy import data
-from drevalpy.data.splitters.lpo import leave_pair_out
+from drevalpy.data.splitters.builtins import leave_pair_out
 from drevalpy.registry.splitter import register as register_splitter
 from drevalpy.types import Fold
 from tests._barrel_surface import DeclaredSurface
 
 EAGER_ORIGINS: dict[str, str] = {
-    "curve_quality_mask": "drevalpy.data.quality",
     "load": "drevalpy.data.datasets",
     "synthetic": "drevalpy",
 }

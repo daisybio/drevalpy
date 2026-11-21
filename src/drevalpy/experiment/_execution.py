@@ -8,7 +8,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, cast
 
-from drevalpy.data.splitters._early_stopping import early_stopping_split
+from drevalpy.data.splitters._folds import early_stopping_split
 from drevalpy.errors import InvalidInputError
 from drevalpy.evaluation import Metric
 from drevalpy.models.config.immutable import freeze_value, thaw_value
@@ -121,7 +121,7 @@ def build_execution(
     An unknown *hpo_metric* raises ``ValueError`` from ``Metric``. A single-drug model under LDO
     raises ``InvalidInputError`` from :func:`check_mode_supported`. A model that stops early gets
     whole groups of the split mode cut out of the validation set as its stopping set by
-    :func:`~drevalpy.data.splitters._early_stopping.early_stopping_split`, which raises
+    :func:`~drevalpy.data.splitters._folds.early_stopping_split`, which raises
     ``InvalidInputError`` when the validation set has fewer than two groups.
 
     :param model: Named model recipe.

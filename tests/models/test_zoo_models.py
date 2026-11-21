@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 
 from drevalpy._utils.seed import seed_everything
-from drevalpy.data.splitters._early_stopping import early_stopping_split
+from drevalpy.data.splitters._folds import early_stopping_split
 from drevalpy.models import DRPModel, ModelSpec
 from drevalpy.models.config import FeaturizerConfig, ModelConfig, from_recipe
 from drevalpy.models.zoo import get_zoo_config

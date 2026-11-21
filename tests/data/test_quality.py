@@ -9,7 +9,12 @@ import pytest
 
 from drevalpy.curation._anndata import _REGULATION_ENCODING
 from drevalpy.data import synthetic
-from drevalpy.data.quality import _RESPONSE_MATRIX, _RULES, CurveQuality, curve_quality_mask
+from drevalpy.data.quality import _RESPONSE_MATRIX, _RULES, CurveQuality
+
+
+def _mask(dataset: FakeDataset, **options) -> np.ndarray:
+    return CurveQuality(**options).mask(dataset)
+
 
 _SHAPE = (2, 3)
 
@@ -130,20 +135,20 @@ def test_every_option_keeps_at_the_boundary_drops_when_violated_is_off_by_defaul
     dataset = _dataset_for(option, _PASSING[option])
     off = {"min_relevance_score": None, "min_abs_fold_change": None}
 
-    assert curve_quality_mask(dataset, **_only(option, satisfied)).all()
-    assert not curve_quality_mask(dataset, **_only(option, violated)).any()
-    assert curve_quality_mask(dataset, **off).all()
-    assert not curve_quality_mask(_dataset_for(option, np.nan), **_only(option, satisfied)).any()
+    assert _mask(dataset, **_only(option, satisfied)).all()
+    assert not _mask(dataset, **_only(option, violated)).any()
+    assert _mask(dataset, **off).all()
+    assert not _mask(_dataset_for(option, np.nan), **_only(option, satisfied)).any()
 
 
 def test_the_default_rule_consults_only_relevance_score_and_fold_change() -> None:
-    assert curve_quality_mask(_both()).all()
+    assert _mask(_both()).all()
 
 
 def test_the_default_thresholds_are_minus_log10_alpha_and_fc_lim() -> None:
     cut = -np.log10(0.05)
-    relevance = curve_quality_mask(_both(relevance=np.array([[cut, cut * 0.999, 0.0]] * 2)))
-    fold = curve_quality_mask(
+    relevance = _mask(_both(relevance=np.array([[cut, cut * 0.999, 0.0]] * 2)))
+    fold = _mask(
         FakeDataset({"relevance_score": np.full(_SHAPE, 9.0), "fold_change": np.array([[0.45, -0.45, 0.44]] * 2)})
     )
 
@@ -152,20 +157,20 @@ def test_the_default_thresholds_are_minus_log10_alpha_and_fc_lim() -> None:
 
 
 def test_a_nan_in_one_metric_does_not_condemn_the_others() -> None:
-    mask = curve_quality_mask(_both(relevance=np.array([[9.0, np.nan, 9.0]] * 2)))
+    mask = _mask(_both(relevance=np.array([[9.0, np.nan, 9.0]] * 2)))
 
     assert mask.tolist() == [[True, False, True]] * 2
 
 
 def test_options_are_anded_and_a_passing_dataset_survives_all_of_them() -> None:
-    mask = curve_quality_mask(_both({"R2": np.array([[0.99, 0.5, 0.99]] * 2)}), min_r2=0.9)
+    mask = _mask(_both({"R2": np.array([[0.99, 0.5, 0.99]] * 2)}), min_r2=0.9)
 
     assert mask.tolist() == [[True, False, True]] * 2
-    assert curve_quality_mask(_passing_dataset(), **{option: _THRESHOLDS[option][0] for option in _RULES}).all()
+    assert _mask(_passing_dataset(), **{option: _THRESHOLDS[option][0] for option in _RULES}).all()
 
 
 def test_disabling_everything_keeps_every_pair_even_with_no_layers() -> None:
-    mask = curve_quality_mask(FakeDataset({}), min_relevance_score=None, min_abs_fold_change=None)
+    mask = _mask(FakeDataset({}), min_relevance_score=None, min_abs_fold_change=None)
 
     assert mask.shape == _SHAPE
     assert mask.all()
@@ -173,9 +178,9 @@ def test_disabling_everything_keeps_every_pair_even_with_no_layers() -> None:
 
 def test_a_requested_layer_that_is_absent_raises_and_an_unused_one_may_be_absent() -> None:
     with pytest.raises(KeyError, match="fold_change"):
-        curve_quality_mask(FakeDataset({"relevance_score": np.full(_SHAPE, 9.0)}))
+        _mask(FakeDataset({"relevance_score": np.full(_SHAPE, 9.0)}))
     with pytest.raises(TypeError):
-        curve_quality_mask(FakeDataset({}), min_nonsense=1.0)
+        _mask(FakeDataset({}), min_nonsense=1.0)
 
 
 class TestRegulation:
@@ -195,17 +200,15 @@ class TestRegulation:
     def test_labels_select_the_matching_pairs_and_an_undetermined_curve_is_in_no_category(
         self, labels: list[str], expected: list[list[bool]]
     ) -> None:
-        mask = curve_quality_mask(
-            self._dataset(), min_relevance_score=None, min_abs_fold_change=None, regulation=labels
-        )
+        mask = _mask(self._dataset(), min_relevance_score=None, min_abs_fold_change=None, regulation=labels)
 
         assert mask.tolist() == expected
 
     def test_an_unknown_label_raises_listing_the_valid_ones(self) -> None:
         with pytest.raises(ValueError, match="sideways"):
-            curve_quality_mask(self._dataset(), regulation=["sideways"])
+            _mask(self._dataset(), regulation=["sideways"])
         with pytest.raises(ValueError, match="down.*not.*up"):
-            curve_quality_mask(self._dataset(), regulation=["bogus"])
+            _mask(self._dataset(), regulation=["bogus"])
 
     def test_the_default_rule_reproduces_curvecurators_verdict(self) -> None:
         rng = np.random.default_rng(20260814)
@@ -219,7 +222,7 @@ class TestRegulation:
             response=np.full(shape, 6.0),
         )
 
-        mask = curve_quality_mask(dataset)
+        mask = _mask(dataset)
 
         assert mask.tolist() == regulated.tolist()
         assert mask.tolist() == (regulation != 0).tolist()
@@ -228,10 +231,10 @@ class TestRegulation:
 def test_the_mask_matches_the_response_matrix_blanks_it_in_place_and_does_not_mutate_the_dataset() -> None:
     dataset = _passing_dataset()
     before = {name: dataset.get_response_layer(name).copy() for name in dataset.response_layer_names()}
-    mask = curve_quality_mask(dataset)
+    mask = _mask(dataset)
     uneven = _both(relevance=np.array([[9.0, 0.0, 9.0]] * 2))
     response = uneven.response_matrix.copy()
-    response[~curve_quality_mask(uneven)] = np.nan
+    response[~_mask(uneven)] = np.nan
 
     assert mask.shape == dataset.response_matrix.shape
     assert mask.dtype == np.bool_
@@ -252,7 +255,6 @@ class TestCurveQuality:
         assert not mask.all()
         assert mask.dtype == bool
         np.testing.assert_array_equal(mask, expected)
-        np.testing.assert_array_equal(mask, curve_quality_mask(dataset))
         assert CurveQuality.default() == CurveQuality()
 
     def test_off_keeps_exactly_the_finite_responses_even_after_the_quality_layers_are_removed(self) -> None:

@@ -14,7 +14,7 @@ from sklearn.preprocessing import StandardScaler
 from drevalpy import single
 from drevalpy._single import _fit_fold
 from drevalpy.data import split
-from drevalpy.data.splitters._early_stopping import early_stopping_split
+from drevalpy.data.splitters._folds import early_stopping_split
 from drevalpy.errors import InvalidInputError, NaNPredictionError
 from drevalpy.evaluation import Metric
 from drevalpy.models import DRPModel, ModelSpec

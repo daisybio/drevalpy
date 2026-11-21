@@ -83,9 +83,10 @@ These affect only code, configurations and datasets written for an unreleased 2.
   ``drevalpy.data.splitter_registry``, the registry names in ``drevalpy.data.datasets`` (only
   ``load`` stays) and in ``drevalpy.data.splitters`` (only ``observed_mask`` stays) are removed, as
   are ``DatasetRegistry.builtin_sources``, ``builtin_datasets``, ``custom_sources``,
-  ``source_names``, ``unregister_dataset`` and ``unregister_source``. The LSO and LDO splitters
-  live in ``drevalpy.data.splitters.entity``, and the built-in split modes are listed as LDO, LSO,
+  ``source_names``, ``unregister_dataset`` and ``unregister_source``. The built-in splitters
+  live in ``drevalpy.data.splitters.builtins``, and the built-in split modes are listed as LDO, LSO,
   LPO, LStO, LTO. ``register_splitter(validation=...)`` takes only canonical names, not ``"LCO"``.
+  ``curve_quality_mask`` is removed in favour of ``CurveQuality(...).mask(dataset)``.
 - ``ModelInputBatch`` is now ``PredictorInput``, ``ResponseBatch`` is ``ResponseTable``,
   ``FeaturizerResult`` is ``FeaturizerOutput``, and ``build_synthetic_batch`` in
   ``drevalpy.testing`` is ``build_synthetic_input``. The three data modules moved out of

@@ -13,7 +13,7 @@ from drevalpy.components.featurizers.sample.view import ViewSampleFeaturizer
 from drevalpy.components.featurizers.shared.concat import ConcatFeaturizer
 from drevalpy.components.featurizers.shared.constant import ConstantFeaturizer
 from drevalpy.components.featurizers.shared.one_hot import OneHotFeaturizer
-from drevalpy.models._feature_preparation import FitIds, prepare_features
+from drevalpy.models._feature_preparation import prepare_features
 from drevalpy.models.config import FeaturizerConfig
 from drevalpy.registry.featurizer import get_featurizer
 from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
@@ -59,7 +59,7 @@ def _drug_features() -> MockFeatureSource:
 
 
 def _run(featurizer, source, ids) -> FeaturizerOutput:
-    return prepare_features(featurizer, source, ids, fit=FitIds(ids))
+    return prepare_features(featurizer, source, ids, train_pair_ids=ids)
 
 
 def _raw_configs() -> list[FeaturizerConfig]:
@@ -103,7 +103,7 @@ def test_concat_pads_entities_unusable_for_any_child() -> None:
     featurizer = ConcatFeaturizer(featurizers=_raw_configs())
     _run(featurizer, _sample_features(), np.array(["cl1"], dtype=str))
 
-    result = prepare_features(featurizer, _sample_features(), np.array(["cl1", "cl3"], dtype=str), fit=None)
+    result = prepare_features(featurizer, _sample_features(), np.array(["cl1", "cl3"], dtype=str))
 
     assert np.isnan(result.matrix[1]).all()
     np.testing.assert_allclose(result.matrix[0], [1.0, 2.0, 0.0, 1.0])
@@ -175,7 +175,7 @@ def test_a_fitted_concat_pickles() -> None:
 
     restored = pickle.loads(pickle.dumps(featurizer))  # noqa: S301 -- pickled in the same expression
 
-    np.testing.assert_allclose(prepare_features(restored, features, _IDS, fit=None).matrix, expected.matrix)
+    np.testing.assert_allclose(prepare_features(restored, features, _IDS).matrix, expected.matrix)
 
 
 @pytest.mark.parametrize("side", ["sample", "drug"])
@@ -198,10 +198,10 @@ def test_identity_one_hot_blocks_and_pickling(side: str) -> None:
     featurizer.fit(source, np.array(["e2", "e1"], dtype=str))
     ids = np.array(["e2", "e1", "e3"], dtype=str)
 
-    result = prepare_features(featurizer, source, ids, fit=None)
+    result = prepare_features(featurizer, source, ids)
     restored = pickle.loads(pickle.dumps(featurizer))  # noqa: S301 -- pickled in the same expression
 
     np.testing.assert_array_equal(result.matrix, [[0, 1], [1, 0], [0, 0]])
     assert set(result.blocks) == {"oneHot", "oneHot_categories"}
     assert list(result.blocks["oneHot_categories"].values) == ["e1", "e2"]
-    np.testing.assert_array_equal(prepare_features(restored, source, ids, fit=None).matrix, result.matrix)
+    np.testing.assert_array_equal(prepare_features(restored, source, ids).matrix, result.matrix)
