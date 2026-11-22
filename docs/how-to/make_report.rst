@@ -99,7 +99,8 @@ a plot that compares models needs several models, and a plot that shows the spre
 needs several folds. Plots whose requirements are not met are left out of the report; for
 example, an experiment with a single model has no model comparison or leaderboard, and the
 critical difference diagram needs at least three models and several folds. The reference model of
-a normalized report counts as a model, since the leaderboard and the diagram list it. Some plots
+a normalized report counts as a model for the leaderboard and the diagram, which list it, but
+not for the model comparison. Some plots
 log a warning and skip a part of themselves, such as the Friedman test of the critical difference
 diagram when models have different numbers of folds. ``drevalpy list visualizations`` shows the
 plots and their requirements; see :doc:`/how-to/list_available`.
