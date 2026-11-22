@@ -75,7 +75,7 @@ membership against the values.
 
 ## Tests
 
-- CI runs the suite with `pytest-xdist` (`-n auto --dist worksteal`); the reasons for that
+- CI runs the suite with `pytest-xdist` (`-n logical --dist worksteal`); the reasons for that
   mode are in `docs/project/contributing.rst`. A test must not depend on the order tests run
   in or on what another test left behind, and seeds every random draw its assertions use.
 - The autouse `registry_snapshot` fixture in `tests/conftest.py` restores every registry,

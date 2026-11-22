@@ -8,6 +8,7 @@ suite needs is built in memory by
 
 from __future__ import annotations
 
+import os
 import shutil
 import zipfile
 from collections.abc import Iterator
@@ -176,8 +177,31 @@ class MockFeatureSource(FeatureSource):
         return self._meta_info.get(key)
 
 
+#: Thread-count settings of OpenMP (torch, LightGBM, XGBoost), the BLAS builds and joblib's ``n_jobs=-1``.
+_THREAD_VARIABLES = ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "LOKY_MAX_CPU_COUNT")
+
+
+def _limit_threads_per_worker() -> None:
+    """Give each pytest-xdist worker its share of the CPUs.
+
+    Every worker is a process of its own, and each of its thread pools starts one thread per CPU, so
+    without a limit the workers run several times as many threads as there are CPUs and slow each
+    other down. The environment variables reach the libraries that load later, torch among them, and
+    the subprocesses that tests start; ``threadpool_limits`` covers the pools that the imports of this
+    module have already started. A serial run keeps every CPU.
+    """
+    workers = os.environ.get("PYTEST_XDIST_WORKER_COUNT")
+    if workers is None:
+        return
+    threads = max(1, (os.cpu_count() or 1) // int(workers))
+    os.environ.update(dict.fromkeys(_THREAD_VARIABLES, str(threads)))
+    from threadpoolctl import threadpool_limits
+
+    threadpool_limits(threads)
+
+
 def pytest_configure(config: pytest.Config) -> None:
-    """Configure pytest session defaults and a headless Matplotlib backend.
+    """Configure pytest session defaults, a headless Matplotlib backend and the threads per xdist worker.
 
     :param config: Pytest configuration object.
     """
@@ -185,3 +209,4 @@ def pytest_configure(config: pytest.Config) -> None:
 
     matplotlib.use("Agg")
     config.option.tbstyle = "short"
+    _limit_threads_per_worker()

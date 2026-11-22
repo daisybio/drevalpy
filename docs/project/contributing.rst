@@ -107,14 +107,20 @@ suite. To reproduce the CI check locally:
 
 .. code:: console
 
-   $ uv run pytest -m "not network and not golden" -n auto --dist worksteal --cov --cov-report=term-missing
+   $ uv run pytest -m "not network and not golden" -n logical --dist worksteal --cov --cov-report=term-missing
 
 CI runs the tests in parallel with ``pytest-xdist``, which is how the command above
-reproduces it; add ``-n auto --dist worksteal`` to any tier for the same speed-up. The
+reproduces it; add ``-n logical --dist worksteal`` to any tier for the same speed-up. The
 default command stays serial, because a single test or ``--pdb`` session does not gain
-from collecting the suite once per worker. Use ``worksteal``: ``loadfile`` keeps the
-docs snippet pages, the longest tests of the suite, on one worker, and ``load`` hands
-out contiguous slices, so they still land together on the full run.
+from collecting the suite once per worker. Use ``logical`` rather than ``auto``, which
+counts physical cores and so starts half the workers on a CPU with two threads per core.
+Use ``worksteal``: ``loadfile`` keeps the docs snippet pages, the longest tests of the
+suite, on one worker, and ``load`` hands out contiguous slices, so they still land
+together on the full run.
+
+``tests/conftest.py`` gives each worker its share of the CPUs: the thread pools of BLAS,
+OpenMP, torch and joblib in a worker start only as many threads as there are CPUs per
+worker, so the workers do not run several times as many threads as there are CPUs.
 
 Every worker is its own process with its own registries, session fixtures and random
 state, and the tests run in no fixed order. So a test must not rely on what an
