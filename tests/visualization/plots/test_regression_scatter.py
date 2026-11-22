@@ -8,11 +8,11 @@ import pytest
 from matplotlib.collections import PolyCollection
 from matplotlib.figure import Figure
 
+from drevalpy.evaluation import Metric, evaluate
 from drevalpy.types.results.model import ModelResult
 from drevalpy.visualization.base import save_png
 from drevalpy.visualization.plots.regression_scatter import (
     RegressionScatterPlot,
-    _pearson,
     _pooled_predictions,
 )
 from tests.synthetic import DEFAULT_DATASET_NAME, make_model_result, make_run_result
@@ -73,21 +73,6 @@ class TestPooledPredictions:
         assert _pooled_predictions(_model_result(runs[1:]))[0].size == 0
 
 
-class TestPearson:
-    def test_perfect_and_inverted_relationships(self):
-        x = np.array([1.0, 2.0, 3.0, 4.0])
-
-        assert _pearson(x, 2 * x) == pytest.approx(1.0)
-        assert _pearson(x, -x) == pytest.approx(-1.0)
-
-    @pytest.mark.parametrize(
-        "x, y",
-        [([1.0], [2.0]), ([], []), ([1.0, 1.0, 1.0], [1.0, 2.0, 3.0]), ([1.0, 2.0, 3.0], [1.0, 1.0, 1.0])],
-    )
-    def test_undefined_cases_are_nan(self, x, y):
-        assert np.isnan(_pearson(np.array(x), np.array(y)))
-
-
 class TestFigure:
     def test_draws_hexbin_identity_line_colorbar_and_labels(self, figure, model_result):
         ax = figure.axes[0]
@@ -102,6 +87,26 @@ class TestFigure:
         assert f"n = {N_FOLDS * N_PAIRS:,}" in text
         assert "Pearson =" in text
         assert "R²" in text
+
+    def test_label_scores_come_from_the_evaluation_module(self):
+        run = make_run_result(n_pairs=30)
+        run.predictions[:] = 2 * run.ground_truth + 5
+        scores = evaluate(run.predictions, run.ground_truth, [Metric.PEARSON, Metric.R2])
+
+        text = RegressionScatterPlot().figure(_model_result([run])).axes[0].texts[0].get_text()
+
+        assert scores[Metric.PEARSON] == pytest.approx(1.0)
+        assert scores[Metric.R2] < 0
+        assert f"Pearson = {scores[Metric.PEARSON]:.3f}" in text
+        assert f"R² = {scores[Metric.R2]:.3f}" in text
+
+    def test_undefined_scores_read_n_a(self):
+        run = make_run_result(n_pairs=1)
+
+        text = RegressionScatterPlot().figure(_model_result([run])).axes[0].texts[0].get_text()
+
+        assert "Pearson = n/a" in text
+        assert "R² = n/a" in text
 
     def test_no_data_falls_back_to_a_placeholder(self):
         fig = RegressionScatterPlot().figure(

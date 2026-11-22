@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from drevalpy.evaluation import Metric, evaluate
 from drevalpy.registry.visualization import register
 from drevalpy.types.results import ModelResult
 from drevalpy.visualization.base import Plot, Section, embedded_png_html
@@ -45,17 +46,14 @@ def _pooled_predictions(result: ModelResult) -> tuple[np.ndarray, np.ndarray]:
     return np.concatenate(truths), np.concatenate(predictions)
 
 
-def _pearson(x: np.ndarray, y: np.ndarray) -> float:
-    """Pearson correlation of two aligned arrays, NaN where undefined.
+def _score_label(name: str, score: float) -> str:
+    """Format one score for the annotation.
 
-    :param x: First variable.
-    :param y: Second variable, aligned with ``x``.
-    :returns: The correlation, or NaN for fewer than two points or zero variance
-        on either side.
+    :param name: Label of the score.
+    :param score: The score, ``NaN`` where the data cannot support it.
+    :returns: ``"name = 0.123"``, or ``"name = n/a"`` for an undefined score.
     """
-    if x.size < 2 or x.std() == 0 or y.std() == 0:
-        return float("nan")
-    return float(np.corrcoef(x, y)[0, 1])
+    return f"{name} = {score:.3f}" if np.isfinite(score) else f"{name} = n/a"
 
 
 @register("regression_scatter", "Density of predicted vs. observed drug response values")
@@ -66,6 +64,9 @@ class RegressionScatterPlot(Plot):
 
     def figure(self, result: ModelResult) -> Figure:
         """Draw the pooled predictions as a hexbin with an identity line and a fit annotation.
+
+        The annotation gives ``n``, Pearson and ``R^2`` as :func:`drevalpy.evaluation.evaluate` scores
+        them on the pooled pairs, so it agrees with the reported metrics; an undefined score reads ``n/a``.
 
         Built on :class:`matplotlib.figure.Figure` directly rather than through
         ``pyplot``, so the figure never enters pyplot's global registry and is
@@ -99,7 +100,7 @@ class RegressionScatterPlot(Plot):
         fig.colorbar(hexes, ax=ax, label="Predictions per bin (log scale)")
         ax.plot([low, high], [low, high], linestyle="--", linewidth=1, color="#d62728")
 
-        pcc = _pearson(ground_truth, predictions)
+        scores = evaluate(predictions, ground_truth, [Metric.PEARSON, Metric.R2])
         ax.set_title(f"{result.model_name}: predicted vs. observed response")
         ax.set_xlabel("Observed")
         ax.set_ylabel("Predicted")
@@ -108,7 +109,13 @@ class RegressionScatterPlot(Plot):
         ax.text(
             0.03,
             0.97,
-            f"n = {ground_truth.size:,}\nPearson = {pcc:.3f}\nR² = {pcc**2:.3f}",
+            "\n".join(
+                [
+                    f"n = {ground_truth.size:,}",
+                    _score_label("Pearson", scores[Metric.PEARSON]),
+                    _score_label("R²", scores[Metric.R2]),
+                ]
+            ),
             transform=ax.transAxes,
             va="top",
             ha="left",
