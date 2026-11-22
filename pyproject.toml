@@ -74,6 +74,7 @@ dev = [
     "pytest-cov",
     "types-PyYAML",
     "pydoclint>=0.11.0",
+    "pytest-xdist>=3.8",
 ]
 docs = [
     "sphinx>=4.0.2",

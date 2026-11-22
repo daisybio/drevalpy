@@ -73,7 +73,9 @@ jobs:
         # `not network` (rather than no marker at all) deselects the tests that
         # download pretrained weights from the artifacts bucket, which is not
         # readable without credentials; run_network_tests.yml covers those.
-        run: uv run --extra morgoth pytest -m "not network and not golden" --cov --cov-report=xml
+        # `--dist worksteal` keeps the long docs snippet pages from piling up on one
+        # worker; see "How to test the project" in docs/project/contributing.rst.
+        run: uv run --extra morgoth pytest -m "not network and not golden" -n auto --dist worksteal --cov --cov-report=xml
 
       - name: Upload coverage
         if: always() && matrix.os == 'ubuntu-latest'

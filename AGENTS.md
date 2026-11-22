@@ -75,8 +75,9 @@ membership against the values.
 
 ## Tests
 
-- Keep the suite serial, in file order: no `pytest-xdist`, `--dist loadfile`/`loadscope`
-  or random ordering. The registries are process-global.
+- CI runs the suite with `pytest-xdist` (`-n auto --dist worksteal`); the reasons for that
+  mode are in `docs/project/contributing.rst`. A test must not depend on the order tests run
+  in or on what another test left behind, and seeds every random draw its assertions use.
 - The autouse `registry_snapshot` fixture in `tests/conftest.py` restores every registry,
   the zoo included, after each test, so a test may call `load_extensions` or a `register_*`
   decorator without cleaning up. A test that needs a known starting state calls
