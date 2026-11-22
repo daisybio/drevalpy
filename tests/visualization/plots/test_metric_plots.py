@@ -19,7 +19,7 @@ from drevalpy.visualization.plots.heatmap import (
     _ssmd_matrix,
     compute_ssmd,
 )
-from drevalpy.visualization.plots.violin import ViolinPlot, _run_metrics
+from drevalpy.visualization.plots.violin import ViolinPlot, _violins
 from tests.synthetic import REFERENCE_MODEL, make_experiment_result, make_run_result
 
 
@@ -164,14 +164,14 @@ class TestViolinFigure:
         assert fig.layout.title.text == "All Metrics"
         assert (fig.layout.height, fig.layout.width) == (600, 1100)
 
-    def test_multiqc_payload_is_keyed_by_run_identity_and_holds_raw_metrics(self, experiment):
-        expected = {run.run_id for model in experiment.models for run in model.select_runs()}
+    def test_violins_are_keyed_by_model_and_metric_and_hold_one_value_per_run(self, experiment):
         run = experiment.models[0].runs[0]
 
-        data = _run_metrics(experiment)
+        violins = _violins(experiment)
 
-        assert set(data) == expected
-        assert data[run.run_id] == run.metrics
+        assert len(violins) == len(experiment.models) * N_PLOTTED_METRICS
+        assert violins[(run.model_name, "MSE")][run.run_id] == run.metrics["MSE"]
+        assert all(len(values) == experiment.models[0].n_folds for values in violins.values())
 
     def test_model_names_with_underscores_stay_whole(self):
         result = ExperimentResult(
@@ -216,6 +216,53 @@ class TestViolinOutputs:
         assert (section.name, section.anchor) == ("Metric Distributions", "dreval_violin")
         assert section.plot is not None
         assert "Distribution of evaluation metrics" in section.description
+
+    def test_section_draws_one_violin_per_model_and_metric_like_the_figure(self):
+        result = ExperimentResult(
+            [
+                make_run_result(
+                    model_name=name, fold_index=i, metrics={"MSE": scale * (i + 1), "Pearson": 0.5 + i / 10}
+                )
+                for name, scale in (("ModelA", 1.0), ("ModelB", 10.0))
+                for i in range(3)
+            ]
+        )
+
+        (section,) = ViolinPlot().sections(result)
+
+        dataset = section.plot.datasets[0]
+        distributions = {
+            (header.namespace, header.title): sorted(dataset.violin_value_by_sample_by_metric[anchor].values())
+            for anchor, header in dataset.header_by_metric.items()
+        }
+        assert distributions == {
+            ("ModelA", "MSE"): [1.0, 2.0, 3.0],
+            ("ModelB", "MSE"): [10.0, 20.0, 30.0],
+            ("ModelA", "Pearson"): [0.5, 0.6, 0.7],
+            ("ModelB", "Pearson"): [0.5, 0.6, 0.7],
+        }
+        assert sorted(f"{model}: {metric}" for model, metric in distributions) == sorted(
+            trace.name for trace in ViolinPlot().figure(result).data
+        )
+
+    def test_a_model_without_finite_values_for_a_metric_gets_no_violin_for_it(self):
+        result = ExperimentResult(
+            [
+                make_run_result(model_name="ModelA", fold_index=i, metrics={"MSE": 1.0 + i, "Pearson": 0.5})
+                for i in range(2)
+            ]
+            + [
+                make_run_result(model_name="ModelB", fold_index=i, metrics={"MSE": 5.0 + i, "Pearson": np.nan})
+                for i in range(2)
+            ]
+        )
+
+        assert set(_violins(result)) == {("ModelA", "MSE"), ("ModelB", "MSE"), ("ModelA", "Pearson")}
+        assert [trace.name for trace in ViolinPlot().figure(result).data] == [
+            "ModelA: MSE",
+            "ModelB: MSE",
+            "ModelA: Pearson",
+        ]
 
     def test_show_delegates_to_the_plotly_figure(self, experiment, monkeypatch):
         calls: list = []
