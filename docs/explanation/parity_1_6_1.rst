@@ -143,8 +143,6 @@ evaluates more strictly. Each of these is recorded as a deviation in the evidenc
 - **MultiViewRandomForest.** 1.6.1 built the design matrix from the sample views only,
   so it predicted the same value for a sample with every drug. 2.0 includes the drug
   fingerprints.
-- **Methylation PCA.** 1.6.1 standardized methylation before the PCA in the boosted
-  tree models; the 2.0 ``pca`` featurizer has no scaler in front of it.
 - **Edge cases that failed in 1.6.1.** A molecule without bonds in DrugGNN, and a last
   prediction batch of one row in SparseGO.
 

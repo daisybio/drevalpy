@@ -1,4 +1,10 @@
-"""PCA sample featurizer."""
+"""PCA sample featurizer.
+
+The view is standardized (centred, scaled to unit variance per feature) and then reduced, both fitted on the
+training samples only. Standardization is part of the featurizer, not a step a recipe has to put in front of
+it: PCA ranks directions by variance, so on unscaled data the features with the largest unit dominate every
+component. A feature that is constant in the training samples is centred and left unscaled.
+"""
 
 from __future__ import annotations
 
@@ -13,12 +19,12 @@ from drevalpy.types.data.feature_block import FeaturizerOutput
 from drevalpy.types.data.feature_source import FeatureSource, Side
 
 if TYPE_CHECKING:
-    from sklearn.decomposition import PCA
+    from sklearn.pipeline import Pipeline
 
 
 @register("pca", side=Side.SAMPLE, description="PCA compression of one dense sample view fit on training samples.")
 class PCASampleFeaturizer(Featurizer):
-    """Reduce one sample view with PCA."""
+    """Reduce one sample view with PCA after standardizing it."""
 
     def __init__(self, *, view: str, n_components: int = 128) -> None:
         """Bind the view to reduce and the target dimension.
@@ -34,7 +40,7 @@ class PCASampleFeaturizer(Featurizer):
         self._view = view
         self._n_components = int(n_components)
         self._names: tuple[str, ...] | None = None
-        self._pca: PCA | None = None
+        self._pipeline: Pipeline | None = None
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
@@ -60,7 +66,7 @@ class PCASampleFeaturizer(Featurizer):
         train_pair_ids: np.ndarray | None = None,
         es_pair_ids: np.ndarray | None = None,
     ) -> Self:
-        """Fit PCA on the training rows, capping the component count by the matrix shape.
+        """Fit the standardization and PCA on the training rows, capping the component count by the matrix shape.
 
         :param source: Feature source of the sample side.
         :param train_ids: Training sample IDs.
@@ -69,26 +75,29 @@ class PCASampleFeaturizer(Featurizer):
         :returns: This featurizer, fitted.
         """
         from sklearn.decomposition import PCA
+        from sklearn.pipeline import make_pipeline
+        from sklearn.preprocessing import StandardScaler
 
         _ = train_pair_ids, es_pair_ids
         self._names = source.feature_names(self._view)
         matrix = view_matrix(source, self._view, train_ids, self._names)
-        self._pca = PCA(n_components=min(self._n_components, matrix.shape[0], matrix.shape[1])).fit(matrix)
+        n_components = min(self._n_components, matrix.shape[0], matrix.shape[1])
+        self._pipeline = make_pipeline(StandardScaler(), PCA(n_components=n_components)).fit(matrix)
         return self
 
     def transform(self, source: FeatureSource, ids: np.ndarray) -> FeaturizerOutput:
-        """Project the view's rows for *ids* through the fitted PCA.
+        """Standardize and project the view's rows for *ids* through the fitted PCA.
 
         :param source: Feature source of the sample side.
         :param ids: Sample IDs, in output order.
         :returns: One block of components, named after the view.
         :raises RuntimeError: If called before ``fit``.
         """
-        if self._pca is None:
+        if self._pipeline is None:
             msg = "PCASampleFeaturizer must be fit before transform"
             raise RuntimeError(msg)
         if len(ids) == 0:
-            matrix = np.empty((0, int(self._pca.n_components_)))
+            matrix = np.empty((0, int(self._pipeline[-1].n_components_)))
         else:
-            matrix = self._pca.transform(view_matrix(source, self._view, ids, self._names))
+            matrix = self._pipeline.transform(view_matrix(source, self._view, ids, self._names))
         return dense_result(ids, self._view, matrix, None)
