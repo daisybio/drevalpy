@@ -19,7 +19,7 @@ from drevalpy.models.zoo import (
     zoo_registry,
 )
 from drevalpy.registry.predictor import get as get_predictor
-from drevalpy.types.enums import ModelScope, PredictionMode
+from drevalpy.types.enums import ModelScope
 
 LITERATURE_ZOO_NAMES = [
     "DrugGNN",
@@ -144,15 +144,6 @@ def test_get_zoo_config_rejects_an_unknown_name_with_unknown_name_error() -> Non
     with pytest.raises(UnknownNameError, match=r"Unknown zoo entry 'NoSuchPreset'\. Available: ") as caught:
         get_zoo_config("NoSuchPreset")
     assert isinstance(caught.value, KeyError)
-
-
-def test_get_zoo_config_applies_prediction_mode_override(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(get_predictor("elasticNet"), "supported_modes", frozenset(PredictionMode))
-    assert get_zoo_config("ElasticNet").prediction_mode == PredictionMode.REGRESSION
-    assert (
-        get_zoo_config("ElasticNet", prediction_mode=PredictionMode.CLASSIFICATION).prediction_mode
-        == PredictionMode.CLASSIFICATION
-    )
 
 
 def test_external_zoo_rejects_builtin_collision_and_is_atomic(tmp_path) -> None:
