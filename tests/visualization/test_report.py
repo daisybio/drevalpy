@@ -170,6 +170,47 @@ class TestApplicableResults:
         assert "regression_scatter" in {cls.name for cls, result in pairs if result is not experiment}
         assert all(isinstance(result, cls.result_type) for cls, result in pairs)
 
+    @pytest.mark.parametrize(
+        ("n_models", "n_folds", "expected"),
+        [
+            pytest.param(1, 1, {"regression_scatter"}, id="one-model-one-fold"),
+            pytest.param(1, 3, {"regression_scatter", "heatmap", "violin"}, id="one-model-three-folds"),
+            pytest.param(2, 1, {"regression_scatter", "comparison_scatter", "leaderboard"}, id="two-models-one-fold"),
+            pytest.param(
+                2,
+                3,
+                {"regression_scatter", "comparison_scatter", "leaderboard", "heatmap", "violin"},
+                id="two-models-three-folds",
+            ),
+            pytest.param(
+                3,
+                3,
+                {
+                    "regression_scatter",
+                    "comparison_scatter",
+                    "leaderboard",
+                    "heatmap",
+                    "violin",
+                    "critical_difference",
+                },
+                id="three-models-three-folds",
+            ),
+        ],
+    )
+    def test_a_plot_is_built_exactly_when_its_requirements_are_met(self, n_models, n_folds, expected):
+        experiment = make_experiment_result(n_models=n_models, n_folds=n_folds)
+
+        assert {cls.name for cls, _ in _applicable_results(experiment)} == expected
+
+    def test_a_normalized_experiment_counts_its_reference_model_for_the_plots_that_list_it(self):
+        one_model_and_reference = make_experiment_result(n_models=2, n_folds=3).normalize(REFERENCE_MODEL)
+        two_models_and_reference = make_experiment_result(n_models=3, n_folds=3).normalize(REFERENCE_MODEL)
+
+        names = {cls.name for cls, _ in _applicable_results(one_model_and_reference)}
+        assert "leaderboard" in names
+        assert "critical_difference" not in names
+        assert "critical_difference" in {cls.name for cls, _ in _applicable_results(two_models_and_reference)}
+
 
 class TestCreateReport:
     pytestmark = pytest.mark.slow
@@ -178,6 +219,13 @@ class TestCreateReport:
         create_report(experiment, tmp_path / "report", title="W4 Report")
 
         assert [p.name for p in (tmp_path / "report").glob("*.html")] == ["W4-Report_multiqc_report.html"]
+
+    def test_two_models_get_a_leaderboard_but_no_empty_critical_difference_diagram(self, tmp_path):
+        built = _build_report(tmp_path, make_experiment_result(n_models=2, n_folds=3))
+
+        anchors = {module.anchor for module in built.modules}
+        assert "leaderboard" in anchors
+        assert "critical_difference" not in anchors
 
     def test_creates_directories_and_accepts_a_string_path(self, experiment, tmp_path, only_stub_is_applicable):
         out = tmp_path / "deep" / "nested"

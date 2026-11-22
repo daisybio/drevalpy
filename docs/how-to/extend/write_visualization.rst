@@ -42,7 +42,9 @@ result it works on, so one instance can draw any number of results.
    * - Requirement
      - The experiment must have
    * - ``MULTIPLE_MODELS``
-     - More than one model.
+     - More than one model. The reference model of a normalized experiment counts.
+   * - ``AT_LEAST_THREE_MODELS``
+     - Three or more models, counted the same way.
    * - ``MULTIPLE_FOLDS``
      - More than one cross-validation fold.
    * - ``RANDOMIZATION``

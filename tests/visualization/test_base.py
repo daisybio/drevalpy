@@ -177,7 +177,13 @@ class TestPlotlyRendering:
 
 
 def test_declares_exactly_the_four_known_capabilities_with_distinct_values():
-    assert [r.name for r in PlotRequirement] == ["MULTIPLE_MODELS", "MULTIPLE_FOLDS", "RANDOMIZATION", "ROBUSTNESS"]
+    assert [r.name for r in PlotRequirement] == [
+        "MULTIPLE_MODELS",
+        "AT_LEAST_THREE_MODELS",
+        "MULTIPLE_FOLDS",
+        "RANDOMIZATION",
+        "ROBUSTNESS",
+    ]
     assert len({r.value for r in PlotRequirement}) == len(list(PlotRequirement))
 
 

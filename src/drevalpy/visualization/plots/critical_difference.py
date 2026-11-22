@@ -155,7 +155,7 @@ def _critical_difference_diagram(ranks: pd.Series, sig_matrix: pd.DataFrame, col
 class CriticalDifferencePlot(Plot):
     """Critical difference rank diagram using Matplotlib."""
 
-    requirements = frozenset({PlotRequirement.MULTIPLE_MODELS, PlotRequirement.MULTIPLE_FOLDS})
+    requirements = frozenset({PlotRequirement.AT_LEAST_THREE_MODELS, PlotRequirement.MULTIPLE_FOLDS})
 
     def __init__(self, metric: str = "MSE") -> None:
         """Choose the metric the models are ranked by.
@@ -167,8 +167,8 @@ class CriticalDifferencePlot(Plot):
     def figure(self, result: ExperimentResult) -> Figure:
         """Rank the models, run the Friedman and Conover tests, and draw the diagram.
 
-        :param result: Experiment result with multiple models and folds.
-        :returns: The diagram, or a placeholder figure when fewer than three models can be compared.
+        :param result: Experiment result with at least three models and multiple folds.
+        :returns: The diagram, or a placeholder figure when fewer than three models share the same number of folds.
         """
         import pandas as pd
         import scikit_posthocs as sp
@@ -193,7 +193,7 @@ class CriticalDifferencePlot(Plot):
         input_friedman = input_friedman[table_lengths == most_common_length]
         algorithms_included = set(input_friedman.index)
 
-        # scipy's Friedman test needs at least three comparable groups.
+        # The requirements ensure three models; models with other fold counts than the most common one drop out.
         if len(algorithms_included) < 3:
             logger.warning(
                 "critical_difference: only %d models share %d folds of %s; skipping the Friedman test",

@@ -95,14 +95,14 @@ def _panels(df: pd.DataFrame, normalized: bool) -> list[Panel]:
 class LeaderboardPlot(Plot):
     """Leaderboard of up to four ranked panels using Matplotlib."""
 
-    requirements = frozenset({PlotRequirement.MULTIPLE_MODELS, PlotRequirement.MULTIPLE_FOLDS})
+    requirements = frozenset({PlotRequirement.MULTIPLE_MODELS})
 
     def figure(self, result: ExperimentResult) -> Figure:
         """Rank the models and draw the leaderboard panels.
 
         Drawing updates the global Matplotlib ``rcParams`` with the dark theme.
 
-        :param result: Experiment result with multiple models and folds.
+        :param result: Experiment result with multiple models.
         :returns: The leaderboard, or a placeholder figure when no model has a finite Pearson or RMSE.
         """
         import matplotlib
