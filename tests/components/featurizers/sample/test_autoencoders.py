@@ -81,7 +81,9 @@ def test_defaults_and_hyperparameter_space() -> None:
         "epochs_autoencoder": 2000,
         "lr_autoencoder": 1e-4,
         "patience_autoencoder": 50,
-        "batch_size_autoencoder": 1024,
+        "batch_size_autoencoder": 32,
+        "latent_dim_autoencoder": 512,
+        "hidden_dims_autoencoder": [2048, 1024],
     }
     assert AEGeneExpressionFeaturizer()._gene_list == "tcga_autoencoder_genes_available"
     assert DIPKGeneExpressionFeaturizer.default_hyperparameters() == {
@@ -93,6 +95,25 @@ def test_defaults_and_hyperparameter_space() -> None:
     assert DIPKGeneExpressionFeaturizer.get_hyperparameter_space()["epochs_autoencoder"]["high"] >= 2000
     assert AEGeneExpressionFeaturizer.requires_early_stopping
     assert DIPKGeneExpressionFeaturizer.requires_early_stopping
+
+
+def test_ae_tunes_only_the_learning_rate_and_the_size_and_architecture_of_the_autoencoder() -> None:
+    space = AEGeneExpressionFeaturizer.get_hyperparameter_space()
+
+    tuned = {name for name, entry in space.items() if entry["type"] != "fixed"}
+    assert tuned == {"lr_autoencoder", "latent_dim_autoencoder", "hidden_dims_autoencoder"}
+    # Early stopping decides the epoch count, and a batch size of 32 suits the few hundred unique samples.
+    assert set(space) - tuned == {"epochs_autoencoder", "patience_autoencoder", "batch_size_autoencoder"}
+    for name in ("latent_dim_autoencoder", "hidden_dims_autoencoder"):
+        assert space[name]["default"] in space[name]["choices"]
+
+
+def test_ae_forwards_the_size_and_architecture_of_the_autoencoder(recording_trainer) -> None:
+    _fit(_ae(latent_dim_autoencoder=64, hidden_dims_autoencoder=[16, 8]), _source(n=4))
+
+    assert recording_trainer["latent_dim"] == 64
+    assert recording_trainer["h_dims"] == [16, 8]
+    assert recording_trainer["batch_size"] == 32
 
 
 @pytest.mark.parametrize(("make", "preprocess"), _VARIANTS)

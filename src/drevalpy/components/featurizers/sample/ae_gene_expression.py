@@ -2,10 +2,15 @@
 
 ``aeGeneExpression`` restricts the expression view to a gene list, trains DIPK's gene-expression
 autoencoder on the *unique* training samples (the unique early-stopping samples validate it) and
-emits the 512-dimensional latent vectors. It follows ``RandomForestAEMolGNet`` of drevalpy 1.6.1,
+emits its latent vectors (512-dimensional by default). It follows ``RandomForestAEMolGNet`` of drevalpy 1.6.1,
 which differs from ``dipkGeneExpression`` in three ways: there is no per-sample z-score, the
 default gene list is ``tcga_autoencoder_genes_available``, and the autoencoder trains longer
 (2000 epochs, patience 50). A linear expression unit gets ``log2(x + 1)`` first, as for DIPK.
+
+Tuning spends its trials on what shapes the embedding: the learning rate, the latent size and the
+hidden layer widths. The epoch count is only a cap, since early stopping ends training, and the
+patience and the batch size (32, which suits the few hundred unique samples; 1024 exceeded the data)
+are ``fixed`` entries of the search space: never drawn, but settable.
 
 The autoencoder module defines ``torch.nn.Module`` subclasses, so it is imported inside the
 methods that use it; see ``tests/test_import_cost_policy.py``.
@@ -13,7 +18,7 @@ methods that use it; see ``tests/test_import_cost_policy.py``.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any, ClassVar, Self
 
 import numpy as np
@@ -37,6 +42,13 @@ DEFAULT_GENE_LIST = "tcga_autoencoder_genes_available"
 
 _BLOCK = "gene_expression"
 
+#: Sizes of the latent vectors the search space draws from.
+LATENT_DIM_CHOICES: list[int] = [64, 128, 256, 512]
+
+#: Hidden layer widths of the encoder the search space draws from; the decoder mirrors them. The default is
+#: DIPK's ``[2048, 1024]``.
+HIDDEN_DIMS_CHOICES: list[list[int]] = [[2048, 1024], [1024, 512], [512, 256], [1024], [2048, 1024, 512]]
+
 
 @register(
     "aeGeneExpression",
@@ -45,7 +57,7 @@ _BLOCK = "gene_expression"
     accelerator=Accelerator.OPTIONAL,
 )
 class AEGeneExpressionFeaturizer(Featurizer):
-    """Encode the genes of a gene list into the 512-dimensional DIPK latent space."""
+    """Encode the genes of a gene list into the latent space of DIPK's gene-expression autoencoder."""
 
     requires_early_stopping: ClassVar[bool] = True
     input_views: ClassVar[tuple[str, ...]] = ("gene_expression",)
@@ -58,7 +70,9 @@ class AEGeneExpressionFeaturizer(Featurizer):
         epochs_autoencoder: int = 2000,
         lr_autoencoder: float = 1e-4,
         patience_autoencoder: int = 50,
-        batch_size_autoencoder: int = 1024,
+        batch_size_autoencoder: int = 32,
+        latent_dim_autoencoder: int = 512,
+        hidden_dims_autoencoder: Sequence[int] = (2048, 1024),
     ) -> None:
         """Store the gene list and the autoencoder settings.
 
@@ -69,6 +83,8 @@ class AEGeneExpressionFeaturizer(Featurizer):
         :param lr_autoencoder: Learning rate of the autoencoder's Adam optimizer.
         :param patience_autoencoder: Epochs without improvement before the autoencoder stops.
         :param batch_size_autoencoder: Mini-batch size of the autoencoder.
+        :param latent_dim_autoencoder: Size of the latent vectors the featurizer emits.
+        :param hidden_dims_autoencoder: Widths of the encoder's hidden layers, which the decoder mirrors.
         """
         self._view = view
         self._gene_list = gene_list
@@ -76,6 +92,8 @@ class AEGeneExpressionFeaturizer(Featurizer):
         self._lr = float(lr_autoencoder)
         self._patience = int(patience_autoencoder)
         self._batch_size = int(batch_size_autoencoder)
+        self._latent_dim = int(latent_dim_autoencoder)
+        self._hidden_dims = [int(width) for width in hidden_dims_autoencoder]
         self._names: tuple[str, ...] | None = None
         self._encoder: GeneExpressionEncoder | None = None
 
@@ -91,18 +109,20 @@ class AEGeneExpressionFeaturizer(Featurizer):
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
-        """Return the tunable autoencoder settings.
+        """Return the autoencoder settings: the learning rate, latent size and hidden layers are tuned.
 
         :returns: Hyperparameter search space mapping.
         """
         return {
-            "epochs_autoencoder": {"type": "int", "low": 1, "high": 2000, "default": 2000},
+            "epochs_autoencoder": {"type": "fixed", "default": 2000},
             "lr_autoencoder": {"type": "float", "low": 1e-5, "high": 1e-3, "log": True, "default": 1e-4},
-            "patience_autoencoder": {"type": "int", "low": 1, "high": 100, "default": 50},
-            "batch_size_autoencoder": {
+            "patience_autoencoder": {"type": "fixed", "default": 50},
+            "batch_size_autoencoder": {"type": "fixed", "default": 32},
+            "latent_dim_autoencoder": {"type": "categorical", "choices": LATENT_DIM_CHOICES, "default": 512},
+            "hidden_dims_autoencoder": {
                 "type": "categorical",
-                "choices": [32, 64, 128, 256, 512, 1024],
-                "default": 1024,
+                "choices": HIDDEN_DIMS_CHOICES,
+                "default": [2048, 1024],
             },
         }
 
@@ -163,6 +183,8 @@ class AEGeneExpressionFeaturizer(Featurizer):
             lr=self._lr,
             batch_size=self._batch_size,
             patience=self._patience,
+            latent_dim=self._latent_dim,
+            h_dims=self._hidden_dims,
         )
         return self
 

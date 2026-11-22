@@ -150,6 +150,8 @@ def train_gene_expession_autoencoder(
     lr: float = 1e-4,
     batch_size: int = 1024,
     patience: int = 3,
+    latent_dim: int = 512,
+    h_dims: list[int] | None = None,
 ) -> GeneExpressionEncoder:
     """Train the autoencoder model for gene expression data with early stopping.
 
@@ -168,6 +170,9 @@ def train_gene_expession_autoencoder(
     :param lr: Learning rate of the Adam optimizer.
     :param batch_size: Mini-batch size for training and for the chunked validation pass.
     :param patience: Number of epochs without improvement after which training stops.
+    :param latent_dim: Size of the latent embedding the encoder returns.
+    :param h_dims: Widths of the hidden layers between input and bottleneck, mirrored by the decoder; defaults to
+        [2048, 1024].
     :returns: The trained encoder in eval mode.
     """
     device = select_device()
@@ -177,8 +182,8 @@ def train_gene_expession_autoencoder(
         train, validation = train[:-1], np.concatenate([validation, train[-1:]])
 
     # create model
-    encoder = GeneExpressionEncoder(train.shape[1]).to(device)
-    decoder = GeneExpressionDecoder(train.shape[1]).to(device)
+    encoder = GeneExpressionEncoder(train.shape[1], latent_dim, h_dims).to(device)
+    decoder = GeneExpressionDecoder(train.shape[1], latent_dim, h_dims).to(device)
     loss_func = nn.MSELoss()
     params = [{"params": encoder.parameters()}, {"params": decoder.parameters()}]
     optimizer = optim.Adam(params, lr=lr)
