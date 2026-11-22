@@ -132,20 +132,20 @@ def _load_yaml_extension(path: Path) -> None:
     """Inspect YAML top-level keys: dataset config vs zoo entry."""
     import yaml
 
-    data = yaml.safe_load(path.read_text())
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
     if not isinstance(data, dict):
         return
 
     if "sources" in data or "datasets" in data:
+        from drevalpy.registry.dataset import register_dataset, register_source
         from drevalpy.registry.dataset._models import DrevalConfig
-        from drevalpy.registry.dataset._registry import dataset_registry
 
         # Read as DrevalConfig.from_raw reads the config file: a source is a plain URL or a mapping.
         config = DrevalConfig.from_raw({kind: data.get(kind) or {} for kind in ("sources", "datasets")})
         for name, source in config.sources.items():
-            dataset_registry.register_source(name, source.url, source.storage_options)
+            register_source(name, source.url, source.storage_options)
         for name, dataset in config.datasets.items():
-            dataset_registry.register(name, dataset.source, dataset.file)
+            register_dataset(name, dataset.source, dataset.file)
     else:
         from drevalpy.models.zoo import load_external_zoo_file
 
