@@ -42,7 +42,12 @@ result it works on, so one instance can draw any number of results.
    * - Requirement
      - The experiment must have
    * - ``MULTIPLE_MODELS``
-     - More than one model.
+     - More than one trained model. The reference model of a normalized experiment does not count.
+   * - ``MULTIPLE_RANKED_MODELS``
+     - More than one model, the reference model of a normalized experiment counted. For a plot
+       that lists the reference model from ``reference_runs`` beside the others.
+   * - ``AT_LEAST_THREE_RANKED_MODELS``
+     - Three or more models, counted the same way.
    * - ``MULTIPLE_FOLDS``
      - More than one cross-validation fold.
    * - ``RANDOMIZATION``
