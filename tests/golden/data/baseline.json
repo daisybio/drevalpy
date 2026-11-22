@@ -19,7 +19,7 @@
     "seed": 0,
     "uns_payloads": ["drug_graphs", "pathways_gmt", "sparsego", "bpe_codes"]
   },
-  "drevalpy_commit": "82a98504cd46850f314fb42fb156422b60f673f3",
+  "drevalpy_commit": "f3c5ac7670b59d6a4793e4b9b7c2f2cc6d9e97ff",
   "hpo": {
     "metric": "RMSE",
     "model": "ElasticNet",
@@ -687,7 +687,7 @@
       },
       "model": "NaiveMeanEffectsPredictor",
       "round_trip_exact": true,
-      "seconds": 0.0
+      "seconds": 0.2
     },
     "NaivePredictor": {
       "artifacts": [],
