@@ -6,9 +6,10 @@ caller, and the report and ``save_all_png`` go through it, so a plot does not re
 declares. A plot still handles what the declarations cannot express, such as models that share no
 fold or a metric that is undefined everywhere.
 
-The reference model of a normalized experiment is not among ``ExperimentResult.models``, but the
-leaderboard and the critical difference diagram list it from ``reference_runs``, so it counts as a
-model here.
+The reference model of a normalized experiment is not among ``ExperimentResult.models``. The
+leaderboard and the critical difference diagram rank it beside them from ``reference_runs``, so the
+``*_RANKED_MODELS`` requirements count it; ``MULTIPLE_MODELS`` counts only the trained models, which
+is what a model-against-model plot such as ``comparison_scatter`` compares.
 """
 
 from __future__ import annotations
@@ -23,10 +24,13 @@ if TYPE_CHECKING:
 class PlotRequirement(Enum):
     """Requirements that a plot class may declare."""
 
-    #: Two or more models.
+    #: Two or more trained models, without the reference model of a normalized experiment.
     MULTIPLE_MODELS = auto()
-    #: Three or more models, the least the Friedman test of a critical difference diagram accepts.
-    AT_LEAST_THREE_MODELS = auto()
+    #: Two or more models, the reference model of a normalized experiment counted.
+    MULTIPLE_RANKED_MODELS = auto()
+    #: Three or more models, the reference model counted: the least the Friedman test of a critical
+    #: difference diagram accepts.
+    AT_LEAST_THREE_RANKED_MODELS = auto()
     #: Two or more cross-validation folds.
     MULTIPLE_FOLDS = auto()
     #: Runs of a randomization test.
@@ -42,10 +46,11 @@ def requirements_met(experiment: ExperimentResult, requirements: frozenset[PlotR
     :param requirements: Requirements to check.
     :returns: True if all requirements are met.
     """
-    n_models = experiment.n_models + (1 if experiment.reference_runs else 0)
+    n_ranked = experiment.n_models + (1 if experiment.reference_runs else 0)
     available = {
-        PlotRequirement.MULTIPLE_MODELS: n_models >= 2,
-        PlotRequirement.AT_LEAST_THREE_MODELS: n_models >= 3,
+        PlotRequirement.MULTIPLE_MODELS: experiment.n_models >= 2,
+        PlotRequirement.MULTIPLE_RANKED_MODELS: n_ranked >= 2,
+        PlotRequirement.AT_LEAST_THREE_RANKED_MODELS: n_ranked >= 3,
         PlotRequirement.MULTIPLE_FOLDS: experiment.max_folds >= 2,
         PlotRequirement.RANDOMIZATION: experiment.has_randomization,
         PlotRequirement.ROBUSTNESS: experiment.has_robustness,

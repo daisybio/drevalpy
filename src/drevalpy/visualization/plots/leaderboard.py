@@ -95,7 +95,7 @@ def _panels(df: pd.DataFrame, normalized: bool) -> list[Panel]:
 class LeaderboardPlot(Plot):
     """Leaderboard of up to four ranked panels using Matplotlib."""
 
-    requirements = frozenset({PlotRequirement.MULTIPLE_MODELS})
+    requirements = frozenset({PlotRequirement.MULTIPLE_RANKED_MODELS})
 
     def figure(self, result: ExperimentResult) -> Figure:
         """Rank the models and draw the leaderboard panels.

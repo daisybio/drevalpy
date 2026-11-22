@@ -176,10 +176,11 @@ class TestPlotlyRendering:
         assert plot.last.written == []
 
 
-def test_declares_exactly_the_four_known_capabilities_with_distinct_values():
+def test_declares_exactly_the_known_capabilities_with_distinct_values():
     assert [r.name for r in PlotRequirement] == [
         "MULTIPLE_MODELS",
-        "AT_LEAST_THREE_MODELS",
+        "MULTIPLE_RANKED_MODELS",
+        "AT_LEAST_THREE_RANKED_MODELS",
         "MULTIPLE_FOLDS",
         "RANDOMIZATION",
         "ROBUSTNESS",

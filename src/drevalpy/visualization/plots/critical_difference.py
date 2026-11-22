@@ -155,7 +155,7 @@ def _critical_difference_diagram(ranks: pd.Series, sig_matrix: pd.DataFrame, col
 class CriticalDifferencePlot(Plot):
     """Critical difference rank diagram using Matplotlib."""
 
-    requirements = frozenset({PlotRequirement.AT_LEAST_THREE_MODELS, PlotRequirement.MULTIPLE_FOLDS})
+    requirements = frozenset({PlotRequirement.AT_LEAST_THREE_RANKED_MODELS, PlotRequirement.MULTIPLE_FOLDS})
 
     def __init__(self, metric: str = "MSE") -> None:
         """Choose the metric the models are ranked by.

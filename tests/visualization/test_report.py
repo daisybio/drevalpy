@@ -208,6 +208,7 @@ class TestApplicableResults:
 
         names = {cls.name for cls, _ in _applicable_results(one_model_and_reference)}
         assert "leaderboard" in names
+        assert "comparison_scatter" not in names
         assert "critical_difference" not in names
         assert "critical_difference" in {cls.name for cls, _ in _applicable_results(two_models_and_reference)}
 
