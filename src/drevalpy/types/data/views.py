@@ -1,14 +1,14 @@
 """Stored MuData names behind the public view names.
 
 Configs, recipes and predictor code address a view by its public name. The
-name actually stored in the published ``.h5mu`` files can differ:
-``copy_number_variation_gistic`` is the public name, but the datasets store the
-modality as ``copy_number_variation``, and the ``drug_graph`` view is the
-``drug_graphs`` key of ``mdata.uns``. Every read of ``MuData.mod`` or ``MuData.uns`` by a
+name stored in a ``.h5mu`` file can differ. ``copy_number_variation_gistic`` is the
+public name, which the published files store, while the synthetic datasets store the
+modality as ``copy_number_variation``. The ``drug_graph`` view is the ``drug_graphs``
+key of ``mdata.uns``. Every read of ``MuData.mod`` or ``MuData.uns`` by a
 caller-supplied view goes through :func:`find_view`, which prefers the name as
-written, so files that store the public name (as users building their own dataset
-are told to) are read too. :func:`stored_view_name` is the name written into new
-files and :func:`public_view_name` its inverse, for messages and listings. All three
+written and falls back to the stored name, so both kinds of file are read.
+:func:`stored_view_name` is the name the synthetic datasets write and
+:func:`public_view_name` its inverse, for messages and listings. All three
 pass a name that is not in the map through unchanged, so custom matrices and
 non-omics views keep working.
 
