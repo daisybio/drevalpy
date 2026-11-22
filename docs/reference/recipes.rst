@@ -39,9 +39,11 @@ Grammar
      - The featurizer ``name`` reading the view ``view``; sets the ``view`` field
 
 The recipe layer only checks this shape. Whether a name is registered, whether a featurizer
-needs a view, whether a featurizer supports its side, and whether the featurizers fit the
-predictor (inputs, required blocks, a drug featurizer) are checked when the model configuration is built, the same way for a recipe and for
-the equivalent YAML. Whether a view exists in the dataset is checked only when the model trains.
+needs a view or can read the one given, whether it takes the options written for it, whether a
+featurizer supports its side, and whether the featurizers fit the predictor (inputs, required
+blocks, a drug featurizer) are checked when the model configuration is built, the same way for a
+recipe and for the equivalent YAML. Whether a view exists in the dataset is checked only when the
+model trains.
 
 Examples
 --------
@@ -78,6 +80,14 @@ Views
 Featurizers that need a view
    Some featurizers, among them ``view`` and ``pca``, require an explicit view. ``view`` without
    a view raises ``requires an explicit view``. :doc:`components` lists the featurizers.
+
+Featurizers and the view they read
+   A featurizer reads the views it declares as ``input_views``: ``scaledGeneExpression[mutations]``
+   raises ``cannot read the view 'mutations'; valid views: gene_expression``, and
+   ``fingerprints[mutations]`` raises the same with ``morgan_fingerprint``. A featurizer that
+   takes no view, such as ``oneHot`` or ``molirOmics``, raises ``takes no view`` for
+   ``oneHot[foo]`` and lists its options. Only ``view`` and ``pca`` read any view you name; for
+   those, whether the dataset has it is checked when the model trains.
 
 Duplicate leaves
    One concatenation may not hold the same qualified featurizer twice, for example
@@ -188,7 +198,10 @@ hyperparameter under ``options`` raises, for example ``options of featurizer 'pc
 tunable hyperparameters (n_components); set their value under 'defaults' instead``, and a key
 under ``defaults`` that the search space lacks raises with the list of tunable keys. The
 ``defaults`` edit the declared ``hyperparameter_space``, or the component's own space when none
-is declared, so tuning starts from them and an untuned run uses them.
+is declared, so tuning starts from them and an untuned run uses them. A key of ``options`` or of
+``hyperparameter_space`` that the featurizer's constructor has no parameter for raises with the keys
+it takes, for example ``options of sample featurizer 'scaledGeneExpression' name unknown keys
+(gene_lst); valid keys: gene_list, transform``.
 
 The ``predictor`` key takes a predictor name or a mapping with the fields ``name``,
 ``defaults`` and ``hyperparameter_space``, for example

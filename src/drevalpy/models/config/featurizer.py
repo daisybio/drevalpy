@@ -10,6 +10,8 @@ from pydantic import BaseModel, ConfigDict, model_validator
 
 from drevalpy.components.featurizers.featurizer import CONCAT
 from drevalpy.components.hyperparameter_space import effective_space, validate_hyperparameter_space
+from drevalpy.errors import UnknownNameError
+from drevalpy.models.config._constructor import check_settings
 from drevalpy.models.config._parse import normalize_featurizer
 from drevalpy.models.config.immutable import FrozenMapping, thaw_value
 from drevalpy.registry.featurizer import get_featurizer
@@ -144,26 +146,46 @@ class FeaturizerConfig(BaseModel):
         return self
 
     @model_validator(mode="after")
+    def _check_constructor_settings(self) -> FeaturizerConfig:
+        """Check the view, the options and the search-space keys against the featurizer class.
+
+        What a featurizer accepts is read from its constructor and ``input_views``
+        (:func:`~drevalpy.models.config._constructor.check_settings`), so a typo or a view the
+        featurizer cannot read fails when the config is built, with the valid choices, not as a
+        ``TypeError`` or a missing view when the model trains. A setting that does not fit the class
+        raises ``ValueError``. A name that is not registered on this side is left to
+        :func:`~drevalpy.models.config.validation.validate`, which reports it with the registered names.
+
+        :returns: This config, unchanged.
+        """
+        try:
+            cls = self.featurizer_class
+        except UnknownNameError:
+            return self
+        check_settings(
+            cls,
+            self.name,
+            self.side,
+            view=self.view,
+            options=self.options or {},
+            space=self.hyperparameter_space,
+        )
+        return self
+
+    @model_validator(mode="after")
     def _require_explicit_view_for_parametric_featurizers(self) -> FeaturizerConfig:
         """Require a view for featurizers that are only meaningful per view.
 
         Such featurizers are addressed with a parametric label like ``pca[expression]``,
-        so a bare name is ambiguous rather than defaultable. A view written under ``options``
-        is the likely slip, so the message then shows where it goes instead.
+        so a bare name is ambiguous rather than defaultable.
 
         :returns: This config, unchanged.
         :raises ValueError: If the featurizer needs an explicit view and none is set.
         """
-        if not requires_explicit_view(self.name, self.side) or self.view:
-            return self
-        if self.options is not None and "view" in self.options:
-            msg = (
-                f"Featurizer {self.name!r} takes 'view' as a key next to 'name', not under 'options'; "
-                f"write {{name: {self.name}, view: {self.options['view']}}}"
-            )
-        else:
+        if requires_explicit_view(self.name, self.side) and not self.view:
             msg = f"Featurizer {self.name!r} requires an explicit view, e.g. {self.name}[gene_expression]"
-        raise ValueError(msg)
+            raise ValueError(msg)
+        return self
 
     @model_validator(mode="after")
     def _require_concat_children(self) -> FeaturizerConfig:

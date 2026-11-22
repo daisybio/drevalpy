@@ -96,13 +96,8 @@ def test_leaf_kwargs_fill_hyperparameter_defaults_from_the_registry(model_config
             "n_components",
             3,
         ),
-        (
-            FeaturizerConfig(name="view", side="sample", view="gene_expression", options={"view": "mutations"}),
-            "view",
-            "mutations",
-        ),
     ],
-    ids=["defaults-over-registry", "declared-space-over-registry", "explicit-view-option"],
+    ids=["defaults-over-registry", "declared-space-over-registry"],
 )
 def test_leaf_kwargs_precedence(leaf, key, expected) -> None:
     assert leaf.leaf_kwargs()[key] == expected
