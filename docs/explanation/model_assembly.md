@@ -208,8 +208,9 @@ A newly created {class}`~drevalpy.models.drp_model.DRPModel` holds no featurizer
 Only when `train` is called does `_build_components` instantiate fresh ones by calling
 {meth}`~drevalpy.models.config.featurizer.FeaturizerConfig.create_instance` and
 {meth}`~drevalpy.models.config.predictor.PredictorConfig.create_instance` with each component's
-hyperparameters from {func}`~drevalpy.models.hyperparameters.component_values` (concat featurizers
-build their children recursively, and predictors also receive `prediction_mode`).
+hyperparameters from {func}`~drevalpy.models.hyperparameters.component_values`. For a concat
+featurizer it builds the children first and passes them in, and a predictor also receives
+`prediction_mode`.
 
 Rebuilding components on every `train` call prevents subtle cross-fold leakage: a PCA fitted on
 fold 0 is discarded before fold 1 begins, and a neural network always starts from fresh weights.
