@@ -5,12 +5,12 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from drevalpy.components.contracts.feature_format import BlockSpec, FeatureFormat
 from drevalpy.components.featurizers.featurizer import CONCAT
 from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.models.config import FeaturizerConfig, ModelConfig, PredictorConfig, validate
 from drevalpy.registry.featurizer import featurizer_registry
 from drevalpy.registry.predictor import get as get_predictor
+from drevalpy.types.data.feature_format import BlockSpec, FeatureFormat
 from drevalpy.types.enums import ModelScope, PredictionMode
 from tests.models.config._stubs import (
     register_block_predictor_stub,

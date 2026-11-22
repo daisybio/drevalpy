@@ -9,10 +9,10 @@ from typing import TYPE_CHECKING, TypeVar
 
 import numpy as np
 
-from drevalpy.components.contracts.training_context import TrainingContext
 from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
 from drevalpy.types.data.predictor_input import PredictorInput
 from drevalpy.types.data.response_table import ResponseTable
+from drevalpy.types.data.training_context import TrainingContext
 from tests.models.synthetic_fixtures import (
     drug_fingerprints,
     multi_drug_response,

@@ -14,12 +14,12 @@ from typing import TYPE_CHECKING, Any, ClassVar, cast
 import numpy as np
 
 from drevalpy._utils.accelerator import lightning_accelerator
-from drevalpy.components.contracts.feature_format import BlockSpec, FeatureFormat
 from drevalpy.components.predictors._lightning_training import LightningRun, reload_best_weights, run_lightning_fit
 from drevalpy.components.predictors._pair_loader import require_drug_pair_idx
 from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.registry.predictor import register
+from drevalpy.types.data.feature_format import BlockSpec, FeatureFormat
 from drevalpy.types.data.predictor_input import PredictorInput
 from drevalpy.types.enums import Accelerator
 

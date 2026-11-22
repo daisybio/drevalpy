@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from drevalpy.components.contracts.feature_format import FeatureFormat
+from drevalpy.types.data.feature_format import FeatureFormat
 
 if TYPE_CHECKING:
     import pandas as pd

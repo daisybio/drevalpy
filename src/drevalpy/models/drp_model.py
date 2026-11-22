@@ -24,7 +24,6 @@ from upath import UPath
 
 from drevalpy._utils.accelerator import ensure_available
 from drevalpy._utils.n_jobs import check_n_jobs
-from drevalpy.components.contracts.training_context import TrainingContext
 from drevalpy.components.featurizers.featurizer import CONCAT
 from drevalpy.models._feature_preparation import prepare_features, unique_entity_ids, usable_pairs
 from drevalpy.models.config.immutable import thaw_value
@@ -41,6 +40,7 @@ from drevalpy.types.data.feature_source import FeatureSource, Side
 from drevalpy.types.data.predictor_input import PredictorInput
 from drevalpy.types.data.response_table import ResponseTable
 from drevalpy.types.data.selection_mask import SelectionMask
+from drevalpy.types.data.training_context import TrainingContext
 
 if TYPE_CHECKING:
     from collections.abc import Mapping

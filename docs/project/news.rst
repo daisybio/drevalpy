@@ -92,7 +92,7 @@ These affect only code, configurations and datasets written for an unreleased 2.
   ``drevalpy.testing`` is ``build_synthetic_input``. The three data modules moved out of
   ``drevalpy.types.data.batch`` to ``drevalpy.types.data`` (``feature_block``,
   ``predictor_input``, ``response_table``), and ``BlockSpec`` moved next to
-  ``FeatureFormat`` in ``drevalpy.components.contracts.feature_format`` with
+  ``FeatureFormat`` in ``drevalpy.types.data.feature_format`` with
   ``FeatureFormat.NUMERIC_MATRIX`` as its default format. ``FeaturizerOutput`` no longer takes a
   ``projection`` argument (``matrix`` concatenates entity-aligned numeric blocks in order),
   ``PredictorInput.early_stopping_response`` is ``early_stopping``, and ``graph_feature_block``,

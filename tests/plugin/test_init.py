@@ -18,13 +18,13 @@ REPO_ROOT = UPath(__file__).resolve().parents[2]
 
 EXPECTED_ORIGINS: dict[str, str] = {
     "Accelerator": "drevalpy.types.enums",
-    "BlockSpec": "drevalpy.components.contracts.feature_format",
+    "BlockSpec": "drevalpy.types.data.feature_format",
     "CurveQuality": "drevalpy.data.quality",
     "Dataset": "drevalpy.types.data.dataset._dataset",
     "DrEvalError": "drevalpy.errors",
     "ExperimentResult": "drevalpy.types.results.experiment",
     "FeatureBlock": "drevalpy.types.data.feature_block",
-    "FeatureFormat": "drevalpy.components.contracts.feature_format",
+    "FeatureFormat": "drevalpy.types.data.feature_format",
     "FeatureFreePredictor": "drevalpy.components.predictors.abstract.feature_free",
     "FeatureMismatchError": "drevalpy.components.featurizers._dense",
     "PrecomputableFeaturizer": "drevalpy.components.featurizers._dense",

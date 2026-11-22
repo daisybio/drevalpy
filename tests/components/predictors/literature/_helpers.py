@@ -9,10 +9,10 @@ from typing import Any
 
 import numpy as np
 
-from drevalpy.components.contracts.training_context import TrainingContext
 from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
 from drevalpy.types.data.predictor_input import PredictorInput
 from drevalpy.types.data.response_table import ResponseTable
+from drevalpy.types.data.training_context import TrainingContext
 from tests.components.predictors._helpers import pickle_round_trip
 from tests.models.synthetic_fixtures import multi_drug_response
 

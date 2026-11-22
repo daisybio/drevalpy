@@ -12,12 +12,12 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
 
-from drevalpy.components.contracts.feature_format import BlockSpec
 from drevalpy.components.predictors._pair_loader import require_drug_pair_idx
 from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.registry._component import LiteratureReference
 from drevalpy.registry.predictor import register
+from drevalpy.types.data.feature_format import BlockSpec
 from drevalpy.types.data.predictor_input import PredictorInput
 
 if TYPE_CHECKING:

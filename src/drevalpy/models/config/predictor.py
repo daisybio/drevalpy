@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
-from drevalpy.components.contracts.hyperparameter_space import validate_hyperparameter_space
+from drevalpy.components.hyperparameter_space import validate_hyperparameter_space
 from drevalpy.models.config._parse import normalize_predictor
 from drevalpy.models.config.immutable import FrozenMapping, thaw_value
 from drevalpy.registry.predictor import get as get_predictor

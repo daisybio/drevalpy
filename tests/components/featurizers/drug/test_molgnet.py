@@ -13,7 +13,6 @@ import pytest
 from upath import UPath
 
 import drevalpy.components.featurizers.drug.molgnet as molgnet_module
-from drevalpy.components.contracts.feature_format import FeatureFormat
 from drevalpy.components.featurizers.drug.molgnet import MolGNetDrugFeaturizer, _compute_molgnet_embedding
 from drevalpy.components.featurizers.drug.molgnet_pooled import (
     MolGNetPooledFeaturizer,
@@ -22,6 +21,7 @@ from drevalpy.components.featurizers.drug.molgnet_pooled import (
 )
 from drevalpy.errors import InvalidInputError
 from drevalpy.registry.featurizer import featurizer_registry
+from drevalpy.types.data.feature_format import FeatureFormat
 from tests._import_shims import block_imports
 from tests.components.featurizers.drug._helpers import DrugSource
 

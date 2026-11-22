@@ -36,7 +36,7 @@ from tests.registry._helpers import empty_component_registries, restore_builtin_
 
 _SAMPLE_FEATURIZER_SOURCE = """
 import numpy as np
-from drevalpy.components.contracts.feature_format import BlockSpec, FeatureFormat
+from drevalpy.types.data.feature_format import BlockSpec, FeatureFormat
 from drevalpy.components.featurizers.featurizer import Featurizer
 from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
 from drevalpy.registry.featurizer import register as register_featurizer

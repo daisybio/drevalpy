@@ -10,7 +10,6 @@ import pytest
 import torch
 from torch import nn
 
-from drevalpy.components.contracts.feature_format import FeatureFormat
 from drevalpy.components.predictors.literature.dipk.model_utils import (
     AttentionLayer,
     DenseLayers,
@@ -22,6 +21,7 @@ from drevalpy.components.predictors.literature.dipk.model_utils import (
 from drevalpy.components.predictors.literature.dipk.predictor import DIPKPredictor, _collate
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.data.feature_block import FeatureBlock
+from drevalpy.types.data.feature_format import FeatureFormat
 from drevalpy.types.data.predictor_input import PredictorInput
 from tests.components.predictors.literature._helpers import (
     assert_frozen_reference,

@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from drevalpy.components.contracts.training_context import TrainingContext
+from drevalpy.types.data.training_context import TrainingContext
 
 
 def test_default_checkpoint_dir_is_a_unique_temp_path_not_the_cwd() -> None:

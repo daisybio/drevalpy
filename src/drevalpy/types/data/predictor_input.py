@@ -7,9 +7,9 @@ from dataclasses import dataclass, field, replace
 
 import numpy as np
 
-from drevalpy.components.contracts.training_context import TrainingContext
 from drevalpy.types.data.feature_block import FeaturizerOutput
 from drevalpy.types.data.response_table import ResponseTable
+from drevalpy.types.data.training_context import TrainingContext
 
 
 @dataclass(frozen=True)

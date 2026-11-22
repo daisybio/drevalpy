@@ -5,12 +5,12 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from drevalpy.components.contracts.feature_format import BlockSpec, FeatureFormat
 from drevalpy.components.featurizers.featurizer import Featurizer
 from drevalpy.errors import UnknownNameError
 from drevalpy.registry._component import featurizer_component_metadata
 from drevalpy.registry.featurizer import featurizer_registry, get_featurizer, register
 from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
+from drevalpy.types.data.feature_format import BlockSpec, FeatureFormat
 from drevalpy.types.data.feature_source import Side
 from tests.registry._helpers import empty_component_registries
 

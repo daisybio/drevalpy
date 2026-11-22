@@ -21,7 +21,7 @@ from collections import defaultdict
 from collections.abc import Mapping
 from typing import Any
 
-from drevalpy.components.contracts.hyperparameter_space import admits
+from drevalpy.components.hyperparameter_space import admits
 
 PREDICTOR_SLOT = "predictor"
 

@@ -6,7 +6,6 @@ from typing import ClassVar
 
 import numpy as np
 
-from drevalpy.components.contracts.feature_format import BlockSpec
 from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.components.predictors.naive._matrix_means import (
@@ -16,6 +15,7 @@ from drevalpy.components.predictors.naive._matrix_means import (
     require_pair_matrix,
 )
 from drevalpy.registry.predictor import register
+from drevalpy.types.data.feature_format import BlockSpec
 from drevalpy.types.data.predictor_input import PredictorInput
 
 

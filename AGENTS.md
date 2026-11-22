@@ -33,7 +33,7 @@ before pushing, not only the files you touched last.
 - **Enums for closed sets.** A fixed set of choices is a `StrEnum` (`Metric`,
   `RandomizationType`), so errors and the CLI list the valid options.
 - **Layers point down.** `types/` imports nothing from `registry`, `models`,
-  `visualization` or `components` (except `components/contracts/`); code that needs those lives in the higher package (precompute in
+  `visualization` or `components`; code that needs those lives in the higher package (precompute in
   `data/precompute.py`, plot requirements in `visualization/`). A barrel
   `__init__.py` re-exports only the names user code imports through it; everything else is
   imported from its defining module.

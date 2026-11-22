@@ -10,7 +10,6 @@ import torch
 from rdkit import Chem
 from torch_geometric.data import Data
 
-from drevalpy.components.contracts.feature_format import FeatureFormat
 from drevalpy.components.featurizers.drug._molgnet_network import (
     BertLayerNorm,
     LinearActivation,
@@ -22,6 +21,7 @@ from drevalpy.components.featurizers.drug._molgnet_network import (
     mol_to_graph_data_obj_complex,
 )
 from drevalpy.components.featurizers.drug.drug_graph import DrugGraphFeaturizer, _one_hot_encode, smiles_to_graph
+from drevalpy.types.data.feature_format import FeatureFormat
 from drevalpy.types.data.feature_source import FeatureSource
 from tests._import_shims import block_imports
 from tests.components.featurizers.drug._helpers import DrugSource

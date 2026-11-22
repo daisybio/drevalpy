@@ -5,7 +5,8 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from drevalpy.components.contracts.hyperparameter_space import (
+from drevalpy.components.featurizers.featurizer import Featurizer
+from drevalpy.components.hyperparameter_space import (
     TunableComponent,
     admits,
     default_values,
@@ -14,7 +15,6 @@ from drevalpy.components.contracts.hyperparameter_space import (
     validate_component_hyperparameter_space,
     validate_hyperparameter_space,
 )
-from drevalpy.components.featurizers.featurizer import Featurizer
 from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.components.predictors.abstract.matrix import MatrixPredictor
 from drevalpy.models.config import FeaturizerConfig, PredictorConfig

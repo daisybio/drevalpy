@@ -6,7 +6,6 @@ import numpy as np
 import pytest
 import torch
 
-from drevalpy.components.contracts.training_context import TrainingContext
 from drevalpy.components.predictors.literature.ensemblemf.data import sorted_entities, split_pairs
 from drevalpy.components.predictors.literature.ensemblemf.predictor import EnsembleMFPredictor
 from drevalpy.components.predictors.literature.ensemblemf.training import PairTensors
@@ -14,6 +13,7 @@ from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
 from drevalpy.types.data.predictor_input import PredictorInput
 from drevalpy.types.data.response_table import ResponseTable
+from drevalpy.types.data.training_context import TrainingContext
 from tests.components.predictors._helpers import pickle_round_trip
 from tests.components.predictors.literature._helpers import entity_pair_batch
 

@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import numpy as np
 
-from drevalpy.components.contracts.feature_format import BlockSpec, FeatureFormat
 from drevalpy.components.featurizers.featurizer import Featurizer
 from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
@@ -25,6 +24,7 @@ from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.registry.featurizer import register as register_featurizer
 from drevalpy.registry.predictor import register as register_predictor
 from drevalpy.types.data.feature_block import FeaturizerOutput
+from drevalpy.types.data.feature_format import BlockSpec, FeatureFormat
 from drevalpy.types.enums import PredictionMode
 
 REGRESSION_ONLY = frozenset({PredictionMode.REGRESSION})

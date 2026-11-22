@@ -7,7 +7,7 @@ from typing import Any
 
 import numpy as np
 
-from drevalpy.components.contracts.hyperparameter_space import is_fixed
+from drevalpy.components.hyperparameter_space import is_fixed
 from drevalpy.components.predictors.abstract.matrix import MatrixPredictor
 
 

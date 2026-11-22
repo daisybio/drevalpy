@@ -74,7 +74,7 @@ def test_external_extension_resolved_through_spec(tmp_path: Path) -> None:
     (ext_dir / "components.py").write_text(
         """
 import numpy as np
-from drevalpy.components.contracts.feature_format import BlockSpec, FeatureFormat
+from drevalpy.types.data.feature_format import BlockSpec, FeatureFormat
 from drevalpy.components.featurizers.featurizer import Featurizer
 from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
 from drevalpy.types.data.predictor_input import PredictorInput

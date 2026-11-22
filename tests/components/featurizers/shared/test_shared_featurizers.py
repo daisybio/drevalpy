@@ -8,7 +8,6 @@ import numpy as np
 import pytest
 from pydantic import ValidationError
 
-from drevalpy.components.contracts.feature_format import FeatureFormat
 from drevalpy.components.featurizers.sample.view import ViewSampleFeaturizer
 from drevalpy.components.featurizers.shared.concat import ConcatFeaturizer
 from drevalpy.components.featurizers.shared.constant import ConstantFeaturizer
@@ -17,6 +16,7 @@ from drevalpy.models._feature_preparation import prepare_features
 from drevalpy.models.config import FeaturizerConfig
 from drevalpy.registry.featurizer import get_featurizer
 from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
+from drevalpy.types.data.feature_format import FeatureFormat
 from tests.conftest import MockFeatureSource
 
 _IDS = np.array(["cl1", "cl2"], dtype=str)

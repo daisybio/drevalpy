@@ -8,16 +8,16 @@ from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
-from drevalpy.components.contracts.hyperparameter_space import validate_hyperparameter_space
 from drevalpy.components.featurizers.featurizer import CONCAT
+from drevalpy.components.hyperparameter_space import validate_hyperparameter_space
 from drevalpy.models.config._parse import normalize_featurizer
 from drevalpy.models.config.immutable import FrozenMapping, thaw_value
 from drevalpy.registry.featurizer import get_featurizer
 from drevalpy.types.data.feature_source import Side
 
 if TYPE_CHECKING:
-    from drevalpy.components.contracts.feature_format import BlockSpec
     from drevalpy.components.featurizers.featurizer import Featurizer
+    from drevalpy.types.data.feature_format import BlockSpec
 
 
 def requires_explicit_view(name: str, side: Side) -> bool:

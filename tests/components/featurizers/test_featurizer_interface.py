@@ -7,7 +7,6 @@ from typing import Any, ClassVar, Self
 import numpy as np
 import pytest
 
-from drevalpy.components.contracts.feature_format import BlockSpec, FeatureFormat
 from drevalpy.components.featurizers._dense import (
     FeatureMismatchError,
     PrecomputableFeaturizer,
@@ -16,6 +15,7 @@ from drevalpy.components.featurizers._dense import (
 )
 from drevalpy.components.featurizers.featurizer import Featurizer
 from drevalpy.types.data.feature_block import FeaturizerOutput
+from drevalpy.types.data.feature_format import BlockSpec, FeatureFormat
 from drevalpy.types.data.feature_source import FeatureSource
 from tests.conftest import MockFeatureSource
 

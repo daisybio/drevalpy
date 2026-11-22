@@ -23,10 +23,10 @@ from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 import numpy as np
 
-from drevalpy.components.contracts.feature_format import BlockSpec
 from drevalpy.components.predictors._lightning_training import LightningRun, run_lightning_fit
 from drevalpy.components.predictors.abstract.single_drug import SingleDrugPredictor
 from drevalpy.components.predictors.inputs import Inputs
+from drevalpy.types.data.feature_format import BlockSpec
 
 if TYPE_CHECKING:
     from collections.abc import Sequence

@@ -8,11 +8,11 @@ from typing import Any, ClassVar, Self
 import numpy as np
 import pytest
 
-from drevalpy.components.contracts.feature_format import FeatureFormat
 from drevalpy.components.featurizers._dense import FeatureMismatchError, dense_result, view_matrix
 from drevalpy.components.featurizers.featurizer import Featurizer
 from drevalpy.models._feature_preparation import prepare_features, usable_pairs
 from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
+from drevalpy.types.data.feature_format import FeatureFormat
 from drevalpy.types.data.feature_source import FeatureSource
 from drevalpy.types.data.response_table import ResponseTable
 from tests.conftest import MockFeatureSource
