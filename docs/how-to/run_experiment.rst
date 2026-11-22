@@ -283,7 +283,9 @@ A single-drug model, such as ``SingleDrugElasticNet``, ``SingleDrugRandomForest`
 ``SuperFELTR``, fits one separate model per drug. ``--n-jobs`` (default 1) fits these per-drug
 models in parallel worker processes; ``-1`` uses all CPUs. Every other model ignores it. The
 workers run single-threaded, so ``--n-jobs`` is the only knob for the number of CPUs in use, and
-a forest with its own ``n_jobs`` hyperparameter does not oversubscribe the machine.
+a forest with its own ``n_jobs`` hyperparameter does not oversubscribe the machine. The built-in
+single-drug models run on the CPU even when torch finds a GPU, and ``drevalpy describe`` reports
+their accelerator as ``none``.
 
 The option changes the speed, not the result: runs with the same seed give identical predictions
 for any value. Each drug is seeded from the root seed and its own identifier, not from the order

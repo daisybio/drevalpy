@@ -9,6 +9,15 @@ ID, and predicts NaN for the pairs of a drug it has no model for.
 
 A drug's input keeps only the sample and drug rows its pairs and early-stopping pairs use, so
 what is sent to a worker grows with the drug's pairs rather than with the whole entity table.
+
+The built-in single-drug predictors run on the CPU. Many drugs are fitted in parallel (tens of
+worker processes on a cluster, against a few GPUs), and each of their fits is short, so moving
+every small fit to an accelerator costs more than it saves. They are registered without an
+``accelerator=`` level, so ``drevalpy describe`` reports ``none``, and their torch fits ask for a
+device at that registered level, which stays the CPU for ``NONE``
+(:func:`drevalpy._utils.accelerator.select_device`). A plugin whose per-drug fit gains from an
+accelerator, such as a tabular foundation model, registers with ``accelerator="optional"`` or
+``"required"`` and picks its device itself.
 """
 
 from __future__ import annotations

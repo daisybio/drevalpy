@@ -14,7 +14,6 @@ from drevalpy.components.predictors.literature._omics import (
 from drevalpy.registry._component import LiteratureReference
 from drevalpy.registry.predictor import register
 from drevalpy.types.data.predictor_input import PredictorInput
-from drevalpy.types.enums import Accelerator
 
 # .utils imports pytorch_lightning at module scope, and this module is imported
 # eagerly by register_builtins(), so the encoder/regressor imports are
@@ -45,7 +44,6 @@ _REFERENCE = LiteratureReference(
     description="SuperFELTR single-drug multi-omics model.",
     reference=_REFERENCE,
     license="NOASSERTION",
-    accelerator=Accelerator.OPTIONAL,
 )
 class SuperFELTRPredictor(SingleDrugOmicsPredictor):
     """SuperFELTR predictor: per-drug multi-omics with independent encoders."""
@@ -150,7 +148,7 @@ class SuperFELTRPredictor(SingleDrugOmicsPredictor):
         )
 
     def _fit_module(self, model: pl.LightningModule, data: PredictorInput) -> pl.callbacks.ModelCheckpoint:
-        """Fit one encoder or the regressor on the CPU with early stopping.
+        """Fit one encoder or the regressor at this predictor's accelerator level, with early stopping.
 
         :param model: Encoder or regressor to fit.
         :param data: Training batch carrying all three omic views and optional early-stopping pairs.
@@ -160,4 +158,6 @@ class SuperFELTRPredictor(SingleDrugOmicsPredictor):
         epochs, mini_batch = self._hyperparameters["epochs"], self._hyperparameters["mini_batch"]
         if not isinstance(epochs, int) or not isinstance(mini_batch, int):
             raise ValueError("epochs and mini_batch must be integers!")
-        return fit_omics_model(model, data, batch_size=mini_batch, epochs=epochs, patience=5)
+        return fit_omics_model(
+            model, data, batch_size=mini_batch, epochs=epochs, patience=5, accelerator=self.accelerator
+        )

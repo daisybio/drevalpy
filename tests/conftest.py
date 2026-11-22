@@ -46,6 +46,27 @@ def registry_snapshot() -> Iterator[None]:
     restore_all(snapshots)
 
 
+@pytest.fixture
+def fake_accelerator(monkeypatch: pytest.MonkeyPatch) -> Any:
+    """Make torch report an MPS accelerator and clear the CPU override, on a machine without one.
+
+    Only the detection is patched: a test that builds a ``pytorch_lightning.Trainer`` or a torch
+    module must pin the real run to the CPU itself.
+
+    :param monkeypatch: The test's monkeypatch fixture; the patches are undone with it.
+    :returns: The reported ``torch.device("mps")``.
+    """
+    import torch
+
+    from drevalpy._utils.accelerator import FORCE_CPU_ENV_VAR
+
+    device = torch.device("mps")
+    monkeypatch.delenv(FORCE_CPU_ENV_VAR, raising=False)
+    monkeypatch.setattr(torch.accelerator, "is_available", lambda: True)
+    monkeypatch.setattr(torch.accelerator, "current_accelerator", lambda *args, **kwargs: device)
+    return device
+
+
 @pytest.fixture(scope="session")
 def synthetic_dataset() -> Dataset:
     """Session-wide synthetic raw-omics dataset standing in for a real ``.h5mu``.

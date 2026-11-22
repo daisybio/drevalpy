@@ -16,10 +16,12 @@ from drevalpy._utils.seed import seed_everything
 from drevalpy.components.predictors.abstract.single_drug import SingleDrugPredictor
 from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.components.predictors.sklearn_models import SingleDrugElasticNetPredictor, SingleDrugRandomForestPredictor
+from drevalpy.registry.predictor import predictor_registry
 from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
 from drevalpy.types.data.predictor_input import PredictorInput
 from drevalpy.types.data.response_table import ResponseTable
 from drevalpy.types.data.training_context import TrainingContext
+from drevalpy.types.enums import Accelerator, ModelScope
 from tests.components.predictors._helpers import pickle_round_trip
 
 
@@ -293,3 +295,14 @@ def test_pickle_round_trips_every_per_drug_estimator() -> None:
     assert restored.is_fitted() is True
     assert set(restored._models) == {"d1", "d2"}
     assert restored._hyperparameters["alpha"] == pytest.approx(0.1)
+
+
+def test_the_built_in_single_drug_predictors_run_on_the_cpu() -> None:
+    single_drug = {
+        name: cls.accelerator
+        for name, cls in ((name, predictor_registry.get(name)) for name in predictor_registry.names())
+        if cls.scope is ModelScope.SINGLE_DRUG
+    }
+
+    assert {"molir", "superfeltr", "singleDrugElasticNet", "singleDrugMorgoth"} <= set(single_drug)
+    assert set(single_drug.values()) == {Accelerator.NONE}

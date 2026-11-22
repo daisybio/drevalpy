@@ -230,7 +230,10 @@ The base class routes the pairs by ``data.drug_ids`` and predicts NaN for the pa
 it has no model for, such as a drug that was not in the training data. With ``--n-jobs``
 (``n_jobs`` in Python) above 1 it fits the drugs in parallel worker processes, and it seeds
 each drug from the run seed and the drug ID, so the fitted models do not depend on ``n_jobs``.
-This example fits one ridge regression per drug:
+The built-in single-drug models, ``MOLIR`` and ``SuperFELTR`` among them, run on the CPU: many
+drugs are fitted in parallel and each of their fits is short, so moving every small fit to a GPU
+costs more than it saves. Declare ``accelerator=`` only when a per-drug fit gains from one, as a
+tabular foundation model does. This example fits one ridge regression per drug:
 
 .. literalinclude:: /examples/toy_single_drug_predictor.py
    :language: python

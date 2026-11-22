@@ -14,7 +14,7 @@ from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.registry.predictor import predictor_registry
 from drevalpy.registry.predictor import register as register_predictor
 from drevalpy.types.data.predictor_input import PredictorInput
-from drevalpy.types.enums import ModelScope
+from drevalpy.types.enums import Accelerator, ModelScope
 from tests.registry._helpers import empty_component_registries
 
 
@@ -92,6 +92,15 @@ def test_single_drug_predictors_declare_only_their_scope(base: type) -> None:
 
     assert predictor_registry.get("singleDrugPred") is cls
     assert cls.scope is ModelScope.SINGLE_DRUG
+
+
+@pytest.mark.parametrize("scope", [ModelScope.SINGLE_DRUG, ModelScope.MULTI_DRUG])
+def test_a_predictor_of_either_scope_may_declare_an_accelerator(scope: ModelScope) -> None:
+    cls = type("GpuPred", (_ConcreteBlock,), {"scope": scope})
+
+    registered = register_predictor("gpuPred", description="x", accelerator=Accelerator.OPTIONAL)(cls)
+
+    assert registered.accelerator is Accelerator.OPTIONAL
 
 
 def test_registered_predictor_scope_defaults_to_multi_drug() -> None:
