@@ -20,7 +20,7 @@ from drevalpy.types import SelectionMask
 from drevalpy.types.results.run import RunResult
 
 TRAIN_MODULE = importlib.import_module("drevalpy._train")
-FIT_MODULE = importlib.import_module("drevalpy.experiment._fit")
+FIT_MODULE = importlib.import_module("drevalpy.execution._fit")
 
 
 class _RecordingModel(DRPModel):

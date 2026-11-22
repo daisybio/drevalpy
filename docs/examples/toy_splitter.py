@@ -5,7 +5,7 @@ constraint the registry enforces after every call, so a splitter that leaks a
 sample into both train and test raises ``SplitValidationError`` rather than
 silently producing an optimistic score.
 
-``drevalpy.split`` and ``drevalpy.run`` pass the curve-quality rule to the
+``drevalpy.split`` and ``drevalpy.experiment`` pass the curve-quality rule to the
 splitter as the required ``quality`` keyword. :func:`~drevalpy.plugin.observed_mask`
 turns it into the pairs the splitter may use. This splitter tightens the rule
 with an extra ``min_r2`` threshold of its own.

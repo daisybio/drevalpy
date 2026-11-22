@@ -11,7 +11,7 @@ from drevalpy.components.predictors.literature._torch_training import (
     run_epoch,
     train_with_early_stopping,
 )
-from drevalpy.experiment._tracking import tracking_run
+from drevalpy.execution._tracking import tracking_run
 from tests._fake_wandb import install_fake_wandb
 
 

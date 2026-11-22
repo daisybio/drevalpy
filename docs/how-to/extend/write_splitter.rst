@@ -25,7 +25,7 @@ implement all seven, or ``isinstance`` checks against the protocol fail. ``sampl
 per-sample metadata column, such as ``study``, and raises ``KeyError`` for a column the dataset
 does not have.
 
-``drevalpy.split`` and ``drevalpy.run`` hand your function the unfiltered dataset and the
+``drevalpy.split`` and ``drevalpy.experiment`` hand your function the unfiltered dataset and the
 curve-quality rule as ``quality``, a ``CurveQuality`` from ``drevalpy.plugin``. Call
 ``observed_mask(dataset, quality)`` to get the pairs you may use. See `Filter on curve quality`_.
 
@@ -111,7 +111,7 @@ Filter on curve quality
 -----------------------
 
 The datasets ship every fitted dose-response curve, including the meaningless ones, so treating
-"has a response" as "usable" would train on junk. ``drevalpy.split`` and ``drevalpy.run`` therefore
+"has a response" as "usable" would train on junk. ``drevalpy.split`` and ``drevalpy.experiment`` therefore
 pass the user's ``CurveQuality`` rule to your splitter as ``quality`` (see :doc:`/reference/datasets`),
 together with the unfiltered dataset. ``observed_mask(dataset, quality)`` returns the boolean
 sample-by-drug matrix of pairs that have a finite response *and* pass the rule. The user's choice

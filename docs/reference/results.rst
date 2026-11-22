@@ -1,8 +1,8 @@
 Results layout
 ===============
 
-``drevalpy run`` and ``drevalpy aggregate`` write an ``ExperimentResult`` directory.
-``drevalpy single`` and ``drevalpy.single`` produce one ``RunResult`` file, and so does
+``drevalpy experiment`` and ``drevalpy aggregate`` write an ``ExperimentResult`` directory.
+``drevalpy run`` and ``drevalpy.run`` produce one ``RunResult`` file, and so does
 ``drevalpy predict``.
 ``ExperimentResult.load(directory)`` reads a directory and ``ExperimentResult.save(directory)``
 writes one. ``RunResult.load(path)`` and ``RunResult.save(path)`` do the same for a file.
@@ -29,7 +29,7 @@ Experiment directory
      - Content
    * - ``<output dir>/metadata.json``
      - ``normalized_by`` (``null`` unless normalized) and ``models``, the list of model names in
-       the order they were written. A directory that ``drevalpy run`` wrote also has ``settings``;
+       the order they were written. A directory that ``drevalpy experiment`` wrote also has ``settings``;
        see `Resumed runs`_
    * - ``<output dir>/failures.json``
      - Written only when at least one run failed; see `Recorded failures`_
@@ -38,7 +38,7 @@ Experiment directory
 
 Nothing is stored twice. The dataset name, the split mode and the model name are those of the
 runs, and the runs of a model are the ``.npz`` files of its directory. They are read in the order
-``drevalpy run`` makes them: by fold, the original split before its robustness variants, and the
+``drevalpy experiment`` makes them: by fold, the original split before its robustness variants, and the
 original dataset before the randomized ones. The mean and sample standard deviation of each metric
 across folds are computed when a result is read. A model in ``models`` that has no run file, because
 all its runs failed, is left out.
@@ -55,7 +55,7 @@ unchanged. The dataset name of a concatenated dataset is the study names joined 
 Recorded failures
 ~~~~~~~~~~~~~~~~~
 
-``drevalpy.run`` keeps going when a run raises and keeps a ``RunFailure`` for it, in the tuple
+``drevalpy.experiment`` keeps going when a run raises and keeps a ``RunFailure`` for it, in the tuple
 ``ExperimentResult.failures``. ``ExperimentResult.save`` writes the records to ``failures.json``
 only when there is at least one, and ``ExperimentResult.load`` reads them back. The file is a
 JSON list; each entry has the keys ``identity``, ``error_type`` and ``message``.
@@ -90,8 +90,8 @@ JSON list; each entry has the keys ``identity``, ``error_type`` and ``message``.
      - ``str(exception)``
 
 A failed run writes no run file. The runs of the other models and folds are saved
-as usual. ``drevalpy run`` exits with status 1 when ``failures`` is not empty, and
-``drevalpy.run(..., on_error="raise")`` raises the first error instead of recording it; see
+as usual. ``drevalpy experiment`` exits with status 1 when ``failures`` is not empty, and
+``drevalpy.experiment(..., on_error="raise")`` raises the first error instead of recording it; see
 :doc:`/how-to/evaluate_component_grids`.
 
 Run file names
@@ -117,7 +117,7 @@ and stress test are an error.
 Resumed runs
 ~~~~~~~~~~~~
 
-``drevalpy run`` and ``drevalpy.run(..., output_dir=...)`` write ``metadata.json`` before the first
+``drevalpy experiment`` and ``drevalpy.experiment(..., output_dir=...)`` write ``metadata.json`` before the first
 fit, with ``settings``: every argument that decides the results, that is the models (name,
 configuration and hyperparameters), the dataset (its name and measure, not its content), the
 split mode, number of folds and validation ratio, the curve-quality rule, the response
@@ -248,9 +248,10 @@ The model directory that ``drevalpy train`` writes holds ``model.zip``, the arch
 Split file
 ----------
 
-``drevalpy data split`` and ``drevalpy experiments robustness`` write fold files with the
+``drevalpy data split`` writes fold files (and ``fold_<i>_repeat_<r>.npz`` robustness folds
+when ``--robustness-repeats`` is positive) with the
 arrays ``train``, ``test`` and ``val`` and the JSON entries ``pair_seeds`` and
-``_metadata``. They are the input of ``drevalpy single``. :doc:`split_modes` describes the contents.
+``_metadata``. They are the input of ``drevalpy run``. :doc:`split_modes` describes the contents.
 
 Report
 ------

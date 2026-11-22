@@ -13,12 +13,12 @@ The examples use the simulated dataset and naive baselines, so they run offline 
 Run models on a dataset
 -----------------------
 
-Give ``run`` the models, a dataset and a split mode. The models are zoo names or recipes (see
+Give ``experiment`` the models, a dataset and a split mode. The models are zoo names or recipes (see
 :doc:`/how-to/choose_models`), or a grid of components (see
 :doc:`/how-to/evaluate_component_grids`). The dataset is a registered name or the path to an
 ``.h5mu`` file (see :doc:`/how-to/load_and_split`); several datasets are combined for a
 cross-study evaluation (see :doc:`/how-to/run_cross_study`). The split mode is ``LPO``, ``LSO``,
-``LDO``, ``LTO`` or ``LStO``; the default on the command line is ``LPO``. ``run`` splits into 5
+``LDO``, ``LTO`` or ``LStO``; the default on the command line is ``LPO``. ``experiment`` splits into 5
 folds by default, except ``LStO`` which makes one fold per study, and trains every model on every
 fold. ``--n-splits`` (``-n``, ``n_splits=`` in Python) sets the number of folds, and
 ``--validation-ratio`` (``validation_ratio=``, 0.1 by default) the share of each fold's training
@@ -34,7 +34,7 @@ that stops early needs at least two validation groups, so raise it when a small 
       .. code-block:: bash
 
          drevalpy data synthetic --output toy.h5mu
-         drevalpy run NaiveDrugMeanPredictor NaiveMeanEffectsPredictor \
+         drevalpy experiment NaiveDrugMeanPredictor NaiveMeanEffectsPredictor \
              --dataset toy.h5mu --split-mode LPO --no-hpo --output-dir results_lpo
 
       The command writes the results to ``results_lpo`` and ends with the summary of the
@@ -61,10 +61,10 @@ that stops early needs at least two validation groups, so raise it when a small 
 
          dataset = drevalpy.synthetic()
          models = [ModelSpec.from_name(name) for name in ["NaiveDrugMeanPredictor", "NaiveMeanEffectsPredictor"]]
-         results = drevalpy.run(models, dataset, "LPO", hyperparameter_tuning=False)
+         results = drevalpy.experiment(models, dataset, "LPO", hyperparameter_tuning=False)
          print(results)
 
-      ``run`` returns an ``ExperimentResult``, and writes nothing to disk unless you pass
+      ``experiment`` returns an ``ExperimentResult``, and writes nothing to disk unless you pass
       ``output_dir``; see `Resume a killed run`_. The ``print`` shows the same summary as the command:
 
       .. code-block:: text
@@ -100,7 +100,7 @@ directory.
 
       .. code-block:: bash
 
-         drevalpy run NaiveDrugMeanPredictor NaiveMeanEffectsPredictor \
+         drevalpy experiment NaiveDrugMeanPredictor NaiveMeanEffectsPredictor \
              --dataset TOYv1 --split-mode LPO --no-hpo --output-dir results_toyv1
 
    .. tab-item:: Python
@@ -110,9 +110,9 @@ directory.
 
       .. code-block:: python
 
-         results_toyv1 = drevalpy.run(models, "TOYv1", "LPO", hyperparameter_tuning=False)
+         results_toyv1 = drevalpy.experiment(models, "TOYv1", "LPO", hyperparameter_tuning=False)
 
-``run`` also accepts a path string in place of a name or a ``Dataset``.
+``experiment`` also accepts a path string in place of a name or a ``Dataset``.
 
 Change the split mode
 ---------------------
@@ -129,7 +129,7 @@ mode, so run the experiment once per mode and keep the results apart.
 
       .. code-block:: bash
 
-         drevalpy run NaiveDrugMeanPredictor NaiveMeanEffectsPredictor \
+         drevalpy experiment NaiveDrugMeanPredictor NaiveMeanEffectsPredictor \
              --dataset toy.h5mu --split-mode LSO --no-hpo --output-dir results_lso
 
    .. tab-item:: Python
@@ -138,7 +138,7 @@ mode, so run the experiment once per mode and keep the results apart.
       .. code-block:: python
 
          by_mode = {
-             mode: drevalpy.run(models, dataset, mode, hyperparameter_tuning=False)
+             mode: drevalpy.experiment(models, dataset, mode, hyperparameter_tuning=False)
              for mode in ["LPO", "LSO"]
          }
          print({mode: result.split_mode for mode, result in by_mode.items()})
@@ -163,7 +163,7 @@ sampler alone.
 
       .. code-block:: bash
 
-         drevalpy run NaiveDrugMeanPredictor NaiveMeanEffectsPredictor \
+         drevalpy experiment NaiveDrugMeanPredictor NaiveMeanEffectsPredictor \
              --dataset toy.h5mu --split-mode LPO --no-hpo --seed 7 --output-dir results_seed7
 
    .. tab-item:: Python
@@ -171,7 +171,7 @@ sampler alone.
 
       .. code-block:: python
 
-         reseeded = drevalpy.run(models, dataset, "LPO", hyperparameter_tuning=False, seed=7)
+         reseeded = drevalpy.experiment(models, dataset, "LPO", hyperparameter_tuning=False, seed=7)
 
 Choose the response measure
 ---------------------------
@@ -187,25 +187,25 @@ dataset holds in ``X``. Any response layer can be the measure instead: ``LN_IC50
    .. tab-item:: CLI
       :sync: cli
 
-      ``drevalpy run``, ``drevalpy train``, ``drevalpy single`` and ``drevalpy data split`` take
+      ``drevalpy experiment``, ``drevalpy train``, ``drevalpy run`` and ``drevalpy data split`` take
       ``--measure``.
 
       .. code-block:: bash
 
-         drevalpy run NaiveDrugMeanPredictor NaiveMeanEffectsPredictor \
+         drevalpy experiment NaiveDrugMeanPredictor NaiveMeanEffectsPredictor \
              --dataset toy.h5mu --split-mode LPO --no-hpo --measure LN_IC50 --output-dir results_ln_ic50
 
    .. tab-item:: Python
       :sync: python
 
-      ``drevalpy.run``, ``drevalpy.train``, ``drevalpy.single`` and ``drevalpy.split`` take
+      ``drevalpy.experiment``, ``drevalpy.train``, ``drevalpy.run`` and ``drevalpy.split`` take
       ``measure``. ``dataset.measures()`` lists the names a dataset accepts: the measure in ``X``
       first, then every response layer.
 
       .. code-block:: python
 
          print(dataset.measures()[:2])
-         ln_ic50 = drevalpy.run(models, dataset, "LPO", hyperparameter_tuning=False, measure="LN_IC50")
+         ln_ic50 = drevalpy.experiment(models, dataset, "LPO", hyperparameter_tuning=False, measure="LN_IC50")
          print(ln_ic50.measure)
 
       .. code-block:: text
@@ -223,7 +223,7 @@ still reads its own layers, and its pEC50 thresholds read the pEC50 in ``X``; se
 
 The folds depend on the measure, because only the pairs that have it are split. A fold records
 its measure in ``fold.metadata["measure"]``. Split with the same measure you train on:
-``drevalpy single`` takes the measure from the fold and rejects a different one. The results
+``drevalpy run`` takes the measure from the fold and rejects a different one. The results
 record the measure too, and runs of different measures cannot be combined into one experiment. A
 fitted model remembers its measure: ``drevalpy predict`` compares the predictions with it, and
 a dataset set to another measure is an error.
@@ -261,7 +261,7 @@ different transformations stay on the same normalization scale.
 
       .. code-block:: bash
 
-         drevalpy run NaiveMeanEffectsPredictor \
+         drevalpy experiment NaiveMeanEffectsPredictor \
              --dataset toy.h5mu --split-mode LPO --no-hpo --response-transformation standard \
              --output-dir results_scaled
 
@@ -272,7 +272,7 @@ different transformations stay on the same normalization scale.
 
          from sklearn.preprocessing import StandardScaler
 
-         scaled = drevalpy.run(
+         scaled = drevalpy.experiment(
              models[1:], dataset, "LPO", hyperparameter_tuning=False, response_transformation=StandardScaler()
          )
 
@@ -297,25 +297,25 @@ tests because they need a dataset with several drugs and omics data.
    .. tab-item:: CLI
       :sync: cli
 
-      ``drevalpy run``, ``drevalpy single`` and ``drevalpy train`` take ``--n-jobs``.
+      ``drevalpy experiment``, ``drevalpy run`` and ``drevalpy train`` take ``--n-jobs``.
 
       .. snippet: skip
 
       .. code-block:: bash
 
-         drevalpy run SingleDrugElasticNet \
+         drevalpy experiment SingleDrugElasticNet \
              --dataset gdsc.h5mu --split-mode LPO --no-hpo --n-jobs 4
 
    .. tab-item:: Python
       :sync: python
 
-      ``drevalpy.run``, ``drevalpy.single`` and ``drevalpy.train`` take ``n_jobs``.
+      ``drevalpy.experiment``, ``drevalpy.run`` and ``drevalpy.train`` take ``n_jobs``.
 
       .. snippet: skip
 
       .. code-block:: python
 
-         drevalpy.run(["SingleDrugElasticNet"], dataset, "LPO", hyperparameter_tuning=False, n_jobs=4)
+         drevalpy.experiment(["SingleDrugElasticNet"], dataset, "LPO", hyperparameter_tuning=False, n_jobs=4)
 
 Log to Weights & Biases
 -----------------------
@@ -335,25 +335,25 @@ an account.
    .. tab-item:: CLI
       :sync: cli
 
-      ``drevalpy run`` and ``drevalpy single`` take ``--wandb-project``.
+      ``drevalpy experiment`` and ``drevalpy run`` take ``--wandb-project``.
 
       .. snippet: skip
 
       .. code-block:: bash
 
-         drevalpy run NaiveDrugMeanPredictor \
+         drevalpy experiment NaiveDrugMeanPredictor \
              --dataset toy.h5mu --split-mode LPO --no-hpo --wandb-project drevalpy-demo
 
    .. tab-item:: Python
       :sync: python
 
-      ``drevalpy.run`` and ``drevalpy.single`` take ``wandb_project``.
+      ``drevalpy.experiment`` and ``drevalpy.run`` take ``wandb_project``.
 
       .. snippet: skip
 
       .. code-block:: python
 
-         drevalpy.run(models, dataset, "LPO", hyperparameter_tuning=False, wandb_project="drevalpy-demo")
+         drevalpy.experiment(models, dataset, "LPO", hyperparameter_tuning=False, wandb_project="drevalpy-demo")
 
 See progress and warnings
 -------------------------
@@ -376,7 +376,7 @@ notebook these messages stay hidden until you ask for them. The command line doe
    .. tab-item:: Python
       :sync: python
 
-      Call ``setup_logging`` once, before the first ``drevalpy.run``. Pass ``level`` to change the
+      Call ``setup_logging`` once, before the first ``drevalpy.experiment``. Pass ``level`` to change the
       default ``logging.INFO``, for example ``setup_logging(logging.WARNING)`` to show only warnings
       or ``setup_logging(logging.DEBUG)`` for debug detail.
 
@@ -389,11 +389,11 @@ notebook these messages stay hidden until you ask for them. The command line doe
 Resume a killed run
 -------------------
 
-``drevalpy run`` saves each run in the output directory as soon as it finishes, so a run that is
+``drevalpy experiment`` saves each run in the output directory as soon as it finishes, so a run that is
 killed, for example at the time limit of a cluster job, keeps the runs it finished. Run the same
 command again to resume it: the runs that are already saved are loaded, not fitted again, and only
 the missing ones are fitted. The runs that failed are retried. In Python, pass ``output_dir`` to
-``run`` for the same behaviour.
+``experiment`` for the same behaviour.
 
 A run resumes only a directory written with the same settings: the same models, dataset name,
 measure, split mode, number of folds, validation ratio, quality rule, response transformation,
@@ -414,11 +414,11 @@ run finished holds no runs, so the next run starts it again with its own setting
 
       .. code-block:: bash
 
-         drevalpy run NaiveDrugMeanPredictor NaiveMeanEffectsPredictor \
+         drevalpy experiment NaiveDrugMeanPredictor NaiveMeanEffectsPredictor \
              --dataset toy.h5mu --split-mode LSO --no-hpo --output-dir results_resumed
-         drevalpy run NaiveDrugMeanPredictor NaiveMeanEffectsPredictor \
+         drevalpy experiment NaiveDrugMeanPredictor NaiveMeanEffectsPredictor \
              --dataset toy.h5mu --split-mode LSO --no-hpo --output-dir results_resumed
-         drevalpy run NaiveDrugMeanPredictor NaiveMeanEffectsPredictor \
+         drevalpy experiment NaiveDrugMeanPredictor NaiveMeanEffectsPredictor \
              --dataset toy.h5mu --split-mode LSO --no-hpo --seed 7 --output-dir results_resumed --overwrite
 
       The second command loads all ten runs and fits nothing. The third has another seed, so it
@@ -429,10 +429,10 @@ run finished holds no runs, so the next run starts it again with its own setting
 
       .. code-block:: python
 
-         resumed = drevalpy.run(models, dataset, "LSO", hyperparameter_tuning=False, output_dir="results_resumed_py")
-         again = drevalpy.run(models, dataset, "LSO", hyperparameter_tuning=False, output_dir="results_resumed_py")
+         resumed = drevalpy.experiment(models, dataset, "LSO", hyperparameter_tuning=False, output_dir="results_resumed_py")
+         again = drevalpy.experiment(models, dataset, "LSO", hyperparameter_tuning=False, output_dir="results_resumed_py")
          print(again.summary_table().equals(resumed.summary_table()))
-         reseeded = drevalpy.run(
+         reseeded = drevalpy.experiment(
              models, dataset, "LSO", hyperparameter_tuning=False, seed=7, output_dir="results_resumed_py", overwrite=True
          )
 
@@ -445,7 +445,7 @@ run finished holds no runs, so the next run starts it again with its own setting
 Read the results
 ----------------
 
-The command line saves the results for you, and so does ``run`` with ``output_dir``. Otherwise
+The command line saves the results for you, and so does ``experiment`` with ``output_dir``. Otherwise
 save them yourself with ``results.save(directory)``. All write the layout in
 :doc:`/reference/results`: one subdirectory per model with one ``.npz`` file per run. Load a directory back into an
 ``ExperimentResult`` to recompute tables or build a report, even in a later session:
@@ -457,7 +457,7 @@ save them yourself with ``results.save(directory)``. All write the layout in
       :sync: cli
 
       ``drevalpy report`` and ``drevalpy aggregate`` read the directories directly; see
-      :doc:`/how-to/make_report`. Add ``--group-by drug``, ``--group-by sample`` or ``--group-by study`` to ``run`` to
+      :doc:`/how-to/make_report`. Add ``--group-by drug``, ``--group-by sample`` or ``--group-by study`` to ``experiment`` to
       print the metrics computed within each drug, sample or study as well. ``--group-by tissue`` or
       ``--group-by ncit_class`` groups by a sample or drug annotation of the run's dataset instead.
 

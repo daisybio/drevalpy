@@ -195,7 +195,7 @@ layers hold the other summaries (``EC50``, ``IC50``, ``AUC``) and the curve-qual
 the quality layers ``relevance_score`` and ``fold_change``: they drop the pairs whose curve fits
 poorly or barely moves (see :doc:`/reference/datasets`). Splitting a dataset without these two
 layers raises ``KeyError``. If your dataset has only a pEC50 matrix, switch the rule off with
-``quality=CurveQuality.off()`` in ``drevalpy.split`` and ``drevalpy.run``, or ``--no-quality-filter``
+``quality=CurveQuality.off()`` in ``drevalpy.split`` and ``drevalpy.experiment``, or ``--no-quality-filter``
 on the command line; every pair with a finite response is then kept.
 
 ``SingleDrugMorgoth`` also reads the ``regulation`` layer, CurveCurator's verdict on each curve:
@@ -417,7 +417,7 @@ Load the file by path to check it, and pass the path wherever a command asks for
 
       .. code-block:: bash
 
-         drevalpy run NaiveDrugMeanPredictor NaiveMeanEffectsPredictor \
+         drevalpy experiment NaiveDrugMeanPredictor NaiveMeanEffectsPredictor \
              --dataset my_screen.h5mu --split-mode LPO --no-hpo --output-dir results_my_screen
 
       The command ends with:
@@ -443,7 +443,7 @@ Load the file by path to check it, and pass the path wherever a command asks for
          dataset = drevalpy.load("my_screen.h5mu")
          print(dataset)
          models = [ModelSpec.from_name(name) for name in ["NaiveDrugMeanPredictor", "NaiveMeanEffectsPredictor"]]
-         results = drevalpy.run(models, dataset, "LPO", hyperparameter_tuning=False)
+         results = drevalpy.experiment(models, dataset, "LPO", hyperparameter_tuning=False)
          print(results)
 
       .. code-block:: text
@@ -547,7 +547,7 @@ selection, and the error names the list, the view and the number of missing gene
 
       .. code-block:: bash
 
-         drevalpy run Ridge --dataset my_screen_expression.h5mu --split-mode LPO --no-hpo --output-dir results_expression
+         drevalpy experiment Ridge --dataset my_screen_expression.h5mu --split-mode LPO --no-hpo --output-dir results_expression
 
       .. code-block:: text
 
@@ -558,7 +558,7 @@ selection, and the error names the list, the view and the number of missing gene
 
       .. code-block:: bash
 
-         drevalpy run "scaledGeneExpression:fingerprints:ridge" \
+         drevalpy experiment "scaledGeneExpression:fingerprints:ridge" \
              --dataset my_screen_expression.h5mu --split-mode LPO --no-hpo --output-dir results_expression
 
    .. tab-item:: Python
@@ -572,12 +572,12 @@ selection, and the error names the list, the view and the number of missing gene
 
          dataset = drevalpy.load("my_screen_expression.h5mu")
          try:
-             drevalpy.run([ModelSpec.from_name("Ridge")], dataset, "LPO", hyperparameter_tuning=False, on_error="raise")
+             drevalpy.experiment([ModelSpec.from_name("Ridge")], dataset, "LPO", hyperparameter_tuning=False, on_error="raise")
          except InvalidInputError as error:
              print(error)
 
          ridge = ModelSpec("RawRidge", from_recipe("scaledGeneExpression:fingerprints:ridge"))
-         print(drevalpy.run([ridge], dataset, "LPO", hyperparameter_tuning=False))
+         print(drevalpy.experiment([ridge], dataset, "LPO", hyperparameter_tuning=False))
 
       The first call prints the error:
 

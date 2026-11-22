@@ -9,7 +9,7 @@ from torch import nn
 
 from drevalpy.components.predictors.literature.precily.model_utils import PrecilyNetwork
 from drevalpy.components.predictors.literature.precily.predictor import PrecilyPredictor
-from drevalpy.experiment._tracking import tracking_run
+from drevalpy.execution._tracking import tracking_run
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.data.feature_block import FeatureBlock
 from tests._fake_wandb import install_fake_wandb

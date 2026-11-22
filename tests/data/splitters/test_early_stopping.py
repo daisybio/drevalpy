@@ -9,7 +9,7 @@ import drevalpy
 from drevalpy.data import concat
 from drevalpy.data.splitters._folds import early_stopping_split
 from drevalpy.errors import InvalidInputError
-from drevalpy.experiment import robustness
+from drevalpy.execution import robustness
 from drevalpy.registry.splitter._groups import pair_groups
 from drevalpy.types import Dataset, Fold, SelectionMask
 

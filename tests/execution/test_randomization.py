@@ -9,7 +9,7 @@ from typing import Any
 import pytest
 
 from drevalpy.data import synthetic
-from drevalpy.experiment._randomization import randomization
+from drevalpy.execution._randomization import randomization
 from drevalpy.models import ModelSpec
 
 
@@ -107,7 +107,7 @@ def test_effective_seeds_are_stable_distinct_and_order_independent() -> None:
 
 
 def test_missing_view_and_empty_complement_are_skipped_with_warnings(caplog: pytest.LogCaptureFixture) -> None:
-    with caplog.at_level("WARNING", logger="drevalpy.experiment._randomization"):
+    with caplog.at_level("WARNING", logger="drevalpy.execution._randomization"):
         results = randomization(
             _stub_model(samples=["expr"], drugs=["fp"]), _StubDataset(missing=("fp",)), ["SVRC", "SVRD"]
         )
@@ -133,7 +133,7 @@ def test_real_model_config_views_and_real_dataset(synthetic_dataset, caplog: pyt
     assert provenance is not None
     assert (provenance["root_seed"], provenance["views"]) == (0, ["gene_expression"])
 
-    with caplog.at_level("WARNING", logger="drevalpy.experiment._randomization"):
+    with caplog.at_level("WARNING", logger="drevalpy.execution._randomization"):
         bare = synthetic(n_samples=6, n_drugs=2, n_tissues=2)
         assert randomization(spec, bare, ["SVRD", "SVCD", "SVCC"]) == []
     assert "'morgan_fingerprint'" in caplog.text

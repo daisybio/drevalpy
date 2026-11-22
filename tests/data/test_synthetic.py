@@ -405,7 +405,7 @@ class TestSimpsonPattern:
         models = [
             ModelSpec.from_name(name) for name in ("NaiveDrugMeanPredictor", "NaiveMeanEffectsPredictor", "ElasticNet")
         ]
-        return drevalpy.run(models, data, "LPO", hyperparameter_tuning=True, hpo_num_trials=8)
+        return drevalpy.experiment(models, data, "LPO", hyperparameter_tuning=True, hpo_num_trials=8)
 
     def test_the_drug_mean_baseline_scores_high_pooled_but_zero_per_drug(self, experiment):
         pooled = experiment.summary_table().loc["NaiveDrugMeanPredictor", "Pearson"]

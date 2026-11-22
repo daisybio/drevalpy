@@ -71,7 +71,7 @@ GENERATED_INCLUDES = {
     "reference/examples.rst": ("_generated_examples.rst",),
 }
 # A floor, not a mirror of the live app: it catches a group being dropped.
-REQUIRED_CLI_GROUPS = {"data", "experiments", "list"}
+REQUIRED_CLI_GROUPS = {"curate", "data", "list"}
 
 _TITLE = re.compile(r"^(?P<title>\S[^\n]*)\n[=\-~^\"#*+`.']{3,} *$", re.MULTILINE)
 _INTERFACE = re.compile(r"^\.\. interface:[ \t]*(\S*)[ \t]*$", re.MULTILINE)

@@ -19,7 +19,7 @@ from drevalpy.components.predictors.literature.dipk.gene_expression_encoder impo
     train_gene_expession_autoencoder,
     validation_loss,
 )
-from drevalpy.experiment._tracking import tracking_run
+from drevalpy.execution._tracking import tracking_run
 from tests._fake_wandb import install_fake_wandb
 
 INPUT_DIM = 6

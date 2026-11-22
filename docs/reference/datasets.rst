@@ -347,7 +347,7 @@ Concatenated datasets
 
 ``drevalpy.data.concat(datasets, *, join="exact", name=None)`` and
 ``drevalpy data concat DATASETS... OUTPUT [--join exact|inner] [--name NAME]`` join the
-datasets of several studies into one ordinary dataset; ``drevalpy run`` does the same when it is
+datasets of several studies into one ordinary dataset; ``drevalpy experiment`` does the same when it is
 given several ``--dataset`` options. How to use it is in :doc:`/how-to/run_cross_study`.
 
 .. list-table::
@@ -388,7 +388,7 @@ changed.
 Curve-quality filter
 --------------------
 
-``split`` and ``run`` pass a curve-quality rule to the splitter, and the built-in split modes
+``split`` and ``experiment`` pass a curve-quality rule to the splitter, and the built-in split modes
 use only the pairs that pass it. The rule is a ``drevalpy.data.CurveQuality``. The default is the CurveCurator rule:
 
 .. code-block:: text
@@ -397,7 +397,7 @@ use only the pairs that pass it. The rule is a ``drevalpy.data.CurveQuality``. T
    abs(fold_change) >= 0.45
 
 A pair whose ``relevance_score`` or ``fold_change`` is NaN fails. Pass the rule as the
-``quality`` argument of ``drevalpy.split`` and ``drevalpy.run``; ``None`` means
+``quality`` argument of ``drevalpy.split`` and ``drevalpy.experiment``; ``None`` means
 ``CurveQuality.default()``. The rule is recorded in the metadata of each fold under ``quality``.
 
 .. list-table::
@@ -429,7 +429,7 @@ and ``min_pec50`` and ``max_pec50`` read the pEC50 in ``X`` whatever the measure
 
 A rule that needs a response layer the dataset lacks raises ``UnknownNameError`` (a ``KeyError``). A dataset without the
 quality layers, such as one with only a pEC50 matrix, therefore needs ``CurveQuality.off()``
-(``--no-quality-filter``). ``run`` and ``data split`` accept the three options above; ``single``
+(``--no-quality-filter``). ``experiment`` and ``data split`` accept the three options above; ``run``
 reads the folds it is given and has none. ``--no-quality-filter`` cannot be combined with
 ``--min-relevance-score`` or ``--min-abs-fold-change``.
 

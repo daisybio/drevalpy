@@ -12,7 +12,7 @@ import pytest
 
 from drevalpy.errors import DrEvalError
 from drevalpy.evaluation import Metric
-from drevalpy.experiment._execution import ExecutionSpec
+from drevalpy.execution._execution import ExecutionSpec
 from drevalpy.models import DRPModel, ModelSpec
 from drevalpy.models.config import from_recipe
 from drevalpy.models.tuning import hpo

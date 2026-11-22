@@ -66,7 +66,7 @@ original and two repeats) × 2 datasets (the original and the permuted one) = 12
 
       .. code-block:: bash
 
-         drevalpy run NaiveMeanEffectsPredictor ElasticNet \
+         drevalpy experiment NaiveMeanEffectsPredictor ElasticNet \
              --dataset toy.h5mu --split-mode LPO --n-splits 2 --hpo-trials 4 \
              --randomization-mode SVRC --robustness-repeats 2
 
@@ -92,7 +92,7 @@ original and two repeats) × 2 datasets (the original and the permuted one) = 12
 
          names = ["NaiveMeanEffectsPredictor", "ElasticNet"]
          models = [ModelSpec.from_name(name) for name in names]
-         results = drevalpy.run(
+         results = drevalpy.experiment(
              models,
              dataset,
              "LPO",
@@ -151,7 +151,7 @@ fold reuse the best hyperparameters of its ordinary run and have no trials; see
    .. tab-item:: Python
       :sync: python
 
-      The ``results`` object returned by ``drevalpy.run`` already holds them:
+      The ``results`` object returned by ``drevalpy.experiment`` already holds them:
 
       .. code-block:: python
 

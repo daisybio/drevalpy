@@ -85,7 +85,7 @@ Folds
      - Each fold is validated; a violation raises ``SplitValidationError``
    * - Returned value
      - A list of ``Fold``, each holding ``train``, ``test`` and ``val`` masks
-   * - ``drevalpy run`` and ``drevalpy.run``
+   * - ``drevalpy experiment`` and ``drevalpy.experiment``
      - Always ``n_splits=5``, ``random_state=seed``
 
 Each fold carries this metadata:
@@ -131,7 +131,7 @@ Randomization tests
 A randomization test trains a model on a copy of the dataset in which some of the model's
 views are shuffled, to show how much the model depends on them.
 ``drevalpy.randomization(model_spec, dataset, randomization_mode, *, randomization_type="permutation",
-random_state=42)`` returns the randomized datasets; ``drevalpy run -r MODE`` runs them.
+random_state=42)`` returns the randomized datasets; ``drevalpy experiment -r MODE`` runs them.
 
 .. list-table::
    :header-rows: 1
@@ -163,7 +163,7 @@ with a warning and produces no dataset and no run:
 
 ``Dataset.with_randomized_views`` itself raises ``KeyError`` for a view the dataset does not
 store. A model with no views, such as ``NaiveMeanEffectsPredictor``, gets no randomization
-runs. A mode code that is not in the table is ignored without an error. ``drevalpy.run``
+runs. A mode code that is not in the table is ignored without an error. ``drevalpy.experiment``
 applies the tests to every model it is given.
 
 .. list-table::
@@ -185,11 +185,11 @@ and ``views``. The effective seed is derived from the SHA-256 of
 ``[random_state, type, mode, view, sorted views]``, so the same inputs give the same shuffle.
 ``random_state`` is ``--randomization-random-state``, which defaults to ``--seed``.
 
-``drevalpy experiments randomization MODEL DATASET OUTPUT_DIR`` takes a registered dataset
+``drevalpy data randomization MODEL DATASET OUTPUT_DIR`` takes a registered dataset
 name or the path of a ``.h5mu`` file. It writes one file per randomized dataset with
 ``Dataset.save``, named ``<MODE>__<view>.h5mu``, and prints the number of files. Its default
 mode is ``SVRC``. When every test is skipped it writes 0 files and exits with status 0.
-``Dataset.load`` restores the ``randomization`` label of such a file, so ``drevalpy single``
+``Dataset.load`` restores the ``randomization`` label of such a file, so ``drevalpy run``
 records it in the run and ``drevalpy aggregate`` keeps those runs apart from the ordinary
 ones.
 
@@ -204,9 +204,9 @@ fold. Copy ``repeat`` has its ``train``, ``test`` and ``val`` pairs shuffled wit
 ``shuffled(seed=repeat)``, for ``repeat`` in ``range(n_repeats)``. The masks stay the same
 and the metadata gets ``robustness_repeat``.
 
-``drevalpy run --robustness-repeats N`` runs, for each fold, the original and then the ``N``
-variants. ``drevalpy experiments robustness`` reads each fold ``.npz`` and writes
-``<stem>_repeat_<i>.npz``.
+``drevalpy experiment --robustness-repeats N`` runs, for each fold, the original and then the ``N``
+variants. ``drevalpy data split --robustness-repeats N`` writes ``fold_<i>_repeat_<r>.npz``
+alongside each ``fold_<i>.npz``.
 
 Seeds of a run
 ~~~~~~~~~~~~~~

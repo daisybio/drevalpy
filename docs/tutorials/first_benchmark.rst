@@ -106,7 +106,7 @@ learns, but tuning lowers its RMSE over all pairs from 0.778 to 0.743 on this da
 
       .. code-block:: bash
 
-         drevalpy run NaiveDrugMeanPredictor NaiveMeanEffectsPredictor ElasticNet \
+         drevalpy experiment NaiveDrugMeanPredictor NaiveMeanEffectsPredictor ElasticNet \
              --dataset toy.h5mu --split-mode LPO --hpo-trials 4 --group-by drug
 
       Tuning logs one line per trial and fold while it runs. The command ends with this
@@ -141,7 +141,7 @@ learns, but tuning lowers its RMSE over all pairs from 0.778 to 0.743 on this da
 
          names = ["NaiveDrugMeanPredictor", "NaiveMeanEffectsPredictor", "ElasticNet"]
          models = [ModelSpec.from_name(name) for name in names]
-         results = drevalpy.run(models, dataset, "LPO", hpo_num_trials=4)
+         results = drevalpy.experiment(models, dataset, "LPO", hpo_num_trials=4)
          print(results)
 
       Tuning logs one line per trial and fold while it runs. The ``print`` shows:
@@ -293,7 +293,7 @@ What you learned
 
 - ``drevalpy data synthetic`` and ``drevalpy.synthetic()`` give an offline dataset that behaves
   like a real screen.
-- ``drevalpy run`` and ``drevalpy.run`` evaluate several models over the folds of one split mode.
+- ``drevalpy experiment`` and ``drevalpy.experiment`` evaluate several models over the folds of one split mode.
 - A pooled score is dominated by drug potency. Read the within-drug scores, and compare a model
   with ``NaiveMeanEffectsPredictor``, not with nothing.
 

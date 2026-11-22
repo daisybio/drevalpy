@@ -158,3 +158,57 @@ def test_a_cached_dataset_splits_by_name(monkeypatch: pytest.MonkeyPatch, tmp_pa
 
     assert result.exit_code == 0, result.output
     assert sorted(p.name for p in (tmp_path / "folds").glob("*.npz")) == ["fold_0.npz", "fold_1.npz"]
+
+
+def test_robustness_repeats_writes_shuffled_variants_alongside_folds(splitter: Recorder, tmp_path: UPath) -> None:
+    out_dir = tmp_path / "folds"
+
+    result = _invoke(tmp_path, "--robustness-repeats", "2")
+
+    assert result.exit_code == 0, result.output
+    expected = [
+        name for i in range(N_FOLDS) for name in (f"fold_{i}.npz", f"fold_{i}_repeat_0.npz", f"fold_{i}_repeat_1.npz")
+    ]
+    assert sorted(p.name for p in out_dir.glob("*.npz")) == sorted(expected)
+    assert f"Wrote {N_FOLDS} folds and {N_FOLDS * 2} robustness folds to {out_dir}" in plain(result.output)
+
+    variant = Fold.load(out_dir / "fold_1_repeat_1.npz")
+    original = Fold.load(out_dir / "fold_1.npz")
+    assert variant.metadata["robustness_repeat"] == 1
+    assert variant.metadata["fold_index"] == 1
+    np.testing.assert_array_equal(variant.train.mask, original.train.mask)
+
+
+def test_negative_or_non_integer_robustness_repeats_is_a_usage_error(splitter: Recorder, tmp_path: UPath) -> None:
+    assert _invoke(tmp_path, "--robustness-repeats", "-1").exit_code == 2
+    assert _invoke(tmp_path, "--robustness-repeats", "several").exit_code == 2
+    assert splitter.call_count == 0
+
+
+@pytest.mark.slow
+def test_robustness_fold_from_data_split_records_repeat_in_run(tmp_path: UPath) -> None:
+    from drevalpy.types.results import RunResult
+    from tests.cli._helpers import write_synthetic_fold
+
+    dataset, _ = write_synthetic_fold(runner, tmp_path)
+    split_res = runner.invoke(
+        app,
+        ["data", "split", str(dataset), str(tmp_path / "rob"), "-n", "2", "--robustness-repeats", "2"],
+    )
+    run_res = runner.invoke(
+        app,
+        [
+            "run",
+            "ElasticNet",
+            str(dataset),
+            str(tmp_path / "rob" / "fold_0_repeat_1.npz"),
+            str(tmp_path / "r.npz"),
+            "--no-hpo",
+        ],
+    )
+
+    assert split_res.exit_code == 0, split_res.output
+    assert run_res.exit_code == 0, run_res.output
+    run = RunResult.load(str(tmp_path / "r.npz"))
+    assert run.robustness_repeat == 1
+    assert run.randomization is None

@@ -1,7 +1,7 @@
 """Tune and train the final model of one execution, then predict its test scope.
 
-:func:`fit` is the one path from an :class:`~drevalpy.experiment._execution.ExecutionSpec` to a
-fitted model: ``drevalpy.single``, ``drevalpy.train`` and the golden recorder all go through
+:func:`fit` is the one path from an :class:`~drevalpy.execution._execution.ExecutionSpec` to a
+fitted model: ``drevalpy.run``, ``drevalpy.train`` and the golden recorder all go through
 it, so they seed, tune, train and predict identically. Tuning is always called: it returns
 the spec's values when the execution does not tune.
 
@@ -19,7 +19,7 @@ import numpy as np
 from drevalpy._utils.seed import fit_seed, seed_everything
 from drevalpy.errors import NaNPredictionError
 from drevalpy.evaluation import evaluate
-from drevalpy.experiment._tracking import log_summary, tracking_run
+from drevalpy.execution._tracking import log_summary, tracking_run
 from drevalpy.log import get_logger
 from drevalpy.models.drp_model import DRPModel
 from drevalpy.models.tuning.hpo import hpam_tune
@@ -27,7 +27,7 @@ from drevalpy.types.data.response_table import ResponseTable
 from drevalpy.types.results.run import RunResult
 
 if TYPE_CHECKING:
-    from drevalpy.experiment._execution import ExecutionSpec
+    from drevalpy.execution._execution import ExecutionSpec
     from drevalpy.models.response_transformation import ResponseTransformer
     from drevalpy.types.data.dataset import Dataset
 

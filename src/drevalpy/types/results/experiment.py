@@ -187,7 +187,7 @@ class ExperimentResult:
         """Save to a directory tree, in the layout :doc:`/reference/results` describes.
 
         ``metadata.json`` holds only what the runs cannot give back: the model order and ``normalized_by``. It has
-        no run settings, so ``drevalpy.run`` does not resume a directory saved here. The dataset and split names
+        no run settings, so ``drevalpy.experiment`` does not resume a directory saved here. The dataset and split names
         are those of the runs, and each model's directory is
         :func:`~drevalpy._utils.filenames.unique_safe_filenames` of the model order. Each model directory is written
         by :meth:`ModelResult.save`.
@@ -204,7 +204,7 @@ class ExperimentResult:
 
     @classmethod
     def load(cls, directory: str | Path, *, with_trials: bool = True) -> ExperimentResult:
-        """Load from a directory tree saved by ``save()`` or written by ``drevalpy.run``.
+        """Load from a directory tree saved by ``save()`` or written by ``drevalpy.experiment``.
 
         A model of ``metadata.json`` without any run on disk, such as one whose every run failed, is left out.
 

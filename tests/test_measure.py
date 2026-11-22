@@ -79,7 +79,7 @@ class TestSplit:
 
 class TestRunAndSingle:
     def test_a_run_trains_and_scores_on_the_measure(self, dataset: Dataset) -> None:
-        result = drevalpy.run(
+        result = drevalpy.experiment(
             [ModelSpec.from_name("NaiveDrugMeanPredictor")],
             dataset,
             "LPO",
@@ -101,16 +101,16 @@ class TestRunAndSingle:
         fold = split(dataset, "LPO", n_splits=2, quality=CurveQuality.off(), measure="AUC")[0]
         spec = ModelSpec.from_name("NaiveDrugMeanPredictor")
 
-        result = drevalpy.single(spec, dataset, fold, hyperparameter_tuning=False)
+        result = drevalpy.run(spec, dataset, fold, hyperparameter_tuning=False)
 
         assert result.measure == "AUC"
         with pytest.raises(InvalidInputError, match="split on the response measure 'AUC'"):
-            drevalpy.single(spec, dataset, fold, hyperparameter_tuning=False, measure="LN_IC50")
+            drevalpy.run(spec, dataset, fold, hyperparameter_tuning=False, measure="LN_IC50")
 
     def test_results_of_different_measures_do_not_mix(self, dataset: Dataset) -> None:
         spec = ModelSpec.from_name("NaiveDrugMeanPredictor")
         runs = [
-            drevalpy.single(spec, dataset, fold, hyperparameter_tuning=False)
+            drevalpy.run(spec, dataset, fold, hyperparameter_tuning=False)
             for fold in (
                 split(dataset, "LPO", n_splits=2, quality=CurveQuality.off(), measure=measure)[0]
                 for measure in ("AUC", "LN_IC50")

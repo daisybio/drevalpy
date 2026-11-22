@@ -43,7 +43,7 @@ model, so the predictions are in the units of the response.
          drevalpy predict final_model --dataset toy.h5mu --output predictions.npz
 
       ``train`` takes the options ``--hpo-metric``, ``--hpo-trials``, ``--hpo-random-state``,
-      ``--seed`` and ``--measure`` of ``run``, ``--response-transformation``, and the curve-quality options
+      ``--seed`` and ``--measure`` of ``experiment``, ``--response-transformation``, and the curve-quality options
       ``--no-quality-filter``, ``--min-relevance-score`` and ``--min-abs-fold-change``. The dataset
       of ``predict`` can be another dataset than the one the model was trained on; it needs the
       views the model reads. ``predictions.npz`` has the layout of a run file; see
@@ -90,7 +90,7 @@ search for them.
 ``train`` and ``predict`` take a **scope**: a ``SelectionMask`` that says which pairs to use. A fold from
 :doc:`/how-to/load_and_split` has the scopes ``train``, ``val`` and ``test``. Train on
 ``train_val``, the training and validation pairs together, and predict the ``test`` pairs. This
-is what ``run`` does for the final fit of a model that does not stop early.
+is what ``experiment`` does for the final fit of a model that does not stop early.
 
 .. tab-set::
    :sync-group: interface
@@ -99,7 +99,7 @@ is what ``run`` does for the final fit of a model that does not stop early.
       :sync: cli
 
       The command line has no command that trains on a fold and keeps the model.
-      ``drevalpy single`` trains on one fold, but writes its predictions and metrics, not the
+      ``drevalpy run`` trains on one fold, but writes its predictions and metrics, not the
       model. Use ``drevalpy train`` above for a model you keep.
 
    .. tab-item:: Python
@@ -128,7 +128,7 @@ component has raises ``ValueError``.
 
 Predictors that stop training early, such as the neural networks, also need an
 ``early_stopping_scope`` that does not overlap the training scope. ``spec.requires_early_stopping``
-says whether a model does. ``drevalpy.single`` and ``drevalpy.train`` cut it themselves, from
+says whether a model does. ``drevalpy.run`` and ``drevalpy.train`` cut it themselves, from
 whole groups of the validation set along the split mode (whole tissues under LTO, for example).
 
 Score the predictions
@@ -143,7 +143,7 @@ sample and drug of each pair. Pass both to ``evaluate``:
    .. tab-item:: CLI
       :sync: cli
 
-      ``drevalpy single`` and ``drevalpy run`` score the test fold themselves. ``drevalpy predict``
+      ``drevalpy run`` and ``drevalpy experiment`` score the test fold themselves. ``drevalpy predict``
       scores the predictions it writes; the scores are in the ``metrics`` of its output file.
 
    .. tab-item:: Python

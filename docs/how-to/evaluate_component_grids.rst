@@ -32,7 +32,7 @@ and runs the rest. A featurizer that needs a view takes it in brackets, as in
       .. code-block:: bash
 
          drevalpy data synthetic --output toy.h5mu
-         drevalpy run --dataset toy.h5mu --split-mode LSO --no-hpo --output-dir results_grid \
+         drevalpy experiment --dataset toy.h5mu --split-mode LSO --no-hpo --output-dir results_grid \
              -S "view[gene_expression]" -S tissue -D fingerprints -P ridge -P naiveTissueMean
 
       The command names each skipped combination and the reason, then runs the others and prints
@@ -76,12 +76,12 @@ and runs the rest. A featurizer that needs a view takes it in brackets, as in
          ['view[gene_expression]:fingerprints:ridge', 'tissue:fingerprints:ridge', 'tissue:fingerprints:naiveTissueMean']
          view[gene_expression]:fingerprints:naiveTissueMean | Predictor 'naiveTissueMean' needs sample block(s) ['tissue'] but the sample featurizer 'view' emits [gene_expression]
 
-      Pass ``grid.specs`` to ``run`` like any list of models:
+      Pass ``grid.specs`` to ``experiment`` like any list of models:
 
       .. code-block:: python
 
          dataset = drevalpy.synthetic()
-         results = drevalpy.run(grid.specs, dataset, "LSO", hyperparameter_tuning=False)
+         results = drevalpy.experiment(grid.specs, dataset, "LSO", hyperparameter_tuning=False)
          print(results)
 
       .. code-block:: text
@@ -115,8 +115,8 @@ only the first is kept.
 Name one combination as a recipe
 --------------------------------
 
-A recipe is the model name of one combination. The ``MODELS`` arguments of ``run`` and
-``single``, and ``ModelSpec.from_name``, accept recipes as well as zoo names. A zoo name wins if a
+A recipe is the model name of one combination. The ``MODELS`` arguments of ``experiment`` and
+``run``, and ``ModelSpec.from_name``, accept recipes as well as zoo names. A zoo name wins if a
 recipe and a zoo entry would have the same name. Use a recipe for a single combination and a grid
 for several; both can be mixed on one command line, and a model that appears twice runs once.
 
@@ -128,7 +128,7 @@ for several; both can be mixed on one command line, and a model that appears twi
 
       .. code-block:: bash
 
-         drevalpy run "view[gene_expression]:fingerprints:ridge" NaiveDrugMeanPredictor \
+         drevalpy experiment "view[gene_expression]:fingerprints:ridge" NaiveDrugMeanPredictor \
              --dataset toy.h5mu --split-mode LSO --no-hpo --output-dir results_recipe
 
    .. tab-item:: Python
@@ -153,7 +153,7 @@ Find out why a run failed
 -------------------------
 
 A grid can pass validation and still fail while it runs, for example because the dataset lacks the
-view a featurizer asks for. By default one failing run does not stop the others. ``run`` logs a
+view a featurizer asks for. By default one failing run does not stop the others. ``experiment`` logs a
 warning, keeps going and records the failure; the models that worked are scored as usual. The
 command line exits with code 1 when any run failed, after saving everything that finished.
 
@@ -171,7 +171,7 @@ The model below asks for a methylation view that the simulated dataset does not 
 
       .. code-block:: bash
 
-         drevalpy run "view[methylation]:fingerprints:ridge" NaivePredictor \
+         drevalpy experiment "view[methylation]:fingerprints:ridge" NaivePredictor \
              --dataset toy.h5mu --split-mode LSO --no-hpo --output-dir results_failed
 
       ``NaivePredictor`` is scored and saved. The failures are listed on standard error after the
@@ -193,13 +193,13 @@ The model below asks for a methylation view that the simulated dataset does not 
    .. tab-item:: Python
       :sync: python
 
-      ``run`` returns the result of the runs that worked, and ``failures`` holds one record per
+      ``experiment`` returns the result of the runs that worked, and ``failures`` holds one record per
       failed run.
 
       .. code-block:: python
 
          models = [ModelSpec.from_name(name) for name in ["view[methylation]:fingerprints:ridge", "NaivePredictor"]]
-         results = drevalpy.run(models, dataset, "LSO", hyperparameter_tuning=False)
+         results = drevalpy.experiment(models, dataset, "LSO", hyperparameter_tuning=False)
          print(results.model_names)
          print(len(results.failures))
          print(results.failures[0])
@@ -212,7 +212,7 @@ The model below asks for a methylation view that the simulated dataset does not 
 
       A record is a ``RunFailure`` with the ``oneHot`` of the run that failed (model, dataset,
       split mode, fold, and the randomization and robustness repeat, ``None`` for an ordinary run),
-      the exception type and its message. If every run fails there is no result to return, and ``run`` raises
+      the exception type and its message. If every run fails there is no result to return, and ``experiment`` raises
       ``ExperimentFailedError``, which carries the same records in its ``failures``.
 
       Pass ``on_error="raise"`` to stop at the first error and see the traceback, which is
@@ -221,7 +221,7 @@ The model below asks for a methylation view that the simulated dataset does not 
       .. code-block:: python
 
          try:
-             drevalpy.run(models, dataset, "LSO", hyperparameter_tuning=False, on_error="raise")
+             drevalpy.experiment(models, dataset, "LSO", hyperparameter_tuning=False, on_error="raise")
          except KeyError as error:
              print("raised:", error)
 

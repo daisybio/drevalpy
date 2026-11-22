@@ -10,8 +10,8 @@ from drevalpy._utils.n_jobs import check_n_jobs
 from drevalpy.data import CurveQuality, load
 from drevalpy.data.splitters import observed_mask
 from drevalpy.errors import InvalidInputError
-from drevalpy.experiment._execution import build_execution
-from drevalpy.experiment._fit import fit
+from drevalpy.execution._execution import build_execution
+from drevalpy.execution._fit import fit
 from drevalpy.log import get_logger
 from drevalpy.models.drp_model import DRPModel
 from drevalpy.models.spec import ModelSpec
@@ -64,7 +64,7 @@ def train(
 ) -> DRPModel:
     """Train a model on every usable pair of a dataset, for later use on new data.
 
-    Unlike :func:`drevalpy.run` there is no test set. A random 10% of the pairs is set aside as a
+    Unlike :func:`drevalpy.experiment` there is no test set. A random 10% of the pairs is set aside as a
     validation slice, as in a run. Tuning, when enabled, scores on it. A model that stops early
     keeps a quarter of it as its early-stopping set, and every other pair is a training pair. A
     single-drug model fits one estimator per drug through its own routing. Save the result with
@@ -81,8 +81,8 @@ def train(
     :param hpo_random_state: Seed of the tuning sampler; defaults to ``seed``.
     :param response_transformation: Optional unfitted response transformation, cloned for every fit.
     :param quality: Curve-quality rule a pair must pass to be used; ``None`` means
-        ``CurveQuality.default()``, as for :func:`drevalpy.run`.
-    :param measure: Response measure to train on, as for :func:`drevalpy.run`; the model remembers it
+        ``CurveQuality.default()``, as for :func:`drevalpy.experiment`.
+    :param measure: Response measure to train on, as for :func:`drevalpy.experiment`; the model remembers it
         (:attr:`~drevalpy.models.DRPModel.measure`) and predicts it.
     :param seed: Root seed of the validation slice, the tuning and the final fit.
     :param n_jobs: Number of worker processes a single-drug model fits its per-drug models in, during tuning and in the

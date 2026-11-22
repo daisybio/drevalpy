@@ -1,4 +1,4 @@
-"""Tests for :mod:`drevalpy.cli.run`, the ``drevalpy run`` command."""
+"""Tests for :mod:`drevalpy.cli.experiment`, the ``drevalpy experiment`` command."""
 
 from __future__ import annotations
 
@@ -44,13 +44,13 @@ def worker(monkeypatch: pytest.MonkeyPatch, constructed: list[str]) -> Recorder:
 
     recorder = Recorder(return_value=StubExperiment())
     monkeypatch.setattr("drevalpy.models.ModelSpec.from_name", fake_construct_model)
-    patch_worker(monkeypatch, "drevalpy._run", "run", recorder)
+    patch_worker(monkeypatch, "drevalpy._experiment", "experiment", recorder)
     return recorder
 
 
 def _invoke(tmp_path: UPath, *extra: str) -> Any:
     return runner.invoke(
-        app, ["run", "ElasticNet", "--dataset", "TOYv1", "--output-dir", str(tmp_path / "results"), *extra]
+        app, ["experiment", "ElasticNet", "--dataset", "TOYv1", "--output-dir", str(tmp_path / "results"), *extra]
     )
 
 
@@ -144,22 +144,34 @@ def test_bad_options_are_usage_errors_and_nothing_runs(worker: Recorder, tmp_pat
 def test_models_are_variadic_and_the_dataset_is_required(worker: Recorder, tmp_path: UPath, constructed) -> None:
     runner.invoke(
         app,
-        ["run", "ElasticNet", "RandomForest", "-d", "GDSC2", "-d", "CTRPv2", "-s", "LStO", "-o", str(tmp_path / "r")],
+        [
+            "experiment",
+            "ElasticNet",
+            "RandomForest",
+            "-d",
+            "GDSC2",
+            "-d",
+            "CTRPv2",
+            "-s",
+            "LStO",
+            "-o",
+            str(tmp_path / "r"),
+        ],
     )
 
     assert constructed == ["ElasticNet", "RandomForest"]
     assert worker.kwargs["dataset"] == ["GDSC2", "CTRPv2"]
     assert worker.kwargs["split_mode"] == "LStO"
     worker.calls.clear()
-    assert runner.invoke(app, ["run", "--dataset", "TOYv1"], env=HELP_ENV).exit_code == 2
-    assert runner.invoke(app, ["run", "ElasticNet"], env=HELP_ENV).exit_code == 2
+    assert runner.invoke(app, ["experiment", "--dataset", "TOYv1"], env=HELP_ENV).exit_code == 2
+    assert runner.invoke(app, ["experiment", "ElasticNet"], env=HELP_ENV).exit_code == 2
     assert worker.call_count == 0
 
 
 def test_a_recipe_string_is_handed_to_from_name(worker: Recorder, tmp_path: UPath, constructed) -> None:
     recipe = "pca[gene_expression]:fingerprints:elasticNet"
 
-    runner.invoke(app, ["run", recipe, "-d", "TOYv1", "--output-dir", str(tmp_path / "results")])
+    runner.invoke(app, ["experiment", recipe, "-d", "TOYv1", "--output-dir", str(tmp_path / "results")])
 
     assert constructed == [recipe]
     assert [spec.name for spec in worker.kwargs["models"]] == [recipe]
@@ -192,7 +204,7 @@ class TestGroupBy:
             seen.append(group_by)
             return "GROUPED-SUMMARY"
 
-        monkeypatch.setattr("drevalpy.cli.run.format_grouped_summary", fake_format)
+        monkeypatch.setattr("drevalpy.cli.experiment.format_grouped_summary", fake_format)
 
         plain_result = _invoke(tmp_path)
         grouped = _invoke(tmp_path, "--group-by", "drug")
@@ -208,7 +220,7 @@ class TestOutput:
     ) -> None:
         out_dir = tmp_path / "nested" / "results"
 
-        result = runner.invoke(app, ["run", "ElasticNet", "--dataset", "TOYv1", "--output-dir", str(out_dir)])
+        result = runner.invoke(app, ["experiment", "ElasticNet", "--dataset", "TOYv1", "--output-dir", str(out_dir)])
 
         assert worker.kwargs["output_dir"] == str(out_dir)
         assert f"Wrote experiment results to {out_dir}" in plain(result.output)
@@ -218,7 +230,17 @@ class TestOutput:
     def test_end_to_end_a_rerun_resumes_and_other_settings_need_overwrite(self, tmp_path: UPath) -> None:
         dataset, out_dir = tmp_path / "toy.h5mu", tmp_path / "results"
         assert runner.invoke(app, ["data", "synthetic", "--output", str(dataset)]).exit_code == 0
-        command = ["run", "NaiveMeanEffectsPredictor", "-d", str(dataset), "-n", "2", "--no-hpo", "-o", str(out_dir)]
+        command = [
+            "experiment",
+            "NaiveMeanEffectsPredictor",
+            "-d",
+            str(dataset),
+            "-n",
+            "2",
+            "--no-hpo",
+            "-o",
+            str(out_dir),
+        ]
 
         assert runner.invoke(app, command).exit_code == 0
         written = {path.name: path.stat().st_mtime_ns for path in out_dir.rglob("*.npz")}
@@ -266,7 +288,7 @@ class TestGrid:
         return recorder
 
     def _invoke_grid(self, tmp_path: UPath, *args: str) -> Any:
-        return runner.invoke(app, ["run", "-d", "TOYv1", "--output-dir", str(tmp_path / "results"), *args])
+        return runner.invoke(app, ["experiment", "-d", "TOYv1", "--output-dir", str(tmp_path / "results"), *args])
 
     def test_the_flags_reach_combinations_and_skipped_ones_are_printed(
         self, worker: Recorder, grid: Recorder, tmp_path: UPath
@@ -299,7 +321,8 @@ class TestGrid:
         self, worker: Recorder, grid: Recorder, tmp_path: UPath
     ) -> None:
         runner.invoke(
-            app, ["run", "ElasticNet", "RandomForest", "-d", "TOYv1", "-P", "ridge", "-o", str(tmp_path / "results")]
+            app,
+            ["experiment", "ElasticNet", "RandomForest", "-d", "TOYv1", "-P", "ridge", "-o", str(tmp_path / "results")],
         )
 
         assert [spec.name for spec in worker.kwargs["models"]] == [
@@ -353,7 +376,7 @@ class TestFailures:
         def all_failed(**kwargs: Any) -> None:
             raise ExperimentFailedError([self.FAILURE])
 
-        patch_worker(monkeypatch, "drevalpy._run", "run", all_failed)
+        patch_worker(monkeypatch, "drevalpy._experiment", "experiment", all_failed)
 
         result = _invoke(tmp_path)
 

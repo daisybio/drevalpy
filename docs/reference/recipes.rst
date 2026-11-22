@@ -72,7 +72,7 @@ Views
    the drug feature keys it stores; see :doc:`datasets`. There are no aliases such as
    ``expression`` or ``cnv``. A view the dataset lacks fails when the model trains, for
    example ``KeyError: "Modality 'expression' not found. Available: ['gene_expression',
-   'response']"``. ``drevalpy.run`` records such a failure and continues with the other runs; see
+   'response']"``. ``drevalpy.experiment`` records such a failure and continues with the other runs; see
    :doc:`/how-to/evaluate_component_grids`.
 
 Featurizers that need a view
@@ -115,11 +115,11 @@ Where recipes are accepted
      - A recipe only; zoo names are resolved by ``ModelSpec.from_name``
    * - ``ModelSpec(name, config)``
      - A ``ModelConfig``, for example ``from_recipe(...)``
-   * - ``ModelSpec.from_name``, the ``MODELS`` of ``drevalpy run`` and ``drevalpy single``
+   * - ``ModelSpec.from_name``, the ``MODELS`` of ``drevalpy experiment`` and ``drevalpy run``
      - A zoo name, else a recipe. A zoo name wins over a recipe of the same name. The model is
        named by the string as given. A name that is neither raises ``UnknownModelError``, a
        ``ValueError`` whose message gives the reason the recipe reading failed
-   * - ``drevalpy.models.combinations``, ``drevalpy run -S/-D/-P``
+   * - ``drevalpy.models.combinations``, ``drevalpy experiment -S/-D/-P``
      - Lists of sample featurizer recipes, drug featurizer recipes and predictor names; every
        valid ``sample:drug:predictor`` is built and the others are reported. See
        :doc:`/how-to/evaluate_component_grids`

@@ -5,7 +5,7 @@ Load a dataset and split it into folds
 
 This page shows how to load a built-in dataset or a dataset file, check what it holds, and split
 it into cross-validation folds with a split mode. You do not need to split by hand to run an
-experiment: ``run`` splits for you. Split yourself to inspect the folds, to reuse the same folds
+experiment: ``experiment`` splits for you. Split yourself to inspect the folds, to reuse the same folds
 across tools, or to train the folds in parallel; see :doc:`/how-to/run_folds_in_parallel`.
 
 The examples use the simulated dataset, so they run offline. :doc:`/reference/datasets`
@@ -26,7 +26,7 @@ this out. ``GDSC1``, ``CTRPv2`` and the other screens are much larger.
       :sync: cli
 
       The command writes the loaded dataset to a file, which you can pass to any command as
-      ``--dataset``. You can also pass the name itself to ``run`` and the other commands that
+      ``--dataset``. You can also pass the name itself to ``experiment`` and the other commands that
       take ``--dataset``.
 
       .. snippet: network
@@ -164,7 +164,7 @@ Split a dataset into folds
 A split mode decides what is held out together; see :doc:`/reference/split_modes`. This example
 holds out whole samples (``LSO``) in 5 folds. ``--mode`` takes ``LPO``, ``LSO``, ``LDO`` or
 ``LTO``; ``--n-splits`` and ``--validation-ratio`` change the number of folds and the share of
-validation data; ``drevalpy run`` takes the same ``--n-splits`` and ``--validation-ratio`` (see
+validation data; ``drevalpy experiment`` takes the same ``--n-splits`` and ``--validation-ratio`` (see
 :doc:`/how-to/run_experiment`).
 The default ``random_state`` (``--seed`` on the command line) is 42, so repeating a split gives the same folds.
 
@@ -278,7 +278,7 @@ them:
       :sync: cli
 
       ``drevalpy data split`` already saved them. :doc:`/how-to/run_folds_in_parallel` passes
-      them to ``drevalpy single``.
+      them to ``drevalpy run``.
 
    .. tab-item:: Python
       :sync: python

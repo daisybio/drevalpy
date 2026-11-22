@@ -1,4 +1,4 @@
-"""The on-disk layout of an experiment, and the store ``drevalpy.run`` saves each run into as it finishes.
+"""The on-disk layout of an experiment, and the store ``drevalpy.experiment`` saves each run into as it finishes.
 
 An experiment directory holds ``metadata.json``, ``failures.json`` when a run failed, and one directory
 per model, named by :func:`~drevalpy._utils.filenames.unique_safe_filenames` of ``metadata["models"]``.

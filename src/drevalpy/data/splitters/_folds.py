@@ -187,7 +187,7 @@ def early_stopping_split(
             f"Early stopping under {mode} needs at least two {MODES[cut].unit} in the validation set, to hold "
             f"whole ones out, but the validation set of fold {fold_index} has {len(present)} of the dataset's "
             f"{len(np.unique(groups))}. Raise validation_ratio (now {ratio}): "
-            "drevalpy.run(validation_ratio=...), drevalpy run --validation-ratio, or "
+            "drevalpy.experiment(validation_ratio=...), drevalpy experiment --validation-ratio, or "
             "drevalpy.split(..., validation_ratio=...)."
         )
     seed = validation.pair_seed if validation.pair_seed is not None else fold.metadata.get("random_state", 0)

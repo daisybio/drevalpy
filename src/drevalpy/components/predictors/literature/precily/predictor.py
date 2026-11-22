@@ -21,7 +21,7 @@ from drevalpy.components.predictors._pair_loader import (
 from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.components.predictors.literature._torch_training import DevicePicklingMixin, run_epoch
-from drevalpy.experiment._tracking import log_metrics
+from drevalpy.execution._tracking import log_metrics
 from drevalpy.log import get_logger
 from drevalpy.registry._component import LiteratureReference
 from drevalpy.registry.predictor import register

@@ -160,8 +160,8 @@ Leave one study out
 
 ``LStO`` makes one fold per study. The fold tests on every pair of that study and trains on the
 pairs of the other studies, so the number of folds is the number of studies. The validation set, used for tuning and
-early stopping, is a random share of the training pairs. Pass the combined dataset to ``run``, or
-pass several datasets and let ``run`` concatenate them:
+early stopping, is a random share of the training pairs. Pass the combined dataset to ``experiment``, or
+pass several datasets and let ``experiment`` concatenate them:
 
 .. tab-set::
    :sync-group: interface
@@ -174,7 +174,7 @@ pass several datasets and let ``run`` concatenate them:
 
       .. code-block:: bash
 
-         drevalpy run NaiveDrugMeanPredictor NaiveMeanEffectsPredictor \
+         drevalpy experiment NaiveDrugMeanPredictor NaiveMeanEffectsPredictor \
              --dataset screen_a.h5mu --dataset screen_b.h5mu --split-mode LStO --no-hpo --output-dir results_lsto
 
       To run on a file written by ``data concat`` (for example one with ``--join inner``), give the
@@ -182,20 +182,20 @@ pass several datasets and let ``run`` concatenate them:
 
       .. code-block:: bash
 
-         drevalpy run NaiveDrugMeanPredictor NaiveMeanEffectsPredictor \
+         drevalpy experiment NaiveDrugMeanPredictor NaiveMeanEffectsPredictor \
              --dataset studies.h5mu --split-mode LStO --no-hpo --output-dir results_lsto_file
 
    .. tab-item:: Python
       :sync: python
 
-      ``run`` takes the dataset, a registered name, or a list of them.
+      ``experiment`` takes the dataset, a registered name, or a list of them.
 
       .. code-block:: python
 
          from drevalpy import ModelSpec
 
          models = [ModelSpec.from_name(name) for name in ["NaiveDrugMeanPredictor", "NaiveMeanEffectsPredictor"]]
-         results = drevalpy.run(models, combined, "LStO", hyperparameter_tuning=False)
+         results = drevalpy.experiment(models, combined, "LStO", hyperparameter_tuning=False)
          print(results)
 
       .. code-block:: text
@@ -208,7 +208,7 @@ pass several datasets and let ``run`` concatenate them:
                  NaiveDrugMeanPredictor (2 folds): MSE=0.7859, RMSE=0.8865, MAE=0.7182, R^2=0.7089, Pearson=0.8420, Spearman=0.8450, Kendall=0.6833
                  NaiveMeanEffectsPredictor (2 folds): MSE=0.6905, RMSE=0.8310, MAE=0.6679, R^2=0.7442, Pearson=0.8627, Spearman=0.8670, Kendall=0.6834
 
-      ``drevalpy.run(models, [screen_a, screen_b], "LStO")`` gives the same result. A list of one
+      ``drevalpy.experiment(models, [screen_a, screen_b], "LStO")`` gives the same result. A list of one
       dataset is used as it is, so a dataset that is already a concatenation can be passed in a list.
 
 The folds are ordered by study name, so with GDSC2 and CTRPv2 fold 0 tests on CTRPv2. With three
@@ -265,7 +265,7 @@ the concatenated dataset:
 
       .. code-block:: bash
 
-         drevalpy run NaiveDrugMeanPredictor NaiveMeanEffectsPredictor \
+         drevalpy experiment NaiveDrugMeanPredictor NaiveMeanEffectsPredictor \
              --dataset studies.h5mu --split-mode LPO --no-hpo --group-by study \
              --output-dir results_lpo_studies
 
@@ -276,7 +276,7 @@ the concatenated dataset:
 
       .. code-block:: python
 
-         lpo = drevalpy.run(models, combined, "LPO", hyperparameter_tuning=False)
+         lpo = drevalpy.experiment(models, combined, "LPO", hyperparameter_tuning=False)
          by_study = lpo.summary_table(group_by="study")
          print(by_study["Pearson"].round(4).to_dict())
          print(lpo.summary_group_counts("study").loc["NaiveDrugMeanPredictor", "Pearson"])
@@ -296,8 +296,8 @@ Plan the memory
 ---------------
 
 Both steps hold every study in memory at once. For GDSC2 and CTRPv2, ``concat`` peaks at about
-2.4 GB and a ``run`` over the concatenated dataset at about 5.4 GB, before any model-specific
-cost. Concatenate once, save the file, and give it to ``run`` as the dataset when you run several
+2.4 GB and a ``experiment`` over the concatenated dataset at about 5.4 GB, before any model-specific
+cost. Concatenate once, save the file, and give it to ``experiment`` as the dataset when you run several
 experiments, rather than concatenating in every process.
 
 Mind the response scale

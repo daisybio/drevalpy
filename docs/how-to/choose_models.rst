@@ -53,7 +53,7 @@ same holds for ``NaiveSampleMeanPredictor`` in ``LSO`` and ``NaiveTissueMeanPred
       .. code-block:: bash
 
          drevalpy data synthetic --output toy.h5mu
-         drevalpy run NaivePredictor NaiveDrugMeanPredictor \
+         drevalpy experiment NaivePredictor NaiveDrugMeanPredictor \
              --dataset toy.h5mu --split-mode LDO --no-hpo --output-dir results_baselines
 
       The summary at the end shows identical scores:
@@ -80,7 +80,7 @@ same holds for ``NaiveSampleMeanPredictor`` in ``LSO`` and ``NaiveTissueMeanPred
 
          dataset = drevalpy.synthetic()
          baselines = [ModelSpec.from_name(name) for name in ["NaivePredictor", "NaiveDrugMeanPredictor"]]
-         results = drevalpy.run(baselines, dataset, "LDO", hyperparameter_tuning=False)
+         results = drevalpy.experiment(baselines, dataset, "LDO", hyperparameter_tuning=False)
          print(results)
 
       The ``print`` shows the same scores for both models:
@@ -181,7 +181,7 @@ PCA of the ``gene_expression`` view, Morgan fingerprints of the drugs, and a rid
 
       .. code-block:: bash
 
-         drevalpy run NaivePredictor "pca[gene_expression]:fingerprints:ridge" \
+         drevalpy experiment NaivePredictor "pca[gene_expression]:fingerprints:ridge" \
              --dataset toy.h5mu --split-mode LDO --no-hpo --output-dir results_recipe
 
       .. code-block:: text
@@ -210,7 +210,7 @@ PCA of the ``gene_expression`` view, Morgan fingerprints of the drugs, and a rid
 
       .. code-block:: bash
 
-         drevalpy -e my_models run NaivePredictor PcaRidge \
+         drevalpy -e my_models experiment NaivePredictor PcaRidge \
              --dataset toy.h5mu --split-mode LDO --no-hpo
 
       See :doc:`/how-to/extend/load_extensions` for extension directories and
@@ -229,7 +229,7 @@ PCA of the ``gene_expression`` view, Morgan fingerprints of the drugs, and a rid
          from drevalpy.models.config import from_recipe
 
          ridge = ModelSpec("PcaRidge", from_recipe("pca[gene_expression]:fingerprints:ridge"))
-         results = drevalpy.run([baselines[0], ridge], dataset, "LDO", hyperparameter_tuning=False)
+         results = drevalpy.experiment([baselines[0], ridge], dataset, "LDO", hyperparameter_tuning=False)
          print(results)
 
       The ``print`` shows that the model beats the baseline, which is the point of including

@@ -43,7 +43,7 @@ How to set up your development environment
    .. code:: console
 
       $ uv run drevalpy data synthetic --output toy.h5mu
-      $ uv run drevalpy run NaiveDrugMeanPredictor NaiveMeanEffectsPredictor --dataset toy.h5mu --split-mode LSO --no-hpo
+      $ uv run drevalpy experiment NaiveDrugMeanPredictor NaiveMeanEffectsPredictor --dataset toy.h5mu --split-mode LSO --no-hpo
 
 5. Visualize the results by running the following command:
 

@@ -173,13 +173,13 @@ def single_worker(monkeypatch: pytest.MonkeyPatch, dataset: FakeDataset) -> Reco
     recorder = Recorder(return_value=StubRunResult())
     monkeypatch.setattr("drevalpy.models.ModelSpec.from_name", lambda name: type(f"Stub{name}", (), {}))
     monkeypatch.setattr("drevalpy.data.load", lambda path: dataset)
-    patch_worker(monkeypatch, "drevalpy._single", "single", recorder)
+    patch_worker(monkeypatch, "drevalpy._run", "run", recorder)
     return recorder
 
 
 def _invoke_single(fold_file: UPath, tmp_path: UPath, *extra: str):
     out = tmp_path / "out" / "result.npz"
-    return runner.invoke(app, ["single", "ElasticNet", str(tmp_path / "ds.h5mu"), str(fold_file), str(out), *extra])
+    return runner.invoke(app, ["run", "ElasticNet", str(tmp_path / "ds.h5mu"), str(fold_file), str(out), *extra])
 
 
 class TestSingleForwarding:

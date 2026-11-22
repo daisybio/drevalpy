@@ -154,7 +154,7 @@ tutorial. Tuning is off, so ``toyRidge`` uses its default ``alpha``.
 .. code-block:: python
 
    baseline = ModelSpec.from_name("NaiveMeanEffectsPredictor")
-   results = drevalpy.run([baseline, toy_ridge], dataset, "LPO", hyperparameter_tuning=False)
+   results = drevalpy.experiment([baseline, toy_ridge], dataset, "LPO", hyperparameter_tuning=False)
    print(results)
 
 The output ends with the pooled metrics of both models:

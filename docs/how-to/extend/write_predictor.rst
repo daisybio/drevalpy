@@ -328,7 +328,7 @@ feature-free baseline defined below through the Python API.
 
 
    spec = ModelSpec.from_name("meanBaseline")
-   results = drevalpy.run([spec], dataset, "LSO", hyperparameter_tuning=False)
+   results = drevalpy.experiment([spec], dataset, "LSO", hyperparameter_tuning=False)
 
 ``ModelSpec.from_name`` reads a name that is not a zoo preset as a recipe; a feature-free
 predictor is a recipe of its own name. To report the model under another name, build the spec

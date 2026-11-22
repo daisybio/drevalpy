@@ -31,7 +31,7 @@ What changed
   data directory.
 - A model is a pair of components, a featurizer and a predictor, named by a zoo
   preset or a recipe. 1.x models were subclasses of ``DRPModel``.
-- The command line has the subcommands ``run``, ``single``, ``aggregate``,
+- The command line has the subcommands ``experiment``, ``run``, ``aggregate``,
   ``curate``, ``report``, ``data``, ``experiments`` and ``list``. Bare
   ``drevalpy`` prints the help and does not run an experiment.
 - Hyperparameter tuning is an Optuna search of ``--hpo-trials`` trials per
@@ -60,7 +60,7 @@ checks when you try:
      - What happens when you load the 1.x file
    * - Predictions and metrics: ``predictions_split_N.csv``,
        ``evaluation_results*.csv``, ``true_vs_pred.csv``
-     - ``.npz`` files that ``run``, ``single`` and ``aggregate`` write
+     - ``.npz`` files that ``experiment``, ``run`` and ``aggregate`` write
        (``RunResult``, ``ExperimentResult``).
      - ``RunResult.load`` opens the file with NumPy and refuses pickled data,
        so a CSV raises ``ValueError``. v2 has no CSV importer.

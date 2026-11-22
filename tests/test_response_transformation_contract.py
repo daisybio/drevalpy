@@ -17,9 +17,9 @@ import numpy as np
 import pytest
 from sklearn.preprocessing import StandardScaler
 
-from drevalpy import single
+from drevalpy import run
 from drevalpy.data import split
-from drevalpy.experiment._execution import build_execution
+from drevalpy.execution._execution import build_execution
 from drevalpy.models import DRPModel, ModelSpec
 from drevalpy.models.response_transformation import GroupMeanCenterer
 from drevalpy.models.tuning.hpo import hpam_tune
@@ -99,11 +99,9 @@ def _trial_metrics(dataset, fold: Fold, transformation) -> dict[str, float]:
 
 def test_standardizing_the_target_is_a_no_op_for_an_affine_equivariant_model(synthetic_dataset, fold) -> None:
     spec = ModelSpec.from_name("KNNRegressor")
-    raw = single(spec, synthetic_dataset, fold, hyperparameter_tuning=False)
-    raw_again = single(spec, synthetic_dataset, fold, hyperparameter_tuning=False)
-    standard = single(
-        spec, synthetic_dataset, fold, hyperparameter_tuning=False, response_transformation=StandardScaler()
-    )
+    raw = run(spec, synthetic_dataset, fold, hyperparameter_tuning=False)
+    raw_again = run(spec, synthetic_dataset, fold, hyperparameter_tuning=False)
+    standard = run(spec, synthetic_dataset, fold, hyperparameter_tuning=False, response_transformation=StandardScaler())
     pairs = fold.test.pairs
 
     np.testing.assert_array_equal(raw_again.predictions, raw.predictions)  # determinism control
@@ -173,9 +171,9 @@ class TestGroupMeanTransformations:
         out = {}
         for model in ("NaivePredictor", "KNNRegressor"):
             spec = ModelSpec.from_name(model)
-            out[model] = single(spec, synthetic_dataset, fold, hyperparameter_tuning=False)
+            out[model] = run(spec, synthetic_dataset, fold, hyperparameter_tuning=False)
             for name, levels in (("drug_mean", ("drug",)), ("drug_tissue_mean", ("drug", "tissue"))):
-                out[f"{model}/{name}"] = single(
+                out[f"{model}/{name}"] = run(
                     spec,
                     synthetic_dataset,
                     fold,
@@ -206,8 +204,8 @@ class TestGroupMeanTransformations:
 
     def test_a_single_drug_model_is_indifferent_to_the_drug_offset(self, synthetic_dataset, fold) -> None:
         spec = ModelSpec.from_name("SingleDrugElasticNet")
-        raw = single(spec, synthetic_dataset, fold, hyperparameter_tuning=False)
-        centred = single(
+        raw = run(spec, synthetic_dataset, fold, hyperparameter_tuning=False)
+        centred = run(
             spec, synthetic_dataset, fold, hyperparameter_tuning=False, response_transformation=GroupMeanCenterer()
         )
 

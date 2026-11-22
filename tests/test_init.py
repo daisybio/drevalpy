@@ -14,11 +14,11 @@ from tests._barrel_surface import ReExportSurface
 EXPECTED_ORIGINS: dict[str, str] = {
     "ModelSpec": "drevalpy.models",
     "DRPModel": "drevalpy.models",
+    "experiment": "drevalpy._experiment",
     "load": "drevalpy.data.datasets",
-    "randomization": "drevalpy.experiment",
-    "robustness": "drevalpy.experiment",
+    "randomization": "drevalpy.execution",
+    "robustness": "drevalpy.execution",
     "run": "drevalpy._run",
-    "single": "drevalpy._single",
     "split": "drevalpy.data",
 }
 

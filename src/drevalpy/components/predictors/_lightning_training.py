@@ -24,7 +24,7 @@ from upath import UPath
 
 from drevalpy._utils.accelerator import lightning_accelerator
 from drevalpy._utils.torch_io import load_state_dict
-from drevalpy.experiment._tracking import active_run
+from drevalpy.execution._tracking import active_run
 
 if TYPE_CHECKING:
     import pytorch_lightning as pl

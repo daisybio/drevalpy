@@ -8,8 +8,8 @@ import numpy as np
 import pytest
 
 from drevalpy.errors import InvalidInputError
-from drevalpy.experiment import robustness
-from drevalpy.experiment._execution import build_execution, check_mode_supported
+from drevalpy.execution import robustness
+from drevalpy.execution._execution import build_execution, check_mode_supported
 from drevalpy.models import ModelSpec
 from drevalpy.types import Fold, SelectionMask
 from tests.models.synthetic_fixtures import synthetic_model_dataset
@@ -121,7 +121,7 @@ def test_a_stored_lco_mode_is_recorded_as_lso():
 def test_lsto_folds_are_validated_as_lsto_not_as_lpo(monkeypatch):
     seen = []
     monkeypatch.setattr(
-        "drevalpy.experiment._execution.validate_folds",
+        "drevalpy.execution._execution.validate_folds",
         lambda folds, validation, dataset: seen.append(validation),
     )
     _execution(monkeypatch, stopping=False, split_mode="LStO")

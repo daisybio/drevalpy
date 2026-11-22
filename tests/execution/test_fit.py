@@ -1,4 +1,4 @@
-"""The non-finite check on the final test predictions of :func:`drevalpy.experiment._fit.fit`."""
+"""The non-finite check on the final test predictions of :func:`drevalpy.execution._fit.fit`."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ import drevalpy
 from drevalpy.errors import NaNPredictionError
 from drevalpy.models import DRPModel, ModelSpec
 
-FIT_MODULE = importlib.import_module("drevalpy.experiment._fit")
+FIT_MODULE = importlib.import_module("drevalpy.execution._fit")
 
 
 def _predictions(n_pairs: int, n_nan: int) -> np.ndarray:

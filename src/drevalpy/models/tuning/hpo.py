@@ -18,7 +18,7 @@ import numpy as np
 from drevalpy.errors import DrEvalError
 from drevalpy.evaluation import Metric
 from drevalpy.evaluation._scoring import evaluate
-from drevalpy.experiment._tracking import log_summary, require_tracking, tracking_run
+from drevalpy.execution._tracking import log_summary, require_tracking, tracking_run
 from drevalpy.log import get_logger
 from drevalpy.models.config.immutable import thaw_value
 from drevalpy.models.spec import ModelSpec
@@ -30,7 +30,7 @@ from drevalpy.types.results.run import TrialResult
 if TYPE_CHECKING:
     import optuna
 
-    from drevalpy.experiment._execution import ExecutionSpec
+    from drevalpy.execution._execution import ExecutionSpec
     from drevalpy.models.response_transformation import ResponseTransformer
 
 logger = get_logger(__name__)
