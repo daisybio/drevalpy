@@ -1,0 +1,386 @@
+"""Tests for the versioned checkpoint archive (``drevalpy.models._archive``) and ``DRPModel.save``/``load``."""
+
+from __future__ import annotations
+
+import io
+import shutil
+import sys
+import tempfile
+import zipfile
+from typing import Any
+
+import joblib
+import pytest
+from upath import UPath
+
+from drevalpy.errors import DrEvalError
+from drevalpy.models import DRPModel, ModelSpec
+from drevalpy.models._archive import (
+    FORMAT_NAME,
+    FORMAT_VERSION,
+    PAYLOAD_MEMBER,
+    CorruptedCheckpointError,
+    ModelCheckpointError,
+    UnsupportedCheckpointFormatError,
+    _archive_path,
+    load_archive,
+)
+from drevalpy.models.config import from_recipe
+from tests.models.synthetic_fixtures import (
+    lso_fold,
+    small_data_spec,
+    synthetic_model_dataset_gene_expression_fingerprints,
+)
+
+
+def fitted_elastic_net():
+    model = DRPModel(small_data_spec("ElasticNet"), {"alpha": 0.1, "l1_ratio": 0.5})
+    model.train(synthetic_model_dataset_gene_expression_fingerprints(), lso_fold().train)
+    return model
+
+
+def write_archive(archive_path: UPath, payload: object) -> UPath:
+    archive_path.parent.mkdir(parents=True, exist_ok=True)
+    buffer = io.BytesIO()
+    joblib.dump(payload, buffer)
+    with zipfile.ZipFile(archive_path, mode="w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr(PAYLOAD_MEMBER, buffer.getvalue())
+    return archive_path
+
+
+def save_model(model: DRPModel, path: str | UPath) -> None:
+    model.save(path)
+
+
+def load_model(path: str | UPath) -> DRPModel:
+    return DRPModel.load(path)
+
+
+def elastic_net_payload(components: Any, *, spec: Any = None) -> dict[str, Any]:
+    if spec is None:
+        spec = ModelSpec.from_name("ElasticNet").with_hyperparameters({"alpha": 0.1}).dump()
+    return {
+        "format": FORMAT_NAME,
+        "version": FORMAT_VERSION,
+        "spec": spec,
+        "components": components,
+        "measure": "pEC50",
+    }
+
+
+class TestArchivePath:
+    @pytest.mark.parametrize(
+        ("given", "expected"),
+        [
+            pytest.param("checkpoints/foo", "checkpoints/foo.zip", id="suffix-appended"),
+            pytest.param("checkpoints/foo.zip", "checkpoints/foo.zip", id="suffix-kept"),
+            pytest.param("checkpoints/foo.dreval.zip", "checkpoints/foo.dreval.zip", id="compound-suffix-kept"),
+            pytest.param("checkpoints/foo.ZIP", "checkpoints/foo.ZIP", id="suffix-match-is-case-insensitive"),
+        ],
+    )
+    def test_resolves_to_an_archive_path(self, given: str, expected: str) -> None:
+        assert _archive_path(given) == UPath(expected)
+
+    def test_rejects_a_directory_style_path(self) -> None:
+        with pytest.raises(ValueError, match="not a directory"):
+            _archive_path("checkpoints/")
+
+
+class TestSaveModel:
+    def test_writes_a_single_payload_archive_and_leaves_no_temporary_files(self, tmp_path) -> None:
+        save_model(fitted_elastic_net(), str(UPath(tmp_path) / "elastic_net"))
+
+        assert [path.name for path in UPath(tmp_path).iterdir()] == ["elastic_net.zip"]
+        with zipfile.ZipFile(UPath(tmp_path) / "elastic_net.zip") as handle:
+            assert handle.namelist() == [PAYLOAD_MEMBER]
+
+    def test_rejects_an_existing_directory(self, tmp_path) -> None:
+        with pytest.raises(ValueError, match="not a directory"):
+            save_model(fitted_elastic_net(), str(tmp_path))
+
+    def test_rejects_an_untrained_model(self, tmp_path) -> None:
+        model = DRPModel(small_data_spec("ElasticNet"), {"alpha": 0.1, "l1_ratio": 0.5})
+
+        with pytest.raises(RuntimeError, match="must be trained first"):
+            save_model(model, str(UPath(tmp_path) / "elastic_net"))
+
+
+class TestLoadArchive:
+    def test_round_trips_the_spec_and_the_components(self, tmp_path) -> None:
+        save_model(fitted_elastic_net(), str(UPath(tmp_path) / "elastic_net"))
+
+        spec, components, measure = load_archive(str(UPath(tmp_path) / "elastic_net"))
+
+        assert (spec["name"], measure) == ("ElasticNet", "pEC50")
+        assert spec["hyperparameters"]["predictor.elasticNet.alpha"] == 0.1
+        assert all("." in key for key in spec["hyperparameters"])
+        assert set(components) == {
+            "predictor",
+            "sample_featurizer",
+            "drug_featurizer",
+            "response_transformation",
+            "fitted_response_transformation",
+        }
+
+    def test_missing_archive_raises(self, tmp_path) -> None:
+        with pytest.raises(FileNotFoundError, match="Missing model checkpoint"):
+            load_archive(str(UPath(tmp_path) / "missing"))
+
+    def test_rejects_a_non_zip_file(self, tmp_path) -> None:
+        archive = UPath(tmp_path) / "elastic_net.zip"
+        archive.write_text("not a zip", encoding="utf-8")
+
+        with pytest.raises(CorruptedCheckpointError, match="not a valid zip file"):
+            load_archive(str(archive))
+
+    def test_rejects_an_archive_without_the_payload_member(self, tmp_path) -> None:
+        archive = UPath(tmp_path) / "elastic_net.zip"
+        with zipfile.ZipFile(archive, mode="w") as handle:
+            handle.writestr("something-else", b"")
+
+        with pytest.raises(CorruptedCheckpointError, match=f"missing {PAYLOAD_MEMBER!r}"):
+            load_archive(str(archive))
+
+    def test_rejects_a_payload_that_cannot_be_deserialized(self, tmp_path) -> None:
+        archive = UPath(tmp_path) / "elastic_net.zip"
+        with zipfile.ZipFile(archive, mode="w") as handle:
+            handle.writestr(PAYLOAD_MEMBER, b"these bytes are not a joblib dump")
+
+        with pytest.raises(
+            CorruptedCheckpointError, match="Failed to deserialize checkpoint .*elastic_net.zip"
+        ) as caught:
+            load_archive(str(archive))
+
+        assert caught.value.__cause__ is not None
+
+    def test_rejects_another_version_and_says_how_to_recover(self, tmp_path) -> None:
+        assert FORMAT_VERSION == 3
+        payload = elastic_net_payload({})
+        payload["version"] = 5
+        archive = write_archive(UPath(tmp_path) / "elastic_net.zip", payload)
+
+        with pytest.raises(UnsupportedCheckpointFormatError, match=r"unsupported checkpoint format/version") as info:
+            load_archive(str(archive))
+        assert f"version {FORMAT_VERSION}" in str(info.value)
+        assert "retrain the model and save it again" in str(info.value)
+
+    @pytest.mark.parametrize(
+        ("payload", "error_type", "match"),
+        [
+            pytest.param("not-a-mapping", CorruptedCheckpointError, "not a mapping", id="payload-not-a-mapping"),
+            pytest.param(
+                elastic_net_payload("bad"), CorruptedCheckpointError, "components are not a mapping", id="components"
+            ),
+            pytest.param(
+                {**elastic_net_payload({}), "measure": None},
+                CorruptedCheckpointError,
+                "has no response measure",
+                id="no-measure",
+            ),
+            pytest.param(
+                {**elastic_net_payload({}), "format": "unknown-format"},
+                UnsupportedCheckpointFormatError,
+                "unsupported checkpoint format/version",
+                id="unknown-format",
+            ),
+            pytest.param(
+                {**elastic_net_payload({}), "version": 0},
+                UnsupportedCheckpointFormatError,
+                "unsupported checkpoint format/version",
+                id="older-version",
+            ),
+            pytest.param(
+                {**elastic_net_payload({}), "version": FORMAT_VERSION + 1},
+                UnsupportedCheckpointFormatError,
+                "unsupported checkpoint format/version",
+                id="newer-version",
+            ),
+            pytest.param(
+                {**elastic_net_payload({}), "version": 1},
+                UnsupportedCheckpointFormatError,
+                "unsupported checkpoint format/version",
+                id="version-1",
+            ),
+        ],
+    )
+    def test_rejects_malformed_or_unsupported_payloads(
+        self, tmp_path, payload: object, error_type: type[Exception], match: str
+    ) -> None:
+        archive = write_archive(UPath(tmp_path) / "elastic_net.zip", payload)
+
+        with pytest.raises(error_type, match=match):
+            load_archive(str(archive))
+
+    @pytest.mark.parametrize(
+        ("payload", "match"),
+        [
+            pytest.param(elastic_net_payload({}, spec={"name": "ElasticNet"}), "spec is invalid", id="bad-spec"),
+            pytest.param(elastic_net_payload({}, spec="bad"), "spec is invalid", id="spec-not-a-mapping"),
+            pytest.param(elastic_net_payload({"predictor": None}), "no fitted predictor", id="no-predictor"),
+        ],
+    )
+    def test_model_load_rejects_an_unusable_payload(self, tmp_path, payload: object, match: str) -> None:
+        archive = write_archive(UPath(tmp_path) / "elastic_net.zip", payload)
+
+        with pytest.raises(CorruptedCheckpointError, match=match):
+            load_model(str(archive))
+
+
+class TestRemoteCheckpoints:
+    def test_memory_round_trip(self) -> None:
+        checkpoint = "memory://checkpoints/nested/elastic_net"
+
+        save_model(fitted_elastic_net(), checkpoint)
+        loaded = load_model(checkpoint)
+
+        assert UPath("memory://checkpoints/nested/elastic_net.zip").is_file()
+        assert loaded.name == "ElasticNet"
+        assert loaded.is_fitted()
+
+    def test_remote_save_leaves_no_local_temporary_files(self, tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+
+        save_model(fitted_elastic_net(), UPath("memory://checkpoints/elastic_net.zip"))
+
+        assert list(UPath(tmp_path).iterdir()) == []
+
+    def test_failed_remote_save_removes_the_local_temporary_file(
+        self, tmp_path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+        monkeypatch.setattr(shutil, "copyfileobj", lambda *_args, **_kwargs: (_ for _ in ()).throw(OSError("upload")))
+
+        with pytest.raises(OSError, match="upload"):
+            save_model(fitted_elastic_net(), UPath("memory://checkpoints/elastic_net.zip"))
+
+        assert list(UPath(tmp_path).iterdir()) == []
+
+
+class TestLoadModel:
+    @pytest.mark.parametrize("suffix", ["", ".zip"])
+    def test_reconstructs_from_the_stored_model_name_and_hyperparameters(self, tmp_path, suffix) -> None:
+        checkpoint = str(UPath(tmp_path) / f"elastic_net{suffix}")
+        save_model(fitted_elastic_net(), checkpoint)
+
+        loaded = load_model(checkpoint)
+
+        assert loaded.name == "ElasticNet"
+        assert loaded.is_fitted()
+        assert loaded.hyperparameters["predictor.elasticNet.alpha"] == 0.1
+
+    def test_supports_custom_model_names(self, tmp_path) -> None:
+        model = DRPModel(
+            ModelSpec("MyRF", from_recipe("scaledGeneExpression:fingerprints:randomForest")),
+            {"n_estimators": 5},
+            check_values=False,
+        )
+        model.train(synthetic_model_dataset_gene_expression_fingerprints(), lso_fold().train)
+        checkpoint = str(UPath(tmp_path) / "my_rf")
+        save_model(model, checkpoint)
+
+        loaded = load_model(checkpoint)
+
+        assert loaded.name == "MyRF"
+        assert loaded.is_fitted()
+        assert loaded.spec == model.spec
+
+
+class TestErrorHierarchy:
+    @pytest.mark.parametrize("error_type", [UnsupportedCheckpointFormatError, CorruptedCheckpointError])
+    def test_subclasses_model_checkpoint_error_and_value_error(self, error_type: type[Exception]) -> None:
+        assert issubclass(error_type, ModelCheckpointError)
+        assert issubclass(error_type, ValueError)
+
+    def test_base_error_is_a_drevalpy_error_but_not_a_value_error(self) -> None:
+        assert issubclass(ModelCheckpointError, DrEvalError)
+        assert not issubclass(ModelCheckpointError, ValueError)
+
+
+class TestTorchModules:
+    def test_finds_the_outermost_modules_inside_components_and_containers(self) -> None:
+        torch = pytest.importorskip("torch")
+        from drevalpy.models._archive import _torch_modules
+
+        outer = torch.nn.Sequential(torch.nn.Linear(2, 2))
+        other = torch.nn.Linear(1, 1)
+        component = type("Component", (), {"__module__": "drevalpy.fake"})()
+        component.network = outer
+        component.parts = [{"head": other}, outer]
+
+        found = list(_torch_modules({"predictor": component, "drug_featurizer": None}, torch.nn.Module))
+
+        assert {id(module) for module in found} == {id(outer), id(other)}
+
+    def test_save_keeps_cpu_modules_where_they_are(self, tmp_path) -> None:
+        torch = pytest.importorskip("torch")
+        from drevalpy.models._archive import _modules_on_cpu
+
+        module = torch.nn.Linear(2, 2)
+        with _modules_on_cpu({"predictor": [module]}):
+            assert next(module.parameters()).device.type == "cpu"
+        assert next(module.parameters()).device.type == "cpu"
+
+    def test_moves_modules_off_the_accelerator_and_back(self) -> None:
+        torch = pytest.importorskip("torch")
+        from drevalpy.models._archive import _modules_on_cpu
+
+        moves: list[str] = []
+
+        class OnAccelerator(torch.nn.Linear):
+            """A module whose weights sit on a non-CPU device (``meta``), recording where it is sent."""
+
+            def to(self, *args, **kwargs):
+                moves.append(str(args[0]))
+                return self
+
+        class BuffersOnly(OnAccelerator):
+            def __init__(self) -> None:
+                super().__init__(1, 1, device="meta")
+                self.register_buffer("state", torch.empty(1, device="meta"))
+                self.weight = None
+                self.bias = None
+
+        weights, buffers = OnAccelerator(2, 2, device="meta"), BuffersOnly()
+        cpu_module = torch.nn.Linear(1, 1)
+
+        with _modules_on_cpu({"predictor": [weights, buffers, cpu_module]}):
+            assert sorted(moves) == ["cpu", "cpu"]
+        assert sorted(moves) == ["cpu", "cpu", "meta", "meta"]
+
+    def test_restores_the_devices_when_saving_fails(self) -> None:
+        torch = pytest.importorskip("torch")
+        from drevalpy.models._archive import _modules_on_cpu
+
+        moves: list[str] = []
+
+        class OnAccelerator(torch.nn.Linear):
+            def to(self, *args, **kwargs):
+                moves.append(str(args[0]))
+                return self
+
+        with (
+            pytest.raises(RuntimeError, match="disk full"),
+            _modules_on_cpu({"predictor": OnAccelerator(2, 2, device="meta")}),
+        ):
+            raise RuntimeError("disk full")
+
+        assert moves == ["cpu", "meta"]
+
+    def test_nothing_is_searched_when_torch_was_never_imported(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from drevalpy.models import _archive
+
+        def unexpected(*args: object) -> None:
+            raise AssertionError("components must not be searched for modules without torch")
+
+        monkeypatch.delitem(sys.modules, "torch", raising=False)
+        monkeypatch.setattr(_archive, "_torch_modules", unexpected)
+
+        with _archive._modules_on_cpu({"predictor": object()}):
+            pass
+
+    def test_a_module_without_tensors_is_left_alone(self) -> None:
+        torch = pytest.importorskip("torch")
+        from drevalpy.models._archive import _modules_on_cpu
+
+        with _modules_on_cpu({"predictor": torch.nn.ReLU()}):
+            pass

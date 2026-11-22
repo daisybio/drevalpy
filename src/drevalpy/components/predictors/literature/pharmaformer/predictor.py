@@ -1,0 +1,181 @@
+"""PharmaFormer block literature predictor.
+
+``torch`` and ``.model_utils`` are imported inside the functions that need them.
+``drevalpy.registry`` imports this module to register the ``pharmaFormer``
+predictor on ``import drevalpy``, so a module-scope ``import torch`` put ~0.35s on
+the startup path of every CLI invocation. See ``tests/test_import_cost_policy.py``.
+"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, ClassVar
+
+import numpy as np
+
+from drevalpy.components.predictors._pair_loader import declared_blocks, pair_loader, predict_pairs
+from drevalpy.components.predictors.abstract.base import Predictor
+from drevalpy.components.predictors.inputs import Inputs
+from drevalpy.components.predictors.literature._torch_training import (
+    DevicePicklingMixin,
+    EarlyStoppingRun,
+    run_epoch,
+    train_with_early_stopping,
+)
+from drevalpy.registry._component import LiteratureReference
+from drevalpy.registry.predictor import register
+from drevalpy.types.data.feature_format import BlockSpec
+from drevalpy.types.data.predictor_input import PredictorInput
+from drevalpy.types.enums import Accelerator
+
+if TYPE_CHECKING:
+    import torch
+    from torch.utils.data import DataLoader
+
+    from .model_utils import CombinedModel
+
+
+def _build_combined_model(gene_input_size: int, hyperparameters: dict[str, Any], device: torch.device) -> CombinedModel:
+    """Construct the combined PharmaFormer network on *device*.
+
+    :param gene_input_size: Width of the gene expression block.
+    :param hyperparameters: Hyperparameters holding the architecture keys.
+    :param device: Device the network is moved to.
+    :returns: Initialized network.
+    """
+    from .model_utils import CombinedModel
+
+    return CombinedModel(
+        gene_input_size=gene_input_size,
+        gene_hidden_size=hyperparameters["gene_hidden_size"],
+        drug_hidden_size=hyperparameters["drug_hidden_size"],
+        feature_dim=hyperparameters["feature_dim"],
+        nhead=hyperparameters["nhead"],
+        num_layers=hyperparameters["num_layers"],
+        dim_feedforward=hyperparameters["dim_feedforward"],
+        dropout=hyperparameters["dropout"],
+    ).to(device)
+
+
+_REFERENCE = LiteratureReference(
+    repo_url="https://github.com/zhouyuru1205/PharmaFormer",
+    citation_doi="10.1038/s41698-025-01082-6",
+    citation_text="PharmaFormer integrates gene expression and compound views via a transformer encoder.",
+    deviations=(
+        "Architecture follows upstream pretrain.py, not its extra-dropout finetuning variant. Scale "
+        "dataset-provided expression without an additional log2 transform, learn fold-specific BPE, "
+        "and stop on disjoint validation instead of training loss."
+    ),
+)
+
+
+@register(
+    "pharmaFormer",
+    description="PharmaFormer landmark genes + BPE PharmaFormer model.",
+    reference=_REFERENCE,
+    license="Apache-2.0",
+    accelerator=Accelerator.OPTIONAL,
+)
+class PharmaFormerPredictor(DevicePicklingMixin, Predictor):
+    """Registered PharmaFormer predictor consuming PredictorInput directly."""
+
+    sample_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("gene_expression"))
+    drug_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("bpe_smiles"))
+    supports_early_stopping: ClassVar[bool] = True
+    requires_early_stopping: ClassVar[bool] = True
+
+    fixed_hyperparameters = {
+        "gene_hidden_size": 8192,
+        "drug_hidden_size": 256,
+        "feature_dim": 128,
+        "nhead": 8,
+        "num_layers": 3,
+        "dim_feedforward": 2048,
+        "dropout": 0.1,
+        "batch_size": 128,
+        "lr": 0.00001,
+        "epochs": 100,
+        "patience": 10,
+    }
+
+    def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
+        """Initialize the PharmaFormer predictor.
+
+        :param hyperparameters: Optional hyperparameter overrides.
+        """
+        super().__init__(hyperparameters)
+        self._model: CombinedModel | None = None
+
+    def _build_loaders(self, data: PredictorInput) -> tuple[DataLoader, DataLoader]:
+        """Build the training and early-stopping loaders.
+
+        :param data: Training batch with an early-stopping response.
+        :returns: Tuple of ``(train_loader, val_loader)``.
+        :raises ValueError: If early stopping data is not provided.
+        """
+        stopping = data.stopping
+        if stopping is None:
+            msg = "PharmaFormer model requires early stopping data."
+            raise ValueError(msg)
+
+        gene_entity, drug_entity = declared_blocks(self, data)
+        batch_size = self._hyperparameters["batch_size"]
+
+        train_loader = pair_loader(data, gene_entity, drug=drug_entity, batch_size=batch_size, shuffle=True)
+        val_loader = pair_loader(stopping, gene_entity, drug=drug_entity, batch_size=batch_size, shuffle=False)
+        return train_loader, val_loader
+
+    def _fit(self, data: PredictorInput) -> None:
+        """Train the PharmaFormer model with early stopping.
+
+        :param data: Training batch with gene_expression and bpe_smiles blocks.
+        """
+        import torch.nn as nn
+        import torch.optim as optim
+
+        train_loader, val_loader = self._build_loaders(data)
+
+        gene_entity, _ = declared_blocks(self, data)
+        model = _build_combined_model(gene_entity.shape[1], self._hyperparameters, self._device)
+        self._model = model
+
+        loss_func = nn.MSELoss()
+        optimizer = optim.Adam(model.parameters(), lr=self._hyperparameters["lr"])
+
+        def batch_loss(loader_batch: tuple[torch.Tensor, ...]) -> torch.Tensor:
+            gene_inputs, smiles_inputs, targets = (tensor.to(self._device) for tensor in loader_batch)
+            return loss_func(model(gene_inputs, smiles_inputs).squeeze(), targets)
+
+        train_with_early_stopping(
+            model,
+            EarlyStoppingRun(
+                epochs=self._hyperparameters["epochs"],
+                patience=self._hyperparameters["patience"],
+                checkpoint_dir=data.training_context.checkpoint_dir,
+                model_name="PharmaFormer",
+                verbose=True,
+            ),
+            train_epoch=lambda: run_epoch(model, train_loader, batch_loss, optimizer),
+            val_epoch=lambda: run_epoch(model, val_loader, batch_loss, None),
+            device=self._device,
+        )
+
+    def _predict(self, data: PredictorInput) -> np.ndarray:
+        """Run PharmaFormer inference on the given batch.
+
+        :param data: Featurized pairs to score.
+        :returns: One predicted response per pair.
+        :raises ValueError: If the model has not been trained yet.
+        """
+        if self._model is None:
+            msg = "PharmaFormer model not initialized."
+            raise ValueError(msg)
+
+        gene_entity, drug_entity = declared_blocks(self, data)
+        return predict_pairs(
+            self._model,
+            data,
+            gene_entity,
+            drug_entity,
+            batch_size=self._hyperparameters["batch_size"],
+            device=self._device,
+        )

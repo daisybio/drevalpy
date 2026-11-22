@@ -1,0 +1,241 @@
+"""Tests for the shared Lightning fit wrapper."""
+
+from __future__ import annotations
+
+import sys
+
+import numpy as np
+import pytest
+import pytorch_lightning as pl
+from upath import UPath
+
+from drevalpy.components.predictors._lightning_training import (
+    LightningRun,
+    _loggers,
+    _versioned_name,
+    run_lightning_fit,
+)
+from drevalpy.execution._tracking import tracking_run
+from drevalpy.types.enums import Accelerator
+from tests._fake_wandb import install_fake_wandb
+from tests.components.predictors._helpers import spy_trainer
+
+N_PAIRS = 4
+FEATURE_DIM = 2
+
+
+@pytest.fixture(autouse=True)
+def _trainer_logs_in_tmp_path(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+
+
+def _loaders(*, with_validation: bool):
+    import torch
+    from torch.utils.data import DataLoader, TensorDataset
+
+    rng = np.random.default_rng(0)
+    features = torch.as_tensor(rng.normal(size=(N_PAIRS, FEATURE_DIM)), dtype=torch.float32)
+    response = torch.linspace(0.0, 1.0, N_PAIRS, dtype=torch.float32).unsqueeze(-1)
+    dataset = TensorDataset(features, response)
+    train_loader = DataLoader(dataset, batch_size=2, shuffle=False)
+    val_loader = DataLoader(dataset, batch_size=2, shuffle=False) if with_validation else None
+    return train_loader, val_loader
+
+
+class _TinyModule(pl.LightningModule):
+    def __init__(self) -> None:
+        import torch
+        from torch import nn
+
+        super().__init__()
+        self.layer = nn.Linear(FEATURE_DIM, 1)
+        self.loss = nn.MSELoss()
+        self.validated = False
+        self._torch = torch
+
+    def forward(self, x):
+        return self.layer(x)
+
+    def training_step(self, batch, batch_idx):
+        features, response = batch
+        loss = self.loss(self.layer(features), response)
+        self.log("train_loss", loss, on_step=False, on_epoch=True)
+        return loss
+
+    def validation_step(self, batch, batch_idx):
+        features, response = batch
+        loss = self.loss(self.layer(features), response)
+        self.log("val_loss", loss, on_step=False, on_epoch=True)
+        self.validated = True
+        return loss
+
+    def configure_optimizers(self):
+        return self._torch.optim.SGD(self.parameters(), lr=0.01)
+
+
+def _run(tmp_path, **overrides) -> LightningRun:
+    settings: dict[str, object] = {"max_epochs": 1, "patience": 1, "checkpoint_dir": tmp_path}
+    settings.update(overrides)
+    return LightningRun(**settings)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(("with_validation", "monitor"), [(False, "train_loss"), (True, "val_loss")])
+def test_the_monitored_metric_follows_whether_a_validation_loader_is_supplied(
+    tmp_path, with_validation: bool, monitor: str
+) -> None:
+    module = _TinyModule()
+    train_loader, val_loader = _loaders(with_validation=with_validation)
+
+    checkpoint = run_lightning_fit(module, train_loader, val_loader, _run(tmp_path))
+
+    assert isinstance(checkpoint, pl.callbacks.ModelCheckpoint)
+    assert checkpoint.monitor == monitor
+    assert module.validated is with_validation
+
+
+def test_checkpoints_land_in_distinct_randomised_subdirectories_and_only_the_best_is_kept(tmp_path) -> None:
+    import torch
+
+    train_loader, val_loader = _loaders(with_validation=False)
+    dirs = set()
+    for _ in range(2):
+        checkpoint = run_lightning_fit(_TinyModule(), train_loader, val_loader, _run(tmp_path / "runs", max_epochs=3))
+        dirs.add(str(checkpoint.dirpath))
+
+    assert len(dirs) == 2
+    assert checkpoint.best_model_path.endswith(".ckpt")
+    assert str(checkpoint.dirpath).startswith(str(tmp_path / "runs"))
+    assert "version-" in str(checkpoint.dirpath)
+    assert checkpoint.save_top_k == 1
+    assert len(list(UPath(checkpoint.dirpath).glob("*.ckpt"))) == 1
+    assert "optimizer_states" in torch.load(checkpoint.best_model_path, map_location="cpu", weights_only=False)
+
+
+def test_save_weights_only_produces_a_checkpoint_without_optimizer_state(tmp_path) -> None:
+    import torch
+
+    train_loader, val_loader = _loaders(with_validation=False)
+
+    checkpoint = run_lightning_fit(_TinyModule(), train_loader, val_loader, _run(tmp_path, save_weights_only=True))
+
+    payload = torch.load(checkpoint.best_model_path, map_location="cpu", weights_only=False)
+    assert "state_dict" in payload
+    assert "optimizer_states" not in payload
+
+
+@pytest.mark.slow
+def test_trainer_settings_follow_the_run(tmp_path, monkeypatch) -> None:
+    seen = spy_trainer(monkeypatch)
+    train_loader, val_loader = _loaders(with_validation=True)
+    run = _run(tmp_path, devices=1, precision=32, log_every_n_steps=1, logger=False, patience=7)
+
+    run_lightning_fit(_TinyModule(), train_loader, val_loader, run)
+    run_lightning_fit(_TinyModule(), train_loader, val_loader, _run(tmp_path, enable_progress_bar=True))
+    run_lightning_fit(_TinyModule(), train_loader, val_loader, _run(tmp_path, default_logger=False))
+
+    first, progress, no_default_logger = seen
+    assert (first["accelerator"], first["devices"], first["precision"]) == ("cpu", 1, 32)
+    assert first["log_every_n_steps"] == 1
+    assert first["logger"] is False
+    assert first["enable_progress_bar"] is False
+    (stopping,) = [c for c in list(first["callbacks"]) if isinstance(c, pl.callbacks.EarlyStopping)]  # type: ignore[attr-defined,arg-type]
+    assert (stopping.patience, stopping.monitor) == (7, "val_loss")
+    assert progress["enable_progress_bar"] is True
+    assert no_default_logger["logger"] is False
+
+
+def test_without_checkpointing_no_callback_is_attached_and_none_is_returned(tmp_path, monkeypatch) -> None:
+    seen = spy_trainer(monkeypatch)
+    train_loader, val_loader = _loaders(with_validation=True)
+
+    checkpoint = run_lightning_fit(_TinyModule(), train_loader, val_loader, _run(tmp_path, checkpoint=False))
+
+    assert checkpoint is None
+    assert seen[0]["callbacks"] == []
+    assert seen[0]["enable_checkpointing"] is False
+    assert not list(UPath(tmp_path).rglob("*.ckpt"))
+
+
+@pytest.fixture
+def recorded_loggers(monkeypatch) -> list[dict[str, object]]:
+    import pytorch_lightning.loggers as lightning_loggers
+
+    created: list[dict[str, object]] = []
+
+    class _RecordingLogger:
+        def __init__(self, **kwargs) -> None:
+            created.append(kwargs)
+
+    monkeypatch.setattr(lightning_loggers, "WandbLogger", _RecordingLogger)
+    return created
+
+
+def test_loggers_attach_a_wandb_logger_only_to_an_active_tracking_run(monkeypatch, recorded_loggers) -> None:
+    fake = install_fake_wandb(monkeypatch)
+    assert _loggers() is True
+    assert _loggers(default=False) is False
+    assert recorded_loggers == []
+
+    with tracking_run("proj", name="r"):
+        loggers = _loggers()
+        kept = _loggers(default=False)
+
+    assert isinstance(loggers, list)
+    assert len(loggers) == 1
+    assert isinstance(kept, list)
+    assert len(kept) == 1
+    assert recorded_loggers[0] == {"experiment": fake.runs[0], "log_model": False}
+
+
+def test_wandb_never_imported_leaves_lightning_its_default_logger(monkeypatch, recorded_loggers) -> None:
+    monkeypatch.delitem(sys.modules, "wandb", raising=False)
+
+    assert _loggers() is True
+
+
+def test_a_fit_in_a_tracking_run_trains_with_the_wandb_logger(tmp_path, monkeypatch) -> None:
+    import pytorch_lightning.loggers as lightning_loggers
+
+    seen: list[object] = []
+    real_trainer = pl.Trainer
+
+    def spy_trainer(*args, **kwargs):
+        seen.append(kwargs["logger"])
+        kwargs["logger"] = False
+        return real_trainer(*args, **kwargs)
+
+    monkeypatch.setattr(lightning_loggers, "WandbLogger", lambda **kwargs: ("logger", kwargs["experiment"]))
+    monkeypatch.setattr(pl, "Trainer", spy_trainer)
+    fake = install_fake_wandb(monkeypatch)
+    train_loader, val_loader = _loaders(with_validation=False)
+
+    with tracking_run("proj", name="r"):
+        run_lightning_fit(_TinyModule(), train_loader, val_loader, _run(tmp_path))
+    run_lightning_fit(_TinyModule(), train_loader, val_loader, _run(tmp_path))
+
+    assert seen == [[("logger", fake.runs[0])], True]
+
+
+@pytest.mark.parametrize(
+    ("level", "expected"),
+    [(None, "auto"), (Accelerator.OPTIONAL, "auto"), (Accelerator.REQUIRED, "auto"), (Accelerator.NONE, "cpu")],
+)
+def test_the_trainer_accelerator_follows_the_accelerator_level_of_the_run(
+    tmp_path, monkeypatch, fake_accelerator, level: Accelerator | None, expected: str
+) -> None:
+    seen = spy_trainer(monkeypatch)
+    train_loader, val_loader = _loaders(with_validation=False)
+    run = _run(tmp_path) if level is None else _run(tmp_path, accelerator=level)
+
+    run_lightning_fit(_TinyModule(), train_loader, val_loader, run)
+
+    assert [kwargs["accelerator"] for kwargs in seen] == [expected]
+
+
+def test_versioned_names_are_prefixed_fixed_width_and_unique() -> None:
+    name = _versioned_name()
+
+    assert name.startswith("version-")
+    assert len(name) == len("version-") + 20
+    assert set(name.removeprefix("version-")) <= set("0123456789abcdef")
+    assert len({_versioned_name() for _ in range(50)}) == 50

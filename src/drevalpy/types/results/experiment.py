@@ -1,0 +1,272 @@
+"""Experiment-level result: aggregates ModelResults across models."""
+
+from __future__ import annotations
+
+import sys
+from collections.abc import Sequence
+from typing import TYPE_CHECKING
+
+from upath import UPath as Path
+
+from drevalpy._utils.filenames import unique_safe_filenames
+from drevalpy.errors import InvalidInputError
+from drevalpy.log import get_logger
+from drevalpy.types.results._normalize import NORMALIZATION_REFERENCE, normalize_run, reference_summary
+from drevalpy.types.results._store import load_runs, read_metadata, write_metadata
+from drevalpy.types.results.failure import RunFailure, read_failures
+from drevalpy.types.results.model import ModelResult
+from drevalpy.types.results.run import RunResult
+
+if TYPE_CHECKING:
+    import pandas as pd
+
+    from drevalpy.evaluation._grouping import GroupBy
+    from drevalpy.types.data.dataset import Dataset
+
+logger = get_logger(__name__)
+
+
+class ExperimentResult:
+    """Groups all model results for a complete experiment."""
+
+    def __init__(self, run_results: list[RunResult], failures: Sequence[RunFailure] = ()) -> None:
+        """Create an ExperimentResult from a flat list of RunResults.
+
+        :param run_results: Non-empty list of RunResult objects sharing the same dataset and response measure.
+        :param failures: Runs that raised instead of producing a result; kept as the :attr:`failures` tuple.
+        :raises InvalidInputError: If the list is empty or contains inconsistent metadata.
+        """
+        if not run_results:
+            raise InvalidInputError("run_results must not be empty")
+
+        dataset_names = {r.dataset_name for r in run_results}
+        if len(dataset_names) > 1:
+            raise InvalidInputError(f"All RunResults must share the same dataset_name, got: {dataset_names}")
+
+        measures = {r.measure for r in run_results}
+        if len(measures) > 1:
+            raise InvalidInputError(f"All RunResults must share the same response measure, got: {sorted(measures)}")
+
+        split_modes = {r.split_mode for r in run_results if r.split_mode}
+        if len(split_modes) > 1:
+            raise InvalidInputError(f"All RunResults must share the same split_mode, got: {split_modes}")
+
+        self.dataset_name: str = dataset_names.pop()
+        #: The response measure every run was trained and scored on.
+        self.measure: str = measures.pop()
+        self.split_mode: str = split_modes.pop() if split_modes else ""
+        self.normalized_by: str | None = None
+        self.reference_runs: tuple[RunResult, ...] = ()
+        self.failures: tuple[RunFailure, ...] = tuple(failures)
+
+        grouped: dict[str, list[RunResult]] = {}
+        for r in run_results:
+            grouped.setdefault(r.model_name, []).append(r)
+
+        self.models: list[ModelResult] = [
+            ModelResult(model_name=name, dataset_name=self.dataset_name, runs=runs) for name, runs in grouped.items()
+        ]
+
+    @property
+    def model_names(self) -> list[str]:
+        """Names of all models in this experiment."""
+        return [m.model_name for m in self.models]
+
+    @property
+    def has_randomization(self) -> bool:
+        """Whether any run has randomization data."""
+        return any(r.randomization is not None for m in self.models for r in m.runs)
+
+    @property
+    def has_robustness(self) -> bool:
+        """Whether any run is a robustness repeat."""
+        return any(r.robustness_repeat is not None for m in self.models for r in m.runs)
+
+    @property
+    def n_models(self) -> int:
+        """Number of distinct models."""
+        return len(self.models)
+
+    @property
+    def max_folds(self) -> int:
+        """Maximum number of folds across models."""
+        return max((m.n_folds for m in self.models), default=0)
+
+    def normalize(self, reference_model: str = NORMALIZATION_REFERENCE) -> ExperimentResult:
+        """Return a new ExperimentResult with metrics normalized against a reference model.
+
+        :param reference_model: Name of the model to normalize against.
+        :returns: A new ExperimentResult containing only non-reference runs with recomputed metrics.
+            Each run keeps its unnormalized pooled metrics and per-drug Pearson in ``raw_metrics`` and
+            ``raw_per_drug_pearson``, and ``reference_runs`` holds the array-free summaries of the reference
+            model's own runs, so a leaderboard can still list it; :meth:`save` does not write ``reference_runs``.
+        :raises ValueError: If already normalized or reference model not found.
+        """
+        if self.normalized_by is not None:
+            raise ValueError(f"Already normalized by {self.normalized_by!r}")
+
+        ref_runs_by_fold: dict[tuple, RunResult] = {}
+        other_runs: list[RunResult] = []
+
+        for model in self.models:
+            if model.model_name != reference_model:
+                other_runs.extend(model.runs)
+                continue
+            for run in model.select_runs():
+                fold_key = run.identity.fold_key
+                if fold_key in ref_runs_by_fold:
+                    raise ValueError(f"Duplicate ordinary reference run for fold {fold_key!r}")
+                ref_runs_by_fold[fold_key] = run
+
+        if not ref_runs_by_fold:
+            raise ValueError(f"Reference model {reference_model!r} not found. Available: {self.model_names}")
+
+        normalized_runs: list[RunResult] = []
+        for run in other_runs:
+            fold_key = run.identity.fold_key
+            if fold_key not in ref_runs_by_fold:
+                raise ValueError(f"No reference run found for fold {fold_key!r}")
+            normalized_runs.append(normalize_run(run, ref_runs_by_fold[fold_key]))
+
+        result = ExperimentResult(normalized_runs, self.failures)
+        result.normalized_by = reference_model
+        result.reference_runs = tuple(reference_summary(run) for run in ref_runs_by_fold.values())
+        return result
+
+    def summary_table(self, *, group_by: GroupBy | None = None, dataset: Dataset | None = None) -> pd.DataFrame:
+        """Mean metric per model, one row per model and one column per metric.
+
+        Without ``group_by`` each metric is the pooled score over all pairs of a fold, averaged over folds. With
+        ``group_by`` it is the per-group score within each group of a fold, averaged over the groups where it is
+        defined, then averaged over folds; that tells a model that only knows which drugs are potent (high pooled
+        score, about zero per drug) from one that ranks samples within a drug. :doc:`/reference/metrics` defines the
+        groups and when a score is undefined (``NaN``). Use :meth:`summary_group_counts` for how many groups were
+        defined. Randomized and robustness runs are not part of either table.
+
+        Raises ``ValueError`` if ``group_by`` is neither built in nor an unambiguous annotation column of
+        ``dataset``, or needs a ``dataset`` that was not given.
+
+        :param group_by: ``None`` for pooled metrics, or ``"drug"`` / ``"sample"`` / ``"study"`` / a sample or
+            drug annotation column of ``dataset``.
+        :param dataset: Dataset the runs were made on; needed only for an annotation grouping.
+        :returns: Means over folds, indexed by model name.
+        """
+        return self._summary("mean", group_by, dataset)
+
+    def summary_group_counts(self, group_by: GroupBy, dataset: Dataset | None = None) -> pd.DataFrame:
+        """Count the groups with a defined score behind ``summary_table(group_by=..., dataset=...)``.
+
+        Raises ``ValueError`` as :meth:`summary_table` does.
+
+        :param group_by: ``"drug"``, ``"sample"``, ``"study"`` or an annotation column of ``dataset``.
+        :param dataset: Dataset the runs were made on; needed only for an annotation grouping.
+        :returns: The mean over folds of the number of groups where the metric is defined, indexed by model name
+            like :meth:`summary_table`. The counts are the same for every model scored on the same pairs.
+        """
+        return self._summary("n_groups", group_by, dataset)
+
+    def _summary(self, statistic: str, group_by: GroupBy | None, dataset: Dataset | None) -> pd.DataFrame:
+        """Build the model-by-metric table of one statistic.
+
+        :param statistic: ``"mean"``, or ``"n_groups"`` for a grouped summary.
+        :param group_by: ``None`` for pooled metrics, else the grouping of ``aggregate_group_metrics``.
+        :param dataset: Dataset an annotation grouping reads.
+        :returns: The table, indexed by model name; a model missing a metric gets NaN.
+        """
+        import pandas as pd
+
+        rows = {}
+        for model in self.models:
+            aggregate = (
+                model.aggregate_metrics if group_by is None else model.aggregate_group_metrics(group_by, dataset)
+            )
+            rows[model.model_name] = {metric: stats[statistic] for metric, stats in aggregate.items()}
+        return pd.DataFrame.from_dict(rows, orient="index", dtype=float)
+
+    def save(self, directory: str | Path) -> None:
+        """Save to a directory tree, in the layout :doc:`/reference/results` describes.
+
+        ``metadata.json`` holds only what the runs cannot give back: the model order and ``normalized_by``. It has
+        no run settings, so ``drevalpy.experiment`` does not resume a directory saved here. The dataset and split names
+        are those of the runs, and each model's directory is
+        :func:`~drevalpy._utils.filenames.unique_safe_filenames` of the model order. Each model directory is written
+        by :meth:`ModelResult.save`.
+
+        :param directory: Root output directory. ``failures.json`` is written only when there are failures, and an
+            earlier one is removed otherwise.
+        """
+        out = Path(directory)
+        out.mkdir(parents=True, exist_ok=True)
+        directories = unique_safe_filenames(self.model_names)
+        for model_result in self.models:
+            model_result.save(out / directories[model_result.model_name])
+        write_metadata(out, models=self.model_names, normalized_by=self.normalized_by, failures=self.failures)
+
+    @classmethod
+    def load(cls, directory: str | Path, *, with_trials: bool = True) -> ExperimentResult:
+        """Load from a directory tree saved by ``save()`` or written by ``drevalpy.experiment``.
+
+        A model of ``metadata.json`` without any run on disk, such as one whose every run failed, is left out.
+
+        :param directory: Root experiment directory.
+        :param with_trials: Forwarded to :meth:`RunResult.load`; pass ``False`` to skip
+            reading the HPO trial predictions, which no visualization consumes.
+        :returns: Reconstructed ExperimentResult.
+        """
+        path = Path(directory)
+        meta = read_metadata(path)
+
+        directories = unique_safe_filenames(meta["models"])
+        all_runs = [
+            run for name in meta["models"] for run in load_runs(path / directories[name], with_trials=with_trials)
+        ]
+        experiment = cls(all_runs, read_failures(path))
+        experiment.normalized_by = meta["normalized_by"]
+        _log_load_summary(experiment, all_runs, with_trials=with_trials)
+        return experiment
+
+    def __repr__(self) -> str:
+        """Return a formatted summary."""
+        lines = [
+            "ExperimentResult",
+            f"    Dataset: {self.dataset_name}",
+            f"    Split mode: {self.split_mode}",
+            f"    Normalized by: {self.normalized_by}",
+            f"    Models: {len(self.models)}",
+        ]
+        for m in self.models:
+            agg = m.aggregate_metrics
+            metric_str = ", ".join(f"{k}={v['mean']:.4f}" for k, v in agg.items()) if agg else "no metrics"
+            lines.append(f"        {m.model_name} ({m.n_folds} folds): {metric_str}")
+        return "\n".join(lines)
+
+
+def _run_array_bytes(run: RunResult) -> int:
+    """Approximate the heap cost of one run's arrays, counting each shared ID string once.
+
+    :param run: Run to measure.
+    :returns: Approximate number of bytes retained by the run's arrays.
+    """
+    total = run.predictions.nbytes + run.ground_truth.nbytes
+    for ids in (run.sample_ids, run.drug_ids):
+        total += ids.nbytes
+        if ids.dtype == object:
+            total += sum(sys.getsizeof(value) for value in set(ids.tolist()))
+    if run.trials:
+        total += sum(trial.predictions.nbytes for trial in run.trials)
+    return total
+
+
+def _log_load_summary(experiment: ExperimentResult, runs: list[RunResult], *, with_trials: bool) -> None:
+    """Emit the single line that establishes the scale of a loaded experiment."""
+    rows = sum(len(r.predictions) for r in runs)
+    total_bytes = sum(_run_array_bytes(r) for r in runs)
+    logger.info(
+        "Loaded ExperimentResult %r: %d models, %d runs, %d prediction rows, %.2f GB of arrays (trials %s)",
+        experiment.dataset_name,
+        experiment.n_models,
+        len(runs),
+        rows,
+        total_bytes / 1024**3,
+        "loaded" if with_trials else "skipped",
+    )

@@ -1,0 +1,202 @@
+Build and benchmark your own predictor
+======================================
+
+.. interface: python
+
+In this tutorial you write a sample featurizer and a predictor, register them, and evaluate
+the resulting model against a naive baseline. Both components are short, complete and
+registered with a decorator. You finish with a result table that puts your model next to
+``NaiveMeanEffectsPredictor``, the reference every model has to beat.
+
+You need DrEvalPy installed. :doc:`first_benchmark` explains how to read the result tables used
+here. The dataset is simulated, so everything runs offline in a few seconds.
+
+Create a dataset
+----------------
+
+.. code-block:: python
+
+   import drevalpy
+
+   dataset = drevalpy.synthetic()
+
+The dataset has 60 samples, 8 drugs and a ``gene_expression`` view of about 11,600 gene features per sample.
+It also holds the SMILES string of each drug, which the built-in ``fingerprints`` featurizer
+needs.
+
+Write a sample featurizer
+-------------------------
+
+A model is assembled from components. A *featurizer* turns one or more views of one side, the
+samples or the drugs, into named feature blocks. A *predictor* turns feature blocks into
+predictions. :doc:`/explanation/models_from_components` explains the idea.
+
+Your featurizer standardizes the ``gene_expression`` view: it subtracts the mean and divides by
+the standard deviation of each feature, both learned on the training samples only.
+
+.. literalinclude:: /examples/toy_sample_featurizer.py
+   :language: python
+   :caption: toy_sample_featurizer.py
+
+These parts matter:
+
+``side=Side.SAMPLE``
+   The side the featurizer is registered on, here the samples.
+
+``input_views``
+   Names the view the featurizer reads.
+
+``fit``
+   Learns one mean and one standard deviation per feature from the training samples, and
+   records the feature names. The statistics are plain attributes, so a saved model pickles
+   them with the featurizer.
+
+``transform``
+   Standardizes the requested samples with those statistics and returns them as one numeric
+   block named ``gene_expression``. A predictor asks for a block by its name.
+
+``@register_featurizer("toySample", ...)``
+   Adds the class to the registry under the name ``toySample``, which is how a recipe refers
+   to it.
+
+:doc:`/how-to/extend/write_featurizer` covers the other hooks and the drug side.
+
+Write a predictor
+-----------------
+
+The predictor fits a ridge regression on the feature blocks of each pair.
+
+.. literalinclude:: /examples/toy_ridge_predictor.py
+   :language: python
+   :caption: toy_ridge_predictor.py
+
+``MatrixPredictor`` hands your code one dense matrix per call, with the sample features and the
+drug features of every pair side by side. You implement ``_fit_matrix`` and ``_predict_matrix``.
+The rest of the class declares what DrEvalPy needs to know:
+
+``get_hyperparameter_space``
+   Declares ``alpha``, the strength of the ridge penalty, with a search range and a default.
+   Tuning draws from the range; without tuning the predictor uses the default of 1.0.
+   ``fit_intercept`` is a ``fixed`` entry, a setting that tuning never changes.
+
+``@register_predictor("toyRidge", ...)``
+   Registers the predictor. ``MatrixPredictor`` reads a matrix on both sides, so it accepts any
+   featurizer that outputs numeric blocks.
+
+The trained estimator is a plain attribute, so DrEvalPy saves the predictor by pickling it.
+
+:doc:`/how-to/extend/write_predictor` shows the other predictor inputs.
+
+Register the components
+-----------------------
+
+A ``@register_*`` decorator runs when its module is imported. Save the two listings next to
+your script, as ``toy_sample_featurizer.py`` and ``toy_ridge_predictor.py`` (the repository
+keeps them in ``docs/examples/``), and import them:
+
+..
+   The snippet runner starts in an empty directory, so this block, which Sphinx does not
+   render, copies the two example files there. A reader saves them as described above.
+
+   .. code-block:: python
+
+      import shutil
+      import sys
+      from pathlib import Path
+
+      examples = Path(__file__).resolve().parents[1] / "examples"
+      for name in ("toy_sample_featurizer", "toy_ridge_predictor"):
+          shutil.copy(examples / f"{name}.py", f"{name}.py")
+          sys.modules.pop(name, None)
+      sys.path.insert(0, str(Path.cwd()))
+
+.. code-block:: python
+
+   import toy_ridge_predictor
+   import toy_sample_featurizer
+
+Importing is all it takes. For a directory of components that every ``drevalpy`` command should
+load, see :doc:`/how-to/extend/load_extensions`.
+
+Assemble a model
+----------------
+
+A recipe names a model by its parts: ``sample featurizer : drug featurizer : predictor``. Your
+model combines ``toySample`` with the built-in ``fingerprints`` drug featurizer and your
+``toyRidge`` predictor. ``ModelSpec`` gives the configuration the name its results are reported
+under.
+
+.. code-block:: python
+
+   from drevalpy import ModelSpec
+   from drevalpy.models.config import from_recipe
+
+   config = from_recipe("toySample:fingerprints:toyRidge")
+   toy_ridge = ModelSpec("ToyRidge", config)
+   print(config.recipe)
+
+The output:
+
+.. code-block:: text
+
+   toySample:fingerprints:toyRidge
+
+``ModelSpec.from_name`` would also accept this recipe, but it would report the model under the
+recipe string. Building the spec yourself lets you choose the name.
+:doc:`/reference/recipes` describes the full grammar.
+
+Benchmark it
+------------
+
+Run your model next to ``NaiveMeanEffectsPredictor`` in leave-pair-out (LPO), as in the first
+tutorial. Tuning is off, so ``toyRidge`` uses its default ``alpha``.
+
+.. code-block:: python
+
+   baseline = ModelSpec.from_name("NaiveMeanEffectsPredictor")
+   results = drevalpy.experiment([baseline, toy_ridge], dataset, "LPO", hyperparameter_tuning=False)
+   print(results)
+
+The output ends with the pooled metrics of both models:
+
+.. code-block:: text
+
+   ExperimentResult
+       Dataset: SYNTHETIC
+       Split mode: LPO
+       Normalized by: None
+       Models: 2
+           NaiveMeanEffectsPredictor (5 folds): MSE=4.4532, RMSE=2.1055, MAE=1.6620, R^2=0.6851, Pearson=0.8298, Spearman=0.8409, Kendall=0.6466
+           ToyRidge (5 folds): MSE=3.2160, RMSE=1.7911, MAE=1.3944, R^2=0.7720, Pearson=0.8822, Spearman=0.8891, Kendall=0.7084
+
+Over all pairs your model leads by about 0.06 Pearson. The first tutorial showed why that number
+alone is not enough. Compare the models within each drug:
+
+.. code-block:: python
+
+   per_drug = results.summary_table(group_by="drug")
+   print(per_drug[["Pearson", "Spearman", "RMSE"]].round(3))
+
+.. code-block:: text
+
+                              Pearson  Spearman   RMSE
+   NaiveMeanEffectsPredictor    0.386     0.372  2.061
+   ToyRidge                     0.484     0.454  1.732
+
+Within drugs your model correlates at 0.48 against 0.39 for the naive baseline. ``ToyRidge``
+reads the gene expression of the sample, which tells it something about which samples respond.
+The naive baseline sees only identities.
+
+What you learned
+----------------
+
+- A component is a class with a registration decorator; a featurizer prepares the views of one
+  side and a predictor turns blocks into predictions.
+- A recipe such as ``toySample:fingerprints:toyRidge`` combines registered components into a
+  model, and ``ModelSpec`` names it.
+- A new predictor earns its place by beating ``NaiveMeanEffectsPredictor`` within drugs, not
+  only over all pairs.
+
+To tune ``alpha`` and test how much the model depends on its features, continue with
+:doc:`tune_and_stress_test`. To check your components against DrEvalPy's conformance tests, see
+:doc:`/how-to/extend/test_components`.

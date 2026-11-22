@@ -1,0 +1,614 @@
+"""Tests for the plugin checks: the conformance checks and ``check_plugin`` driven through stub entry points."""
+
+from __future__ import annotations
+
+import functools
+import importlib.metadata
+import inspect
+import itertools
+import sys
+import types
+from dataclasses import replace
+from typing import ClassVar
+
+import numpy as np
+import pytest
+
+from drevalpy.components.featurizers.featurizer import Featurizer
+from drevalpy.components.predictors.abstract.matrix import MatrixPredictor
+from drevalpy.components.predictors.inputs import Inputs, predictor_inputs
+from drevalpy.data import synthetic
+from drevalpy.models.config._constructor import requires_explicit_view
+from drevalpy.plugin import Predictor
+from drevalpy.registry import predictor
+from drevalpy.registry._builtins import builtin_names
+from drevalpy.registry.featurizer import featurizer_registries, featurizer_registry, get_featurizer, register
+from drevalpy.testing import plugins as plugins_module
+from drevalpy.testing.conformance import (
+    FEATURIZER_CHECKS,
+    PREDICTOR_CHECKS,
+    ConformanceError,
+    check_featurizer_fit_transform,
+    check_featurizer_instantiates,
+    check_featurizer_pickle_round_trip,
+    check_predictor_fit_predict,
+    check_predictor_instantiates,
+    check_predictor_pickle_round_trip,
+    check_predictor_single_drug_routing,
+    feature_source_for,
+)
+from drevalpy.testing.inputs import N_DRUG_FEATURES, build_synthetic_input
+from drevalpy.testing.plugins import (
+    ENTRY_POINT_GROUP,
+    PluginCheckError,
+    PluginReport,
+    check_plugin,
+)
+from drevalpy.types.data.dataset import Dataset
+from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
+from drevalpy.types.data.feature_format import BlockSpec, FeatureFormat
+from drevalpy.types.data.feature_source import FeatureSource, Side
+from drevalpy.types.data.predictor_input import PredictorInput
+from drevalpy.types.enums import ModelScope
+from tests.synthetic.variants import predictor_small_hyperparameters
+
+BLOCK = "probe"
+
+
+class GoodFeaturizer(Featurizer):
+    """Conforming featurizer."""
+
+    side: ClassVar[Side] = Side.SAMPLE
+
+    def __init__(self, *, n_features: int = 4) -> None:
+        """Initialise the stub."""
+        self._n_features = n_features
+        self._offset = 0.0
+
+    @classmethod
+    def output_blocks(cls, config) -> tuple[BlockSpec, ...]:
+        return (BlockSpec(BLOCK, FeatureFormat.NUMERIC_MATRIX),)
+
+    def fit(self, source, train_ids, *, train_pair_ids=None, es_pair_ids=None):
+        self._offset = float(len(train_ids))
+        return self
+
+    def transform(self, source, ids):
+        values = np.arange(len(ids) * self._n_features, dtype=np.float32)
+        values = values.reshape(len(ids), self._n_features) + self._offset
+        return FeaturizerOutput(ids, {BLOCK: FeatureBlock(values)})
+
+
+class GoodDrugFeaturizer(GoodFeaturizer):
+    """Same logic on the drug side, so the side choice can be exercised."""
+
+    side: ClassVar[Side] = Side.DRUG
+
+
+class RequiresAnArgumentFeaturizer(GoodFeaturizer):
+    """Defect: not constructible with defaults."""
+
+    def __init__(self, n_features: int) -> None:
+        """Initialise the stub."""
+        super().__init__(n_features=n_features)
+
+
+class MisdeclaredBlocksFeaturizer(GoodFeaturizer):
+    """Defect: ``output_blocks`` names a block the featurizer does not emit."""
+
+    @classmethod
+    def output_blocks(cls, config) -> tuple[BlockSpec, ...]:
+        return (BlockSpec("other", FeatureFormat.NUMERIC_MATRIX),)
+
+
+class MisalignedBlockFeaturizer(GoodFeaturizer):
+    """Defect: emits fewer rows than there are entities."""
+
+    def transform(self, source, ids):
+        result = super().transform(source, ids)
+        return FeaturizerOutput(result.entity_ids[:-1], {BLOCK: FeatureBlock(result.blocks[BLOCK].values[:-1])})
+
+
+class EmptyBlocksFeaturizer(GoodFeaturizer):
+    """Defect: produces no blocks at all."""
+
+    @classmethod
+    def output_blocks(cls, config) -> tuple[BlockSpec, ...]:
+        return ()
+
+    def transform(self, source, ids):
+        return FeaturizerOutput(np.asarray(ids), {})
+
+
+class ForgetfulStateFeaturizer(GoodFeaturizer):
+    """Defect: ``__getstate__`` drops an attribute ``transform`` reads."""
+
+    def __getstate__(self) -> dict[str, object]:
+        """Drop the fitted offset from the pickled state."""
+        return {**self.__dict__, "_offset": 0.0}
+
+
+class UnpicklableFeaturizer(GoodFeaturizer):
+    """Defect: holds a lambda, which pickle cannot serialize."""
+
+    def fit(self, source, train_ids, *, train_pair_ids=None, es_pair_ids=None):
+        self._hook = lambda: None
+        return super().fit(source, train_ids)
+
+
+class GoodPredictor(MatrixPredictor):
+    """Conforming predictor: ordinary least squares with picklable state."""
+
+    def __init__(self, hyperparameters: dict[str, object] | None = None) -> None:
+        """Initialise the stub."""
+        super().__init__(hyperparameters)
+        self._coefficients: np.ndarray | None = None
+
+    def _fit_matrix(self, x: np.ndarray, y: np.ndarray) -> None:
+        self._coefficients = np.linalg.lstsq(_with_intercept(x), y, rcond=None)[0]
+
+    def _predict_matrix(self, x: np.ndarray) -> np.ndarray:
+        if self._coefficients is None:
+            return np.full(len(x), np.nan)
+        return _with_intercept(x) @ self._coefficients
+
+
+def _with_intercept(x: np.ndarray) -> np.ndarray:
+    return np.hstack([x, np.ones((len(x), 1), dtype=x.dtype)])
+
+
+class NeverFitsPredictor(GoodPredictor):
+    """Defect: ``_fit`` does nothing, so predictions stay NaN."""
+
+    def _fit_matrix(self, x: np.ndarray, y: np.ndarray) -> None:
+        return None
+
+
+class ForgetfulPicklePredictor(GoodPredictor):
+    """Defect: ``__getstate__`` drops the fitted coefficients."""
+
+    def __getstate__(self) -> dict[str, object]:
+        """Drop the coefficients from the pickled state."""
+        return {**self.__dict__, "_coefficients": None}
+
+
+class UnpicklablePredictor(GoodPredictor):
+    """Defect: holds a lambda, which pickle cannot serialize."""
+
+    def _fit_matrix(self, x: np.ndarray, y: np.ndarray) -> None:
+        super()._fit_matrix(x, y)
+        self._hook = lambda: None
+
+
+class RequiresAnArgumentPredictor(GoodPredictor):
+    """Defect: not constructible with defaults."""
+
+    def __init__(self, alpha: float) -> None:
+        """Initialise the stub."""
+        super().__init__({"alpha": alpha})
+
+
+class PerDrugMeanPredictor(Predictor):
+    """Conforming single-drug predictor: the mean response of each trained drug, NaN for any other."""
+
+    sample_inputs: ClassVar[Inputs] = Inputs.matrix()
+    drug_inputs: ClassVar[Inputs] = Inputs.none()
+    scope: ClassVar[ModelScope] = ModelScope.SINGLE_DRUG
+
+    def __init__(self, hyperparameters: dict[str, object] | None = None) -> None:
+        """Initialise the stub."""
+        super().__init__(hyperparameters)
+        self._means: dict[str, float] = {}
+
+    def _fit(self, batch) -> None:
+        response = np.asarray(batch.response)
+        self._means = {drug: float(response[batch.drug_ids == drug].mean()) for drug in np.unique(batch.drug_ids)}
+
+    def _predict(self, batch) -> np.ndarray:
+        return np.array([self._means.get(drug, self._unseen_drug()) for drug in batch.drug_ids], dtype=np.float64)
+
+    def _unseen_drug(self) -> float:
+        return np.nan
+
+
+class GlobalMeanForUnseenDrugsPredictor(PerDrugMeanPredictor):
+    """Defect: invents a prediction, the mean over the trained drugs, for a drug it never saw."""
+
+    def _unseen_drug(self) -> float:
+        return float(np.mean(list(self._means.values())))
+
+
+@pytest.fixture(scope="module")
+def batch(synthetic_dataset):
+    return build_synthetic_input(synthetic_dataset)
+
+
+def test_feature_source_for_matches_the_featurizer_side(synthetic_dataset):
+    sample_source = feature_source_for(GoodFeaturizer, synthetic_dataset)
+    assert isinstance(sample_source, FeatureSource)
+    assert sample_source.side == "sample"
+    source = feature_source_for(GoodDrugFeaturizer, synthetic_dataset)
+    assert source.side == "drug"
+
+
+@pytest.mark.parametrize("check", FEATURIZER_CHECKS)
+@pytest.mark.parametrize("cls", [GoodFeaturizer, GoodDrugFeaturizer])
+def test_a_conforming_featurizer_passes_every_check(check, cls, synthetic_dataset):
+    check(cls, synthetic_dataset)
+
+
+@pytest.mark.parametrize("check", PREDICTOR_CHECKS)
+def test_a_conforming_predictor_passes_every_check(check, batch):
+    check(GoodPredictor, batch)
+
+
+@pytest.mark.parametrize("check", PREDICTOR_CHECKS)
+@pytest.mark.slow
+def test_a_conforming_single_drug_predictor_passes_every_check_on_the_default_batch(check):
+    check(PerDrugMeanPredictor)
+
+
+def test_single_drug_routing_skips_multi_drug_predictors(batch):
+    one_drug = batch[batch.drug_ids == np.unique(batch.drug_ids)[0]]
+    check_predictor_single_drug_routing(GoodPredictor, one_drug)
+
+
+def test_single_drug_routing_needs_two_drugs(batch):
+    one_drug = batch[batch.drug_ids == np.unique(batch.drug_ids)[0]]
+    with pytest.raises(ConformanceError, match="at least two drugs"):
+        check_predictor_single_drug_routing(PerDrugMeanPredictor, one_drug)
+
+
+@pytest.mark.slow
+def test_checks_default_to_synthetic_data_forward_kwargs_and_return_instances(synthetic_dataset):
+    check_featurizer_fit_transform(GoodFeaturizer)
+    check_featurizer_fit_transform(GoodFeaturizer, synthetic_dataset, n_features=7)
+    check_predictor_fit_predict(GoodPredictor)
+    assert isinstance(check_featurizer_instantiates(GoodFeaturizer), GoodFeaturizer)
+    assert isinstance(check_predictor_instantiates(GoodPredictor), GoodPredictor)
+
+
+@pytest.mark.parametrize(
+    ("check", "cls", "error", "match"),
+    [
+        (check_featurizer_instantiates, RequiresAnArgumentFeaturizer, ConformanceError, "could not be constructed"),
+        (check_featurizer_instantiates, dict, ConformanceError, "not a Featurizer"),
+        (check_featurizer_fit_transform, MisdeclaredBlocksFeaturizer, ConformanceError, "output_blocks declares"),
+        (check_featurizer_fit_transform, MisalignedBlockFeaturizer, ValueError, "must preserve requested entity order"),
+        (check_featurizer_fit_transform, EmptyBlocksFeaturizer, ConformanceError, "returned no blocks"),
+        (check_featurizer_pickle_round_trip, ForgetfulStateFeaturizer, ConformanceError, "different features"),
+        (check_featurizer_pickle_round_trip, UnpicklableFeaturizer, ConformanceError, "could not be pickled"),
+    ],
+)
+def test_featurizer_defects_are_rejected(check, cls, error, match, synthetic_dataset):
+    with pytest.raises(error, match=match):
+        check(cls, synthetic_dataset)
+
+
+@pytest.mark.parametrize(
+    ("check", "cls", "match"),
+    [
+        (check_predictor_instantiates, RequiresAnArgumentPredictor, "could not be constructed"),
+        (check_predictor_instantiates, dict, "not a Predictor"),
+        (check_predictor_fit_predict, NeverFitsPredictor, "non-finite"),
+        (check_predictor_pickle_round_trip, ForgetfulPicklePredictor, "predicted differently"),
+        (check_predictor_pickle_round_trip, UnpicklablePredictor, "could not be pickled"),
+        (check_predictor_pickle_round_trip, NeverFitsPredictor, "before the round trip"),
+        (check_predictor_single_drug_routing, GlobalMeanForUnseenDrugsPredictor, "not trained on"),
+    ],
+)
+def test_predictor_defects_are_rejected(check, cls, match, batch):
+    with pytest.raises(ConformanceError, match=match):
+        check(cls, batch)
+
+
+def test_check_tuples_name_every_check_with_two_positional_arguments():
+    assert set(FEATURIZER_CHECKS) == {
+        check_featurizer_instantiates,
+        check_featurizer_fit_transform,
+        check_featurizer_pickle_round_trip,
+    }
+    assert set(PREDICTOR_CHECKS) == {
+        check_predictor_instantiates,
+        check_predictor_fit_predict,
+        check_predictor_pickle_round_trip,
+        check_predictor_single_drug_routing,
+    }
+    for check in FEATURIZER_CHECKS + PREDICTOR_CHECKS:
+        kinds = [p.kind for p in inspect.signature(check).parameters.values()]
+        assert kinds.count(inspect.Parameter.POSITIONAL_OR_KEYWORD) == 2
+
+
+#: Built-in featurizers the conformance run leaves out, by ``(side, name)``, each with the reason.
+_FEATURIZERS_NOT_CHECKED = {
+    ("sample", "aeGeneExpression"): "trains on an early-stopping holdout, which the featurizer checks do not pass",
+    ("sample", "dipkGeneExpression"): "trains on an early-stopping holdout, which the featurizer checks do not pass",
+    ("sample", "bionic"): "downloads the PPI features from the artifacts bucket",
+    ("drug", "drugGraph"): "its graph blocks hold objects that compare by identity, so the pickle check always differs",
+    ("drug", "molgnet"): "downloads the MolGNet checkpoint from the artifacts bucket",
+    ("drug", "molgnetPooled"): "downloads the MolGNet checkpoint from the artifacts bucket",
+    ("drug", "smilesvec"): "downloads pretrained weights from the artifacts bucket",
+}
+
+
+def _featurizer_kwargs(side: str, name: str) -> dict[str, object]:
+    """Return the constructor arguments *name* needs to be built at all; the other featurizers take none."""
+    if name == "concatFeaturizers":
+        return {"featurizers": [get_featurizer("constant", side)()]}
+    return {"view": "gene_expression"} if requires_explicit_view(get_featurizer(name, side)) else {}
+
+
+_BUILTIN_FEATURIZERS = [
+    (side, name)
+    for side, registry in featurizer_registries.items()
+    for name in builtin_names(registry)
+    if (side, name) not in _FEATURIZERS_NOT_CHECKED
+]
+
+#: Featurizers whose checks take 0.2s or more: they read a shipped gene list, fit a model or pickle a large block.
+_SLOW_FEATURIZERS = frozenset(
+    {
+        ("sample", "landmarkGenes"),
+        ("sample", "pathways"),
+        ("sample", "pca"),
+        ("sample", "superfeltrOmics"),
+        ("sample", "pharmaFormerGeneExpression"),
+        ("sample", "molirOmics"),
+        ("sample", "sparsegoOntology"),
+    }
+)
+
+
+def _conformance_params(components, checks, *, slow, trivial):
+    """Pair every check with every component, marking slow the checks that do real work on a slow component.
+
+    :param components: Component names, or ``(side, name)`` pairs for featurizers.
+    :param checks: The conformance checks to run on each.
+    :param slow: Components whose checks take 0.2s or more.
+    :param trivial: ``trivial(check, component)`` is whether that check returns at once, so it carries no mark.
+    :yields: One parameter set per component and check, as ``(check, *component)``.
+    """
+    for component in components:
+        arguments = component if isinstance(component, tuple) else (component,)
+        for check in checks:
+            marks = [pytest.mark.slow] if component in slow and not trivial(check, component) else []
+            yield pytest.param(check, *arguments, id="-".join((*arguments, check.__name__)), marks=marks)
+
+
+@pytest.mark.parametrize(
+    ("check", "side", "name"),
+    _conformance_params(
+        _BUILTIN_FEATURIZERS,
+        FEATURIZER_CHECKS,
+        slow=_SLOW_FEATURIZERS,
+        trivial=lambda check, _: check is check_featurizer_instantiates,
+    ),
+)
+def test_builtin_featurizers_conform(check, side, name, synthetic_dataset):
+    check(get_featurizer(name, side), synthetic_dataset, **_featurizer_kwargs(side, name))
+
+
+#: Built-in predictors the conformance run leaves out, each with the reason: they read blocks that
+#: only their own featurizers can produce, and the synthetic input draws plain matrices.
+_PREDICTORS_NOT_CHECKED = {
+    "dipk": "reads ragged MolGNet node embeddings and gene-expression autoencoder features",
+    "drugGNN": "reads molecular graphs",
+    "paccMann": "needs the vocabulary metadata that the smilesTokens featurizer attaches to its blocks",
+    "sparsego": "needs the ontology metadata that the sparsegoOntology featurizer attaches to its block",
+}
+
+#: Drug feature widths the predictors need where the synthetic default of the input builder is too narrow.
+_DRUG_FEATURE_WIDTHS = {"pharmaFormer": 128}
+
+#: Predictors that group pairs by category and so read one-hot rows, not the drawn Gaussian features.
+_ONE_HOT_PREDICTORS = frozenset(
+    {"naiveDrugMean", "naiveMeanEffects", "naiveSampleMean", "naiveTissueDrugMean", "naiveTissueMean"}
+)
+
+_BUILTIN_PREDICTORS = [
+    name for name in builtin_names(predictor.predictor_registry) if name not in _PREDICTORS_NOT_CHECKED
+]
+
+
+@functools.cache
+def _library_dataset() -> Dataset:
+    """Return ``drevalpy.synthetic()``, the dataset the checks default to: enough pairs per drug to fit a forest."""
+    return synthetic()
+
+
+def _predictor_input(cls: type[Predictor], name: str) -> PredictorInput:
+    """Build the input *cls* reads: blocks named as it declares them, a holdout where it needs one."""
+    block_names = {
+        side: tuple((spec[0] if isinstance(spec, tuple) else spec).name for spec in predictor_inputs(cls, side).specs)
+        for side in Side
+    }
+    drug_free = predictor_inputs(cls, Side.DRUG).kind == "none"
+    data = build_synthetic_input(
+        _library_dataset(),
+        sample_block_names=block_names[Side.SAMPLE],
+        drug_block_names=block_names[Side.DRUG],
+        n_drug_features=None if drug_free else _DRUG_FEATURE_WIDTHS.get(name, N_DRUG_FEATURES),
+        response_layers=cls.response_layers,
+    )
+    if name in _ONE_HOT_PREDICTORS:
+        data = _one_hot_input(data)
+    return replace(data, early_stopping=data.pairs[::4]) if cls.requires_early_stopping else data
+
+
+def _one_hot_input(data: PredictorInput) -> PredictorInput:
+    """Replace every feature block of *data* by the one-hot rows of its entities."""
+
+    def one_hot(output: FeaturizerOutput) -> FeaturizerOutput:
+        identity = np.eye(len(output.entity_ids), dtype=np.float32)
+        return FeaturizerOutput(output.entity_ids, {name: FeatureBlock(identity) for name in output.blocks})
+
+    return replace(data, sample=one_hot(data.sample), drug=None if data.drug is None else one_hot(data.drug))
+
+
+def _returns_at_once(check, name: str) -> bool:
+    """Whether the predictor check returns at once: construction, or routing on a predictor that is not single-drug."""
+    return check is check_predictor_instantiates or (
+        check is check_predictor_single_drug_routing and predictor.get(name).scope is not ModelScope.SINGLE_DRUG
+    )
+
+
+#: Predictors whose checks take 0.2s or more: they train a network, a forest or a boosted model.
+_SLOW_PREDICTORS = frozenset(
+    {
+        "ensembleMF",
+        "gradientBoosting",
+        "molir",
+        "neuralNetwork",
+        "pharmaFormer",
+        "precily",
+        "randomForest",
+        "singleDrugKnn",
+        "singleDrugMorgoth",
+        "singleDrugRandomForest",
+        "superfeltr",
+        "xgboost",
+    }
+)
+
+
+@pytest.mark.parametrize(
+    ("check", "name"),
+    _conformance_params(
+        _BUILTIN_PREDICTORS,
+        PREDICTOR_CHECKS,
+        slow=_SLOW_PREDICTORS,
+        trivial=_returns_at_once,
+    ),
+)
+def test_builtin_predictors_conform(check, name):
+    cls = predictor.get(name)
+    check(cls, _predictor_input(cls, name), hyperparameters=predictor_small_hyperparameters(name))
+
+
+def test_the_checks_leave_out_only_registered_components():
+    assert set(_PREDICTORS_NOT_CHECKED) <= set(builtin_names(predictor.predictor_registry))
+    for side, name in _FEATURIZERS_NOT_CHECKED:
+        assert name in builtin_names(featurizer_registries[side])
+
+
+PLUGIN_NAME = "fake_plugin"
+
+
+_REGISTRY_NAME_COUNTER = itertools.count()
+
+
+@pytest.fixture
+def fake_plugin_package(monkeypatch):
+    """Install a throwaway package holding one registered featurizer under a unique name."""
+    registry_name = f"fakePluginFeaturizer{next(_REGISTRY_NAME_COUNTER)}"
+    package = types.ModuleType(PLUGIN_NAME)
+    components = types.ModuleType(f"{PLUGIN_NAME}.components")
+    monkeypatch.setitem(sys.modules, PLUGIN_NAME, package)
+    monkeypatch.setitem(sys.modules, f"{PLUGIN_NAME}.components", components)
+    snapshot = featurizer_registry("sample").snapshot()
+
+    @register(registry_name, side="sample", description="Registered by the fake plugin package.", tags=("fake",))
+    class FakeFeaturizer(Featurizer):
+        @classmethod
+        def output_blocks(cls, config) -> tuple[BlockSpec, ...]:
+            return (BlockSpec("fake", FeatureFormat.NUMERIC_MATRIX),)
+
+        def fit(self, source, train_ids, *, train_pair_ids=None, es_pair_ids=None):
+            return self
+
+        def transform(self, source, ids):
+            values = np.zeros((len(ids), 1), dtype=np.float32)
+            return FeaturizerOutput(ids, {"fake": FeatureBlock(values)})
+
+    FakeFeaturizer.__module__ = f"{PLUGIN_NAME}.components"
+    components.FakeFeaturizer = FakeFeaturizer
+    try:
+        yield registry_name
+    finally:
+        featurizer_registry("sample").restore(snapshot)
+
+
+def _stub_entry_points(monkeypatch, *entry_points: importlib.metadata.EntryPoint) -> None:
+    def fake_entry_points(*, group: str):
+        return list(entry_points) if group == ENTRY_POINT_GROUP else []
+
+    monkeypatch.setattr(importlib.metadata, "entry_points", fake_entry_points)
+
+
+def _entry_point(value: str, name: str = PLUGIN_NAME) -> importlib.metadata.EntryPoint:
+    return importlib.metadata.EntryPoint(name=name, value=value, group=ENTRY_POINT_GROUP)
+
+
+@pytest.mark.parametrize(
+    ("declared", "match"),
+    [
+        ((), "No drevalpy.plugins entry point"),
+        ((), "Declared: none"),
+        ((_entry_point("other.components", name="other"),), r"Declared: \['other'\]"),
+        ((_entry_point("no_such_package_at_all.components"),), "failed to import"),
+    ],
+)
+def test_entry_point_failures_are_reported(monkeypatch, declared, match):
+    _stub_entry_points(monkeypatch, *declared)
+    with pytest.raises(PluginCheckError, match=match):
+        check_plugin(PLUGIN_NAME)
+
+
+def test_discovery_failure_beats_a_reimport_and_clean_load_is_accepted(monkeypatch, fake_plugin_package):
+    _stub_entry_points(monkeypatch, _entry_point(f"{PLUGIN_NAME}.components"))
+    monkeypatch.setattr(plugins_module, "get_failed_plugins", lambda: {PLUGIN_NAME: "Traceback: boom"})
+    with pytest.raises(PluginCheckError, match="failed to load during discovery"):
+        check_plugin(PLUGIN_NAME)
+
+    monkeypatch.setattr(plugins_module, "get_failed_plugins", dict)
+    assert check_plugin(PLUGIN_NAME).name == PLUGIN_NAME
+
+
+def test_a_plugin_registering_nothing_names_the_registries_it_checked(monkeypatch):
+    monkeypatch.setitem(sys.modules, "empty_fake_plugin", types.ModuleType("empty_fake_plugin"))
+    _stub_entry_points(monkeypatch, _entry_point("empty_fake_plugin", name="empty_fake_plugin"))
+    with pytest.raises(PluginCheckError, match="registered nothing.*featurizer"):
+        check_plugin("empty_fake_plugin")
+
+
+def test_successful_check_report(monkeypatch, fake_plugin_package):
+    _stub_entry_points(monkeypatch, _entry_point(f"{PLUGIN_NAME}.components"))
+    report = check_plugin(PLUGIN_NAME)
+
+    assert isinstance(report, PluginReport)
+    assert (report.name, report.value, report.module) == (PLUGIN_NAME, *[f"{PLUGIN_NAME}.components"] * 2)
+    assert report.components["sample_featurizer"] == (fake_plugin_package,)
+    assert "predictor" not in report.components
+    assert "splitter" not in report.components
+    assert report.component_names == (fake_plugin_package,)
+    with pytest.raises(AttributeError):
+        report.name = "other"  # type: ignore[misc]
+
+
+def test_plugin_check_error_is_an_assertion_error():
+    assert issubclass(PluginCheckError, AssertionError)
+
+
+@pytest.mark.parametrize(
+    ("registry_name", "component_name"),
+    [
+        ("sample_featurizer", "oneHot"),
+        ("drug_featurizer", "fingerprints"),
+        ("predictor", "ridge"),
+        ("splitter", "LPO"),
+        ("visualization", "critical_difference"),
+    ],
+)
+def test_builtins_are_attributed_to_the_drevalpy_package(registry_name, component_name):
+    resolved = plugins_module._REGISTRIES[registry_name].get(component_name)
+    assert resolved.__module__.split(".")[0] == "drevalpy"
+
+
+def test_every_component_registry_is_inspected():
+    assert set(plugins_module._REGISTRIES) == {
+        "sample_featurizer",
+        "drug_featurizer",
+        "predictor",
+        "splitter",
+        "visualization",
+    }

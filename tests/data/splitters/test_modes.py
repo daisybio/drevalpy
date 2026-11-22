@@ -1,0 +1,244 @@
+"""Tests for the built-in splitter modes: LDO, LTO, LPO, LSO (with its LCO alias) and LStO."""
+
+from __future__ import annotations
+
+import hashlib
+
+import numpy as np
+import pytest
+
+import drevalpy
+from drevalpy.data.quality import CurveQuality
+from drevalpy.registry.splitter import get as get_splitter
+from drevalpy.registry.splitter import register as register_splitter
+from drevalpy.registry.splitter import splitter_registry
+from drevalpy.registry.splitter._validation import validate_folds
+from tests._fake_dataset import FakeResponseDataset
+from tests.data.splitters._helpers import covered_pairs, first_measured_pairs
+
+QUALITY = CurveQuality.default()
+
+
+def test_no_drug_in_both_train_and_test(mock_dataset: FakeResponseDataset) -> None:
+    folds = get_splitter("LDO")(mock_dataset, n_splits=3, quality=QUALITY)
+    assert len(folds) == 3
+    for fold in folds:
+        train_cols = set(np.where(fold.train.mask.any(axis=0))[0].tolist())
+        test_cols = set(np.where(fold.test.mask.any(axis=0))[0].tolist())
+        assert train_cols & test_cols == set()
+
+
+@pytest.mark.parametrize("mode", ["LDO", "LTO", "LPO", "LSO"])
+def test_low_quality_pairs_appear_in_no_fold(mock_dataset: FakeResponseDataset, mode: str) -> None:
+    failing = first_measured_pairs(mock_dataset, 3)
+    splitter = get_splitter(mode)
+
+    without_filtering = covered_pairs(splitter(mock_dataset, n_splits=3, quality=QUALITY))
+    with_filtering = covered_pairs(splitter(FakeResponseDataset(failing_pairs=failing), n_splits=3, quality=QUALITY))
+
+    for row, column in failing:
+        assert without_filtering[row, column]
+        assert not with_filtering[row, column]
+
+
+def test_no_tissue_in_both_train_and_test(mock_dataset: FakeResponseDataset) -> None:
+    folds = get_splitter("LTO")(mock_dataset, n_splits=3, quality=QUALITY)
+    assert len(folds) == 3
+    tissues = mock_dataset.get_tissue(mock_dataset.sample_ids)
+    for fold in folds:
+        train_rows = np.where(fold.train.mask.any(axis=1))[0]
+        test_rows = np.where(fold.test.mask.any(axis=1))[0]
+        assert set(tissues[train_rows].tolist()) & set(tissues[test_rows].tolist()) == set()
+
+
+def test_folds_are_disjoint_boolean_masks_with_metadata(mock_dataset: FakeResponseDataset) -> None:
+    folds = get_splitter("LPO")(mock_dataset, n_splits=3, quality=QUALITY)
+    assert len(folds) == 3
+    for i, fold in enumerate(folds):
+        for part in (fold.train, fold.val, fold.test):
+            assert part.shape == mock_dataset.response_matrix.shape
+            assert part.mask.dtype == bool
+        assert not (fold.train.mask & fold.test.mask).any()
+        assert fold.metadata["split_mode"] == "LPO"
+        assert fold.metadata["fold_index"] == i
+        assert fold.metadata["n_splits"] == 3
+
+
+def test_no_sample_in_both_train_and_test(mock_dataset: FakeResponseDataset) -> None:
+    folds = get_splitter("LSO")(mock_dataset, n_splits=3, quality=QUALITY)
+    assert len(folds) == 3
+    for fold in folds:
+        train_rows = set(np.where(fold.train.mask.any(axis=1))[0].tolist())
+        test_rows = set(np.where(fold.test.mask.any(axis=1))[0].tolist())
+        assert train_rows & test_rows == set()
+        for part in (fold.train, fold.val, fold.test):
+            assert part.shape == mock_dataset.response_matrix.shape
+
+
+class TestLcoAlias:
+    """``LCO`` is the pre-rename name of ``LSO`` and must keep working."""
+
+    def test_the_alias_returns_the_same_splitter(self) -> None:
+        assert get_splitter("LCO") is get_splitter("LSO")
+
+    def test_the_alias_gives_the_same_folds_under_the_canonical_mode(self, mock_dataset: FakeResponseDataset) -> None:
+        via_alias = get_splitter("LCO")(mock_dataset, n_splits=3, quality=QUALITY)
+        via_mode = get_splitter("LSO")(mock_dataset, n_splits=3, quality=QUALITY)
+
+        assert len(via_alias) == len(via_mode)
+        for old, new in zip(via_alias, via_mode, strict=True):
+            for name in ("train", "val", "test"):
+                np.testing.assert_array_equal(getattr(old, name).mask, getattr(new, name).mask)
+        assert {fold.metadata["split_mode"] for fold in via_alias} == {"LSO"}
+
+    def test_the_alias_is_not_a_separate_mode(self) -> None:
+        assert "LCO" not in splitter_registry
+        assert splitter_registry.metadata("LSO")["aliases"] == frozenset({"LCO"})
+
+    def test_re_registering_the_alias_as_a_mode_raises(self) -> None:
+        with pytest.raises(ValueError, match="conflicts with an alias"):
+            register_splitter("LCO", "clash", validation="LSO")(lambda *args, **kwargs: [])
+
+
+STUDIES = ("GDSC2", "CTRPv2", "PRISM")
+
+
+def _study_dataset(studies: tuple[str, ...] = STUDIES, **kwargs) -> FakeResponseDataset:
+    """A 12x8 fake with one study per sample, cycling through *studies*, served as the ``study`` column."""
+    return FakeResponseDataset(
+        shape=(12, 8), columns={"study": [studies[i % len(studies)] for i in range(12)]}, **kwargs
+    )
+
+
+@pytest.fixture
+def study_dataset() -> FakeResponseDataset:
+    return _study_dataset()
+
+
+@pytest.fixture
+def splitter():
+    return get_splitter("LStO")
+
+
+class TestLeaveStudyOut:
+    def test_is_registered_with_its_validation(self) -> None:
+        metadata = splitter_registry.metadata("LStO")
+
+        assert metadata["validation"] == "LStO"
+        assert metadata["description"] == "Leave-Study-Out: test folds contain one unseen study"
+
+    def test_one_fold_per_study_ignoring_n_splits(self, splitter, study_dataset: FakeResponseDataset) -> None:
+        folds = splitter(study_dataset, n_splits=7, quality=QUALITY)
+
+        assert len(folds) == len(STUDIES)
+        assert {fold.metadata["n_splits"] for fold in folds} == {3}
+        assert [fold.metadata["fold_index"] for fold in folds] == [0, 1, 2]
+        assert {fold.metadata["split_mode"] for fold in folds} == {"LStO"}
+        assert [fold.metadata["test_study"] for fold in folds] == sorted(STUDIES)
+
+    def test_the_test_set_is_every_observed_pair_of_the_study(
+        self, splitter, study_dataset: FakeResponseDataset
+    ) -> None:
+        studies = study_dataset.sample_column("study", study_dataset.sample_ids)
+        observed = ~np.isnan(study_dataset.response_matrix)
+
+        for fold, study in zip(splitter(study_dataset, quality=QUALITY), sorted(STUDIES), strict=True):
+            np.testing.assert_array_equal(fold.test.mask, observed & (studies == study)[:, None])
+
+    def test_the_masks_partition_the_observed_pairs_and_no_study_is_shared(
+        self, splitter, study_dataset: FakeResponseDataset
+    ) -> None:
+        studies = study_dataset.sample_column("study", study_dataset.sample_ids)
+        observed = ~np.isnan(study_dataset.response_matrix)
+        for fold in splitter(study_dataset, quality=QUALITY):
+            train, val, test = fold.train.mask, fold.val.mask, fold.test.mask
+            np.testing.assert_array_equal(train | val | test, observed)
+            assert not (train & test).any()
+            assert not (val & test).any()
+            assert not (train & val).any()
+            test_studies = set(studies[test.any(axis=1)].tolist())
+            assert len(test_studies) == 1
+            assert test_studies & set(studies[(train | val).any(axis=1)].tolist()) == set()
+
+    @pytest.mark.parametrize("ratio", [0.0, 0.1, 0.3])
+    def test_validation_is_that_share_of_the_training_pairs(
+        self, splitter, study_dataset: FakeResponseDataset, ratio: float
+    ) -> None:
+        for fold in splitter(study_dataset, validation_ratio=ratio, quality=QUALITY):
+            n_rest = int(fold.train.mask.sum() + fold.val.mask.sum())
+            assert int(fold.val.mask.sum()) == int(n_rest * ratio)
+
+    def test_the_validation_pairs_span_the_training_studies(self, splitter, study_dataset: FakeResponseDataset) -> None:
+        studies = study_dataset.sample_column("study", study_dataset.sample_ids)
+        fold = splitter(study_dataset, validation_ratio=0.5, quality=QUALITY)[0]
+
+        assert len(set(studies[fold.val.mask.any(axis=1)].tolist())) == 2
+
+    def test_the_folds_are_reproducible_and_depend_on_the_seed(
+        self, splitter, study_dataset: FakeResponseDataset
+    ) -> None:
+        first = splitter(study_dataset, random_state=1, quality=QUALITY)
+        again = splitter(study_dataset, random_state=1, quality=QUALITY)
+        other = splitter(study_dataset, random_state=2, quality=QUALITY)
+
+        np.testing.assert_array_equal(first[0].val.mask, again[0].val.mask)
+        assert not np.array_equal(first[0].val.mask, other[0].val.mask)
+        np.testing.assert_array_equal(first[0].test.mask, other[0].test.mask)
+
+    def test_the_folds_pass_study_validation(self, splitter, study_dataset: FakeResponseDataset) -> None:
+        validate_folds(splitter(study_dataset, quality=QUALITY), "LStO", study_dataset)
+
+    def test_a_single_study_is_rejected(self, splitter) -> None:
+        with pytest.raises(ValueError, match="at least two studies, found 1"):
+            splitter(_study_dataset(studies=("GDSC2",)), quality=QUALITY)
+
+    def test_a_dataset_without_study_points_to_concat(self, splitter, mock_dataset: FakeResponseDataset) -> None:
+        with pytest.raises(KeyError, match=r"drevalpy\.data\.concat"):
+            splitter(mock_dataset, quality=QUALITY)
+
+    def test_low_quality_pairs_appear_in_no_fold(self, splitter) -> None:
+        failing = first_measured_pairs(_study_dataset(), 3)
+
+        covered = covered_pairs(splitter(_study_dataset(failing_pairs=failing), quality=QUALITY))
+        uncovered = covered_pairs(splitter(_study_dataset(failing_pairs=failing), quality=CurveQuality.off()))
+
+        for row, column in failing:
+            assert not covered[row, column]
+            assert uncovered[row, column]
+
+
+#: sha256 prefixes of the train, validation and test masks of every fold, recorded with the per-mode
+#: splitters before the grouping moved to ``pair_groups``: on data that is not concatenated, the folds stay the same.
+RECORDED_FOLDS = {
+    "synthetic-LSO": ["5e53bd0f98398b2d", "dd095171bfaffef3", "286b4bdaf616528c"],
+    "synthetic-LDO": ["cb9946b821d6116d", "5deb32ab0cba0413", "3f95a610acbc5e93"],
+    "synthetic-LTO": ["a5c07f5705df2d68", "7fe50eb397a98e2e", "6715b0954385e77c"],
+    "synthetic-LPO": ["41b532197cc6909b", "fe55abcec9945c35", "c656048f6cb72acb"],
+    "mock-LSO": ["07f4f1f96e127101", "541a2c6262f3f349", "34046aef609cba28"],
+    "mock-LDO": ["286376c250c5ecd2", "915c07b94a08d43a", "b0b9dd14f991017d"],
+    "mock-LTO": ["99de79022c1aa1fd", "9a5899b6189e1009", "bc0790f42d0c9c5a"],
+    "mock-LPO": ["80ecb985377af4fa", "e01a49e62049734f", "81e513b9f2e7c2db"],
+    "mock-LStO": ["8cf661e1e736226d", "e996bb9e983bc2d9", "7bbbef9ed52278f3"],
+}
+
+
+def _digest(fold) -> str:
+    sha = hashlib.sha256()
+    for name in ("train", "val", "test"):
+        sha.update(np.ascontiguousarray(getattr(fold, name).mask).tobytes())
+    return sha.hexdigest()[:16]
+
+
+@pytest.mark.parametrize(
+    "key",
+    [pytest.param(key, marks=pytest.mark.slow) if key.startswith("synthetic") else key for key in RECORDED_FOLDS],
+)
+def test_folds_of_a_dataset_that_is_not_concatenated_are_the_recorded_ones(key: str) -> None:
+    source, mode = key.split("-")
+    datasets = {
+        "synthetic": lambda: drevalpy.synthetic(low_quality_fraction=0.1),
+        "mock": _study_dataset if mode == "LStO" else FakeResponseDataset,
+    }
+    folds = get_splitter(mode)(datasets[source](), n_splits=3, validation_ratio=0.3, random_state=7, quality=QUALITY)
+
+    assert [_digest(fold) for fold in folds] == RECORDED_FOLDS[key]

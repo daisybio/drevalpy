@@ -1,0 +1,73 @@
+"""``drevalpy run`` command."""
+
+from __future__ import annotations
+
+from typing import Annotated
+
+import typer
+from upath import UPath
+
+from drevalpy.evaluation import Metric
+from drevalpy.models.response_transformation import ResponseTransformation, get_response_transformation
+
+from ._options import (
+    Hpo,
+    HpoMetric,
+    HpoNumTrials,
+    HpoRandomState,
+    Measure,
+    NJobs,
+    ResponseTransformationOption,
+    WandbProject,
+)
+
+
+def run_cmd(
+    model: Annotated[str, typer.Argument(help="Model name (e.g. ElasticNet, RandomForest).")],
+    dataset: Annotated[str, typer.Argument(help="Registered dataset name or path to a .h5mu file.")],
+    fold: Annotated[str, typer.Argument(help="Path to a fold .npz file, as written by `drevalpy data split`.")],
+    output: Annotated[str, typer.Argument(help="Output path for the result .npz file.")],
+    hpo: Hpo = True,
+    hpo_metric: HpoMetric = Metric.RMSE,
+    hpo_num_trials: HpoNumTrials = 16,
+    seed: Annotated[int, typer.Option("--seed", help="Root seed for HPO and model fits.")] = 42,
+    hpo_random_state: HpoRandomState = None,
+    response_transformation: ResponseTransformationOption = ResponseTransformation.NONE,
+    split_mode: Annotated[str, typer.Option("--split-mode", help="Split mode fallback (e.g. LPO, LSO, LDO).")] = "LPO",
+    measure: Measure = None,
+    wandb_project: WandbProject = None,
+    n_jobs: NJobs = 1,
+) -> None:
+    """Train a model on one fold, predict on test set, and save results."""
+    from drevalpy._run import run as run_fold
+    from drevalpy.data import load
+    from drevalpy.models import ModelSpec
+    from drevalpy.registry.splitter import canonical
+    from drevalpy.types import Fold
+
+    model_spec = ModelSpec.from_name(model)
+    transformer = get_response_transformation(response_transformation.value)
+    ds = load(dataset)
+    loaded = Fold.load(fold)
+    loaded.metadata["split_mode"] = canonical(loaded.metadata.get("split_mode", split_mode))
+
+    out = UPath(output)
+    out.parent.mkdir(parents=True, exist_ok=True)
+
+    result = run_fold(
+        model_spec,
+        ds,
+        loaded,
+        hyperparameter_tuning=hpo,
+        response_transformation=transformer,
+        hpo_metric=hpo_metric,
+        hpo_num_trials=hpo_num_trials,
+        hpo_random_state=hpo_random_state,
+        seed=seed,
+        measure=measure,
+        wandb_project=wandb_project,
+        n_jobs=n_jobs,
+    )
+
+    result.save(str(out))
+    typer.echo(f"Result: {result.model_name} on {result.dataset_name} (fold {result.fold_index}) -> {out}")

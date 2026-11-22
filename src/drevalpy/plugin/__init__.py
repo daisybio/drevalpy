@@ -1,0 +1,99 @@
+"""The supported import surface for third-party drevalpy plugins.
+
+Everything a plugin needs to write a featurizer, predictor, splitter or plot is
+re-exported here, so a plugin imports from exactly one module::
+
+    from drevalpy.plugin import Featurizer, FeaturizerOutput, register_featurizer
+
+Nothing is defined in this module. Every name is an alias for a symbol that lives in
+the package's internal layout, which stays free to move: only the aliases below are a
+compatibility promise. The deep paths still import, but a refactor may rename them.
+
+The four ``register_*`` aliases point at the ``register`` decorators, which are all
+spelled ``register`` in their own modules; naming them apart here keeps several
+registrations in one module readable. :func:`view_matrix` and :func:`dense_result`
+live in the underscore-private ``featurizers/_dense.py``; the alias here is the promise.
+The conformance checks for a plugin's own test suite are in :mod:`drevalpy.testing`.
+"""
+
+from drevalpy.components.featurizers._dense import (
+    FeatureMismatchError,
+    PrecomputableFeaturizer,
+    dense_result,
+    view_matrix,
+)
+from drevalpy.components.featurizers.featurizer import Featurizer, all_nan_rows_mask
+from drevalpy.components.predictors.abstract.base import Predictor
+from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
+from drevalpy.components.predictors.abstract.matrix import MatrixPredictor
+from drevalpy.components.predictors.abstract.single_drug import SingleDrugPredictor
+from drevalpy.components.predictors.inputs import Inputs
+from drevalpy.data.quality import CurveQuality
+from drevalpy.data.splitters import observed_mask
+from drevalpy.errors import DrEvalError, InvalidInputError, UnknownNameError
+from drevalpy.registry import load_extensions
+from drevalpy.registry._component import LiteratureReference
+from drevalpy.registry.featurizer import register as register_featurizer
+from drevalpy.registry.predictor import register as register_predictor
+from drevalpy.registry.splitter import Splitter, SplitValidationError, Validation
+from drevalpy.registry.splitter import register as register_splitter
+from drevalpy.registry.visualization import register as register_visualization
+from drevalpy.types.data.dataset import Dataset
+from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
+from drevalpy.types.data.feature_format import BlockSpec, FeatureFormat
+from drevalpy.types.data.feature_source import FeatureSource, Side
+from drevalpy.types.data.fold import Fold
+from drevalpy.types.data.predictor_input import PredictorInput
+from drevalpy.types.data.selection_mask import SelectionMask
+from drevalpy.types.enums import Accelerator, ModelScope, PredictionMode
+from drevalpy.types.results import ExperimentResult, ModelResult
+from drevalpy.visualization.base import Plot, Section, save_png, show
+from drevalpy.visualization.requirements import PlotRequirement
+
+__all__ = [
+    "Accelerator",
+    "BlockSpec",
+    "CurveQuality",
+    "Dataset",
+    "DrEvalError",
+    "ExperimentResult",
+    "FeatureBlock",
+    "FeatureFormat",
+    "FeatureFreePredictor",
+    "FeatureMismatchError",
+    "FeatureSource",
+    "Featurizer",
+    "FeaturizerOutput",
+    "Fold",
+    "Inputs",
+    "InvalidInputError",
+    "LiteratureReference",
+    "MatrixPredictor",
+    "ModelResult",
+    "ModelScope",
+    "Plot",
+    "PlotRequirement",
+    "PrecomputableFeaturizer",
+    "PredictionMode",
+    "Predictor",
+    "PredictorInput",
+    "Section",
+    "SelectionMask",
+    "Side",
+    "SingleDrugPredictor",
+    "SplitValidationError",
+    "Splitter",
+    "UnknownNameError",
+    "Validation",
+    "all_nan_rows_mask",
+    "dense_result",
+    "load_extensions",
+    "observed_mask",
+    "register_featurizer",
+    "register_predictor",
+    "register_splitter",
+    "register_visualization",
+    "save_png",
+    "show",
+    "view_matrix",
+]

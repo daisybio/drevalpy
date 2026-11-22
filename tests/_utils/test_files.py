@@ -1,0 +1,63 @@
+"""Portable file names and trusted torch payload io."""
+
+from __future__ import annotations
+
+import io
+import pickle
+from pathlib import Path
+
+import pytest
+import torch
+
+from drevalpy._utils.filenames import safe_filename, unique_safe_filenames
+from drevalpy._utils.torch_io import (
+    load_state_dict,
+    save_state_dict,
+    save_torch_payload,
+)
+
+
+@pytest.mark.parametrize(
+    ("name", "expected"),
+    [
+        ("ElasticNet", "ElasticNet"),
+        ("pca[gene_expression]:fingerprints:ridge", "pca[gene_expression]_fingerprints_ridge"),
+        ('a<b>c"d/e\\f|g?h*i', "a_b_c_d_e_f_g_h_i"),
+        ("tab\there", "tab_here"),
+        ("trailing. ", "trailing"),
+        ("...", "_"),
+    ],
+)
+def test_safe_filename(name: str, expected: str) -> None:
+    assert safe_filename(name) == expected
+
+
+def test_unique_safe_filenames_suffixes_collisions_case_insensitively() -> None:
+    assert unique_safe_filenames(["a:b", "a_b", "A_B", "c"]) == {"a:b": "a_b", "a_b": "a_b-2", "A_B": "A_B-3", "c": "c"}
+
+
+def test_bytes_round_trips() -> None:
+    state = {"layer.weight": torch.tensor([1.0, 2.0])}
+    assert torch.equal(load_state_dict(save_state_dict(state))["layer.weight"], state["layer.weight"])
+
+
+def test_non_mapping_payload_is_rejected() -> None:
+    buffer = io.BytesIO()
+    save_torch_payload(torch.tensor([1.0, 2.0]), buffer)
+    with pytest.raises(TypeError, match="state dict mapping"):
+        load_state_dict(buffer.getvalue())
+
+
+@pytest.mark.parametrize("as_str", [False, True])
+def test_load_state_dict_from_path_and_map_location(tmp_path: Path, as_str: bool) -> None:
+    path = tmp_path / "model.pt"
+    state = {"layer.bias": torch.tensor([0.5])}
+    save_torch_payload(state, path)
+    loaded = load_state_dict(str(path) if as_str else path, map_location="cpu")
+    assert torch.equal(loaded["layer.bias"], state["layer.bias"])
+    assert loaded["layer.bias"].device.type == "cpu"
+
+
+def test_load_state_dict_rejects_invalid_bytes() -> None:
+    with pytest.raises((pickle.UnpicklingError, RuntimeError)):
+        load_state_dict(b"not-a-torch-checkpoint")

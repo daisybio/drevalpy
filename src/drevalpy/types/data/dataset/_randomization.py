@@ -1,0 +1,184 @@
+"""View randomization behind :meth:`Dataset.with_randomized_views`.
+
+A view is randomized where the dataset stores it, so a featurizer that reads the view gets the
+randomized values. Two cases would let a featurizer bypass it, and neither is possible:
+
+- A :class:`~drevalpy.components.featurizers._dense.PrecomputableFeaturizer` whose settings differ
+  from the ones its view was precomputed with computes the view from the SMILES instead. A randomized
+  view therefore drops its record under :data:`~drevalpy.types.data.views.PRECOMPUTED_VIEWS_KEY`: the
+  randomized matrix is no output of any settings, and every featurizer reads it as it is, as it reads a
+  view the dataset ships.
+- A featurizer that only ever computes from the SMILES (``bpePharmaformer``, ``smilesTokens``) declares
+  no input view, so no randomization test names a view it would ignore.
+
+The drug graphs are the one view a featurizer completes from the SMILES: a drug without a stored graph
+gets one computed, unrandomized. Randomizing the SMILES, or randomizing the output of the featurizer
+instead of the dataset's views, is not done.
+"""
+
+from __future__ import annotations
+
+import copy
+import json
+from typing import TYPE_CHECKING, Any
+
+import numpy as np
+
+from drevalpy.log import get_logger
+from drevalpy.types.data.views import PRECOMPUTED_VIEWS_KEY, find_view
+from drevalpy.types.enums import RandomizationType
+
+from ._anndata import precomputed_views, to_dense
+
+if TYPE_CHECKING:
+    import mudata as md
+
+logger = get_logger(__name__)
+
+
+def _randomize_matrix(data: np.ndarray, rng: np.random.Generator, randomization_type: RandomizationType) -> np.ndarray:
+    """Apply randomization to a 2-D feature matrix."""
+    if randomization_type == RandomizationType.PERMUTATION:
+        return rng.permutation(data, axis=0)
+    spread = np.maximum(data.std(axis=1, keepdims=True), 1e-8)
+    return rng.normal(data.mean(axis=1, keepdims=True), spread, size=data.shape).astype(np.float32)
+
+
+def _degree_preserving_rewire(edge_index: np.ndarray, rng: np.random.Generator) -> np.ndarray:
+    """Rewire the bonds of a graph while preserving each node's degree.
+
+    Drug graphs store every bond in both directions, so the swaps run on the undirected graph
+    and both directions are emitted again.
+
+    :param edge_index: (2, E) array of edge endpoints, each bond in both directions.
+    :param rng: Numpy random generator.
+    :returns: Rewired (2, E) edge_index, or *edge_index* itself when the graph has fewer than two bonds or no
+        swap is possible.
+    """
+    import networkx as nx
+
+    bonds = np.unique(np.sort(edge_index.T, axis=1), axis=0)
+    if len(bonds) < 2:
+        return edge_index
+    graph = nx.Graph(bonds.tolist())
+    try:
+        nx.double_edge_swap(graph, nswap=10 * len(bonds), max_tries=1000 * len(bonds), seed=rng)
+    except (nx.NetworkXError, nx.NetworkXAlgorithmError):
+        return edge_index
+    swapped = np.array(graph.edges, dtype=edge_index.dtype)
+    return np.column_stack([swapped, swapped[:, ::-1]]).reshape(-1, 2).T
+
+
+def _randomize_graph(graph: dict[str, np.ndarray], rng: np.random.Generator) -> dict[str, np.ndarray]:
+    """Apply invariant randomization to a single drug graph.
+
+    Preserves degree distribution (edge_index), and replaces node/edge
+    features with Gaussian draws matching per-row mean and std.
+    """
+    result: dict[str, np.ndarray] = {}
+    for key, val in graph.items():
+        arr = np.asarray(val)
+        if key == "edge_index":
+            result[key] = _degree_preserving_rewire(arr, rng)
+        elif arr.ndim == 2:
+            result[key] = _randomize_matrix(arr, rng, RandomizationType.INVARIANT)
+        else:
+            result[key] = arr.copy()
+    return result
+
+
+def _randomize_uns_view(
+    data: Any,
+    view: str,
+    new_uns: dict[str, Any],
+    rng: np.random.Generator,
+    randomization_type: RandomizationType,
+) -> None:
+    """Randomize a view stored in uns (dict of dicts or plain dict)."""
+    if not isinstance(data, dict):
+        logger.warning("Cannot randomize uns key '%s' (not a dict). Skipping.", view)
+        return
+
+    is_graph_collection = any(isinstance(val, dict) and "edge_index" in val for val in data.values())
+    if randomization_type == RandomizationType.INVARIANT and is_graph_collection:
+        new_uns[view] = {key: _randomize_graph(val, rng) if isinstance(val, dict) else val for key, val in data.items()}
+    else:
+        keys = list(data.keys())
+        shuffled_keys = rng.permutation(keys).tolist()
+        new_uns[view] = dict(zip(shuffled_keys, data.values(), strict=True))
+
+
+def _randomize_single_view(
+    view: str,
+    new_mods: dict[str, md.AnnData],
+    new_uns: dict[str, Any],
+    rng: np.random.Generator,
+    randomization_type: RandomizationType,
+) -> None:
+    """Randomize a single view in-place within new_mods/new_uns.
+
+    *view* is a public name, so a sample view is looked up through its stored
+    modality name and the drug graphs through their ``uns`` key; varm and obsm keys stay verbatim.
+    """
+    stored = find_view(view, new_mods)
+    if stored is not None and stored != "response":
+        adata = new_mods[stored]
+        adata.X = _randomize_matrix(np.asarray(to_dense(adata.X), dtype=np.float32), rng, randomization_type)
+        return
+    response = new_mods["response"]
+    for axis_data in (response.varm, response.obsm):
+        if view in axis_data:
+            axis_data[view] = _randomize_matrix(np.asarray(axis_data[view], dtype=np.float32), rng, randomization_type)
+            return
+    stored = find_view(view, new_uns)
+    if stored is None:
+        raise KeyError(f"View '{view}' not found in any storage location of the dataset.")
+    _randomize_uns_view(new_uns[stored], stored, new_uns, rng, randomization_type)
+
+
+def _forget_recorded_settings(mdata: md.MuData, views: list[str]) -> None:
+    """Drop the precomputed-view settings recorded for *views*, so featurizers read the randomized views as they are.
+
+    :param mdata: MuData whose ``uns`` record is edited in place.
+    :param views: Randomized view names.
+    """
+    record = precomputed_views(mdata)
+    if not any(view in settings for settings in record.values() for view in views):
+        return
+    mdata.uns[PRECOMPUTED_VIEWS_KEY] = json.dumps(
+        {
+            side: {view: value for view, value in settings.items() if view not in views}
+            for side, settings in record.items()
+        }
+    )
+
+
+def randomized_mdata(
+    mdata: md.MuData, views: list[str], randomization_type: RandomizationType, random_state: int | None
+) -> md.MuData:
+    """Return a copy of *mdata* with *views* randomized; see :meth:`Dataset.with_randomized_views`.
+
+    :param mdata: MuData to copy.
+    :param views: View names to randomize.
+    :param randomization_type: How to randomize.
+    :param random_state: Seed for reproducibility.
+    :returns: The randomized copy, with the ``obs`` and ``uns`` of *mdata*.
+    """
+    import mudata as md
+
+    rng = np.random.default_rng(random_state)
+    new_mods: dict[str, md.AnnData] = {name: adata.copy() for name, adata in mdata.mod.items()}
+    new_uns: dict[str, Any] = {
+        key: copy.deepcopy(val) if isinstance(val, dict) else val for key, val in mdata.uns.items()
+    }
+
+    for view in views:
+        _randomize_single_view(view, new_mods, new_uns, rng, randomization_type)
+
+    with md.set_options(pull_on_update=False):
+        new_mdata = md.MuData(new_mods)
+    new_mdata.obs = mdata.obs.copy()
+    for key, val in new_uns.items():
+        new_mdata.uns[key] = val
+    _forget_recorded_settings(new_mdata, views)
+    return new_mdata
