@@ -45,10 +45,13 @@ Datasets are MuData files
 Each dataset is a single MuData file (``.h5mu``) holding the response matrix, sample and drug
 features, and auxiliary metadata in one archive. Because the views live in one file, featurizers
 can ask for a view by name, and a split mode can find the tissue labels it needs in the same
-place. The views a dataset provides are not the same for every dataset: methylation and mutations,
-for example, are in the CTRP and GDSC screens but not in BeatAML2 or PDX_Bruna. A model whose
-featurizer needs a missing view cannot be run on that dataset. See :doc:`data_flow` for the
-layout of the file and how data flows from it to a predictor.
+place. The views a dataset provides are not the same for every dataset: the published CTRPv2 and
+GDSC2 files hold ``gene_expression``, ``copy_number_variation_gistic``, ``mutations`` and
+``proteomics``, and no ``methylation``. A model whose featurizer needs a missing view cannot be
+run on that dataset; the run stops with a ``KeyError`` that lists the views the file has.
+``list(drevalpy.load("CTRPv2").mdata.mod)`` shows the views of any dataset, ``response`` being the
+response table. See :doc:`data_flow` for the layout of the file and how data flows from it to a
+predictor.
 
 How a response is defined
 -------------------------
