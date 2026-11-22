@@ -21,7 +21,10 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # The dev tools are prebuilt wheels, which a pruned cache would not keep anyway.
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          enable-cache: false
 
       # Static checks need only the dev tools, not the project and its torch.
       - name: Ruff check
@@ -42,7 +45,13 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # Each job caches under its own suffix: jobs that share a key race to save it, and the
+      # first, smallest save wins. Pruning keeps only the wheels uv built (curve-curator from
+      # git); restoring the multi-GB set of prebuilt wheels was slower than downloading them.
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          cache-suffix: typecheck
+          prune-cache: true
 
       # CPU torch and no NCCL; see the tests job.
       - name: Install dependencies
@@ -68,6 +77,8 @@ jobs:
 
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
+          cache-suffix: tests
+          prune-cache: true
           python-version: ${{ matrix.python-version }}
 
       # The cpu extra takes torch from the PyTorch CPU index instead of the CUDA build
@@ -101,6 +112,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          cache-suffix: docs
+          prune-cache: true
 
       # CPU torch and no NCCL; see the tests job.
       - name: Install dependencies

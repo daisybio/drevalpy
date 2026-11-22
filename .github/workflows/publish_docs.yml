@@ -17,6 +17,9 @@ jobs:
         name: Check out source-code repository
 
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          cache-suffix: docs
+          prune-cache: true
 
       # CPU torch and no NCCL, as in run_tests.yml.
       - name: Install dependencies
