@@ -3,9 +3,10 @@ name: Run drevalpy Tests
 on:
   push:
     # A pull request can restore only the caches of its own ref, its base branch and
-    # the default branch. Runs on development save the caches every PR into it starts from.
+    # the default branch. Runs on these bases save the caches every PR into them starts from.
     branches:
       - development
+      - v2
       - "release/*"
   pull_request:
     branches:
