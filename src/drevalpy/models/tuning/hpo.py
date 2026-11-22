@@ -74,8 +74,8 @@ def hpam_tune(
         return _defaults(spec), []
 
     require_tracking(wandb_project)
-    metric, scopes, fold_index = execution.hpo_metric, execution.scopes, execution.identity.fold_index
-    ground_truth = ResponseTable.from_dataset(dataset, scopes.validation).response
+    metric, fold, fold_index = execution.hpo_metric, execution.fold, execution.identity.fold_index
+    ground_truth = ResponseTable.from_dataset(dataset, fold.val).response
     trials: list[TrialResult] = []
     failures: list[Exception] = []
 
@@ -91,8 +91,8 @@ def hpam_tune(
                 config={**(wandb_base_config or {}), **drawn},
                 tags=[spec.name, "trial"],
             ):
-                model.train(dataset, scopes.training, early_stopping_scope=scopes.stopping, n_jobs=n_jobs)
-                predictions = model.predict(dataset, scopes.validation)
+                model.train(dataset, fold.train, early_stopping_scope=fold.stopping, n_jobs=n_jobs)
+                predictions = model.predict(dataset, fold.val)
                 metrics = evaluate(predictions, ground_truth)
                 log_summary(
                     {"hpo_metric": metrics.get(metric, float("nan")), **{f"val_{k}": v for k, v in metrics.items()}}

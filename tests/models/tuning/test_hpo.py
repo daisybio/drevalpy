@@ -12,12 +12,12 @@ import pytest
 
 from drevalpy.errors import DrEvalError
 from drevalpy.evaluation import Metric
-from drevalpy.experiment._execution import ExecutionSpec, FitScopes
+from drevalpy.experiment._execution import ExecutionSpec
 from drevalpy.models import DRPModel, ModelSpec
 from drevalpy.models.config import from_recipe
 from drevalpy.models.tuning import hpo
 from drevalpy.models.tuning.hpo import HPOTrialsFailedError, hpam_tune
-from drevalpy.types import SelectionMask
+from drevalpy.types import Fold, SelectionMask
 from drevalpy.types.results._identity import RunIdentity
 from tests._fake_wandb import FakeWandb, install_fake_wandb
 from tests._import_shims import block_imports
@@ -32,7 +32,7 @@ def _execution(
     scope = SelectionMask.from_pairs(np.array([[0, 0], [0, 1], [1, 0], [1, 1]]), shape=(2, 2))
     return ExecutionSpec(
         model=spec,
-        scopes=FitScopes(scope, None, scope, scope, scope),
+        fold=Fold(scope, scope, scope),
         identity=RunIdentity(spec.name, "synthetic", "LPO", fold_index),
         hyperparameter_tuning=tuning,
         hpo_metric=metric,

@@ -32,28 +32,15 @@ def _scope_provenance(scope: SelectionMask | None) -> dict[str, Any] | None:
     }
 
 
-@dataclass(frozen=True)
-class FitScopes:
-    """Selections for tuning and final fitting, in their original pair order."""
-
-    training: SelectionMask
-    stopping: SelectionMask | None
-    validation: SelectionMask
-    final_training: SelectionMask
-    test: SelectionMask
-
-    def provenance(self) -> dict[str, Any]:
-        """Return serializable scope checksums, counts, and pair-order seeds."""
-        return {
-            name: _scope_provenance(getattr(self, name))
-            for name in (
-                "training",
-                "stopping",
-                "validation",
-                "final_training",
-                "test",
-            )
-        }
+def _fold_provenance(fold: Fold) -> dict[str, Any]:
+    """Return serializable scope checksums, counts, and pair-order seeds for *fold*."""
+    return {
+        "training": _scope_provenance(fold.train),
+        "stopping": _scope_provenance(fold.stopping),
+        "validation": _scope_provenance(fold.val),
+        "final_training": _scope_provenance(fold.train_val),
+        "test": _scope_provenance(fold.test),
+    }
 
 
 @dataclass(frozen=True)
@@ -61,7 +48,7 @@ class ExecutionSpec:
     """All fold decisions consumed by one executor; no fitted state or dataset."""
 
     model: ModelSpec
-    scopes: FitScopes
+    fold: Fold
     identity: RunIdentity
     hyperparameter_tuning: bool
     hpo_metric: str
@@ -150,7 +137,13 @@ def build_execution(
     stopping, validation_scope = None, fold.val
     if model.supports_early_stopping:
         stopping, validation_scope = early_stopping_split(dataset, fold, validation)
-    scopes = FitScopes(fold.train, stopping, validation_scope, fold.train | validation_scope, fold.test)
+    execution_fold = Fold(
+        train=fold.train,
+        test=fold.test,
+        val=validation_scope,
+        metadata=fold.metadata,
+        stopping=stopping,
+    )
     fold_measure = fold.metadata.get("measure", dataset.measure)
     if fold_measure != dataset.measure:
         msg = (
@@ -166,7 +159,7 @@ def build_execution(
         metadata["randomization_provenance"] = copy.deepcopy(dataset.randomization_provenance)
     metadata["execution"] = {
         "config": model.config.model_dump(mode="json"),
-        "scopes": scopes.provenance(),
+        "scopes": _fold_provenance(execution_fold),
         "hpo": {
             "enabled": hyperparameter_tuning,
             "metric": hpo_metric,
@@ -178,7 +171,7 @@ def build_execution(
     identity = RunIdentity.from_fold(model.name, dataset.name, mode, metadata, dataset.randomization)
     return ExecutionSpec(
         model,
-        scopes,
+        execution_fold,
         identity,
         hyperparameter_tuning,
         hpo_metric,

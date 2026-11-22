@@ -60,7 +60,7 @@ def fit(
     :returns: The fitted model and the run result: the chosen hyperparameters, the trials and the test-scope
         predictions and metrics, which are empty when the execution has no test scope (``drevalpy.train``).
     """
-    identity, scopes = execution.identity, execution.scopes
+    identity, fold = execution.identity, execution.fold
     base_config = {
         "model_name": identity.model_name,
         "dataset": dataset.name,
@@ -88,12 +88,12 @@ def fit(
         tags=[identity.model_name, identity.split_mode, dataset.name, "final"],
     ):
         seed_everything(rng_seed)
-        model.train(dataset, scopes.final_training, early_stopping_scope=scopes.stopping, n_jobs=n_jobs)
-        test = ResponseTable.from_dataset(dataset, scopes.test)
+        model.train(dataset, fold.train_val, early_stopping_scope=fold.stopping, n_jobs=n_jobs)
+        test = ResponseTable.from_dataset(dataset, fold.test)
         if len(test.response) == 0:  # ``drevalpy.train`` has no test set
             predictions, metrics = np.empty(0), {}
         else:
-            predictions = model.predict(dataset, scopes.test)
+            predictions = model.predict(dataset, fold.test)
             _check_non_finite_predictions(identity.model_name, predictions, test.response)
             metrics = evaluate(predictions, test.response)
             log_summary({f"test_{key}": value for key, value in metrics.items()})

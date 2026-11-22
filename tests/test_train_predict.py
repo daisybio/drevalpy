@@ -141,10 +141,10 @@ class TestTuning:
         assert execution.hyperparameter_tuning
         assert (execution.hpo_metric, execution.hpo_num_trials, execution.hpo_random_state) == ("Pearson", 3, 9)
         assert tuner["n_jobs"] == 3
-        scopes = execution.scopes
-        assert not (scopes.training.mask & scopes.validation.mask).any()
-        assert scopes.validation.mask.any()
-        assert recorded_fits[0]["scope"] == scopes.training | scopes.validation
+        fold = execution.fold
+        assert not (fold.train.mask & fold.val.mask).any()
+        assert fold.val.mask.any()
+        assert recorded_fits[0]["scope"] == fold.train | fold.val
 
     @pytest.mark.slow
     def test_tuning_a_real_model_returns_a_fitted_model(self, synthetic_dataset) -> None:

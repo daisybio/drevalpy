@@ -303,9 +303,9 @@ class TestHyperparameterTuning:
         execution = seen["execution"]
         assert execution.model is stub_model.recipe
         assert seen["dataset"] is synthetic_dataset
-        assert execution.scopes.stopping is None
-        np.testing.assert_array_equal(execution.scopes.training.mask, folds[0].train.mask)
-        np.testing.assert_array_equal(execution.scopes.validation.mask, folds[0].val.mask)
+        assert execution.fold.stopping is None
+        np.testing.assert_array_equal(execution.fold.train.mask, folds[0].train.mask)
+        np.testing.assert_array_equal(execution.fold.val.mask, folds[0].val.mask)
         assert (execution.hyperparameter_tuning, execution.hpo_num_trials, execution.hpo_metric) == (True, 3, "RMSE")
         assert execution.hpo_random_state == 11
 
@@ -364,8 +364,8 @@ class TestHyperparameterTuning:
         single(stub_model.recipe, synthetic_dataset, fold, hyperparameter_tuning=True)
 
         es_expected, val_expected = early_stopping_split(synthetic_dataset, fold, "LSO")
-        np.testing.assert_array_equal(tuner["execution"].scopes.stopping.mask, es_expected.mask)
-        np.testing.assert_array_equal(tuner["execution"].scopes.validation.mask, val_expected.mask)
+        np.testing.assert_array_equal(tuner["execution"].fold.stopping.mask, es_expected.mask)
+        np.testing.assert_array_equal(tuner["execution"].fold.val.mask, val_expected.mask)
 
 
 @pytest.mark.parametrize("tuning", [False, True])
@@ -397,9 +397,9 @@ def test_final_fit_excludes_stopping_holdout_and_transforms_training_only(
     expected = synthetic_dataset.response_matrix[pairs[:, 0], pairs[:, 1]]
     np.testing.assert_allclose(call["response_transformation"].mean_, [np.nanmean(expected.astype(float))])
     if tuning:
-        assert seen[0]["execution"].scopes.stopping == es
-        assert seen[0]["execution"].scopes.validation == val
-        assert seen[0]["execution"].scopes.training == fold.train
+        assert seen[0]["execution"].fold.stopping == es
+        assert seen[0]["execution"].fold.val == val
+        assert seen[0]["execution"].fold.train == fold.train
 
 
 @pytest.mark.parametrize("defect", ["shape", "pair_overlap", "entity_overlap"])

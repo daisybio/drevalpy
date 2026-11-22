@@ -194,3 +194,23 @@ class TestFold:
         assert len(a.fold_id) == 12
         assert a.fold_id == b.fold_id
         assert a.fold_id != c.fold_id
+
+    def test_stopping_round_trips_and_preserves_fold_id(self, tmp_path):
+        shape = (3, 2)
+        train = _pairs_mask(shape, (0, 0))
+        test = _pairs_mask(shape, (1, 0))
+        val_full = _pairs_mask(shape, (2, 0), (2, 1))
+        val_rem = _pairs_mask(shape, (2, 0))
+        stopping = _pairs_mask(shape, (2, 1)).shuffled(7)
+
+        original = Fold(train=train, test=test, val=val_full)
+        with_stopping = Fold(train=train, test=test, val=val_rem, stopping=stopping)
+
+        assert with_stopping.fold_id == original.fold_id
+        assert with_stopping.train_val == (train | val_rem)
+        assert "Stopping: 1 pairs" in repr(with_stopping)
+
+        with_stopping.save(tmp_path / "fold.npz")
+        loaded = Fold.load(tmp_path / "fold.npz")
+        assert loaded.stopping == stopping
+        assert loaded.stopping.pair_seed == 7

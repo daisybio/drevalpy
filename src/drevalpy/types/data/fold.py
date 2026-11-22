@@ -25,6 +25,7 @@ class Fold:
     test: SelectionMask
     val: SelectionMask
     metadata: dict[str, Any] = field(default_factory=dict, hash=False)
+    stopping: SelectionMask | None = None
 
     @property
     def shape(self) -> tuple[int, int]:
@@ -33,16 +34,17 @@ class Fold:
 
     @property
     def train_val(self) -> SelectionMask:
-        """Merged train | val mask for final retraining."""
+        """Merged train | val mask for final retraining (excludes stopping if set)."""
         return self.train | self.val
 
     @property
     def fold_id(self) -> str:
-        """Deterministic 12-character SHA-256 hex digest of the train, test, and val masks."""
+        """Deterministic 12-character SHA-256 hex digest of the train, test, and full val masks."""
+        full_val = self.val if self.stopping is None else (self.val | self.stopping)
         hasher = hashlib.sha256()
         hasher.update(self.train.mask.tobytes())
         hasher.update(self.test.mask.tobytes())
-        hasher.update(self.val.mask.tobytes())
+        hasher.update(full_val.mask.tobytes())
         return hasher.hexdigest()[:12]
 
     def save(self, path: str | Path) -> None:
@@ -50,14 +52,16 @@ class Fold:
 
         :param path: Output file path (should end in .npz).
         """
+        pair_seeds: dict[str, int | None] = {name: getattr(self, name).pair_seed for name in ("train", "test", "val")}
         arrays: dict[str, np.ndarray] = {
             "train": self.train.mask,
             "test": self.test.mask,
             "val": self.val.mask,
-            "pair_seeds": np.array(
-                json.dumps({name: getattr(self, name).pair_seed for name in ("train", "test", "val")})
-            ),
         }
+        if self.stopping is not None:
+            arrays["stopping"] = self.stopping.mask
+            pair_seeds["stopping"] = self.stopping.pair_seed
+        arrays["pair_seeds"] = np.array(json.dumps(pair_seeds))
         if self.metadata:
             arrays["_metadata"] = np.array(json.dumps(self.metadata))
         resolved = Path(path)
@@ -75,11 +79,13 @@ class Fold:
         data = np.load(Path(path), allow_pickle=False)
         metadata = json.loads(str(data["_metadata"])) if "_metadata" in data else {}
         seeds = json.loads(str(data["pair_seeds"])) if "pair_seeds" in data else {}
+        stopping = SelectionMask(data["stopping"], seeds.get("stopping")) if "stopping" in data else None
         return cls(
             train=SelectionMask(data["train"], seeds.get("train")),
             test=SelectionMask(data["test"], seeds.get("test")),
             val=SelectionMask(data["val"], seeds.get("val")),
             metadata=metadata,
+            stopping=stopping,
         )
 
     def __repr__(self) -> str:
@@ -91,6 +97,8 @@ class Fold:
             f"    Test: {len(self.test)} pairs",
             f"    Val: {len(self.val)} pairs",
         ]
+        if self.stopping is not None:
+            lines.append(f"    Stopping: {len(self.stopping)} pairs")
         if self.metadata:
             lines.append("    Metadata:")
             for k, v in self.metadata.items():

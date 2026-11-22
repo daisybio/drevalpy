@@ -28,9 +28,9 @@ drevalpy.run / drevalpy.single / drevalpy.train
   │  split → robustness() / randomization() variants (run)
   ▼
 Per model, fold, and dataset variant (_single._fit_fold)
-  │  build_execution → ExecutionSpec(FitScopes, RunIdentity, hpo, seed, metadata)
-  │    FitScopes: training (A), stopping (E), validation (V),
-  │               final_training (A ∪ V), test
+  │  build_execution → ExecutionSpec(Fold, RunIdentity, hpo, seed, metadata)
+  │    Fold: train (A), optional stopping (E), val (V), test
+  │          train_val (A ∪ V) is derived from train and val
   ▼
 experiment._fit.fit  ← shared by every entry point
   │  seed_everything(fit_seed(...))
@@ -57,26 +57,25 @@ visualization.report.create_report
 
 Before tuning or training starts, `build_execution` constructs an immutable
 {py:class}`~drevalpy.experiment._execution.ExecutionSpec` that captures every decision about the
-fold: its {py:class}`~drevalpy.experiment._execution.FitScopes`, its
+fold: its {py:class}`~drevalpy.types.data.fold.Fold`, its
 {py:class}`~drevalpy.types.results._identity.RunIdentity`, and its tuning settings.
 
 Freezing these choices up front ensures that hyperparameter tuning, the final fit, and any stress
 tests (robustness or randomization runs) all work on the exact same scopes and seed. Given the same
 `ExecutionSpec`, a fold always behaves the same way.
 
-{py:class}`~drevalpy.experiment._execution.FitScopes` holds five
-{py:class}`~drevalpy.types.data.selection_mask.SelectionMask` objects, each a boolean mask of shape
-`(n_samples, n_drugs)`:
+Each scope in the {py:class}`~drevalpy.types.data.fold.Fold` uses a
+{py:class}`~drevalpy.types.data.selection_mask.SelectionMask`, a boolean mask of shape
+`(n_samples, n_drugs)`.
 
-- **`training`** (**A** in {doc}`training_lifecycle`): the pairs each tuning trial trains on.
-- **`stopping`** (**E**): a seeded 25% slice cut from the validation set for early stopping, or
-  `None` when the model does not use early stopping.
-- **`validation`** (**V**): the remaining validation pairs after `stopping` is removed. Tuning
-  trials are scored here to pick the best hyperparameters.
-- **`final_training`** (**A ∪ V**): the union of `training` and `validation` (excluding
-  `stopping`). Once tuning finishes, `V` is folded into training so the final model uses more data,
-  while `E` stays held out for early stopping.
-- **`test`**: the held-out pairs the final model predicts and is scored on.
+- **`train` (A).** Each tuning trial fits on these pairs.
+- **`stopping` (E).** For models that support early stopping, `build_execution` cuts a
+  seeded holdout from the validation set. For other models, `stopping` is `None`.
+- **`val` (V).** Tuning scores each trial on the validation pairs left after any
+  early-stopping holdout.
+- **`train_val` (A ∪ V).** This property derives the final training scope from
+  `train` and `val`. The stopping pairs stay held out for the final fit.
+- **`test`.** The final model predicts and is scored on these held-out pairs.
 
 The early-stopping slice is created by
 {func}`~drevalpy.data.splitters._folds.early_stopping_split`, which cuts along the same leakage
@@ -111,12 +110,13 @@ execution = build_execution(
     seed=42,
 )
 
-print("FitScopes:")
-print(f"  training:       {len(execution.scopes.training)} pairs")
-print(f"  stopping:       {len(execution.scopes.stopping) if execution.scopes.stopping else 'None'}")
-print(f"  validation:     {len(execution.scopes.validation)} pairs")
-print(f"  final_training: {len(execution.scopes.final_training)} pairs")
-print(f"  test:           {len(execution.scopes.test)} pairs")
+stopping_scope = execution.fold.stopping
+print("Fold:")
+print(f"  train:     {len(execution.fold.train)} pairs")
+print(f"  stopping:  {len(stopping_scope) if stopping_scope is not None else 'None'}")
+print(f"  val:       {len(execution.fold.val)} pairs")
+print(f"  train_val: {len(execution.fold.train_val)} pairs")
+print(f"  test:      {len(execution.fold.test)} pairs")
 print(f"\nIdentity: {execution.identity.model_name}, fold {execution.identity.fold_index}, {execution.identity.split_mode}")
 
 # Show the early-stopping cut explicitly.
@@ -140,8 +140,8 @@ Inside `fit`, six steps run in order:
    {py:class}`~drevalpy.types.results.run.TrialResult` objects (or return the model's defaults if
    tuning is turned off).
 3. Build a {py:class}`~drevalpy.models.drp_model.DRPModel` with those hyperparameters and train it
-   on `scopes.final_training`, passing `scopes.stopping` for early stopping.
-4. Predict on `scopes.test` and check for non-finite values: if more than 20% of finite ground-truth
+   on `fold.train_val`, passing `fold.stopping` for early stopping.
+4. Predict on `fold.test` and check for non-finite values: if more than 20% of finite ground-truth
    pairs receive a `NaN` or infinite prediction, raise {py:class}`~drevalpy.errors.NaNPredictionError`.
 5. Score the predictions against ground truth with {func}`~drevalpy.evaluation.evaluate`.
 6. Return the fitted model alongside its {py:class}`~drevalpy.types.results.run.RunResult`.

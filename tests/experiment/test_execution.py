@@ -43,12 +43,13 @@ def _execution(monkeypatch, *, stopping=True, seed=17, split_mode="LPO"):
 
 def test_stopping_partition_is_reused_for_final_fit(monkeypatch):
     execution, original, _ = _execution(monkeypatch)
-    scopes = execution.scopes
-    assert len(scopes.stopping) == 1
-    assert len(scopes.validation) == 1
-    assert not (scopes.final_training.mask & scopes.stopping.mask).any()
-    assert scopes.final_training == original.train | scopes.validation
-    assert scopes.training.pair_seed == scopes.final_training.pair_seed == 17
+    fold = execution.fold
+    assert len(fold.stopping) == 1
+    assert len(fold.val) == 1
+    assert not (fold.train_val.mask & fold.stopping.mask).any()
+    assert fold.train_val == original.train | fold.val
+    assert fold.fold_id == original.fold_id
+    assert fold.train.pair_seed == fold.train_val.pair_seed == 17
     assert execution.metadata["execution"]["hpo"]["random_state"] == 9
     assert execution.seed == 5
     assert execution.metadata["execution"]["seed"] == 5
@@ -56,8 +57,8 @@ def test_stopping_partition_is_reused_for_final_fit(monkeypatch):
 
 def test_non_stopping_model_uses_all_validation_in_final_fit(monkeypatch):
     execution, original, _ = _execution(monkeypatch, stopping=False)
-    assert execution.scopes.stopping is None
-    assert execution.scopes.final_training == original.train | original.val
+    assert execution.fold.stopping is None
+    assert execution.fold.train_val == original.train | original.val
 
 
 def test_masks_and_nested_metadata_are_independent_and_read_only(monkeypatch):
@@ -65,10 +66,10 @@ def test_masks_and_nested_metadata_are_independent_and_read_only(monkeypatch):
     with pytest.raises(ValueError):
         original.train.mask[:] = False
     original.metadata["nested"]["values"].append(3)
-    assert len(execution.scopes.training) == 1
+    assert len(execution.fold.train) == 1
     assert execution.metadata["nested"]["values"] == (1, 2)
     with pytest.raises(ValueError):
-        execution.scopes.training.mask[:] = False
+        execution.fold.train.mask[:] = False
     with pytest.raises(TypeError):
         execution.metadata["nested"]["values"] = ()
     metadata = execution.result_metadata()
@@ -79,7 +80,8 @@ def test_masks_and_nested_metadata_are_independent_and_read_only(monkeypatch):
 def test_provenance_records_order_as_well_as_mask_membership(monkeypatch):
     first, _, _ = _execution(monkeypatch, seed=17)
     second, _, _ = _execution(monkeypatch, seed=18)
-    a, b = first.scopes.provenance()["training"], second.scopes.provenance()["training"]
+    a = first.metadata["execution"]["scopes"]["training"]
+    b = second.metadata["execution"]["scopes"]["training"]
     assert a["sha256"] == b["sha256"]
     assert a["pair_seed"] != b["pair_seed"]
     assert first.identity.run_key != second.identity.run_key
