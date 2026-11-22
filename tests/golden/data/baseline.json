@@ -19,7 +19,7 @@
     "seed": 0,
     "uns_payloads": ["drug_graphs", "pathways_gmt", "sparsego", "bpe_codes"]
   },
-  "drevalpy_commit": "2fb19c2934c564abf55c1fc664f66896e1b5d8e2",
+  "drevalpy_commit": "82a98504cd46850f314fb42fb156422b60f673f3",
   "hpo": {
     "metric": "RMSE",
     "model": "ElasticNet",
@@ -955,17 +955,21 @@
         "0.2",
         "10",
         "100",
-        "1024",
+        "32",
         "5",
-        "50"
+        "50",
+        "512",
+        "[2048, 1024]"
       ],
       "best_hyperparameters_at_record": {
         "drug_featurizer.molgnetPooled.pooling": "'mean_max'",
         "predictor.randomForest.max_depth": "5",
         "predictor.randomForest.max_samples": "0.2",
         "predictor.randomForest.n_estimators": "100",
-        "sample_featurizer.aeGeneExpression.batch_size_autoencoder": "1024",
+        "sample_featurizer.aeGeneExpression.batch_size_autoencoder": "32",
         "sample_featurizer.aeGeneExpression.epochs_autoencoder": "10",
+        "sample_featurizer.aeGeneExpression.hidden_dims_autoencoder": "[2048, 1024]",
+        "sample_featurizer.aeGeneExpression.latent_dim_autoencoder": "512",
         "sample_featurizer.aeGeneExpression.lr_autoencoder": "0.0001",
         "sample_featurizer.aeGeneExpression.patience_autoencoder": "50"
       },
@@ -975,17 +979,17 @@
       },
       "hyperparameter_tuning": false,
       "metrics": {
-        "Kendall": 0.6817964644051601,
-        "MAE": 0.654935846028422,
-        "MSE": 0.7111243179778329,
-        "Pearson": 0.841440608475674,
-        "RMSE": 0.8432818733838839,
-        "R^2": 0.7067903195311283,
-        "Spearman": 0.8637701709230461
+        "Kendall": 0.6684185379837553,
+        "MAE": 0.6650774328411281,
+        "MSE": 0.7166708616186739,
+        "Pearson": 0.8416376475441438,
+        "RMSE": 0.8465641509175036,
+        "R^2": 0.7045033772236816,
+        "Spearman": 0.8573278054343973
       },
       "model": "RandomForestAEMolGNet",
       "round_trip_exact": false,
-      "seconds": 48.5
+      "seconds": 51.1
     },
     "Ridge": {
       "artifacts": [],

@@ -64,6 +64,16 @@ def test_encode_gene_expression_keeps_shape_squeezes_a_vector_and_leaves_eval_mo
     assert encoder.training is False
 
 
+def test_train_autoencoder_builds_the_requested_latent_size_and_hidden_layers() -> None:
+    encoder = train_gene_expession_autoencoder(
+        _matrix(4, seed=3), _matrix(4, seed=4), epochs_autoencoder=1, latent_dim=3, h_dims=[5]
+    )
+
+    assert encoder.latent_dim == 3
+    assert encoder.bottleneck.in_features == 5
+    assert encode_gene_expression(_matrix(4, seed=3), encoder).shape == (4, 3)
+
+
 @pytest.mark.slow
 def test_train_autoencoder_returns_an_eval_encoder_usable_for_encoding() -> None:
     train = _matrix(4, seed=3)
@@ -210,7 +220,7 @@ def test_learning_rate_and_batch_size_reach_the_optimizer_and_loader(monkeypatch
 class _ConstantEncoder(nn.Module):
     latent_dim = 4
 
-    def __init__(self, input_dim: int) -> None:
+    def __init__(self, input_dim: int, latent_dim: int, h_dims: list[int] | None) -> None:
         super().__init__()
         self.unused = nn.Parameter(torch.zeros(1))
 
@@ -219,7 +229,7 @@ class _ConstantEncoder(nn.Module):
 
 
 class _ConstantDecoder(nn.Module):
-    def __init__(self, input_dim: int) -> None:
+    def __init__(self, input_dim: int, latent_dim: int, h_dims: list[int] | None) -> None:
         super().__init__()
         self.unused = nn.Parameter(torch.zeros(1))
         self.input_dim = input_dim

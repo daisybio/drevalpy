@@ -209,7 +209,7 @@ def test_single_drug_knn_zoo_entry_standardizes_per_drug() -> None:
     validate(config)
 
 
-def test_random_forest_ae_molgnet_zoo_entry_has_the_1_6_1_defaults() -> None:
+def test_random_forest_ae_molgnet_zoo_entry_has_its_defaults() -> None:
     config = get_zoo_config("RandomForestAEMolGNet")
 
     assert config.predictor.name == "randomForest"
@@ -224,7 +224,9 @@ def test_random_forest_ae_molgnet_zoo_entry_has_the_1_6_1_defaults() -> None:
         "sample_featurizer.aeGeneExpression.epochs_autoencoder": 2000,
         "sample_featurizer.aeGeneExpression.lr_autoencoder": 1e-4,
         "sample_featurizer.aeGeneExpression.patience_autoencoder": 50,
-        "sample_featurizer.aeGeneExpression.batch_size_autoencoder": 1024,
+        "sample_featurizer.aeGeneExpression.batch_size_autoencoder": 32,
+        "sample_featurizer.aeGeneExpression.latent_dim_autoencoder": 512,
+        "sample_featurizer.aeGeneExpression.hidden_dims_autoencoder": (2048, 1024),
         "drug_featurizer.molgnetPooled.pooling": "mean_max",
         "predictor.randomForest.n_estimators": 100,
         "predictor.randomForest.max_samples": 0.2,
