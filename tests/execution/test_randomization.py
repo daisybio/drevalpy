@@ -137,3 +137,10 @@ def test_real_model_config_views_and_real_dataset(synthetic_dataset, caplog: pyt
         bare = synthetic(n_samples=6, n_drugs=2, n_tissues=2)
         assert randomization(spec, bare, ["SVRD", "SVCD", "SVCC"]) == []
     assert "'morgan_fingerprint'" in caplog.text
+
+
+@pytest.mark.parametrize("model", ["PharmaFormer", "PaccMann"])
+def test_a_model_computing_from_the_smiles_has_no_drug_view_to_randomize(synthetic_dataset, model: str) -> None:
+    assert "bpe_smiles" in synthetic_dataset.mdata.mod["response"].varm
+
+    assert randomization(ModelSpec.from_name(model), synthetic_dataset, ["SVRD", "SVCD"]) == []

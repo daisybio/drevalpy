@@ -20,7 +20,8 @@ import numpy as np
 
 from drevalpy.log import get_logger
 from drevalpy.types.data.dataset import Dataset
-from drevalpy.types.data.feature_source import FeatureSource, Side, precomputed_views
+from drevalpy.types.data.dataset._anndata import precomputed_views
+from drevalpy.types.data.feature_source import FeatureSource, Side
 from drevalpy.types.data.views import PRECOMPUTED_VIEWS_KEY
 
 logger = get_logger(__name__)

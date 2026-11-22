@@ -163,7 +163,15 @@ with a warning and produces no dataset and no run:
   drug view.
 
 ``Dataset.with_randomized_views`` itself raises ``KeyError`` for a view the dataset does not
-store. A model with no views, such as ``NaiveMeanEffectsPredictor``, gets no randomization
+store. The drug graphs are the view ``drug_graph``, stored under ``uns["drug_graphs"]``.
+
+A model reads a randomized view as it is stored: the recorded settings of a randomized view are
+dropped from ``uns["precomputed_views"]``, so a featurizer with tuned settings, such as
+``fingerprints`` with another ``n_bits``, does not compute the view again from the unrandomized SMILES.
+It then reads the randomized view at the settings it was precomputed with. A featurizer that
+computes only from the SMILES, such as ``bpePharmaformer`` and ``smilesTokens``, reads no view, so
+a model built on it has no drug view to randomize. A drug without a stored graph still gets its
+graph computed from its SMILES. A model with no views, such as ``NaiveMeanEffectsPredictor``, gets no randomization
 runs. A mode code that is not in the table is ignored without an error. ``drevalpy.experiment``
 applies the tests to every model it is given.
 

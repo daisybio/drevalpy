@@ -7,10 +7,13 @@ values a :class:`~drevalpy.types.data.dataset.Dataset` wrote are not the values 
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
+
+from drevalpy.types.data.views import PRECOMPUTED_VIEWS_KEY
 
 if TYPE_CHECKING:
     import anndata as ad
@@ -68,3 +71,15 @@ def plain_value(value: Any) -> Any:
     if isinstance(value, (list, tuple)):
         return [plain_value(item) for item in value]
     return value.item() if isinstance(value, np.generic) else value
+
+
+def precomputed_views(mdata: Any) -> dict[str, dict[str, dict[str, Any]]]:
+    """Return the recorded settings of the precomputed views of *mdata*: ``{side: {view: settings}}``.
+
+    :param mdata: MuData whose ``uns`` holds the record.
+    :returns: The record, empty when nothing is recorded.
+    """
+    raw = mdata.uns.get(PRECOMPUTED_VIEWS_KEY)
+    if raw is None:
+        return {}
+    return json.loads(raw) if isinstance(raw, str) else dict(raw)

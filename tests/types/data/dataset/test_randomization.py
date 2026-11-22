@@ -274,7 +274,7 @@ class TestWithRandomizedAuxiliaryViews:
     def test_permutation_reassigns_the_drug_graphs_to_other_drugs(self, auxiliary_dataset: Dataset):
         original = auxiliary_dataset.mdata.uns["drug_graphs"]
 
-        shuffled = auxiliary_dataset.with_randomized_views(["drug_graphs"], random_state=0).mdata.uns["drug_graphs"]
+        shuffled = auxiliary_dataset.with_randomized_views(["drug_graph"], random_state=0).mdata.uns["drug_graphs"]
 
         assert set(shuffled) == set(original)
         assert any(not np.array_equal(shuffled[drug]["x"], original[drug]["x"]) for drug in original)
@@ -286,7 +286,7 @@ class TestWithRandomizedAuxiliaryViews:
         original = auxiliary_dataset.mdata.uns["drug_graphs"]
 
         randomized = auxiliary_dataset.with_randomized_views(
-            ["drug_graphs"], RandomizationType.INVARIANT, random_state=0
+            ["drug_graph"], RandomizationType.INVARIANT, random_state=0
         ).mdata.uns["drug_graphs"]
 
         assert list(randomized) == list(original)
@@ -300,8 +300,8 @@ class TestWithRandomizedAuxiliaryViews:
         assert any(not np.array_equal(randomized[drug]["x"], original[drug]["x"]) for drug in original)
 
     def test_the_same_seed_gives_the_same_result(self, auxiliary_dataset: Dataset):
-        first = auxiliary_dataset.with_randomized_views(["chemberta", "drug_graphs"], random_state=5)
-        second = auxiliary_dataset.with_randomized_views(["chemberta", "drug_graphs"], random_state=5)
+        first = auxiliary_dataset.with_randomized_views(["chemberta", "drug_graph"], random_state=5)
+        second = auxiliary_dataset.with_randomized_views(["chemberta", "drug_graph"], random_state=5)
 
         np.testing.assert_array_equal(
             first.mdata.mod["response"].varm["chemberta"], second.mdata.mod["response"].varm["chemberta"]

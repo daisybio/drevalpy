@@ -1,17 +1,34 @@
-"""View randomization behind :meth:`Dataset.with_randomized_views`."""
+"""View randomization behind :meth:`Dataset.with_randomized_views`.
+
+A view is randomized where the dataset stores it, so a featurizer that reads the view gets the
+randomized values. Two cases would let a featurizer bypass it, and neither is possible:
+
+- A :class:`~drevalpy.components.featurizers._dense.PrecomputableFeaturizer` whose settings differ
+  from the ones its view was precomputed with computes the view from the SMILES instead. A randomized
+  view therefore drops its record under :data:`~drevalpy.types.data.views.PRECOMPUTED_VIEWS_KEY`: the
+  randomized matrix is no output of any settings, and every featurizer reads it as it is, as it reads a
+  view the dataset ships.
+- A featurizer that only ever computes from the SMILES (``bpePharmaformer``, ``smilesTokens``) declares
+  no input view, so no randomization test names a view it would ignore.
+
+The drug graphs are the one view a featurizer completes from the SMILES: a drug without a stored graph
+gets one computed, unrandomized. Randomizing the SMILES, or randomizing the output of the featurizer
+instead of the dataset's views, is not done.
+"""
 
 from __future__ import annotations
 
 import copy
+import json
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from drevalpy.log import get_logger
-from drevalpy.types.data.views import find_view
+from drevalpy.types.data.views import PRECOMPUTED_VIEWS_KEY, find_view
 from drevalpy.types.enums import RandomizationType
 
-from ._anndata import to_dense
+from ._anndata import precomputed_views, to_dense
 
 if TYPE_CHECKING:
     import mudata as md
@@ -101,7 +118,7 @@ def _randomize_single_view(
     """Randomize a single view in-place within new_mods/new_uns.
 
     *view* is a public name, so a sample view is looked up through its stored
-    modality name; varm, obsm and uns keys stay verbatim.
+    modality name and the drug graphs through their ``uns`` key; varm and obsm keys stay verbatim.
     """
     stored = find_view(view, new_mods)
     if stored is not None and stored != "response":
@@ -113,9 +130,27 @@ def _randomize_single_view(
         if view in axis_data:
             axis_data[view] = _randomize_matrix(np.asarray(axis_data[view], dtype=np.float32), rng, randomization_type)
             return
-    if view not in new_uns:
+    stored = find_view(view, new_uns)
+    if stored is None:
         raise KeyError(f"View '{view}' not found in any storage location of the dataset.")
-    _randomize_uns_view(new_uns[view], view, new_uns, rng, randomization_type)
+    _randomize_uns_view(new_uns[stored], stored, new_uns, rng, randomization_type)
+
+
+def _forget_recorded_settings(mdata: md.MuData, views: list[str]) -> None:
+    """Drop the precomputed-view settings recorded for *views*, so featurizers read the randomized views as they are.
+
+    :param mdata: MuData whose ``uns`` record is edited in place.
+    :param views: Randomized view names.
+    """
+    record = precomputed_views(mdata)
+    if not any(view in settings for settings in record.values() for view in views):
+        return
+    mdata.uns[PRECOMPUTED_VIEWS_KEY] = json.dumps(
+        {
+            side: {view: value for view, value in settings.items() if view not in views}
+            for side, settings in record.items()
+        }
+    )
 
 
 def randomized_mdata(
@@ -145,4 +180,5 @@ def randomized_mdata(
     new_mdata.obs = mdata.obs.copy()
     for key, val in new_uns.items():
         new_mdata.uns[key] = val
+    _forget_recorded_settings(new_mdata, views)
     return new_mdata

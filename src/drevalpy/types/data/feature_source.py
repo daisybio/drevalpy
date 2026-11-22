@@ -20,7 +20,6 @@ with recorded under :data:`~drevalpy.types.data.views.PRECOMPUTED_VIEWS_KEY` in 
 
 from __future__ import annotations
 
-import json
 from enum import StrEnum
 from typing import Any
 
@@ -29,12 +28,11 @@ import numpy as np
 from drevalpy.errors import InvalidInputError
 from drevalpy.types.data.dataset import Dataset
 from drevalpy.types.data.dataset._aligned_fetch import aligned_fetch
-from drevalpy.types.data.dataset._anndata import to_dense
+from drevalpy.types.data.dataset._anndata import precomputed_views, to_dense
 from drevalpy.types.data.views import (
     DRUG_GRAPH_VIEW,
     DRUG_GRAPHS_KEY,
     EXPRESSION_UNIT_KEY,
-    PRECOMPUTED_VIEWS_KEY,
     SMILES_COLUMN,
     TISSUE_IDENTIFIER,
     find_view,
@@ -47,18 +45,6 @@ class Side(StrEnum):
 
     SAMPLE = "sample"
     DRUG = "drug"
-
-
-def precomputed_views(mdata: Any) -> dict[str, dict[str, dict[str, Any]]]:
-    """Return the recorded settings of the precomputed views of *mdata*: ``{side: {view: settings}}``.
-
-    :param mdata: MuData whose ``uns`` holds the record.
-    :returns: The record, empty when nothing is recorded.
-    """
-    raw = mdata.uns.get(PRECOMPUTED_VIEWS_KEY)
-    if raw is None:
-        return {}
-    return json.loads(raw) if isinstance(raw, str) else dict(raw)
 
 
 class FeatureSource:

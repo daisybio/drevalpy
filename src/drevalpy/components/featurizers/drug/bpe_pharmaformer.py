@@ -63,7 +63,6 @@ class BpePharmaformerDrugFeaturizer(Featurizer):
     and applied to encode any SMILES during transform.
     """
 
-    input_views: ClassVar[tuple[str, ...]] = ("bpe_smiles",)
     source_views: ClassVar[tuple[str, ...]] = ("canonical_smiles",)
 
     def __init__(self, *, view: str = "bpe_smiles", num_symbols: int = 10000, max_length: int = 128) -> None:
