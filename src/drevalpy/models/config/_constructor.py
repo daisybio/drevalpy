@@ -9,6 +9,9 @@ trains.
 
 * ``view`` needs a ``view`` parameter, and goes next to ``name`` rather than under ``options``;
   ``oneHot[x]`` and ``molirOmics[x]`` name a view their featurizer cannot take.
+* A featurizer with no ``input_views`` whose ``view`` parameter has no default, such as ``pca`` and
+  the sample ``view``, reads only the view its config names, so the config must name one
+  (:func:`requires_explicit_view`).
 * A ``view`` parameter with a named default, such as ``scaledGeneExpression``'s
   ``"gene_expression"``, reads one of the featurizer's ``input_views``; the config may name any
   of them, nothing else. A ``view`` parameter that is required (``pca``, sample ``view``) or
@@ -72,6 +75,18 @@ def _check_keys(cls: type[Any], what: str, field: str, keys: Collection[str], va
         raise ValueError(f"{field} of {what} name unknown keys ({', '.join(unknown)}); valid keys: {_choices(valid)}")
 
 
+def requires_explicit_view(cls: type[Any]) -> bool:
+    """Return whether a featurizer reads only the view its config names, so a config must name one.
+
+    :param cls: Featurizer class.
+    :returns: ``True`` when it declares no ``input_views`` and its ``view`` parameter has no default.
+    """
+    if cls.input_views:
+        return False
+    parameter = _parameters(cls)[0].get("view")
+    return parameter is not None and parameter.default is inspect.Parameter.empty
+
+
 def _check_view(cls: type[Any], what: str, view: str) -> None:
     """Reject a view the featurizer cannot read.
 
@@ -112,8 +127,9 @@ def check_settings(
     :param view: The config's ``view``, or ``None``.
     :param options: The config's ``options``.
     :param space: The config's own ``hyperparameter_space``, or ``None`` when it declares none.
-    :raises ValueError: If the featurizer takes no view or not this one, ``view`` is written under ``options``, or
-        an option or search-space key is not a constructor parameter. The message lists the valid choices.
+    :raises ValueError: If the featurizer takes no view or not this one, needs a view and has none, ``view`` is
+        written under ``options``, or an option or search-space key is not a constructor parameter. The message
+        lists the valid choices.
     """
     what = f"{side} featurizer {name!r}"
     if "view" in options:
@@ -127,3 +143,5 @@ def check_settings(
     _check_keys(cls, what, "hyperparameter_space", space or {}, parameters)
     if view is not None:
         _check_view(cls, what, view)
+    elif requires_explicit_view(cls):
+        raise ValueError(f"Featurizer {name!r} requires an explicit view, e.g. {name}[gene_expression]")

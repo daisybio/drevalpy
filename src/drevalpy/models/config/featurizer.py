@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import inspect
 from collections.abc import Iterator, Mapping
 from typing import TYPE_CHECKING, Any
 
@@ -20,26 +19,6 @@ from drevalpy.types.data.feature_source import Side
 if TYPE_CHECKING:
     from drevalpy.components.featurizers.featurizer import Featurizer
     from drevalpy.types.data.feature_format import BlockSpec
-
-
-def requires_explicit_view(name: str, side: Side) -> bool:
-    """Return whether a featurizer registry name requires an explicit view.
-
-    A featurizer requires one when it declares no ``input_views`` but takes a ``view``
-    argument, such as the sample ``view`` and ``pca``.
-
-    :param name: Featurizer registry name.
-    :param side: The side it is registered on.
-    :returns: ``True`` for such a featurizer; ``False`` for other and unregistered names.
-    """
-    try:
-        cls = get_featurizer(name, side)
-    except (ValueError, ImportError):
-        return False
-    if cls.input_views:
-        return False
-    parameter = inspect.signature(cls.__init__).parameters.get("view")
-    return parameter is not None and parameter.default is inspect.Parameter.empty
 
 
 class FeaturizerConfig(BaseModel):
@@ -151,8 +130,8 @@ class FeaturizerConfig(BaseModel):
 
         What a featurizer accepts is read from its constructor and ``input_views``
         (:func:`~drevalpy.models.config._constructor.check_settings`), so a typo or a view the
-        featurizer cannot read fails when the config is built, with the valid choices, not as a
-        ``TypeError`` or a missing view when the model trains. A setting that does not fit the class
+        featurizer cannot read or needs and lacks fails when the config is built, with the valid choices,
+        not as a ``TypeError`` or a missing view when the model trains. A setting that does not fit the class
         raises ``ValueError``. A name that is not registered on this side is left to
         :func:`~drevalpy.models.config.validation.validate`, which reports it with the registered names.
 
@@ -170,21 +149,6 @@ class FeaturizerConfig(BaseModel):
             options=self.options or {},
             space=self.hyperparameter_space,
         )
-        return self
-
-    @model_validator(mode="after")
-    def _require_explicit_view_for_parametric_featurizers(self) -> FeaturizerConfig:
-        """Require a view for featurizers that are only meaningful per view.
-
-        Such featurizers are addressed with a parametric label like ``pca[expression]``,
-        so a bare name is ambiguous rather than defaultable.
-
-        :returns: This config, unchanged.
-        :raises ValueError: If the featurizer needs an explicit view and none is set.
-        """
-        if requires_explicit_view(self.name, self.side) and not self.view:
-            msg = f"Featurizer {self.name!r} requires an explicit view, e.g. {self.name}[gene_expression]"
-            raise ValueError(msg)
         return self
 
     @model_validator(mode="after")

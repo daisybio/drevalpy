@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from drevalpy.components.featurizers.featurizer import Featurizer
-from drevalpy.models.config.featurizer import requires_explicit_view
+from drevalpy.models.config._constructor import requires_explicit_view
 from drevalpy.registry.featurizer import featurizer_registries, featurizer_registry, get_featurizer
 from drevalpy.types.data.dataset import Dataset
 from drevalpy.types.data.feature_format import FeatureFormat
@@ -17,7 +17,7 @@ _PROBE_VIEW = "gene_expression"
 def _config(name: str, side: Side) -> dict[str, object]:
     cls = get_featurizer(name, side)
     config: dict[str, object] = dict(cls.default_hyperparameters())
-    if requires_explicit_view(name, side):
+    if requires_explicit_view(cls):
         config["view"] = _PROBE_VIEW
     return config
 
@@ -57,15 +57,14 @@ def test_every_featurizer_reports_its_views(side: Side, name: str) -> None:
 @pytest.mark.parametrize("name", ["view", "pca"])
 def test_view_parameterized_featurizers_require_an_explicit_view(name: str) -> None:
     cls = get_featurizer(name, Side.SAMPLE)
-    assert requires_explicit_view(name, Side.SAMPLE)
+    assert requires_explicit_view(cls)
     assert cls.views({"view": "mutations"}) == ("mutations",)
 
 
 def test_featurizers_with_input_views_need_no_explicit_view() -> None:
-    assert not requires_explicit_view("scaledGeneExpression", Side.SAMPLE)
-    assert not requires_explicit_view("oneHot", Side.SAMPLE)
-    assert not requires_explicit_view("view", Side.DRUG)
-    assert not requires_explicit_view("notRegistered", Side.SAMPLE)
+    assert not requires_explicit_view(get_featurizer("scaledGeneExpression", Side.SAMPLE))
+    assert not requires_explicit_view(get_featurizer("oneHot", Side.SAMPLE))
+    assert not requires_explicit_view(get_featurizer("view", Side.DRUG))
 
 
 #: Built-in sample featurizers and their output format; the drug ones follow.

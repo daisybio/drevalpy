@@ -18,7 +18,7 @@ from drevalpy.components.featurizers.featurizer import Featurizer
 from drevalpy.components.predictors.abstract.matrix import MatrixPredictor
 from drevalpy.components.predictors.inputs import Inputs, predictor_inputs
 from drevalpy.data import synthetic
-from drevalpy.models.config.featurizer import requires_explicit_view
+from drevalpy.models.config._constructor import requires_explicit_view
 from drevalpy.plugin import Predictor
 from drevalpy.registry import predictor
 from drevalpy.registry._builtins import builtin_names
@@ -335,7 +335,7 @@ def _featurizer_kwargs(side: str, name: str) -> dict[str, object]:
     """Return the constructor arguments *name* needs to be built at all; the other featurizers take none."""
     if name == "concatFeaturizers":
         return {"featurizers": [get_featurizer("constant", side)()]}
-    return {"view": "gene_expression"} if requires_explicit_view(name, Side(side)) else {}
+    return {"view": "gene_expression"} if requires_explicit_view(get_featurizer(name, side)) else {}
 
 
 _BUILTIN_FEATURIZERS = [
