@@ -178,7 +178,10 @@ Three more decorator arguments describe a component. ``drevalpy list predictors 
    then raise ``DrEvalError`` on a machine without an accelerator. A model takes the strongest
    level of its predictor and featurizers. The level is only a declaration: pick the device
    yourself with torch, for example ``torch.accelerator.current_accelerator()``. The built-in
-   components also honour ``DREVALPY_FORCE_CPU`` (:doc:`/reference/environment`).
+   components also honour ``DREVALPY_FORCE_CPU`` (:doc:`/reference/environment`). A
+   single-drug predictor (:ref:`how-to/extend/write_predictor:Fit one model per drug`) must
+   keep the default ``Accelerator.NONE``: registering it with another level raises
+   ``ValueError``.
 ``license``
    The SPDX license of the code the component was ported from, such as ``"MIT"`` or
    ``"GPL-3.0-only"``. It is required with ``reference=``; use ``"NOASSERTION"`` when that code
@@ -230,7 +233,10 @@ The base class routes the pairs by ``data.drug_ids`` and predicts NaN for the pa
 it has no model for, such as a drug that was not in the training data. With ``--n-jobs``
 (``n_jobs`` in Python) above 1 it fits the drugs in parallel worker processes, and it seeds
 each drug from the run seed and the drug ID, so the fitted models do not depend on ``n_jobs``.
-This example fits one ridge regression per drug:
+A single-drug predictor runs on the CPU. Many drugs are fitted in parallel and each fit is
+short, so moving every small fit to a GPU costs more than it saves. Leave out ``accelerator=``
+and keep the models on the CPU; the built-in single-drug models, ``MOLIR`` and ``SuperFELTR``
+among them, do the same. This example fits one ridge regression per drug:
 
 .. literalinclude:: /examples/toy_single_drug_predictor.py
    :language: python

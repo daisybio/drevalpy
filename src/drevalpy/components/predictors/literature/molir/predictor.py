@@ -8,7 +8,6 @@ from drevalpy.components.predictors.literature._omics import OMIC_BLOCK_NAMES, S
 from drevalpy.registry._component import LiteratureReference
 from drevalpy.registry.predictor import register
 from drevalpy.types.data.predictor_input import PredictorInput
-from drevalpy.types.enums import Accelerator
 
 # MOLIModel lives in .utils, which imports pytorch_lightning at module scope. This
 # module is imported eagerly by register_builtins(), so the import is
@@ -38,7 +37,6 @@ _REFERENCE = LiteratureReference(
     description="MOLIR single-drug multi-omics model.",
     reference=_REFERENCE,
     license="GPL-3.0-only",
-    accelerator=Accelerator.OPTIONAL,
 )
 class MOLIRPredictor(SingleDrugOmicsPredictor):
     """MOLIR predictor: per-drug multi-omics late integration model."""

@@ -9,6 +9,16 @@ ID, and predicts NaN for the pairs of a drug it has no model for.
 
 A drug's input keeps only the sample and drug rows its pairs and early-stopping pairs use, so
 what is sent to a worker grows with the drug's pairs rather than with the whole entity table.
+
+A single-drug predictor runs on the CPU. Many drugs are fitted in parallel (tens of worker
+processes on a cluster, against a few GPUs), and each fit is short, so moving every small fit to
+an accelerator costs more than it saves. The rule has two halves that cannot disagree: registering a
+single-drug predictor with any accelerator level but ``NONE`` raises (``registry.predictor``), so
+``drevalpy describe`` reports ``none`` for it, and the torch fits of this package read that level
+(:attr:`SingleDrugPredictor.accelerator`) when they ask for a device, which stays the CPU for
+``NONE`` (:func:`drevalpy._utils.accelerator.select_device`). The rule covers the per-drug fits only:
+a featurizer runs once for all drugs, so a model that pairs a single-drug predictor with an
+accelerator featurizer still reports that featurizer's level.
 """
 
 from __future__ import annotations

@@ -14,7 +14,6 @@ from drevalpy.components.predictors.literature._omics import (
 from drevalpy.registry._component import LiteratureReference
 from drevalpy.registry.predictor import register
 from drevalpy.types.data.predictor_input import PredictorInput
-from drevalpy.types.enums import Accelerator
 
 # .utils imports pytorch_lightning at module scope, and this module is imported
 # eagerly by register_builtins(), so the encoder/regressor imports are
@@ -45,7 +44,6 @@ _REFERENCE = LiteratureReference(
     description="SuperFELTR single-drug multi-omics model.",
     reference=_REFERENCE,
     license="NOASSERTION",
-    accelerator=Accelerator.OPTIONAL,
 )
 class SuperFELTRPredictor(SingleDrugOmicsPredictor):
     """SuperFELTR predictor: per-drug multi-omics with independent encoders."""

@@ -18,20 +18,24 @@ from drevalpy.types.enums import Accelerator
 torch = pytest.importorskip("torch")
 
 
-@pytest.fixture
-def fake_accelerator(monkeypatch: pytest.MonkeyPatch) -> torch.device:
-    """Make torch report an MPS accelerator and clear the CPU override."""
-    device = torch.device("mps")
-    monkeypatch.delenv(FORCE_CPU_ENV_VAR, raising=False)
-    monkeypatch.setattr(torch.accelerator, "is_available", lambda: True)
-    monkeypatch.setattr(torch.accelerator, "current_accelerator", lambda: device)
-    return device
-
-
 def test_an_available_accelerator_is_selected(fake_accelerator: torch.device) -> None:
     assert accelerator_available()
     assert select_device() == fake_accelerator
     assert lightning_accelerator() == "auto"
+
+
+@pytest.mark.parametrize("level", [Accelerator.OPTIONAL, Accelerator.REQUIRED])
+def test_a_component_that_may_use_an_accelerator_gets_it(fake_accelerator: torch.device, level: Accelerator) -> None:
+    assert select_device(level) == fake_accelerator
+    assert lightning_accelerator(level) == "auto"
+
+
+def test_a_cpu_only_component_stays_on_the_cpu_although_an_accelerator_is_available(
+    fake_accelerator: torch.device,
+) -> None:
+    assert accelerator_available()
+    assert select_device(Accelerator.NONE) == torch.device("cpu")
+    assert lightning_accelerator(Accelerator.NONE) == "cpu"
 
 
 @pytest.mark.parametrize("value", ["1", "true", "YES", " on "])

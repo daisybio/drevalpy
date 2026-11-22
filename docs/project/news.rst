@@ -204,8 +204,11 @@ Defaults and results that changed
   leaderboard subtitle shows it. ``drevalpy predict`` scores against the model's measure. See
   :ref:`how-to/run_experiment:Choose the response measure`.
 - **The torch models use any accelerator.** The built-in torch components train on a CUDA GPU,
-  Apple MPS or another torch backend when torch finds one, not only on CUDA. ``neuralNetwork``,
-  ``molir`` and ``superfeltr`` are no longer pinned to the CPU. Results on an accelerator are not
+  Apple MPS or another torch backend when torch finds one, not only on CUDA. ``neuralNetwork``
+  is no longer pinned to the CPU. The single-drug models, ``molir`` and ``superfeltr`` among them,
+  stay on the CPU, as in 1.x: they fit many drugs in parallel, each fit is short, and
+  ``drevalpy describe`` reports ``none`` for them. Registering a single-drug predictor with an
+  accelerator level raises ``ValueError``. Results on an accelerator are not
   bit-identical to results on the CPU. Set ``DREVALPY_FORCE_CPU=1`` to keep everything on the
   CPU; see :ref:`how-to/install:Use a GPU or another accelerator`.
 - PyTorch 2.6 or newer is required.

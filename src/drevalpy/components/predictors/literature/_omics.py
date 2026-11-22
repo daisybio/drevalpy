@@ -6,8 +6,8 @@ order), and both need:
 * :func:`make_omics_loaders`, turning a :class:`PredictorInput` (and its ``stopping`` pairs, when at
   least two exist) into train and validation loaders over the three sample matrices, dropping the last
   incomplete training batch and keeping it for validation;
-* :func:`fit_omics_model`, the fit both run: build the loaders, then an early-stopped CPU fit with W&B
-  as the only logger. Each caller reloads the best checkpoint its own way;
+* :func:`fit_omics_model`, the fit both run: build the loaders, then an early-stopped fit on the CPU, as
+  every single-drug predictor runs, with W&B as the only logger. Each caller reloads the best checkpoint its own way;
 * the feature names a model was trained on (:func:`omic_feature_names`), whose columns
   :func:`aligned_pair_matrices` realigns at predict time;
 * :class:`SingleDrugOmicsPredictor`, the block contract, early-stopping support and recorded feature
@@ -128,7 +128,9 @@ def fit_omics_model(
     patience: int,
     **run_options: Any,
 ) -> pl.callbacks.ModelCheckpoint:
-    r"""Fit *model* on the CPU, early-stopping on the validation loss (the training loss without stopping pairs).
+    r"""Fit *model* on the CPU, as every single-drug predictor does, early-stopping on the validation loss.
+
+    Without early-stopping pairs it early-stops on the training loss.
 
     :param model: MOLIR model, SuperFELTR encoder or SuperFELTR regressor.
     :param data: Training batch carrying all three omic sample blocks and optional early-stopping pairs.
@@ -147,6 +149,7 @@ def fit_omics_model(
             max_epochs=epochs,
             patience=patience,
             checkpoint_dir=data.training_context.checkpoint_dir,
+            accelerator=SingleDrugPredictor.accelerator,
             devices=1,
             default_logger=False,
             **run_options,

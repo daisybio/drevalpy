@@ -34,7 +34,9 @@ Use a GPU or another accelerator
 The components marked "Optional" in the Accelerator column of :doc:`/reference/components` use
 an accelerator when torch finds one: a CUDA GPU, Apple MPS on a Mac, or another torch backend.
 They need no option for it. ``drevalpy describe MODEL`` shows whether a model uses one. Set
-``DREVALPY_FORCE_CPU=1`` to keep everything on the CPU.
+``DREVALPY_FORCE_CPU=1`` to keep everything on the CPU. The single-drug models, such as
+``MOLIR`` and ``SuperFELTR``, always run on the CPU and are marked "CPU only": they fit many
+drugs in parallel, each fit is short, and a GPU would only slow them down.
 
 - Some operations are missing on MPS. Set ``PYTORCH_ENABLE_MPS_FALLBACK=1``, a variable of torch
   itself, to run those on the CPU, or set ``DREVALPY_FORCE_CPU=1``.

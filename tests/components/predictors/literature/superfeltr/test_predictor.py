@@ -16,6 +16,7 @@ from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
 from drevalpy.types.data.predictor_input import PredictorInput
 from drevalpy.types.data.response_table import ResponseTable
 from drevalpy.types.data.training_context import TrainingContext
+from drevalpy.types.enums import Accelerator
 from tests.components.predictors._helpers import spy_trainer
 from tests.components.predictors.literature._helpers import (
     assert_frozen_reference,
@@ -30,6 +31,10 @@ from tests.components.predictors.literature._helpers import (
 
 def test_superfeltr_predictor_registry_name() -> None:
     assert get_predictor("superfeltr") is SuperFELTRPredictor
+
+
+def test_superfeltr_declares_a_cpu_only_predictor() -> None:
+    assert SuperFELTRPredictor.accelerator is Accelerator.NONE
 
 
 class TestTinySuperFELTRFit:
@@ -292,7 +297,7 @@ def test_fit_regressor_writes_a_checkpoint(tmp_path) -> None:
     assert checkpoint.best_model_path
 
 
-def test_fit_runs_on_the_cpu_without_a_default_logger(tmp_path, monkeypatch) -> None:
+def test_fit_runs_on_the_cpu_without_a_default_logger(tmp_path, monkeypatch, fake_accelerator) -> None:
     seen = spy_trainer(monkeypatch)
 
     _fit_module(_encoder(), tmp_path / "ckpt")

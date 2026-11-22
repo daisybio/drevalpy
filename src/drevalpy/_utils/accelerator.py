@@ -4,6 +4,12 @@ Every torch component picks its device here, so ``DREVALPY_FORCE_CPU`` (or patch
 :func:`accelerator_available`) keeps a whole run on the CPU. The check is backend-agnostic:
 ``torch.accelerator`` covers CUDA, Apple MPS, XPU and the other torch backends.
 
+:func:`select_device` and :func:`lightning_accelerator` take the component's
+:class:`~drevalpy.types.enums.Accelerator` level and stay on the CPU for ``NONE``, so a component
+that declares itself CPU only cannot end up on an accelerator. The single-drug predictors are
+the case: they fit many drugs in parallel worker processes, each fit short, which a GPU only
+slows down (see :mod:`drevalpy.components.predictors.abstract.single_drug`).
+
 ``torch`` is imported inside the functions, so ``import drevalpy`` stays light.
 """
 
@@ -36,26 +42,28 @@ def accelerator_available() -> bool:
     return torch.accelerator.is_available()
 
 
-def select_device() -> torch.device:
-    """Return the current torch accelerator when one is available, else the CPU.
+def select_device(level: Accelerator = Accelerator.OPTIONAL) -> torch.device:
+    """Return the current torch accelerator when *level* allows one and one is available, else the CPU.
 
+    :param level: The accelerator level of the component; ``NONE`` always gives the CPU.
     :returns: The device to train and predict on.
     """
     import torch
 
-    if accelerator_available():
+    if level is not Accelerator.NONE and accelerator_available():
         device = torch.accelerator.current_accelerator()
         if device is not None:
             return device
     return torch.device("cpu")
 
 
-def lightning_accelerator() -> str:
+def lightning_accelerator(level: Accelerator = Accelerator.OPTIONAL) -> str:
     """Return the Lightning ``accelerator`` argument matching :func:`select_device`.
 
-    :returns: ``"auto"`` when an accelerator is available, else ``"cpu"``.
+    :param level: The accelerator level of the component; ``NONE`` always gives the CPU.
+    :returns: ``"auto"`` when *level* allows an accelerator and one is available, else ``"cpu"``.
     """
-    return "auto" if accelerator_available() else "cpu"
+    return "auto" if level is not Accelerator.NONE and accelerator_available() else "cpu"
 
 
 def ensure_available(level: Accelerator, model: str) -> None:

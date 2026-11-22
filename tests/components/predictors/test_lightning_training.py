@@ -9,7 +9,6 @@ import pytest
 import pytorch_lightning as pl
 from upath import UPath
 
-from drevalpy._utils.accelerator import lightning_accelerator
 from drevalpy.components.predictors._lightning_training import (
     LightningRun,
     _loggers,
@@ -17,6 +16,7 @@ from drevalpy.components.predictors._lightning_training import (
     run_lightning_fit,
 )
 from drevalpy.execution._tracking import tracking_run
+from drevalpy.types.enums import Accelerator
 from tests._fake_wandb import install_fake_wandb
 from tests.components.predictors._helpers import spy_trainer
 
@@ -134,7 +134,7 @@ def test_trainer_settings_follow_the_run(tmp_path, monkeypatch) -> None:
     run_lightning_fit(_TinyModule(), train_loader, val_loader, _run(tmp_path, default_logger=False))
 
     first, progress, no_default_logger = seen
-    assert (first["accelerator"], first["devices"], first["precision"]) == (lightning_accelerator(), 1, 32)
+    assert (first["accelerator"], first["devices"], first["precision"]) == ("cpu", 1, 32)
     assert first["log_every_n_steps"] == 1
     assert first["logger"] is False
     assert first["enable_progress_bar"] is False
@@ -214,6 +214,22 @@ def test_a_fit_in_a_tracking_run_trains_with_the_wandb_logger(tmp_path, monkeypa
     run_lightning_fit(_TinyModule(), train_loader, val_loader, _run(tmp_path))
 
     assert seen == [[("logger", fake.runs[0])], True]
+
+
+@pytest.mark.parametrize(
+    ("level", "expected"),
+    [(None, "auto"), (Accelerator.OPTIONAL, "auto"), (Accelerator.REQUIRED, "auto"), (Accelerator.NONE, "cpu")],
+)
+def test_the_trainer_accelerator_follows_the_accelerator_level_of_the_run(
+    tmp_path, monkeypatch, fake_accelerator, level: Accelerator | None, expected: str
+) -> None:
+    seen = spy_trainer(monkeypatch)
+    train_loader, val_loader = _loaders(with_validation=False)
+    run = _run(tmp_path) if level is None else _run(tmp_path, accelerator=level)
+
+    run_lightning_fit(_TinyModule(), train_loader, val_loader, run)
+
+    assert [kwargs["accelerator"] for kwargs in seen] == [expected]
 
 
 def test_versioned_names_are_prefixed_fixed_width_and_unique() -> None:

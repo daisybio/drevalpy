@@ -17,13 +17,11 @@ _OPTIONAL = {
     ("predictor", "dipk"),
     ("predictor", "drugGNN"),
     ("predictor", "ensembleMF"),
-    ("predictor", "molir"),
     ("predictor", "neuralNetwork"),
     ("predictor", "paccMann"),
     ("predictor", "pharmaFormer"),
     ("predictor", "precily"),
     ("predictor", "sparsego"),
-    ("predictor", "superfeltr"),
     ("sample", "aeGeneExpression"),
     ("sample", "dipkGeneExpression"),
 }

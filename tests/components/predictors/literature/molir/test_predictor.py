@@ -11,6 +11,7 @@ from drevalpy.components.predictors.literature.molir import utils
 from drevalpy.components.predictors.literature.molir.predictor import MOLIRPredictor
 from drevalpy.components.predictors.literature.molir.utils import MOLIModel
 from drevalpy.registry.predictor import get as get_predictor
+from drevalpy.types.enums import Accelerator
 from tests.components.predictors._helpers import spy_trainer
 from tests.components.predictors.literature._helpers import (
     assert_corrected_training_result,
@@ -104,7 +105,7 @@ class TestTinyMOLIRFit:
 
 
 class TestMOLIRTrainer:
-    def test_runs_on_the_cpu_without_a_default_logger(self, tmp_path, monkeypatch) -> None:
+    def test_runs_on_the_cpu_without_a_default_logger(self, tmp_path, monkeypatch, fake_accelerator) -> None:
         seen = spy_trainer(monkeypatch)
         monkeypatch.chdir(tmp_path)
         hyperparameters = {"epochs": 1, "mini_batch": 6, "h_dim1": 2, "h_dim2": 2, "h_dim3": 2}
@@ -115,6 +116,10 @@ class TestMOLIRTrainer:
         assert kwargs["accelerator"] == "cpu"
         assert kwargs["logger"] is False
         assert not (tmp_path / "lightning_logs").exists()
+
+
+def test_molir_declares_a_cpu_only_predictor() -> None:
+    assert MOLIRPredictor.accelerator is Accelerator.NONE
 
 
 def test_generate_triplets_indices_picks_near_and_far_pairs() -> None:

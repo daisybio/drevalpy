@@ -14,7 +14,7 @@ from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.registry.predictor import predictor_registry
 from drevalpy.registry.predictor import register as register_predictor
 from drevalpy.types.data.predictor_input import PredictorInput
-from drevalpy.types.enums import ModelScope
+from drevalpy.types.enums import Accelerator, ModelScope
 from tests.registry._helpers import empty_component_registries
 
 
@@ -92,6 +92,33 @@ def test_single_drug_predictors_declare_only_their_scope(base: type) -> None:
 
     assert predictor_registry.get("singleDrugPred") is cls
     assert cls.scope is ModelScope.SINGLE_DRUG
+
+
+@pytest.mark.parametrize("level", [Accelerator.OPTIONAL, "required"])
+def test_a_single_drug_predictor_cannot_declare_an_accelerator(level: Accelerator | str) -> None:
+    cls = type("SingleDrugPred", (_ConcreteBlock,), {"scope": ModelScope.SINGLE_DRUG})
+
+    with pytest.raises(ValueError, match="'singleDrugPred' fits one model per drug.*CPU only"):
+        register_predictor("singleDrugPred", description="x", accelerator=level)(cls)
+
+    assert "singleDrugPred" not in predictor_registry
+
+
+def test_a_single_drug_predictor_declares_the_cpu_only_level() -> None:
+    cls = type("SingleDrugPred", (_ConcreteBlock,), {"scope": ModelScope.SINGLE_DRUG})
+
+    registered = register_predictor("singleDrugPred", description="x", accelerator=Accelerator.NONE)(cls)
+
+    assert registered.accelerator is Accelerator.NONE
+
+
+def test_a_multi_drug_predictor_may_declare_an_accelerator() -> None:
+    cls = _register("gpuPred", type("GpuPred", (_ConcreteBlock,), {}))
+    registered = register_predictor("gpuPred2", description="x", accelerator=Accelerator.OPTIONAL)(
+        type("GpuPred2", (_ConcreteBlock,), {})
+    )
+
+    assert (cls.accelerator, registered.accelerator) == (Accelerator.NONE, Accelerator.OPTIONAL)
 
 
 def test_registered_predictor_scope_defaults_to_multi_drug() -> None:

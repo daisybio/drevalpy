@@ -66,6 +66,33 @@ def test_tsv_file_holds_a_header_and_one_row_per_model(tmp_path: UPath) -> None:
     assert rows["DIPK"]["accelerator"] == "optional"
 
 
+def test_single_drug_models_report_the_cpu_and_global_torch_models_an_accelerator() -> None:
+    result = runner.invoke(
+        app,
+        [
+            "describe",
+            "MOLIR",
+            "SuperFELTR",
+            "SingleDrugMorgoth",
+            "SingleDrugElasticNet",
+            "SimpleNeuralNetwork",
+            "--tsv",
+            "-",
+        ],
+        env=HELP_ENV,
+    )
+
+    assert result.exit_code == 0, result.output
+    levels = {row["model"]: row["accelerator"] for row in _parse(result.stdout)}
+    assert levels == {
+        "MOLIR": "none",
+        "SuperFELTR": "none",
+        "SingleDrugMorgoth": "none",
+        "SingleDrugElasticNet": "none",
+        "SimpleNeuralNetwork": "optional",
+    }
+
+
 def test_tsv_to_stdout_is_clean_and_the_table_goes_to_stderr() -> None:
     result = runner.invoke(app, ["describe", "Ridge", "DIPK", "--tsv", "-"], env=HELP_ENV)
 
