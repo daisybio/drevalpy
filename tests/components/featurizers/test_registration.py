@@ -106,3 +106,10 @@ def test_leaf_kwargs_fill_hyperparameter_defaults_from_the_registry(model_config
 )
 def test_leaf_kwargs_precedence(leaf, key, expected) -> None:
     assert leaf.leaf_kwargs()[key] == expected
+
+
+def test_a_declared_empty_space_tunes_nothing_and_takes_no_class_defaults() -> None:
+    leaf = FeaturizerConfig(name="pca", side="sample", view="gene_expression", hyperparameter_space={})
+
+    assert leaf.effective_space == {}
+    assert leaf.leaf_kwargs() == {"view": "gene_expression"}

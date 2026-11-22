@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
-from drevalpy.components.hyperparameter_space import validate_hyperparameter_space
+from drevalpy.components.hyperparameter_space import effective_space, validate_hyperparameter_space
 from drevalpy.models.config._parse import normalize_predictor
 from drevalpy.models.config.immutable import FrozenMapping, thaw_value
 from drevalpy.registry.predictor import get as get_predictor
@@ -49,6 +49,11 @@ class PredictorConfig(BaseModel):
                 context=f"PredictorConfig({self.name!r}).hyperparameter_space",
             )
         return self
+
+    @property
+    def effective_space(self) -> dict[str, Any]:
+        """The search space this predictor is tuned over: its declared ``hyperparameter_space``, else its class's."""
+        return effective_space(self.hyperparameter_space, get_predictor(self.name))
 
     def create_instance(self, hyperparameters: Mapping[str, Any] | None = None) -> Predictor:
         """Instantiate the configured predictor from the registry.

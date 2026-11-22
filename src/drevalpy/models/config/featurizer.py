@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any
 from pydantic import BaseModel, ConfigDict, model_validator
 
 from drevalpy.components.featurizers.featurizer import CONCAT
-from drevalpy.components.hyperparameter_space import validate_hyperparameter_space
+from drevalpy.components.hyperparameter_space import effective_space, validate_hyperparameter_space
 from drevalpy.models.config._parse import normalize_featurizer
 from drevalpy.models.config.immutable import FrozenMapping, thaw_value
 from drevalpy.registry.featurizer import get_featurizer
@@ -106,6 +106,11 @@ class FeaturizerConfig(BaseModel):
     def featurizer_class(self) -> type[Featurizer]:
         """The registered featurizer class this node names on its side."""
         return get_featurizer(self.name, self.side)
+
+    @property
+    def effective_space(self) -> dict[str, Any]:
+        """The search space this node is tuned over: its declared ``hyperparameter_space``, else its class's."""
+        return effective_space(self.hyperparameter_space, self.featurizer_class)
 
     @model_validator(mode="after")
     def _validate_hyperparameter_space(self) -> FeaturizerConfig:
@@ -230,8 +235,7 @@ class FeaturizerConfig(BaseModel):
         :returns: Keyword arguments for featurizer construction.
         """
         kwargs: dict[str, Any] = dict(self.options or {})
-        space = self.hyperparameter_space or self.featurizer_class.get_hyperparameter_space()
-        for key, spec in space.items():
+        for key, spec in self.effective_space.items():
             if isinstance(spec, Mapping) and "default" in spec:
                 kwargs.setdefault(key, spec["default"])
         if self.view is not None:

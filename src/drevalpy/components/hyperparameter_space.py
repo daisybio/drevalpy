@@ -15,6 +15,7 @@ __all__ = [
     "TunableComponent",
     "admits",
     "default_values",
+    "effective_space",
     "fixed_entries",
     "is_fixed",
     "validate_component_hyperparameter_space",
@@ -172,6 +173,20 @@ def default_values(space: Mapping[str, Any] | None, *, context: str) -> dict[str
     """
     validate_hyperparameter_space(space, context=context)
     return {name: spec["default"] for name, spec in (space or {}).items()}
+
+
+def effective_space(declared: Mapping[str, Any] | None, cls: type[Any]) -> dict[str, Any]:
+    """Return the search space a component is tuned over: the one its config declares, else its class's.
+
+    Only an undeclared space (``None``) falls back to the class; a declared empty space tunes nothing.
+
+    :param declared: The ``hyperparameter_space`` of the component's config.
+    :param cls: The component class, whose ``get_hyperparameter_space()`` is the fallback.
+    :returns: A plain copy of the space, which the caller may change.
+    """
+    if declared is not None:
+        return {name: dict(spec) for name, spec in declared.items()}
+    return dict(cls.get_hyperparameter_space())
 
 
 def validate_component_hyperparameter_space(name: str, cls: type[Any]) -> None:
