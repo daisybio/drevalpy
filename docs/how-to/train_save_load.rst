@@ -89,8 +89,8 @@ search for them.
 
 ``train`` and ``predict`` take a **scope**: a ``SelectionMask`` that says which pairs to use. A fold from
 :doc:`/how-to/load_and_split` has the scopes ``train``, ``val`` and ``test``. Train on
-``train_val``, the training and validation pairs together, as ``run`` does for the final fit,
-and predict the ``test`` pairs.
+``train_val``, the training and validation pairs together, and predict the ``test`` pairs. This
+is what ``run`` does for the final fit of a model that does not stop early.
 
 .. tab-set::
    :sync-group: interface

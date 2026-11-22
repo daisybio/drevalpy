@@ -29,6 +29,8 @@ from _snippets import MISNAMED_LANGUAGES, RUNNABLE_LANGUAGES, collect  # noqa: E
 SECTIONS = ("tutorials", "how-to", "reference", "explanation", "project")
 NON_SOURCE_DIRS = frozenset({"_autosummary", "_build", "_static", "_templates"})
 INTERFACE_SECTIONS = ("tutorials", "how-to")
+#: The one section whose pages may be MyST notebooks; see "How to write documentation" in contributing.rst.
+NOTEBOOK_SECTION = "explanation"
 INTERFACES = ("both", "cli", "python")
 HOWTO_VERBS = frozenset(
     {
@@ -77,6 +79,10 @@ _DIRECTIVE = re.compile(r"^(?P<indent> *)\.\. (?P<name>[\w:-]+)::(?P<argument>.*
 _OPTION = re.compile(r"^ +:(?P<key>[\w-]+):[ \t]*(?P<value>.*)$")
 _TOCTREE = re.compile(r"^(?P<indent> *)\.\. toctree::\s*$")
 _DREVALPY_LINE = re.compile(r"^\s*drevalpy\b", re.MULTILINE)
+#: A MyST fence opening a block: ```python, ```{code-block} python, ```{code-cell} ipython3, ...
+_FENCE = re.compile(r"^ *(?:`{3,}|~{3,}) *(?:\{(?P<directive>[\w:-]+)\} *)?(?P<language>[^\s`{]*)")
+#: MyST directives that show code without running it; a bare fence is one too.
+_STATIC_FENCES = frozenset({None, "code-block", "code", "sourcecode"})
 
 
 def _matches(pattern: str, path: str) -> bool:
@@ -86,21 +92,32 @@ def _matches(pattern: str, path: str) -> bool:
     return re.fullmatch(regex, path) is not None
 
 
-def exclude_patterns(docs: Path) -> list[str]:
-    """Read ``exclude_patterns`` out of ``docs/conf.py`` without running it."""
+def _conf_literal(docs: Path, name: str) -> object:
+    """Read the literal assigned to *name* in ``docs/conf.py`` without running it."""
     tree = ast.parse((docs / "conf.py").read_text(encoding="utf-8"))
     for node in tree.body:
-        if isinstance(node, ast.Assign) and any(getattr(t, "id", None) == "exclude_patterns" for t in node.targets):
-            return list(ast.literal_eval(node.value))
-    msg = "conf.py has no literal 'exclude_patterns' assignment"
+        if isinstance(node, ast.Assign) and any(getattr(t, "id", None) == name for t in node.targets):
+            return ast.literal_eval(node.value)
+    msg = f"conf.py has no literal {name!r} assignment"
     raise AssertionError(msg)
 
 
-def built_pages(docs: Path, patterns: Iterable[str]) -> list[Path]:
-    """List the ``.rst`` pages Sphinx would build, sorted."""
+def exclude_patterns(docs: Path) -> list[str]:
+    """Read ``exclude_patterns`` out of ``docs/conf.py``."""
+    return list(_conf_literal(docs, "exclude_patterns"))
+
+
+def source_suffixes(docs: Path) -> list[str]:
+    """Read the page suffixes (the keys of ``source_suffix``) out of ``docs/conf.py``."""
+    return list(_conf_literal(docs, "source_suffix"))
+
+
+def built_pages(docs: Path, patterns: Iterable[str], suffixes: Iterable[str]) -> list[Path]:
+    """List the pages with one of *suffixes* that Sphinx would build, sorted."""
     patterns = list(patterns)
+    suffixes = frozenset(suffixes)
     pages = []
-    for path in sorted(docs.rglob("*.rst")):
+    for path in sorted(p for p in docs.rglob("*") if p.suffix in suffixes and p.is_file()):
         parts = path.relative_to(docs).as_posix().split("/")
         if NON_SOURCE_DIRS & set(parts[:-1]):
             continue
@@ -165,7 +182,7 @@ def toctree_targets(page: Path, docs: Path, docnames: set[str]) -> set[str]:
 
 def unreachable_pages(docs: Path, pages: Iterable[Path]) -> list[str]:
     """Return the docnames that no chain of toctrees from ``index`` reaches."""
-    by_name = {page.relative_to(docs).as_posix().removesuffix(".rst"): page for page in pages}
+    by_name = {page.relative_to(docs).with_suffix("").as_posix(): page for page in pages}
     names = set(by_name)
     seen, queue = {"index"}, deque(["index"])
     while queue:
@@ -204,13 +221,39 @@ def code_snippets(page: Path) -> list:
     return [snippet for snippet in collect(page) if snippet.language in CODE_LANGUAGES]
 
 
+def static_code_blocks(page: Path) -> list[tuple[int, str]]:
+    """Return ``(line, language)`` of the python and bash blocks on *page* that no build runs.
+
+    On a ``.rst`` page that is every such ``code-block``. On a MyST ``.md`` page it is every such
+    fenced block other than a ``{code-cell}``, which the build executes.
+    """
+    if page.suffix == ".rst":
+        return [(snippet.directive_line, snippet.language) for snippet in code_snippets(page)]
+    blocks = []
+    for number, line in enumerate(page.read_text(encoding="utf-8").splitlines(), start=1):
+        match = _FENCE.match(line)
+        if match and match["directive"] in _STATIC_FENCES and match["language"] in CODE_LANGUAGES:
+            blocks.append((number, match["language"]))
+    return blocks
+
+
 def explanation_violations(docs: Path, pages: Iterable[Path]) -> list[str]:
-    """Return the ``python`` or ``bash`` blocks found on explanation pages."""
+    """Return the static ``python`` or ``bash`` blocks on explanation pages, which take only code cells."""
     return [
-        f"{page.relative_to(docs).as_posix()}:{snippet.line}: {snippet.language} block on an explanation page"
+        f"{page.relative_to(docs).as_posix()}:{line}: static {language} block on an explanation page;"
+        " run the code in a {code-cell} of a MyST notebook"
         for page in pages
         if page.relative_to(docs).parts[0] == "explanation"
-        for snippet in code_snippets(page)
+        for line, language in static_code_blocks(page)
+    ]
+
+
+def misplaced_notebooks(docs: Path, pages: Iterable[Path]) -> list[str]:
+    """Return the MyST ``.md`` pages outside :data:`NOTEBOOK_SECTION`, whose code nothing in ``tests/`` would run."""
+    return [
+        page.relative_to(docs).as_posix()
+        for page in pages
+        if page.suffix == ".md" and page.relative_to(docs).parts[0] != NOTEBOOK_SECTION
     ]
 
 
@@ -320,12 +363,12 @@ def missing_includes(docs: Path) -> list[str]:
 
 @pytest.fixture(scope="module")
 def pages() -> list[Path]:
-    return built_pages(DOCS, exclude_patterns(DOCS))
+    return built_pages(DOCS, exclude_patterns(DOCS), source_suffixes(DOCS))
 
 
 def test_the_built_page_list_reads_conf_py(pages: list[Path]) -> None:
     names = {page.relative_to(DOCS).as_posix() for page in pages}
-    assert {"index.rst", "tutorials/index.rst", "how-to/index.rst", "reference/index.rst"} <= names
+    assert {"index.rst", "tutorials/index.rst", "how-to/index.rst", "explanation/data_flow.md"} <= names
     assert not {name for name in names if "_generated_" in name}
 
 
@@ -334,6 +377,7 @@ def test_the_real_tree_follows_the_rules(pages: list[Path]) -> None:
     assert not misplaced_pages(DOCS, pages)
     assert not unreachable_pages(DOCS, pages)
     assert not explanation_violations(DOCS, pages)
+    assert not misplaced_notebooks(DOCS, pages)
     assert not howto_title_violations(DOCS, pages)
     assert not [v for page in interface_pages for v in interface_violations(page)]
     assert not missing_includes(DOCS)
@@ -451,7 +495,13 @@ def test_the_page_list_honours_exclude_patterns_and_never_runs_conf_py(tmp_path:
     docs = _tree(
         tmp_path,
         {
-            "conf.py": 'raise SystemExit("must not run")\nexclude_patterns = ["old", "project/v2_*"]\n',
+            "conf.py": (
+                'raise SystemExit("must not run")\n'
+                'exclude_patterns = ["old", "project/v2_*"]\n'
+                'source_suffix = {".rst": "restructuredtext", ".md": "myst-nb"}\n'
+            ),
+            "explanation/notebook.md": "x",
+            "explanation/notes.txt": "x",
             "index.rst": "x",
             "old/deeper/page.rst": "x",
             "project/v2_news.rst": "x",
@@ -461,8 +511,13 @@ def test_the_page_list_honours_exclude_patterns_and_never_runs_conf_py(tmp_path:
             "_build/html/x.rst": "x",
         },
     )
-    built = built_pages(docs, [*exclude_patterns(docs), "reference/_generated_*.rst"])
-    assert [p.relative_to(docs).as_posix() for p in built] == ["index.rst", "project/news.rst", "readme.rst"]
+    built = built_pages(docs, [*exclude_patterns(docs), "reference/_generated_*.rst"], source_suffixes(docs))
+    assert [p.relative_to(docs).as_posix() for p in built] == [
+        "explanation/notebook.md",
+        "index.rst",
+        "project/news.rst",
+        "readme.rst",
+    ]
     assert misplaced_pages(docs, built) == ["readme.rst"]
 
 
@@ -477,10 +532,13 @@ def test_toctree_reachability_follows_every_entry_form_and_flags_orphans(tmp_pat
             "how-to/a.rst": "x",
             "how-to/extend/index.rst": "x",
             "reference/index.rst": _toctree("../explanation/index"),
-            "explanation/index.rst": "x",
+            "explanation/index.rst": _toctree("notebook"),
+            "explanation/notebook.md": "# T\n",
+            "explanation/orphan.md": "# T\n",
         },
     )
-    assert unreachable_pages(docs, built_pages(docs, [])) == ["how-to/extend/index"]
+    built = built_pages(docs, [], [".rst", ".md"])
+    assert unreachable_pages(docs, built) == ["explanation/orphan", "how-to/extend/index"]
 
 
 def test_title_explanation_and_stale_label_rules_flag_broken_pages(tmp_path: Path) -> None:
@@ -495,16 +553,24 @@ def test_title_explanation_and_stale_label_rules_flag_broken_pages(tmp_path: Pat
             "explanation/ok.rst": "T\n=\n\n.. code-block:: yaml\n\n   a: 1\n",
             "explanation/py.rst": "T\n=\n\n.. code-block:: python\n\n   x = 1\n",
             "explanation/sh.rst": "T\n=\n\n.. note::\n\n   .. code-block:: shell\n\n      ls\n",
+            "explanation/cells.md": "# T\n\n```{code-cell} ipython3\nx = 1\n```\n\n```text\nout\n```\n",
+            "explanation/fence.md": "# T\n\n```python\nx = 1\n```\n",
+            "explanation/directive.md": "# T\n\n~~~{code-block} bash\nls\n~~~\n",
+            "how-to/notebook.md": "# Run a notebook\n",
             "project/news.rst": "1.5.1 and the Modularity Release",
             "project/other.rst": "since 1.5.1",
         },
     )
-    built = built_pages(docs, [])
-    assert [v.split(":")[0] for v in howto_title_violations(docs, built)] == ["how-to/noun.rst", "how-to/x.rst"]
-    assert [v.split(":")[0] for v in explanation_violations(docs, built)] == [
-        "explanation/py.rst",
-        "explanation/sh.rst",
+    built = built_pages(docs, [], [".rst", ".md"])
+    rst_how_tos = [page for page in built if page.suffix == ".rst"]
+    assert [v.split(":")[0] for v in howto_title_violations(docs, rst_how_tos)] == ["how-to/noun.rst", "how-to/x.rst"]
+    assert [":".join(v.split(":")[:2]) for v in explanation_violations(docs, built)] == [
+        "explanation/directive.md:3",
+        "explanation/fence.md:3",
+        "explanation/py.rst:4",
+        "explanation/sh.rst:6",
     ]
+    assert misplaced_notebooks(docs, built) == ["how-to/notebook.md"]
     assert stale_label_violations(docs, built) == ["how-to/x.rst", "project/other.rst"]
 
 

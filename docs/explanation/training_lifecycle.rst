@@ -13,21 +13,24 @@ Three scopes carved out of one fold
 A split mode produces, for each fold, a training set, a validation set and a
 test set of pairs (see :doc:`evaluation_design`). The test set is never used to
 make a decision about a model. The validation set is cut again so that it can
-serve two jobs without one contaminating the other:
+serve two jobs without one contaminating the other (see :doc:`results_flow` for
+how these scopes are frozen into the ``FitScopes`` fields before tuning begins):
 
 **A (fit)**
    The training pairs. A model's weights, and everything fitted on data, are
-   learned from A.
+   learned from A. This is the ``training`` field of ``FitScopes``.
 
 **E (early stopping)**
    A seeded 25% of the validation set, at least one, drawn in whole units of the
    split mode: samples under leave-sample-out, drugs under leave-drug-out, tissues
    under leave-tissue-out, and (sample, drug) pairs under leave-pair-out and
    leave-study-out. Training loops that stop when a score stops improving watch E.
+   This is the ``stopping`` field of ``FitScopes``.
 
 **V (validation)**
    The rest of the validation pairs. During hyperparameter tuning, V is the set
-   a trial is scored on to choose between configurations.
+   a trial is scored on to choose between configurations. This is the ``validation``
+   field of ``FitScopes``.
 
 A model can only be early-stopped on data it was not fit on, and a tuned
 configuration should not be chosen on the same data the stopping rule has already
@@ -52,8 +55,9 @@ Hyperparameter tuning and the final fit use the scopes differently:
   run one after another, and the sampler is seeded (see :doc:`reproducibility`).
 - *The final fit* uses the winning hyperparameters. It trains on A together with
   V, since V is no longer needed to choose anything, and it still stops early on
-  E.
-- *Evaluation* uses the test pairs, which are disjoint from A, E and V.
+  E. This combined scope is the ``final_training`` field of ``FitScopes``: ``A ∪ V``.
+- *Evaluation* uses the test pairs, which are disjoint from A, E and V. This is the
+  ``test`` field of ``FitScopes``.
 
 E and V are disjoint along the split mode, like train, validation and test: under
 leave-drug-out no drug of E is in V or in A, so the final fit, which trains on A

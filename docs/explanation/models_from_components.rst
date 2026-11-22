@@ -69,9 +69,8 @@ Features that a featurizer produces are bundled as a ``FeaturizerOutput`` contai
 unique entity identifiers and a mapping of named feature blocks. When a matrix predictor reads
 ``result.matrix``, a single entity-aligned numeric block passes through unchanged and several
 entity-aligned numeric blocks are concatenated horizontally in insertion order; graph, ragged
-sequence and global blocks stay addressable by name instead of being flattened. See
-:doc:`data_flow` for the full path from an ``.h5mu`` file through ``FeatureSource`` and
-``PredictorInput`` into a predictor.
+sequence and global blocks stay addressable by name. See :doc:`data_flow` Step 4 for how
+``FeaturizerOutput`` assembles these blocks.
 
 Describing a model
 ------------------
@@ -90,13 +89,14 @@ trade conciseness against expressiveness:
 - A *model configuration* in Python holds the same information as the file, as
   objects.
 
-All three are parsed into one internal form, so a model behaves the same
+All three are parsed into one internal form (``ModelConfig``), so a model behaves the same
 whichever notation you chose. The grammar, field names and examples are in
 :doc:`/reference/recipes`. Named, ready-to-run models are called zoo presets and
 are looked up by their zoo name; see :doc:`/reference/model_zoo`. A model
 specification pairs a name with a configuration, and it holds no fitted state, so
 one specification can be reused across folds and tuning trials (see
-:doc:`training_lifecycle`).
+:doc:`training_lifecycle`). The types a model passes through and when each registry is consulted are
+traced in :doc:`model_assembly`.
 
 A recipe is also a model name. The command line and ``ModelSpec.from_name`` accept a recipe
 wherever they accept a zoo name, and the model is then reported under the recipe string,

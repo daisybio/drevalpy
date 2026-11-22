@@ -58,14 +58,14 @@ Recorded failures
 ``drevalpy.run`` keeps going when a run raises and keeps a ``RunFailure`` for it, in the tuple
 ``ExperimentResult.failures``. ``ExperimentResult.save`` writes the records to ``failures.json``
 only when there is at least one, and ``ExperimentResult.load`` reads them back. The file is a
-JSON list; each entry has the keys ``oneHot``, ``error_type`` and ``message``.
-``oneHot`` is the identity of the run that failed:
+JSON list; each entry has the keys ``identity``, ``error_type`` and ``message``.
+``identity`` is the identity of the run that failed:
 
 .. list-table::
    :header-rows: 1
    :widths: 30 70
 
-   * - ``oneHot`` key
+   * - ``identity`` key
      - Content
    * - ``model_name``, ``dataset_name``, ``split_mode``
      - Names

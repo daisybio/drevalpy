@@ -8,12 +8,12 @@ they get filled, and how your own code joins them. Reference tables of the
 current entries are generated in :doc:`/reference/components`, and the steps for
 adding your own are in :doc:`/how-to/extend/index`.
 
-One idea, five registries
--------------------------
+One idea, one registry per concept
+----------------------------------
 
 A registry maps a human-readable name to an implementation and to a record of
-facts about it, such as its description. DrEvalPy has five, one for each concept
-that can be extended:
+facts about it, such as its description. DrEvalPy has one for each concept that
+can be extended, and featurizers have one per side:
 
 **Predictors.**
    Predictor classes. Each declares what it reads from the sample and from the
@@ -21,15 +21,20 @@ that can be extended:
    explains how these inputs are checked.
 
 **Featurizers.**
-   Featurizer classes, in one registry for both sides. Each declares the sides it
-   supports and the blocks it produces, so a featurizer that works for both sides
-   is written and registered once.
+   Featurizer classes, in one registry per side. Each featurizer reads exactly one
+   side, names it when it registers, and declares the blocks it produces. A
+   featurizer offered on both sides, such as ``oneHot``, is registered once per
+   side; the two registrations share their code.
 
 **Splitters.**
    One splitter per split mode, registered under its mode name. Each declares the
    leakage rule it enforces, and after every split the registry validates that
    the rule holds. Old names can be registered as aliases of a mode and resolve
    to the canonical name.
+
+**Model zoo.**
+   Named model configurations, such as ``ElasticNet``, read from the built-in
+   preset files and from the zoo files of extension directories.
 
 **Datasets.**
    Named datasets and the sources they are downloaded from.
@@ -127,11 +132,11 @@ How the pieces meet in a run
 ----------------------------
 
 When you run an experiment, names flow through the registries in this order. The
-splitter registry turns the split mode into folds and validates them. The
-predictor and featurizer registries turn each model's recipe into fresh
-components for every fit (see :doc:`training_lifecycle`). The dataset registry
-supplies the data. After the run, the visualization registry decides which plots
-are possible for the result, based on what the experiment contains.
+splitter registry turns the split mode into folds and validates them. The dataset registry
+supplies the data. The model zoo and the predictor and featurizer registries turn each model's
+name into a configuration, then into fresh components for every fit; :doc:`model_assembly` traces
+that path, naming the types and when each lookup happens. After the run, the visualization
+registry decides which plots are possible for the result, based on what the experiment contains.
 
 Code registrations are not remembered. They exist only in the process that made
 them and vanish when it ends. A custom component that must be available every

@@ -5,18 +5,23 @@ A drug response model is only as comparable as its data. This page explains what
 the built-in datasets are, how their responses are defined, and why DrEvalPy
 refits dose-response curves instead of using each study's published numbers. The
 lists of datasets with their sizes and file names are in :doc:`/reference/datasets`,
+the full lifecycle from raw wells to a loaded dataset is in :doc:`dataset_lifecycle`,
 and loading your own data is covered in :doc:`/how-to/bring_your_own_data`.
 
 The built-in datasets
 ---------------------
 
-Seven names are registered under the built-in source:
+Ten names are registered under the built-in source:
 
 - **GDSC1** and **GDSC2**: the Genomics of Drug Sensitivity in Cancer screens,
   two successive versions of the screen. They are in-vitro screens of established
   cancer samples.
 - **CTRPv1** and **CTRPv2**: two versions of the Cancer Therapeutics Response
   Portal, also in-vitro screens of established cancer samples.
+- **CCLE**: the drug screen of the Cancer Cell Line Encyclopedia, an in-vitro
+  screen of established cancer samples.
+- **PRISM_19Q4** and **PRISM_20Q2**: two releases of the PRISM Repurposing
+  secondary screen, in-vitro screens of established cancer samples.
 - **BeatAML2**: ex vivo screens of primary patient samples from acute myeloid
   leukaemia. The samples are patient material, not established lines.
 - **PDX_Bruna**: a screen of patient-derived xenograft models of breast cancer.
@@ -24,7 +29,7 @@ Seven names are registered under the built-in source:
 - **TOYv1**: a toy dataset for trying out the tools.
 
 "Sample" is the general word throughout DrEvalPy because the biological source
-differs between these datasets. A sample is an established line in GDSC and CTRP, a
+differs between these datasets. A sample is an established line in GDSC, CTRP, CCLE and PRISM, a
 patient's cells in BeatAML2 and a xenograft in PDX_Bruna. Models trained on one kind
 of sample cannot be assumed to transfer to another, which is a reason to look at
 the leave-sample-out and leave-tissue-out split modes (see
@@ -37,21 +42,13 @@ for how sources work and what access they need.
 Datasets are MuData files
 -------------------------
 
-Each dataset is a single MuData file (``.h5mu``). MuData bundles several tables
-that share their sample or drug axis, so that one file holds everything a model
-might read:
-
-- a response table with samples as rows and drugs as columns;
-- one table of features per sample view, such as ``gene_expression``;
-- one table of features per drug view, such as molecular fingerprints.
-
-Because the views live in one file, featurizers can ask for a view by name, and a
-split mode can find the tissue labels it needs in the same place. The views a
-dataset provides are not the same for every dataset. Gene expression is present in
-all six screens. Copy number is present in the CTRP and GDSC screens and in
-PDX_Bruna, while methylation and mutations are available in the CTRP and GDSC
-screens only. A model whose featurizer needs a missing view cannot be run on that
-dataset.
+Each dataset is a single MuData file (``.h5mu``) holding the response matrix, sample and drug
+features, and auxiliary metadata in one archive. Because the views live in one file, featurizers
+can ask for a view by name, and a split mode can find the tissue labels it needs in the same
+place. The views a dataset provides are not the same for every dataset: methylation and mutations,
+for example, are in the CTRP and GDSC screens but not in BeatAML2 or PDX_Bruna. A model whose
+featurizer needs a missing view cannot be run on that dataset. See :doc:`data_flow` for the
+layout of the file and how data flows from it to a predictor.
 
 How a response is defined
 -------------------------
