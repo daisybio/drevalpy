@@ -9,7 +9,8 @@ import pytest
 
 from drevalpy.curation._anndata import REGULATION_ENCODING
 from drevalpy.data import synthetic
-from drevalpy.data.quality import _RESPONSE_MATRIX, _RULES, CurveQuality
+from drevalpy.data.quality import _RULES, CurveQuality
+from drevalpy.data.splitters import observed_mask
 from tests._fake_dataset import FakeResponseDataset
 
 
@@ -64,7 +65,7 @@ def _fake(layers: dict[str, np.ndarray], response: np.ndarray | None = None) -> 
 def _dataset_for(option: str, value: float) -> FakeResponseDataset:
     layer, _comparison, _transform = _RULES[option]
     matrix = np.full(_SHAPE, value)
-    if layer == _RESPONSE_MATRIX:
+    if layer == "pEC50":
         return _fake({}, response=matrix)
     return _fake({layer: matrix})
 
@@ -77,7 +78,7 @@ def _passing_dataset() -> FakeResponseDataset:
     layers: dict[str, np.ndarray] = {}
     for option, value in _PASSING.items():
         layer, _comparison, _transform = _RULES[option]
-        if layer != _RESPONSE_MATRIX:
+        if layer != "pEC50":
             layers[layer] = np.full(_SHAPE, value)
     return _fake(layers)
 
@@ -226,10 +227,13 @@ class TestCurveQuality:
             if name != "LN_IC50":
                 del dataset.response.layers[name]
 
-        np.testing.assert_array_equal(CurveQuality.off().mask(explicit), [[True, False, True], [False, True, True]])
+        assert CurveQuality.off().mask(explicit).all()
+        np.testing.assert_array_equal(
+            observed_mask(explicit, CurveQuality.off()), [[True, False, True], [False, True, True]]
+        )
         with pytest.raises(KeyError):
             CurveQuality.default().mask(dataset)
-        np.testing.assert_array_equal(CurveQuality.off().mask(dataset), np.isfinite(dataset.response_matrix))
+        np.testing.assert_array_equal(observed_mask(dataset, CurveQuality.off()), np.isfinite(dataset.response_matrix))
         assert CurveQuality.off().to_metadata() == {}
 
     def test_custom_thresholds_are_applied_on_top_of_the_defaults(self) -> None:

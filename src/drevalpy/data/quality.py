@@ -19,9 +19,6 @@ import numpy as np
 if TYPE_CHECKING:
     from drevalpy.types.data.dataset import Dataset
 
-#: Sentinel layer name resolved to the dataset's primary ``X`` matrix (``dataset.x_measure``).
-_RESPONSE_MATRIX: Final = "pEC50"
-
 _Comparison = Callable[[np.ndarray, float], np.ndarray]
 _Transform = Callable[[np.ndarray], np.ndarray] | None
 
@@ -40,8 +37,8 @@ _RULES: Final[dict[str, tuple[str, _Comparison, _Transform]]] = {
     "max_abs_slope": ("slope", operator.le, np.abs),
     "min_front": ("front", operator.ge, None),
     "max_back": ("back", operator.le, None),
-    "min_pec50": (_RESPONSE_MATRIX, operator.ge, None),
-    "max_pec50": (_RESPONSE_MATRIX, operator.le, None),
+    "min_pec50": ("pEC50", operator.ge, None),
+    "max_pec50": ("pEC50", operator.le, None),
 }
 
 _THRESHOLD_NAMES: Final = tuple(_RULES)
@@ -98,24 +95,19 @@ class CurveQuality:
     def mask(self, dataset: Dataset) -> np.ndarray:
         """Return a boolean ``(n_samples, n_drugs)`` mask of pairs passing every active check.
 
-        When no check is active (:meth:`off`), returns ``np.isfinite(dataset.response_matrix)``
-        without reading any quality layer. Missing layers raise ``KeyError`` (via
+        It does not look at the response the models train on: whether that is finite is
+        :func:`~drevalpy.data.splitters.observed_mask`'s check. With no active check (:meth:`off`)
+        every pair passes and no layer is read. Missing layers raise ``KeyError`` (via
         ``dataset.get_response_layer``) and unknown regulation labels raise ``ValueError``.
 
         :param dataset: Dataset whose response layers hold the curve-quality metrics.
         :returns: Boolean mask, True where the curve passes.
         :raises ValueError: If ``regulation`` contains an unknown label.
         """
-        thresholds = self._thresholds()
-        if not thresholds and self.regulation is None:
-            return np.isfinite(np.asarray(dataset.response_matrix))
         passed = np.ones(dataset.response_matrix.shape, dtype=bool)
-        for name, threshold in thresholds.items():
+        for name, threshold in self._thresholds().items():
             layer, comparison, transform = _RULES[name]
-            values = np.asarray(
-                dataset.get_response_layer(dataset.x_measure if layer == _RESPONSE_MATRIX else layer),
-                dtype=np.float64,
-            )
+            values = np.asarray(dataset.get_response_layer(layer), dtype=np.float64)
             if transform is not None:
                 values = transform(values)
             passed &= comparison(values, threshold) & ~np.isnan(values)
