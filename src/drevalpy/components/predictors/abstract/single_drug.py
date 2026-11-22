@@ -126,13 +126,17 @@ def _drug_input(data: PredictorInput, drug_id: str, mask: np.ndarray) -> Predict
     :param data: Input holding every drug.
     :param drug_id: Drug the pairs of *mask* belong to.
     :param mask: The drug's pairs.
-    :returns: The drug's pairs over entity tables reduced to the rows they use.
+    :returns: The drug's pairs and early-stopping pairs over entity tables reduced to the rows they use.
     """
     context = TrainingContext(
         checkpoint_dir=_checkpoint_dir_for_drug(data.training_context.checkpoint_dir, drug_id), n_jobs=1
     )
     sub_data = data[mask]
     stopping = sub_data.early_stopping
+    if stopping is not None:
+        own = stopping.drug_ids == drug_id
+        stopping = stopping[own] if own.any() else None
+        sub_data = replace(sub_data, early_stopping=stopping)
     sample = _keep_used_rows(
         sub_data.sample, sub_data.sample_pair_idx, None if stopping is None else stopping.sample_ids
     )

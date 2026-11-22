@@ -145,23 +145,13 @@ class TestToFeatureMatrix:
 
 
 class TestIndexing:
-    def test_filters_stopping_by_surviving_drugs(self) -> None:
+    def test_stopping_pairs_pass_through_a_selection_of_pairs_unchanged(self) -> None:
         stopping = ResponseTable(
             np.array([0.5, 0.6, 0.7]), np.array(["cl1", "cl2", "cl1"]), np.array(["d1", "d2", "d3"])
         )
-        subset = _model_input(stopping=stopping)[np.array([True, False])]
-        assert len(subset) == 1
-        assert subset.early_stopping is not None
-        assert subset.early_stopping.drug_ids.tolist() == ["d1"]
-
-    def test_drops_stopping_when_no_drug_survives_or_mask_is_empty(self) -> None:
-        stopping = ResponseTable(np.array([0.5]), np.array(["cl1"]), np.array(["d3"]))
-        assert _model_input(stopping=stopping)[np.array([True, False])].early_stopping is None
-
-        matching_stopping = ResponseTable(np.array([0.5]), np.array(["cl1"]), np.array(["d1"]))
-        empty = _model_input(stopping=matching_stopping)[np.array([False, False])]
-        assert len(empty) == 0
-        assert empty.early_stopping is None
+        data = _model_input(stopping=stopping)
+        for selector in (np.array([True, False]), np.array([False, False]), slice(0, 1)):
+            assert data[selector].early_stopping is stopping
 
     def test_supports_slices_and_integer_indices(self) -> None:
         data = _model_input()

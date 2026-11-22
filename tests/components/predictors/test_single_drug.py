@@ -124,6 +124,14 @@ def test_a_drug_batch_keeps_only_the_rows_its_pairs_and_stopping_pairs_use() -> 
     np.testing.assert_array_equal(d1.early_stopping.sample_ids, ["s3"])
 
 
+def test_a_drug_without_stopping_pairs_gets_no_stopping_input() -> None:
+    stopping = ResponseTable(np.array([5.0]), np.array(["s3"]), np.array(["d1"]))
+    models = _fit(_batch({"d1": [0], "d2": [1]}, n_samples=4, early_stopping=stopping))
+
+    assert models["d1"].batch.early_stopping is not None
+    assert models["d2"].batch.early_stopping is None
+
+
 class _RecordingDrugFeaturePredictor(_RecordingPredictor):
     """The recording predictor, reading a drug feature table as well."""
 

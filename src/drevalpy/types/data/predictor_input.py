@@ -92,7 +92,10 @@ class PredictorInput:
         return np.concatenate(arrays, axis=1)
 
     def __getitem__(self, selector: np.ndarray | slice) -> PredictorInput:
-        """Select pairs by boolean/integer mask or slice, sharing entity payloads and restricting stopping drugs.
+        """Select pairs by boolean/integer mask or slice, sharing entity payloads and the early-stopping pairs.
+
+        The early-stopping pairs are not part of the selection: they pass through unchanged, since
+        they are held out from the training pairs and need not share a drug or a sample with them.
 
         :param selector: Boolean mask, integer index array, or slice over the pairs.
         :returns: Independent pair selection over the same canonical features.
@@ -102,9 +105,4 @@ class PredictorInput:
             selector = np.asarray(selector)
             if selector.dtype == bool and selector.shape != (len(self),):
                 raise ValueError("subset mask must be a one-dimensional boolean array matching len(self)")
-        pairs = self.pairs[selector]
-        stopping = self.early_stopping
-        if stopping is not None:
-            keep = np.isin(stopping.drug_ids, np.unique(pairs.drug_ids))
-            stopping = stopping[keep] if keep.any() else None
-        return replace(self, pairs=pairs, early_stopping=stopping)
+        return replace(self, pairs=self.pairs[selector])

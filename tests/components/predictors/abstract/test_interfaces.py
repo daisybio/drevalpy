@@ -18,7 +18,7 @@ from drevalpy.models.config import PredictorConfig
 from drevalpy.registry._component import predictor_component_metadata
 from drevalpy.registry.predictor import predictor_registry
 from drevalpy.testing import build_synthetic_input
-from drevalpy.types.data.feature_block import FeatureBlock
+from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
 from drevalpy.types.data.feature_format import FeatureFormat
 from drevalpy.types.data.predictor_input import PredictorInput
 from drevalpy.types.data.response_table import ResponseTable
@@ -178,6 +178,26 @@ def _batch_with_sample_values(
 ) -> PredictorInput:
     """Four pairs, ``cl1`` x (``d1``, ``d2``) then ``cl2`` x (``d1``, ``d2``), with one block row per sample."""
     return two_by_two_batch(sample_blocks={"gene_expression": FeatureBlock(values, block_format)}, drug_blocks={})
+
+
+@pytest.mark.parametrize("required", [False, True])
+def test_stopping_pairs_of_unseen_drugs_survive_dropping_training_pairs_with_missing_features(
+    monkeypatch, required
+) -> None:
+    """Leave-drug-out: the stopping drug is no training drug, and a training drug lacking features is dropped."""
+    drugs = FeaturizerOutput(np.array(["d1", "d2", "d3"]), {"fp": FeatureBlock(np.array([[np.nan], [1.0], [2.0]]))})
+    samples = FeaturizerOutput(np.array(["cl1", "cl2"]), {"expr": FeatureBlock(np.array([[1.0], [2.0]]))})
+    training = ResponseTable(np.array([1.0, 2.0, 3.0]), np.array(["cl1", "cl1", "cl2"]), np.array(["d1", "d2", "d2"]))
+    stopping = ResponseTable(np.array([4.0, 5.0]), np.array(["cl1", "cl2"]), np.array(["d3", "d3"]))
+    monkeypatch.setattr(_RecordingPredictor, "requires_early_stopping", required)
+    predictor = _RecordingPredictor()
+
+    predictor.fit(PredictorInput(training, samples, drugs, stopping))
+
+    (fitted,) = predictor.fitted_on
+    assert fitted.drug_ids.tolist() == ["d2", "d2"]
+    assert fitted.early_stopping is not None
+    assert fitted.early_stopping.drug_ids.tolist() == ["d3", "d3"]
 
 
 class TestPairsWithMissingFeatures:
