@@ -145,6 +145,44 @@ def test_pca_reduces_view_dimension_caps_components_and_requires_a_view() -> Non
         PCASampleFeaturizer(view="gene_expression").transform(features, _PCA_IDS)
 
 
+def _random_expression(scale_of_last_feature: float) -> MockFeatureSource:
+    values = np.random.default_rng(0).normal(size=(8, 5))
+    values[:, -1] *= scale_of_last_feature
+    return MockFeatureSource(
+        features={f"cl{i}": {"gene_expression": row.astype(np.float64)} for i, row in enumerate(values)}
+    )
+
+
+def test_pca_standardizes_the_view_so_a_feature_in_another_unit_changes_nothing() -> None:
+    ids = np.array([f"cl{i}" for i in range(8)], dtype=str)
+    components = {}
+    for scale in (1.0, 1000.0):
+        features = _random_expression(scale)
+        featurizer = PCASampleFeaturizer(view="gene_expression", n_components=3).fit(features, ids)
+        components[scale] = featurizer.transform(features, ids).matrix
+
+    # Components are defined up to sign, so compare magnitudes.
+    np.testing.assert_allclose(np.abs(components[1.0]), np.abs(components[1000.0]), atol=1e-8)
+
+
+def test_pca_standardization_is_fitted_on_the_training_samples_only() -> None:
+    from sklearn.decomposition import PCA
+    from sklearn.pipeline import make_pipeline
+    from sklearn.preprocessing import StandardScaler
+
+    features = _random_expression(1.0)
+    ids = np.array([f"cl{i}" for i in range(8)], dtype=str)
+    train, test = ids[:5], ids[5:]
+    featurizer = PCASampleFeaturizer(view="gene_expression", n_components=3).fit(features, train)
+
+    reference = make_pipeline(StandardScaler(), PCA(n_components=3)).fit(features.view("gene_expression", train))
+    np.testing.assert_allclose(
+        featurizer.transform(features, test).matrix,
+        reference.transform(features.view("gene_expression", test)),
+        atol=1e-10,
+    )
+
+
 def test_pca_pickle_round_trip_transforms_identically() -> None:
     features = _pca_features()
     featurizer = PCASampleFeaturizer(view="gene_expression", n_components=2).fit(features, _PCA_IDS)
