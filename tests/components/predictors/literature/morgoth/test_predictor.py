@@ -14,7 +14,7 @@ from drevalpy.components.predictors.literature.morgoth.predictor import SingleDr
 from drevalpy.data import synthetic
 from drevalpy.testing.inputs import build_synthetic_input
 from drevalpy.types.data.predictor_input import PredictorInput
-from tests.synthetic.variants import REQUIRES_MORGOTH, small_hyperparameters
+from tests.synthetic.variants import small_hyperparameters
 
 SMALL = small_hyperparameters("SingleDrugMorgoth")
 
@@ -59,7 +59,6 @@ def _with_layers(batch, layers, **changes):
 
 
 @pytest.mark.slow
-@REQUIRES_MORGOTH
 def test_each_drug_trains_on_its_pairs_with_a_verdict(seen_classes) -> None:
     batch = _batch()
     regulation = np.where(np.arange(len(batch)) % 3 == 0, np.nan, np.where(np.arange(len(batch)) % 2, -1.0, 1.0))
@@ -75,7 +74,6 @@ def test_each_drug_trains_on_its_pairs_with_a_verdict(seen_classes) -> None:
 
 
 @pytest.mark.slow
-@REQUIRES_MORGOTH
 def test_a_drug_without_any_verdict_predicts_nan() -> None:
     batch = _batch()
     first = batch.drug_ids == sorted(set(batch.drug_ids))[0]
@@ -89,7 +87,6 @@ def test_a_drug_without_any_verdict_predicts_nan() -> None:
     assert np.isfinite(predictions[~first]).all()
 
 
-@REQUIRES_MORGOTH
 def test_without_the_layer_it_warns_once_and_falls_back_to_the_quantile(caplog, seen_classes) -> None:
     with caplog.at_level(logging.WARNING, logger=morgoth_predictor.__name__):
         SingleDrugMorgothPredictor(SMALL).fit(_batch(with_regulation=False))

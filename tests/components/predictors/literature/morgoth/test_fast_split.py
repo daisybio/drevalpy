@@ -10,9 +10,6 @@ import pytest
 
 from drevalpy.components.predictors.literature.morgoth._fast_split import alias_fireducks, fast_split
 from drevalpy.components.predictors.literature.morgoth._forest import MorgothRegressor
-from tests.synthetic.variants import REQUIRES_MORGOTH
-
-pytestmark = REQUIRES_MORGOTH
 
 
 def _dt_module() -> Any:

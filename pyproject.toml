@@ -75,6 +75,8 @@ dev = [
     "types-PyYAML",
     "pydoclint>=0.11.0",
     "pytest-xdist>=3.8",
+    # The morgoth extra, so that every development environment runs the SingleDrugMorgoth tests.
+    "morgoth>=1.6",
 ]
 docs = [
     "sphinx>=4.0.2",

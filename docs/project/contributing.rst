@@ -90,10 +90,7 @@ request, like this:
 .. code:: console
 
    $ uv run pytest -m slow
-   $ uv run --extra morgoth pytest -m "not network and not golden"
-
-The tests that need the optional ``morgoth`` extra are skipped when it is not
-installed; CI installs it.
+   $ uv run pytest -m "not network and not golden"
 
 To see how many tests each tier holds, count them without running them:
 
@@ -110,7 +107,7 @@ suite. To reproduce the CI check locally:
 
 .. code:: console
 
-   $ uv run --extra morgoth pytest -m "not network and not golden" -n auto --dist worksteal --cov --cov-report=term-missing
+   $ uv run pytest -m "not network and not golden" -n auto --dist worksteal --cov --cov-report=term-missing
 
 CI runs the tests in parallel with ``pytest-xdist``, which is how the command above
 reproduces it; add ``-n auto --dist worksteal`` to any tier for the same speed-up. The

@@ -6,7 +6,6 @@ the NaN-filtering path in ``PredictorBase.fit`` and ``PredictorInput.__getitem__
 
 from __future__ import annotations
 
-import importlib.util
 from typing import Any, Final
 
 import pytest
@@ -113,15 +112,6 @@ def build_partial_coverage_dataset() -> Dataset:
     return build_synthetic_dataset(name="SYNTH_PARTIAL", omics_coverage=PARTIAL_COVERAGE)
 
 
-#: Skips a test that needs the optional ``morgoth`` extra when it is not installed; CI installs it.
-REQUIRES_MORGOTH: Final = pytest.mark.skipif(
-    importlib.util.find_spec("morgoth") is None, reason="needs the optional morgoth extra: uv sync --extra morgoth"
-)
-
-#: Marks of the zoo models whose predictor lives in an optional extra.
-_MODEL_MARKS: Final = {"SingleDrugMorgoth": REQUIRES_MORGOTH}
-
-
 def model_param(model_name: str) -> ParameterSet:
-    """Wrap *model_name* as a pytest parameter whose id is the model name, skipped when its extra is absent."""
-    return pytest.param(model_name, id=model_name, marks=_MODEL_MARKS.get(model_name, ()))
+    """Wrap *model_name* as a pytest parameter whose id is the model name."""
+    return pytest.param(model_name, id=model_name)

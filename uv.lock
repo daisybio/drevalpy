@@ -1162,6 +1162,7 @@ morgoth = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "morgoth" },
     { name = "prek" },
     { name = "pydoclint" },
     { name = "pytest" },
@@ -1230,6 +1231,7 @@ provides-extras = ["cpu", "cu126", "cu130", "morgoth"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "morgoth", specifier = ">=1.6" },
     { name = "prek" },
     { name = "pydoclint", specifier = ">=0.11.0" },
     { name = "pytest" },

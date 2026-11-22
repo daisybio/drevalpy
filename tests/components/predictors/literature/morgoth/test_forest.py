@@ -12,7 +12,6 @@ from sklearn.base import clone
 
 from drevalpy.components.predictors.literature.morgoth import _fast_split
 from drevalpy.components.predictors.literature.morgoth._forest import MorgothRegressor, _pool, import_morgoth
-from tests.synthetic.variants import REQUIRES_MORGOTH
 
 
 def _data(n: int = 40, seed: int = 0) -> tuple[np.ndarray, np.ndarray]:
@@ -36,7 +35,6 @@ def _morgoth_module() -> types.ModuleType:
     return sys.modules["morgoth.morgoth"]
 
 
-@REQUIRES_MORGOTH
 def test_import_morgoth_returns_the_forest_class() -> None:
     """The returned class is the package's MORGOTH."""
     assert import_morgoth() is _morgoth_module().MORGOTH
@@ -76,7 +74,6 @@ def test_alias_fireducks_keeps_an_installed_fireducks(monkeypatch: pytest.Monkey
     assert sys.modules["fireducks"] is fake
 
 
-@REQUIRES_MORGOTH
 def test_pool_swaps_and_restores_the_package_pool() -> None:
     """``_pool`` replaces ``morgoth.morgoth.Pool`` inside the block only, also after an error."""
     module = _morgoth_module()
@@ -97,7 +94,6 @@ def test_clone_keeps_the_parameters() -> None:
     assert clone(regressor).get_params() == regressor.get_params()
 
 
-@REQUIRES_MORGOTH
 class TestFit:
     """Fits of tiny single-process forests."""
 

@@ -20,7 +20,6 @@ from tests.golden._record import (
     round_trip_predict,
     train_and_predict,
 )
-from tests.synthetic.variants import REQUIRES_MORGOTH
 
 pytestmark = [pytest.mark.slow, pytest.mark.golden]
 
@@ -29,12 +28,7 @@ def _params() -> list:
     with BASELINE_FILE.open(encoding="utf-8") as handle:
         baseline = json.load(handle)
     recorded = [
-        pytest.param(
-            key,
-            id=key,
-            marks=([pytest.mark.network] if entry["artifacts"] else [])
-            + ([REQUIRES_MORGOTH] if entry["model"] == "SingleDrugMorgoth" else []),
-        )
+        pytest.param(key, id=key, marks=[pytest.mark.network] if entry["artifacts"] else [])
         for key, entry in sorted(baseline["models"].items())
     ]
     network = [pytest.param(key, id=key, marks=pytest.mark.network) for key in sorted(baseline["network_only"])]

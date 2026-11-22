@@ -50,7 +50,7 @@ from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
 from drevalpy.types.data.feature_source import FeatureSource, Side
 from drevalpy.types.data.predictor_input import PredictorInput
 from drevalpy.types.enums import ModelScope
-from tests.synthetic.variants import REQUIRES_MORGOTH, predictor_small_hyperparameters
+from tests.synthetic.variants import predictor_small_hyperparameters
 
 BLOCK = "probe"
 
@@ -359,23 +359,19 @@ _SLOW_FEATURIZERS = frozenset(
 )
 
 
-def _conformance_params(components, checks, *, slow, trivial, requires=None):
-    """Pair every check with every component, marking the checks that do real work as the component needs.
+def _conformance_params(components, checks, *, slow, trivial):
+    """Pair every check with every component, marking slow the checks that do real work on a slow component.
 
     :param components: Component names, or ``(side, name)`` pairs for featurizers.
     :param checks: The conformance checks to run on each.
     :param slow: Components whose checks take 0.2s or more.
     :param trivial: ``trivial(check, component)`` is whether that check returns at once, so it carries no mark.
-    :param requires: Mark the working checks of each component also carry, by component.
     :yields: One parameter set per component and check, as ``(check, *component)``.
     """
     for component in components:
         arguments = component if isinstance(component, tuple) else (component,)
         for check in checks:
-            marks = []
-            if not trivial(check, component):
-                marks += [pytest.mark.slow] * (component in slow)
-                marks += [requires[component]] if component in (requires or {}) else []
+            marks = [pytest.mark.slow] if component in slow and not trivial(check, component) else []
             yield pytest.param(check, *arguments, id="-".join((*arguments, check.__name__)), marks=marks)
 
 
@@ -465,7 +461,6 @@ _SLOW_PREDICTORS = frozenset(
         PREDICTOR_CHECKS,
         slow=_SLOW_PREDICTORS,
         trivial=_returns_at_once,
-        requires={"singleDrugMorgoth": REQUIRES_MORGOTH},
     ),
 )
 def test_builtin_predictors_conform(check, name):
