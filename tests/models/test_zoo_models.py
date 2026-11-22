@@ -266,7 +266,7 @@ class TestDIPKArtifactIntegration:
             # Actual cached/downloaded bytes, with no artifact or backend mocking.
             assert hashlib.sha256(get_artifact(name).read_bytes()).hexdigest() == sha256
 
-        with _isolated_reference_rng(0):
+        with _isolated_reference_rng():
             dataset = build_synthetic_dataset(seed=0)
             fold = _first_lto_fold(dataset)
             model = DRPModel(
