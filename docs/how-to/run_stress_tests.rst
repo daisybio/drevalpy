@@ -43,7 +43,7 @@ model on the original data and on the shuffled data, for each fold and each repe
              Split mode: LPO
              Normalized by: None
              Models: 1
-                 Ridge (5 folds): MSE=0.5648, RMSE=0.7509, MAE=0.5846, R^2=0.7878, Pearson=0.8899, Spearman=0.9006, Kendall=0.7262
+                 Ridge (5 folds): MSE=3.2142, RMSE=1.7906, MAE=1.3939, R^2=0.7722, Pearson=0.8822, Spearman=0.8891, Kendall=0.7081
 
    .. tab-item:: Python
       :sync: python
@@ -74,7 +74,7 @@ model on the original data and on the shuffled data, for each fold and each repe
              Split mode: LPO
              Normalized by: None
              Models: 1
-                 Ridge (5 folds): MSE=0.5648, RMSE=0.7509, MAE=0.5846, R^2=0.7878, Pearson=0.8899, Spearman=0.9006, Kendall=0.7262
+                 Ridge (5 folds): MSE=3.2142, RMSE=1.7906, MAE=1.3939, R^2=0.7722, Pearson=0.8822, Spearman=0.8891, Kendall=0.7081
 
 The summary averages only the ordinary runs: the original data in the original pair order. The
 stress-test runs are in the saved results, and no command prints them.

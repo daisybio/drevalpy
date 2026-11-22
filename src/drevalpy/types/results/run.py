@@ -76,7 +76,7 @@ class RunResult:
 
     @property
     def measure(self) -> str:
-        """The response measure the run was trained and scored on, from ``fold_metadata``; pEC50 when unset."""
+        """The response measure the run was trained and scored on, from ``fold_metadata``; ``LN_IC50`` when unset."""
         return self.identity.measure
 
     @property

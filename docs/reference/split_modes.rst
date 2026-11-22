@@ -77,7 +77,8 @@ Folds
      - Pairs with a finite value of the response measure that pass the curve-quality rule in
        :doc:`datasets`
    * - Response measure
-     - ``measure``, ``pEC50`` or a response layer; ``None`` keeps the dataset's measure
+     - ``measure``, ``pEC50`` or a response layer; ``None`` keeps the dataset's measure, ``LN_IC50``
+       unless it was set
    * - Curve-quality rule
      - ``quality``, a ``CurveQuality``; ``None`` means ``CurveQuality.default()``. ``split``
        passes it to the splitter, and the built-in modes leave out the pairs that fail it
@@ -111,7 +112,7 @@ Each fold carries this metadata:
        mapping from each threshold that is set to its value, such as ``min_abs_fold_change``
        ``0.45``; empty for ``CurveQuality.off()``
    * - ``measure``
-     - The response measure of the split, such as ``pEC50``. A run on the fold must use the
+     - The response measure of the split, such as ``LN_IC50``. A run on the fold must use the
        same measure
    * - ``test_study``
      - ``LStO`` only: the name of the study the fold tests on

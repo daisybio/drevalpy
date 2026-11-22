@@ -302,12 +302,13 @@ class TestExtras:
         np.testing.assert_array_equal(np.isnan(full.get_response_layer(layer)), np.isnan(full.response_matrix))
 
     def test_layer_values_follow_the_response(self, full):
-        measured = _measured(full.response_matrix)
-        correlation = np.corrcoef(full.response_matrix[measured], full.get_response_layer("AUC")[measured])[0, 1]
+        pec50 = full.get_response_layer("pEC50")
+        measured = _measured(pec50)
+        correlation = np.corrcoef(pec50[measured], full.get_response_layer("AUC")[measured])[0, 1]
 
         assert correlation < -0.9
         np.testing.assert_allclose(
-            full.get_response_layer("IC50")[measured], 10.0 ** (6.0 - full.response_matrix[measured]), rtol=1e-4
+            full.get_response_layer("IC50")[measured], 10.0 ** (6.0 - pec50[measured]), rtol=1e-4
         )
 
     def test_extras_do_not_change_the_response(self, full):

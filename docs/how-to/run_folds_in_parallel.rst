@@ -231,7 +231,7 @@ an annotation grouping, ``--dataset`` is not read.
              Split mode: LPO
              Normalized by: None
              Models: 1
-                 NaiveMeanEffectsPredictor (5 folds): MSE=0.8399, RMSE=0.9144, MAE=0.7218, R^2=0.6851, Pearson=0.8298, Spearman=0.8409, Kendall=0.6466
+                 NaiveMeanEffectsPredictor (5 folds): MSE=4.4532, RMSE=2.1055, MAE=1.6620, R^2=0.6851, Pearson=0.8298, Spearman=0.8409, Kendall=0.6466
          Metrics computed within each drug, averaged over drugs and folds (number of drugs scored in brackets):
          Model                      MSE        RMSE       MAE        R^2         Pearson    Spearman   Kendall
          NaiveMeanEffectsPredictor  0.852 (8)  0.895 (8)  0.731 (8)  -0.583 (8)  0.386 (8)  0.372 (8)  0.277 (8)
@@ -254,7 +254,7 @@ an annotation grouping, ``--dataset`` is not read.
              Split mode: LPO
              Normalized by: None
              Models: 1
-                 NaiveMeanEffectsPredictor (5 folds): MSE=0.8399, RMSE=0.9144, MAE=0.7218, R^2=0.6851, Pearson=0.8298, Spearman=0.8409, Kendall=0.6466
+                 NaiveMeanEffectsPredictor (5 folds): MSE=4.4532, RMSE=2.1055, MAE=1.6620, R^2=0.6851, Pearson=0.8298, Spearman=0.8409, Kendall=0.6466
 
 These are the numbers that ``drevalpy experiment NaiveMeanEffectsPredictor --dataset toy.h5mu --split-mode LPO --no-hpo``
 prints for the same dataset and seed. The experiment directory loads with

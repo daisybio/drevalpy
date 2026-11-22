@@ -48,8 +48,8 @@ that stops early needs at least two validation groups, so raise it when a small 
              Split mode: LPO
              Normalized by: None
              Models: 2
-                 NaiveDrugMeanPredictor (5 folds): MSE=0.7908, RMSE=0.8880, MAE=0.7195, R^2=0.7031, Pearson=0.8415, Spearman=0.8440, Kendall=0.6882
-                 NaiveMeanEffectsPredictor (5 folds): MSE=0.8399, RMSE=0.9144, MAE=0.7218, R^2=0.6851, Pearson=0.8298, Spearman=0.8409, Kendall=0.6466
+                 NaiveDrugMeanPredictor (5 folds): MSE=4.1928, RMSE=2.0446, MAE=1.6566, R^2=0.7031, Pearson=0.8415, Spearman=0.8440, Kendall=0.6882
+                 NaiveMeanEffectsPredictor (5 folds): MSE=4.4532, RMSE=2.1055, MAE=1.6620, R^2=0.6851, Pearson=0.8298, Spearman=0.8409, Kendall=0.6466
 
    .. tab-item:: Python
       :sync: python
@@ -74,8 +74,8 @@ that stops early needs at least two validation groups, so raise it when a small 
              Split mode: LPO
              Normalized by: None
              Models: 2
-                 NaiveDrugMeanPredictor (5 folds): MSE=0.7908, RMSE=0.8880, MAE=0.7195, R^2=0.7031, Pearson=0.8415, Spearman=0.8440, Kendall=0.6882
-                 NaiveMeanEffectsPredictor (5 folds): MSE=0.8399, RMSE=0.9144, MAE=0.7218, R^2=0.6851, Pearson=0.8298, Spearman=0.8409, Kendall=0.6466
+                 NaiveDrugMeanPredictor (5 folds): MSE=4.1928, RMSE=2.0446, MAE=1.6566, R^2=0.7031, Pearson=0.8415, Spearman=0.8440, Kendall=0.6882
+                 NaiveMeanEffectsPredictor (5 folds): MSE=4.4532, RMSE=2.1055, MAE=1.6620, R^2=0.6851, Pearson=0.8298, Spearman=0.8409, Kendall=0.6466
 
 Each metric in the summary is computed once per fold on the pooled test pairs and averaged over
 the folds. Read it together with the within-drug scores; see :doc:`/explanation/metrics`.
@@ -176,9 +176,9 @@ sampler alone.
 Choose the response measure
 ---------------------------
 
-The models train on one response measure and are scored on it. The default is pEC50, which a
-dataset holds in ``X``. Any response layer can be the measure instead: ``LN_IC50``, ``AUC``,
-``IC50``, ``EC50``, or a layer of your own dataset. ``--measure`` on the command line and
+The models train on one response measure and are scored on it. The default is ``LN_IC50``, as
+in 1.x; a dataset without an ``LN_IC50`` layer trains on the pEC50 it holds in ``X``. Any other
+measure can be chosen instead: ``pEC50``, ``AUC``, ``IC50``, ``EC50``, or a layer of your own dataset. ``--measure`` on the command line and
 ``measure=`` in Python choose it.
 
 .. tab-set::

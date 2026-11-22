@@ -260,9 +260,10 @@ def experiment(
     :param response_transformation: Optional unfitted response transformation, cloned for every fit. The normalization
         reference ``NaiveMeanEffectsPredictor`` is always fitted on the untransformed response.
     :param quality: Curve-quality rule passed to the splitter; ``None`` means ``CurveQuality.default()``.
-    :param measure: Response measure to train and score on, such as ``LN_IC50`` or ``AUC``: ``pEC50`` or any
-        response layer of the dataset (see :meth:`~drevalpy.types.data.dataset.Dataset.with_measure`). ``None``
-        keeps the dataset's measure, pEC50 unless it was set.
+    :param measure: Response measure to train and score on: ``pEC50`` or any response layer of the dataset, such
+        as ``AUC`` (see :meth:`~drevalpy.types.data.dataset.Dataset.with_measure`). ``None``
+        keeps the dataset's measure, which is ``LN_IC50`` unless it was set (``pEC50`` for a dataset without an
+        ``LN_IC50`` layer).
     :param wandb_project: Weights & Biases project to log to; ``None`` disables tracking.
     :param on_error: ``"record"`` keeps going when a run raises, logs a warning and stores a ``RunFailure`` on
         the result; ``"raise"`` re-raises the first error. ``KeyboardInterrupt`` always propagates.

@@ -47,9 +47,9 @@ and runs the rest. A featurizer that needs a view takes it in brackets, as in
              Split mode: LSO
              Normalized by: None
              Models: 3
-                 view[gene_expression]:fingerprints:ridge (5 folds): MSE=0.5534, RMSE=0.7437, MAE=0.5830, R^2=0.7925, Pearson=0.8936, Spearman=0.9025, Kendall=0.7252
-                 tissue:fingerprints:ridge (5 folds): MSE=0.7718, RMSE=0.8748, MAE=0.7049, R^2=0.7111, Pearson=0.8499, Spearman=0.8483, Kendall=0.6686
-                 tissue:fingerprints:naiveTissueMean (5 folds): MSE=2.6879, RMSE=1.6393, MAE=1.3716, R^2=-0.0076, Pearson=0.1044, Spearman=0.1215, Kendall=0.0932
+                 view[gene_expression]:fingerprints:ridge (5 folds): MSE=2.8044, RMSE=1.6728, MAE=1.3185, R^2=0.8018, Pearson=0.8989, Spearman=0.9077, Kendall=0.7340
+                 tissue:fingerprints:ridge (5 folds): MSE=4.0920, RMSE=2.0142, MAE=1.6231, R^2=0.7111, Pearson=0.8499, Spearman=0.8483, Kendall=0.6686
+                 tissue:fingerprints:naiveTissueMean (5 folds): MSE=14.2509, RMSE=3.7745, MAE=3.1581, R^2=-0.0076, Pearson=0.1044, Spearman=0.1215, Kendall=0.0932
 
    .. tab-item:: Python
       :sync: python
@@ -91,9 +91,9 @@ and runs the rest. A featurizer that needs a view takes it in brackets, as in
              Split mode: LSO
              Normalized by: None
              Models: 3
-                 view[gene_expression]:fingerprints:ridge (5 folds): MSE=0.5534, RMSE=0.7437, MAE=0.5830, R^2=0.7925, Pearson=0.8936, Spearman=0.9025, Kendall=0.7252
-                 tissue:fingerprints:ridge (5 folds): MSE=0.7718, RMSE=0.8748, MAE=0.7049, R^2=0.7111, Pearson=0.8499, Spearman=0.8483, Kendall=0.6686
-                 tissue:fingerprints:naiveTissueMean (5 folds): MSE=2.6879, RMSE=1.6393, MAE=1.3716, R^2=-0.0076, Pearson=0.1044, Spearman=0.1215, Kendall=0.0932
+                 view[gene_expression]:fingerprints:ridge (5 folds): MSE=2.8044, RMSE=1.6728, MAE=1.3185, R^2=0.8018, Pearson=0.8989, Spearman=0.9077, Kendall=0.7340
+                 tissue:fingerprints:ridge (5 folds): MSE=4.0920, RMSE=2.0142, MAE=1.6231, R^2=0.7111, Pearson=0.8499, Spearman=0.8483, Kendall=0.6686
+                 tissue:fingerprints:naiveTissueMean (5 folds): MSE=14.2509, RMSE=3.7745, MAE=3.1581, R^2=-0.0076, Pearson=0.1044, Spearman=0.1215, Kendall=0.0932
 
 ``naiveTissueMean`` predicts from the tissue block, so it fits ``tissue`` and not ``view``. The
 grid keeps three of the four combinations and reports the fourth instead of failing.

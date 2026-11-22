@@ -86,8 +86,8 @@ Measure = Annotated[
     str | None,
     typer.Option(
         "--measure",
-        help="Response measure to train and score on: pEC50 (the default) or any response layer of the dataset, "
-        "such as LN_IC50, AUC or IC50.",
+        help="Response measure to train and score on: LN_IC50 (the default), pEC50, or any other response layer "
+        "of the dataset, such as AUC or IC50. A dataset without an LN_IC50 layer defaults to pEC50.",
     ),
 ]
 

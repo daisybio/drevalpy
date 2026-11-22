@@ -61,12 +61,12 @@ drug and sample for reasons that have nothing to do with biology.
 
 DrEvalPy therefore refits the raw curves of every built-in screen with one shared
 procedure, CurveCurator, so the response definition is the same in all of them.
-The primary response in the response table is the pEC50, the negative logarithm of
-the concentration at half-maximal effect. The other summaries from the same fit,
-such as the LN_IC50, the EC50, the IC50 and the area under the curve, are kept as
-named layers next to it. Where a study published its own values, they are carried
-along in layers with a ``_published`` suffix, so you can compare, but they are not
-the ones models are trained on by default.
+The response table holds the pEC50, the negative logarithm of the concentration at
+half-maximal effect, in ``X``. The other summaries from the same fit, such as the
+LN_IC50, the EC50, the IC50 and the area under the curve, are kept as named layers
+next to it, and models train on the LN_IC50 by default, as in 1.x. Where a study
+published its own values, they are carried along in layers with a ``_published``
+suffix, so you can compare, but models do not train on them by default.
 
 Fitting a curve always produces a number, including when the curve is flat or the
 fit is meaningless. A pEC50 that is not missing is therefore not the same as a

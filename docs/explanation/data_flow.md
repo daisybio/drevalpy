@@ -53,9 +53,9 @@ single `.h5mu` file (an HDF5-backed `MuData` archive) and wraps it in
 {py:class}`~drevalpy.types.data.dataset.Dataset`. Every modality in `mdata.mod` shares the
 `obs` axis of samples:
 
-- `mdata.mod["response"]` is a `(n_samples, n_drugs)` matrix whose `X` holds the default
-  measure and whose `layers` hold alternative response measures and curve-fit diagnostics
-  (such as `LN_IC50`, `AUC` or `regulation`). Drug metadata (`canonical_smiles`) lives in
+- `mdata.mod["response"]` is a `(n_samples, n_drugs)` matrix whose `X` holds pEC50 and whose
+  `layers` hold the other response measures and curve-fit diagnostics (such as `LN_IC50`, `AUC`
+  or `regulation`). Drug metadata (`canonical_smiles`) lives in
   `response.var` and precomputed dense drug views (such as `morgan_fingerprint`) live in
   `response.varm`, because drugs are the `var` axis of `response`.
 - Other modalities in `mdata.mod` hold sample views such as `gene_expression`, `proteomics` or
@@ -64,8 +64,9 @@ single `.h5mu` file (an HDF5-backed `MuData` archive) and wraps it in
   under `drug_graphs` or precomputed-view settings under `precomputed_views`) live in
   `mdata.uns`.
 
-`Dataset.with_measure(name)` switches which response layer `dataset.response_matrix` returns
-without copying the underlying `MuData`. See {doc}`/reference/datasets` for the full file
+`dataset.response_matrix` returns the `LN_IC50` layer by default (pEC50 from `X` for a dataset
+without one), and `Dataset.with_measure(name)` switches it to another measure without copying
+the underlying `MuData`. See {doc}`/reference/datasets` for the full file
 layout.
 
 The examples on this page run on a small synthetic dataset, so they work offline. In practice you

@@ -43,7 +43,7 @@ not a result to report.
              Split mode: LPO
              Normalized by: None
              Models: 1
-                 ElasticNet (2 folds): MSE=0.6861, RMSE=0.8283, MAE=0.6534, R^2=0.7442, Pearson=0.8684, Spearman=0.8771, Kendall=0.6888
+                 ElasticNet (2 folds): MSE=3.6657, RMSE=1.9145, MAE=1.5101, R^2=0.7422, Pearson=0.8672, Spearman=0.8763, Kendall=0.6876
 
    .. tab-item:: Python
       :sync: python
@@ -67,7 +67,7 @@ not a result to report.
              Split mode: LPO
              Normalized by: None
              Models: 1
-                 ElasticNet (2 folds): MSE=0.6861, RMSE=0.8283, MAE=0.6534, R^2=0.7442, Pearson=0.8684, Spearman=0.8771, Kendall=0.6888
+                 ElasticNet (2 folds): MSE=3.6657, RMSE=1.9145, MAE=1.5101, R^2=0.7422, Pearson=0.8672, Spearman=0.8763, Kendall=0.6876
 
 ``--robustness-repeats`` and ``--randomization-mode`` add final fits but no tuning: the runs of
 a stress test reuse the best hyperparameters of the original run on the same fold; see
@@ -177,7 +177,7 @@ logarithmic scale.
              Split mode: LPO
              Normalized by: None
              Models: 1
-                 NarrowElasticNet (2 folds): MSE=0.6165, RMSE=0.7850, MAE=0.6181, R^2=0.7709, Pearson=0.8857, Spearman=0.8956, Kendall=0.7159
+                 NarrowElasticNet (2 folds): MSE=3.2772, RMSE=1.8103, MAE=1.4218, R^2=0.7696, Pearson=0.8830, Spearman=0.8933, Kendall=0.7124
 
 The qualified key of a hyperparameter in a composed model, such as ``predictor.elasticNet.alpha``,
 is also in ``narrow.hyperparameter_space``.
@@ -240,7 +240,7 @@ off. For a single fit with values of your choice, without any experiment, see
              Split mode: LPO
              Normalized by: None
              Models: 1
-                 FixedElasticNet (2 folds): MSE=0.7052, RMSE=0.8398, MAE=0.6617, R^2=0.7371, Pearson=0.8650, Spearman=0.8736, Kendall=0.6847
+                 FixedElasticNet (2 folds): MSE=3.7659, RMSE=1.9405, MAE=1.5269, R^2=0.7353, Pearson=0.8639, Spearman=0.8719, Kendall=0.6819
 
 Reproduce a search
 ------------------

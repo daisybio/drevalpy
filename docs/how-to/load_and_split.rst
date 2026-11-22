@@ -113,7 +113,7 @@ and then loads that file.
              Name: SYNTHETIC
              Samples: 60
              Drugs: 8
-             Measure: pEC50
+             Measure: LN_IC50
              Measured pairs: 456
              Randomization: None
              Modalities:
@@ -128,7 +128,7 @@ Look inside a dataset
 
 The command line has no command that prints a dataset; use Python. A ``Dataset`` gives the
 identifiers of its samples and drugs, the tissue of each sample, and the response matrix with
-the response measure of every pair, pEC50 by default. Unmeasured pairs are ``NaN``.
+the response measure of every pair, ``LN_IC50`` by default. Unmeasured pairs are ``NaN``.
 
 .. tab-set::
    :sync-group: interface
@@ -218,7 +218,7 @@ The default ``random_state`` (``--seed`` on the command line) is 42, so repeatin
                  dataset: SYNTHETIC
                  fold_id: 35d304f70093
                  quality: {'min_relevance_score': 1.3010299956639813, 'min_abs_fold_change': 0.45}
-                 measure: pEC50
+                 measure: LN_IC50
 
 Each mask is a boolean matrix of the same shape as the response matrix: samples by drugs. The
 three masks of a fold do not overlap. With the built-in split modes, only pairs that pass the curve-quality rule in

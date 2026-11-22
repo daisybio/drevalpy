@@ -108,8 +108,8 @@ Map the ``drevalpy`` flags
        `Fit your own raw data`_.
    * - ``--measure``
      - ``--measure`` on ``experiment``, ``train``, ``run`` and ``data split``. The default
-       changed from ``LN_IC50`` (``LN_IC50_curvecurator`` in 1.6) to ``pEC50``; pass
-       ``--measure LN_IC50`` for the 1.x target. See
+       is still ``LN_IC50`` (``LN_IC50_curvecurator`` in 1.6); ``--measure pEC50`` trains on
+       the measure ``X`` holds. See
        :ref:`how-to/run_experiment:Choose the response measure`.
    * - ``--overwrite``
      - ``--overwrite``. It deletes the experiment in the output directory first (its

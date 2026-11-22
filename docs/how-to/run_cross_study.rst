@@ -77,7 +77,7 @@ a dataset takes it.
              Name: SCREEN_A+SCREEN_B
              Samples: 120
              Drugs: 8
-             Measure: pEC50
+             Measure: LN_IC50
              Measured pairs: 792
              Randomization: None
              Modalities:
@@ -205,8 +205,8 @@ pass several datasets and let ``experiment`` concatenate them:
              Split mode: LStO
              Normalized by: None
              Models: 2
-                 NaiveDrugMeanPredictor (2 folds): MSE=0.7859, RMSE=0.8865, MAE=0.7182, R^2=0.7089, Pearson=0.8420, Spearman=0.8450, Kendall=0.6833
-                 NaiveMeanEffectsPredictor (2 folds): MSE=0.6905, RMSE=0.8310, MAE=0.6679, R^2=0.7442, Pearson=0.8627, Spearman=0.8670, Kendall=0.6834
+                 NaiveDrugMeanPredictor (2 folds): MSE=4.1666, RMSE=2.0411, MAE=1.6538, R^2=0.7089, Pearson=0.8420, Spearman=0.8450, Kendall=0.6833
+                 NaiveMeanEffectsPredictor (2 folds): MSE=3.6610, RMSE=1.9134, MAE=1.5379, R^2=0.7442, Pearson=0.8627, Spearman=0.8670, Kendall=0.6834
 
       ``drevalpy.experiment(models, [screen_a, screen_b], "LStO")`` gives the same result. A list of one
       dataset is used as it is, so a dataset that is already a concatenation can be passed in a list.
@@ -303,8 +303,8 @@ experiments, rather than concatenating in every process.
 Mind the response scale
 -----------------------
 
-Studies do not measure the response on the same scale. The registered GDSC2 pEC50 values average
-about 6.31 and the CTRPv2 values about 5.55. A model trained on one study and tested on the other
+Studies do not measure the response on the same scale. The registered GDSC2 ``LN_IC50`` values
+average about 0.97 and the CTRPv2 values about 1.98 (their pEC50 values about 6.31 and 5.55). A model trained on one study and tested on the other
 predicts on the training scale, so its errors (MSE, RMSE, MAE) and R² contain that offset, and a
 low value does not mean the model ranks pairs badly. Compare models on the correlations (Pearson,
 Spearman, Kendall), which do not change when a constant is added to the predictions, and read

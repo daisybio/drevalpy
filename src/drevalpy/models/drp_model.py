@@ -170,7 +170,7 @@ class DRPModel:
 
     @property
     def measure(self) -> str | None:
-        """The response measure the model was trained on, such as ``pEC50``; ``None`` before training."""
+        """The response measure the model was trained on, such as ``LN_IC50``; ``None`` before training."""
         return self._measure
 
     def _reset(self) -> None:

@@ -65,8 +65,8 @@ same holds for ``NaiveSampleMeanPredictor`` in ``LSO`` and ``NaiveTissueMeanPred
              Split mode: LDO
              Normalized by: None
              Models: 2
-                 NaivePredictor (5 folds): MSE=3.0137, RMSE=1.6920, MAE=1.4340, R^2=-1.0724, Pearson=0.0000, Spearman=0.0000, Kendall=0.0000
-                 NaiveDrugMeanPredictor (5 folds): MSE=3.0137, RMSE=1.6920, MAE=1.4340, R^2=-1.0724, Pearson=0.0000, Spearman=0.0000, Kendall=0.0000
+                 NaivePredictor (5 folds): MSE=15.9782, RMSE=3.8959, MAE=3.3018, R^2=-1.0724, Pearson=0.0000, Spearman=0.0000, Kendall=0.0000
+                 NaiveDrugMeanPredictor (5 folds): MSE=15.9782, RMSE=3.8959, MAE=3.3018, R^2=-1.0724, Pearson=0.0000, Spearman=0.0000, Kendall=0.0000
 
    .. tab-item:: Python
       :sync: python
@@ -92,8 +92,8 @@ same holds for ``NaiveSampleMeanPredictor`` in ``LSO`` and ``NaiveTissueMeanPred
              Split mode: LDO
              Normalized by: None
              Models: 2
-                 NaivePredictor (5 folds): MSE=3.0137, RMSE=1.6920, MAE=1.4340, R^2=-1.0724, Pearson=0.0000, Spearman=0.0000, Kendall=0.0000
-                 NaiveDrugMeanPredictor (5 folds): MSE=3.0137, RMSE=1.6920, MAE=1.4340, R^2=-1.0724, Pearson=0.0000, Spearman=0.0000, Kendall=0.0000
+                 NaivePredictor (5 folds): MSE=15.9782, RMSE=3.8959, MAE=3.3018, R^2=-1.0724, Pearson=0.0000, Spearman=0.0000, Kendall=0.0000
+                 NaiveDrugMeanPredictor (5 folds): MSE=15.9782, RMSE=3.8959, MAE=3.3018, R^2=-1.0724, Pearson=0.0000, Spearman=0.0000, Kendall=0.0000
 
 Find a model that fits your data
 --------------------------------
@@ -191,7 +191,7 @@ PCA of the ``gene_expression`` view, Morgan fingerprints of the drugs, and a rid
              Split mode: LDO
              Normalized by: None
              Models: 2
-                 NaivePredictor (5 folds): MSE=3.0137, RMSE=1.6920, MAE=1.4340, R^2=-1.0724, Pearson=0.0000, Spearman=0.0000, Kendall=0.0000
+                 NaivePredictor (5 folds): MSE=15.9782, RMSE=3.8959, MAE=3.3018, R^2=-1.0724, Pearson=0.0000, Spearman=0.0000, Kendall=0.0000
                  pca[gene_expression]:fingerprints:ridge (5 folds): MSE=2.6447, RMSE=1.5637, MAE=1.3321, R^2=-0.7880, Pearson=0.4109, Spearman=0.3940, Kendall=0.2949
 
       To give your combination a short name, put a YAML file in an extension directory, here
@@ -242,8 +242,8 @@ PCA of the ``gene_expression`` view, Morgan fingerprints of the drugs, and a rid
              Split mode: LDO
              Normalized by: None
              Models: 2
-                 NaivePredictor (5 folds): MSE=3.0137, RMSE=1.6920, MAE=1.4340, R^2=-1.0724, Pearson=0.0000, Spearman=0.0000, Kendall=0.0000
-                 PcaRidge (5 folds): MSE=2.6447, RMSE=1.5637, MAE=1.3321, R^2=-0.7880, Pearson=0.4109, Spearman=0.3940, Kendall=0.2949
+                 NaivePredictor (5 folds): MSE=15.9782, RMSE=3.8959, MAE=3.3018, R^2=-1.0724, Pearson=0.0000, Spearman=0.0000, Kendall=0.0000
+                 PcaRidge (5 folds): MSE=14.0130, RMSE=3.6010, MAE=3.0662, R^2=-0.7875, Pearson=0.4150, Spearman=0.3989, Kendall=0.2971
 
 To compare many combinations at once instead of writing each recipe, use a grid; see
 :doc:`/how-to/evaluate_component_grids`. To write a featurizer or a predictor of your own, see :doc:`/how-to/extend/write_predictor` and

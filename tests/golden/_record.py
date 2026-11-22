@@ -75,6 +75,10 @@ OVERRIDES: Final[dict[str, dict[str, Any]]] = {
     "RandomForestAEMolGNet": {"epochs_autoencoder": 10},
 }
 
+#: The measure the baseline was recorded on. It is pinned, not the default measure, so a change of the
+#: default does not move the numbers this file compares.
+MEASURE: Final = "pEC50"
+
 #: Every opt-in extra of ``drevalpy.synthetic``, so each zoo model finds the views it reads.
 DATASET_OPTIONS: Final[dict[str, Any]] = {
     "omics": ("gene_expression", "proteomics", "mutations", "methylation", "copy_number_variation_gistic"),
@@ -122,10 +126,11 @@ def single_threaded() -> Iterator[None]:
 
 
 def build_dataset():
-    """Build the golden dataset: ``drevalpy.synthetic`` with every extra view on."""
+    """Build the golden dataset: ``drevalpy.synthetic`` with every extra view on, on :data:`MEASURE`."""
     import drevalpy
 
-    return drevalpy.synthetic(seed=DATASET_SEED, **{key: list(value) for key, value in DATASET_OPTIONS.items()})
+    dataset = drevalpy.synthetic(seed=DATASET_SEED, **{key: list(value) for key, value in DATASET_OPTIONS.items()})
+    return dataset.with_measure(MEASURE)
 
 
 def build_fold(dataset):

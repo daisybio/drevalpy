@@ -119,8 +119,8 @@ The file must have a modality named ``response``; without it loading raises ``Ke
        Further annotation columns, such as ``ncit_class`` or ``target_moa``, can be used as
        a grouping for per-group scores; see :doc:`/reference/metrics`
    * - ``X``
-     - The pEC50 of each sample and drug, the default response measure. ``uns["x_column"]``
-       names the measure ``X`` holds
+     - The pEC50 of each sample and drug. ``uns["x_column"]`` names the measure ``X`` holds.
+       Models train on the ``LN_IC50`` layer by default, and on ``X`` for a dataset without one
    * - ``layers``
      - The other dose-response summaries and quality metrics, listed below
    * - ``varm``
@@ -425,7 +425,7 @@ returns the boolean pair mask.
 
 The rule does not follow the response measure (see
 :ref:`how-to/run_experiment:Choose the response measure`). Each threshold reads its own layer,
-and ``min_pec50`` and ``max_pec50`` read the pEC50 in ``X`` whatever the measure is.
+and ``min_pec50`` and ``max_pec50`` read pEC50 whatever the measure is.
 
 A rule that needs a response layer the dataset lacks raises ``UnknownNameError`` (a ``KeyError``). A dataset without the
 quality layers, such as one with only a pEC50 matrix, therefore needs ``CurveQuality.off()``

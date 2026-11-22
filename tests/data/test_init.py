@@ -81,7 +81,7 @@ class TestSplitQuality:
     def test_off_keeps_the_pairs_the_default_rule_drops_and_a_custom_threshold_drops_more(
         self, low_quality_dataset: data.Dataset
     ) -> None:
-        median = float(np.nanmedian(low_quality_dataset.response_matrix))
+        median = float(np.nanmedian(low_quality_dataset.get_response_layer("pEC50")))
         default = covered_pairs(data.split(low_quality_dataset, "LPO", n_splits=2))
         off = covered_pairs(data.split(low_quality_dataset, "LPO", n_splits=2, quality=data.CurveQuality.off()))
         strict = covered_pairs(

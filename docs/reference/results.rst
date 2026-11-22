@@ -196,7 +196,7 @@ A run file is a compressed ``.npz`` archive.
    * - ``quality``
      - The curve-quality rule the split applied; see :doc:`split_modes`
    * - ``measure``
-     - The response measure the run was trained and scored on, such as ``pEC50``
+     - The response measure the run was trained and scored on, such as ``LN_IC50``
    * - ``test_study``
      - The study of the test set; ``LStO`` only
    * - ``n_splits``

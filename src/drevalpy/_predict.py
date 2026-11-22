@@ -30,7 +30,7 @@ def predict_observed(model: DRPModel, dataset: Dataset) -> RunResult:
     measure = model.measure
     if measure is None:
         raise InvalidInputError(f"Model {model.name!r} must be trained or loaded before it predicts")
-    if dataset.measure not in (measure, dataset.x_measure):
+    if dataset.measure not in (measure, dataset.default_measure):
         msg = f"Model {model.name!r} was trained on {measure!r}, but the dataset is set to {dataset.measure!r}"
         raise InvalidInputError(msg)
     dataset = dataset.with_measure(measure)

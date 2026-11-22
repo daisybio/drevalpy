@@ -193,10 +193,11 @@ that said "cell line" now says "sample".
 Defaults and results that changed
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- **The response measure is a choice again, with pEC50 as the default.** 1.x trained on
-  ``LN_IC50_curvecurator`` by default. ``--measure`` on ``drevalpy experiment``, ``train``, ``run``
+- **The response measure is a choice again, with LN_IC50 as the default, as in 1.x**
+  (``LN_IC50_curvecurator`` there). A dataset without an ``LN_IC50`` layer trains on the pEC50
+  in ``X``. ``--measure`` on ``drevalpy experiment``, ``train``, ``run``
   and ``data split``, and ``measure=`` on ``drevalpy.experiment``, ``train``, ``run`` and ``split``,
-  pick ``LN_IC50``, ``AUC`` or any other response layer. ``Dataset.measure``,
+  pick ``pEC50``, ``AUC`` or any other response layer. ``Dataset.measure``,
   ``Dataset.measures()`` and ``Dataset.with_measure(name)`` read and set it. The curve-quality
   rule does not change with the measure. Folds, results (``RunResult.measure``,
   ``ExperimentResult.measure``) and fitted models (``DRPModel.measure``) record it, and the
