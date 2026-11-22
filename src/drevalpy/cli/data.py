@@ -1,4 +1,4 @@
-"""``drevalpy data`` command group: ``concat``, ``load``, ``split`` and ``synthetic``."""
+"""``drevalpy data`` command group: ``concat``, ``load``, ``randomization``, ``split`` and ``synthetic``."""
 
 from __future__ import annotations
 
@@ -18,6 +18,7 @@ from drevalpy.cli._options import (
     quality_from_cli,
 )
 from drevalpy.data._synthetic import DATASET_NAME, MAX_SYNTHETIC_DRUGS, N_DRUGS, N_SAMPLES, N_TISSUES, SEED
+from drevalpy.types.enums import RandomizationMode, RandomizationType
 
 data_app = typer.Typer(
     name="data",
@@ -91,6 +92,9 @@ def split_dataset(
     n_splits: NSplits = 5,
     validation_ratio: ValidationRatio = 0.1,
     seed: Annotated[int, typer.Option("--seed", help="Random seed.")] = 42,
+    robustness_repeats: Annotated[
+        int, typer.Option("--robustness-repeats", min=0, help="Robustness repeats per fold (0 = none).")
+    ] = 0,
     measure: Measure = None,
     no_quality_filter: NoQualityFilter = False,
     min_relevance_score: MinRelevanceScore = None,
@@ -98,13 +102,15 @@ def split_dataset(
 ) -> None:
     """Split a dataset into cross-validation folds.
 
-    Writes one .npz file per fold to the output directory. Pairs whose fitted curve fails the
+    Writes one .npz file per fold to the output directory, plus ``fold_<i>_repeat_<r>.npz``
+    files when ``--robustness-repeats`` is positive. Pairs whose fitted curve fails the
     curve-quality rule are left out of every fold, and so are pairs without the response measure;
     the rule and the measure are recorded in the fold metadata.
     """
     from rich.progress import Progress
 
     from drevalpy.data import load, split
+    from drevalpy.execution._robustness import robustness
 
     quality = quality_from_cli(no_quality_filter, min_relevance_score, min_abs_fold_change)
     ds = load(dataset)
@@ -120,14 +126,67 @@ def split_dataset(
     out = UPath(output_dir)
     out.mkdir(parents=True, exist_ok=True)
 
+    n_robustness = 0
     with Progress() as progress:
         task = progress.add_task("Writing folds", total=len(folds))
         for i, fold in enumerate(folds):
-            fold_path = out / f"fold_{i}.npz"
-            fold.save(str(fold_path))
+            fold.save(str(out / f"fold_{i}.npz"))
+            if robustness_repeats > 0:
+                for repeat, variant in enumerate(robustness(fold, robustness_repeats)):
+                    variant.save(str(out / f"fold_{i}_repeat_{repeat}.npz"))
+                    n_robustness += 1
             progress.advance(task)
 
-    typer.echo(f"Wrote {len(folds)} folds to {out}")
+    if n_robustness:
+        typer.echo(f"Wrote {len(folds)} folds and {n_robustness} robustness folds to {out}")
+    else:
+        typer.echo(f"Wrote {len(folds)} folds to {out}")
+
+
+def randomization_dataset(
+    model: Annotated[str, typer.Argument(help="Model name (e.g. ElasticNet, SimpleNeuralNetwork).")],
+    dataset: Annotated[str, typer.Argument(help="Registered dataset name or path to a .h5mu file.")],
+    output_dir: Annotated[str, typer.Argument(help="Output directory for randomized .h5mu files.")],
+    modes: Annotated[
+        list[RandomizationMode] | None,
+        typer.Option("--mode", "-m", case_sensitive=False, help="Randomization mode(s): SVRC, SVCC, SVRD, SVCD."),
+    ] = None,
+    randomization_type: Annotated[
+        RandomizationType,
+        typer.Option("--randomization-type", "-t", case_sensitive=False, help="How to replace the view."),
+    ] = RandomizationType.PERMUTATION,
+    seed: Annotated[int, typer.Option("--seed", help="Random seed.")] = 42,
+) -> None:
+    """Generate randomized datasets for feature importance testing.
+
+    Produces copies of the dataset with views shuffled according to the
+    specified randomization modes, based on the model's configured views.
+    """
+    from rich.progress import Progress
+
+    from drevalpy.data import load
+    from drevalpy.execution._randomization import randomization
+    from drevalpy.models import ModelSpec
+
+    effective_modes = [mode.value for mode in modes] if modes else [RandomizationMode.SVRC.value]
+    model_spec = ModelSpec.from_name(model)
+    ds = load(dataset)
+    randomized = randomization(
+        model_spec, ds, effective_modes, randomization_type=randomization_type, random_state=seed
+    )
+
+    out = UPath(output_dir)
+    out.mkdir(parents=True, exist_ok=True)
+
+    with Progress() as progress:
+        task = progress.add_task("Writing randomized datasets", total=len(randomized))
+        for rds in randomized:
+            mode_tag, view_tag = rds.randomization or ("unknown", "0")
+            out_path = out / f"{mode_tag}__{view_tag}.h5mu"
+            rds.save(str(out_path))
+            progress.advance(task)
+
+    typer.echo(f"Wrote {len(randomized)} randomized datasets to {out}")
 
 
 def synthetic_dataset(
@@ -161,5 +220,6 @@ def synthetic_dataset(
 
 data_app.command("concat")(concat_datasets)
 data_app.command("load")(load_dataset)
+data_app.command("randomization")(randomization_dataset)
 data_app.command("split")(split_dataset)
 data_app.command("synthetic")(synthetic_dataset)

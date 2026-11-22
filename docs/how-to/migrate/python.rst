@@ -6,7 +6,7 @@ Migrate Python scripts from 1.x
 A 1.x script imported ``MODEL_FACTORY`` and ``drug_response_experiment``, loaded
 a ``DrugResponseDataset`` and called the experiment with a list of model
 classes. In v2 the models are ``ModelSpec`` objects, the dataset is a
-``Dataset`` and ``drevalpy.run`` returns the results instead of only writing
+``Dataset`` and ``drevalpy.experiment`` returns the results instead of only writing
 files. This page maps each import, parameter and result file. For command-line
 runs see :doc:`cli`; for a model class of your own see :doc:`models`.
 
@@ -43,7 +43,7 @@ because it uses the synthetic dataset instead of ``GDSC1``:
        drevalpy.ModelSpec.from_name(name)
        for name in ["NaiveTissueMeanPredictor", "NaiveMeanEffectsPredictor"]
    ]
-   result = drevalpy.run(models, dataset, "LSO", hyperparameter_tuning=False)
+   result = drevalpy.experiment(models, dataset, "LSO", hyperparameter_tuning=False)
    print(result.model_names)
 
 With real data, replace the first line after the import with
@@ -65,15 +65,15 @@ Map imports and objects
        ``MULTI_DRUG_MODEL_FACTORY`` and ``SINGLE_DRUG_MODEL_FACTORY`` no longer
        exist.
    * - ``drevalpy.experiment.drug_response_experiment``
-     - ``drevalpy.run``. It returns an ``ExperimentResult``.
+     - ``drevalpy.experiment``. It returns an ``ExperimentResult``.
    * - ``drevalpy.datasets.loader.load_dataset`` and
        ``AVAILABLE_DATASETS``
      - ``drevalpy.load(name_or_path)``. The built-in names are ``BeatAML2``,
        ``CTRPv1``, ``CTRPv2``, ``GDSC1``, ``GDSC2``, ``PDX_Bruna`` and
        ``TOYv1``; ``CCLE``, ``TOYv2`` and the ``CTRPv2_clean*`` datasets are gone.
-       The ``measure`` of ``load_dataset`` is the ``measure`` of ``drevalpy.run``,
-       ``drevalpy.split`` and ``drevalpy.train``; the default changed from
-       ``LN_IC50_curvecurator`` to ``pEC50``.
+       The ``measure`` of ``load_dataset`` is the ``measure`` of ``drevalpy.experiment``,
+       ``drevalpy.split`` and ``drevalpy.train``; the default ``LN_IC50`` is the
+       curve refit 1.x called ``LN_IC50_curvecurator``.
    * - ``DrugResponseDataset`` (``response``, ``cell_line_ids``, ``drug_ids``:
        one row per pair)
      - ``drevalpy.types.data.dataset.Dataset``: ``response_matrix`` of samples by
@@ -135,7 +135,7 @@ Map the ``drug_response_experiment`` parameters
    :widths: 32 68
 
    * - 1.x parameter
-     - v2 ``drevalpy.run`` parameter
+     - v2 ``drevalpy.experiment`` parameter
    * - ``models``, ``baselines``
      - ``models``: one list of ``ModelSpec`` objects. v2 does not add
        ``NaiveMeanEffectsPredictor`` for you.
@@ -162,29 +162,29 @@ Map the ``drug_response_experiment`` parameters
    * - ``n_cv_splits``
      - ``n_splits``, default 5 instead of 7.
    * - ``path_out``, ``overwrite``
-     - ``output_dir`` and ``overwrite``. ``run`` saves each run in ``output_dir`` as it
+     - ``output_dir`` and ``overwrite``. ``experiment`` saves each run in ``output_dir`` as it
        finishes and resumes a killed run; ``overwrite`` deletes the experiment there
        first. See :ref:`how-to/run_experiment:Resume a killed run`.
    * - ``run_id``, ``path_data``
      - Removed. ``output_dir`` is the directory of the run, and ``dataset`` takes a
        name or a file.
    * - ``multiprocessing``
-     - Removed. Run folds in parallel with ``drevalpy.single``
+     - Removed. Run folds in parallel with ``drevalpy.run``
        (:doc:`/how-to/run_folds_in_parallel`).
    * - ``cross_study_datasets``
      - Pass a list of datasets to ``dataset`` and use the split mode ``"LStO"``, or build the
        dataset with ``drevalpy.data.concat``. See :doc:`/how-to/run_cross_study`.
    * - ``n_jobs``
-     - ``n_jobs`` of ``drevalpy.run``, ``drevalpy.single`` and ``drevalpy.train``. It fits
+     - ``n_jobs`` of ``drevalpy.experiment``, ``drevalpy.run`` and ``drevalpy.train``. It fits
        the per-drug models of single-drug models in parallel and does not change the
        results. See :doc:`/how-to/run_experiment`.
    * - ``model_checkpoint_dir``
-     - Removed from ``run``. Save a model with ``DRPModel.save``.
+     - Removed from ``experiment``. Save a model with ``DRPModel.save``.
    * - ``final_model_on_full_data``
      - ``drevalpy.train(model, dataset)`` trains on all pairs and returns the fitted
        ``DRPModel``. See :doc:`/how-to/train_save_load`.
    * - ``wandb_project``
-     - ``wandb_project`` of ``drevalpy.run`` and ``drevalpy.single``. See
+     - ``wandb_project`` of ``drevalpy.experiment`` and ``drevalpy.run``. See
        :doc:`/how-to/run_experiment`.
    * - ``custom_splitter``, ``custom_split_name``
      - Removed. Register a splitter component
@@ -198,7 +198,7 @@ Save and read the results
 -------------------------
 
 1.x wrote a tree of CSV files under ``path_out/run_id``. In v2 the object that
-``run`` returns is the result, and ``run(..., output_dir=...)`` saves it as it goes. Save it to a
+``experiment`` returns is the result, and ``run(..., output_dir=...)`` saves it as it goes. Save it to a
 directory yourself and load it later with ``ExperimentResult.load``:
 
 .. code-block:: python
@@ -241,8 +241,7 @@ The 1.x result files map to these calls:
    print(true_vs_pred.head())
    print(run.best_hyperparameters)
 
-``response`` is a pEC50 value, from the response matrix. 1.x gave ``LN_IC50`` by
-default; pass ``measure="LN_IC50"`` to ``drevalpy.run`` for the same measure. A
+``response`` is an ``LN_IC50`` value, from the response matrix, as in 1.x. A
 group where the data cannot support a metric, such as a group with a constant
 response, is skipped in the grouped tables for every model. A correlation of a
 constant prediction within a group is 0 and counts.
@@ -259,13 +258,13 @@ Run one model on one fold
 -------------------------
 
 The 1.x scripts for single steps (``train-cv``, ``test-cv``) become
-``drevalpy.single``. It takes the masks of one fold from ``drevalpy.split`` and
+``drevalpy.run``. It takes the masks of one fold from ``drevalpy.split`` and
 returns a ``RunResult``:
 
 .. code-block:: python
 
    folds = drevalpy.split(dataset, "LSO", n_splits=3)
-   run = drevalpy.single(models[0], dataset, folds[0], hyperparameter_tuning=False)
+   run = drevalpy.run(models[0], dataset, folds[0], hyperparameter_tuning=False)
    run.save("fold_0.npz")
    print(run.metrics["RMSE"])
 
@@ -300,7 +299,7 @@ not load; see :ref:`how-to/migrate/index:Which 1.x files still load`.
 Stress tests
 ------------
 
-The randomization and robustness tests keep their names. In ``run`` pass
+The randomization and robustness tests keep their names. In ``experiment`` pass
 ``randomization_modes=["SVCC"]`` and ``robustness_repeats=2``. As functions,
 ``drevalpy.randomization`` and ``drevalpy.robustness`` build the changed
 datasets and splits. A robustness test reshuffles the order of the pairs and

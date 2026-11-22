@@ -8,7 +8,6 @@ from dataclasses import replace
 import numpy as np
 import pytest
 
-from drevalpy.components.contracts.feature_format import FeatureFormat
 from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.components.predictors.abstract.feature_free import FeatureFreePredictor
 from drevalpy.components.predictors.abstract.matrix import MatrixPredictor
@@ -20,6 +19,7 @@ from drevalpy.registry._component import predictor_component_metadata
 from drevalpy.registry.predictor import predictor_registry
 from drevalpy.testing import build_synthetic_input
 from drevalpy.types.data.feature_block import FeatureBlock
+from drevalpy.types.data.feature_format import FeatureFormat
 from drevalpy.types.data.predictor_input import PredictorInput
 from drevalpy.types.data.response_table import ResponseTable
 from tests.components.predictors.literature._helpers import two_by_two_batch

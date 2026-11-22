@@ -16,7 +16,6 @@ live in the underscore-private ``featurizers/_dense.py``; the alias here is the 
 The conformance checks for a plugin's own test suite are in :mod:`drevalpy.testing`.
 """
 
-from drevalpy.components.contracts.feature_format import BlockSpec, FeatureFormat
 from drevalpy.components.featurizers._dense import (
     FeatureMismatchError,
     PrecomputableFeaturizer,
@@ -41,6 +40,7 @@ from drevalpy.registry.splitter import register as register_splitter
 from drevalpy.registry.visualization import register as register_visualization
 from drevalpy.types.data.dataset import Dataset
 from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
+from drevalpy.types.data.feature_format import BlockSpec, FeatureFormat
 from drevalpy.types.data.feature_source import FeatureSource, Side
 from drevalpy.types.data.fold import Fold
 from drevalpy.types.data.predictor_input import PredictorInput

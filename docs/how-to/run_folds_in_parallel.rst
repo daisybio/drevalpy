@@ -3,10 +3,10 @@ Run folds in parallel and combine them
 
 .. interface: both
 
-``run`` trains every model on every fold in one process. To spread the work over several
+``experiment`` trains every model on every fold in one process. To spread the work over several
 processes, machines or cluster jobs, split the dataset once, train each model on each fold as a
 separate job, and combine the finished runs into one experiment. The combined experiment gives the
-same numbers as ``run`` with the same seed, and every later step (reports, loading, metrics)
+same numbers as ``experiment`` with the same seed, and every later step (reports, loading, metrics)
 works on it as on any other. This page shows the steps. :doc:`/how-to/run_experiment` covers the
 single-process route and :doc:`/reference/results` the files the steps write.
 
@@ -32,7 +32,7 @@ The fold files are small and hold only masks over the pairs of the dataset; see
          drevalpy data split toy.h5mu splits --mode LPO
 
       The command writes ``splits/fold_0.npz`` to ``splits/fold_4.npz``. Instead of the file it
-      accepts a registered dataset name, as ``run --dataset`` and ``single`` do.
+      accepts a registered dataset name, as ``run --dataset`` and ``run`` do.
 
    .. tab-item:: Python
       :sync: python
@@ -53,13 +53,13 @@ The fold files are small and hold only masks over the pairs of the dataset; see
 Train one model on one fold
 ---------------------------
 
-One ``single`` call trains one model on one fold and returns one run. Its options match the
-ones of ``run`` that apply to a single fit: ``--hpo-trials``, ``--hpo-metric``,
+One ``run`` call trains one model on one fold and returns one run. Its options match the
+ones of ``experiment`` that apply to a single fit: ``--hpo-trials``, ``--hpo-metric``,
 ``--response-transformation`` and ``--seed``; see :doc:`/how-to/tune_hyperparameters`. Keep the
 default seed unless you also change it in the comparison runs, because the seed and the fold
 decide the result. The normalization reference ``NaiveMeanEffectsPredictor`` always trains on
-the untransformed response, in ``single`` as in ``run``, so pass every job the same
-``--response-transformation`` as you would pass ``run``: the normalized metrics match.
+the untransformed response, in ``run`` as in ``experiment``, so pass every job the same
+``--response-transformation`` as you would pass ``experiment``: the normalized metrics match.
 
 .. tab-set::
    :sync-group: interface
@@ -72,11 +72,11 @@ the untransformed response, in ``single`` as in ``run``, so pass every job the s
 
       .. code-block:: bash
 
-         drevalpy single NaiveMeanEffectsPredictor toy.h5mu splits/fold_0.npz runs/NaiveMeanEffectsPredictor_0.npz --no-hpo
-         drevalpy single NaiveMeanEffectsPredictor toy.h5mu splits/fold_1.npz runs/NaiveMeanEffectsPredictor_1.npz --no-hpo
-         drevalpy single NaiveMeanEffectsPredictor toy.h5mu splits/fold_2.npz runs/NaiveMeanEffectsPredictor_2.npz --no-hpo
-         drevalpy single NaiveMeanEffectsPredictor toy.h5mu splits/fold_3.npz runs/NaiveMeanEffectsPredictor_3.npz --no-hpo
-         drevalpy single NaiveMeanEffectsPredictor toy.h5mu splits/fold_4.npz runs/NaiveMeanEffectsPredictor_4.npz --no-hpo
+         drevalpy run NaiveMeanEffectsPredictor toy.h5mu splits/fold_0.npz runs/NaiveMeanEffectsPredictor_0.npz --no-hpo
+         drevalpy run NaiveMeanEffectsPredictor toy.h5mu splits/fold_1.npz runs/NaiveMeanEffectsPredictor_1.npz --no-hpo
+         drevalpy run NaiveMeanEffectsPredictor toy.h5mu splits/fold_2.npz runs/NaiveMeanEffectsPredictor_2.npz --no-hpo
+         drevalpy run NaiveMeanEffectsPredictor toy.h5mu splits/fold_3.npz runs/NaiveMeanEffectsPredictor_3.npz --no-hpo
+         drevalpy run NaiveMeanEffectsPredictor toy.h5mu splits/fold_4.npz runs/NaiveMeanEffectsPredictor_4.npz --no-hpo
 
       Each call ends with the path of the run it wrote:
 
@@ -91,7 +91,7 @@ the untransformed response, in ``single`` as in ``run``, so pass every job the s
       .. code-block:: bash
 
          for i in 0 1 2 3 4; do
-             drevalpy single NaiveMeanEffectsPredictor toy.h5mu splits/fold_$i.npz runs/NaiveMeanEffectsPredictor_$i.npz --no-hpo &
+             drevalpy run NaiveMeanEffectsPredictor toy.h5mu splits/fold_$i.npz runs/NaiveMeanEffectsPredictor_$i.npz --no-hpo &
          done
          wait
 
@@ -101,14 +101,14 @@ the untransformed response, in ``single`` as in ``run``, so pass every job the s
       .. code-block:: python
 
          spec = ModelSpec.from_name("NaiveMeanEffectsPredictor")
-         runs = [drevalpy.single(spec, dataset, fold, hyperparameter_tuning=False) for fold in folds]
+         runs = [drevalpy.run(spec, dataset, fold, hyperparameter_tuning=False) for fold in folds]
          print(len(runs))
 
       .. code-block:: text
 
          5
 
-      ``single`` returns a ``RunResult``. To train in several processes, make each worker load
+      ``run`` returns a ``RunResult``. To train in several processes, make each worker load
       the dataset and the fold itself, as in this script. The ``if __name__ == "__main__"`` guard
       is required:
 
@@ -127,7 +127,7 @@ the untransformed response, in ``single`` as in ``run``, so pass every job the s
              dataset = drevalpy.load("toy.h5mu")
              fold = Fold.load(fold_path)
              spec = ModelSpec.from_name("NaiveMeanEffectsPredictor")
-             return drevalpy.single(spec, dataset, fold, hyperparameter_tuning=False)
+             return drevalpy.run(spec, dataset, fold, hyperparameter_tuning=False)
 
 
          if __name__ == "__main__":
@@ -168,7 +168,7 @@ tab-separated file for a workflow manager.
              output:
              path "${model}_${fold.baseName}.npz"
              script:
-             "drevalpy single ${model} ${dataset} ${fold} ${model}_${fold.baseName}.npz"
+             "drevalpy run ${model} ${dataset} ${fold} ${model}_${fold.baseName}.npz"
          }
 
          // TRAIN_CPU is the same process with label 'cpu'.
@@ -231,7 +231,7 @@ an annotation grouping, ``--dataset`` is not read.
              Split mode: LPO
              Normalized by: None
              Models: 1
-                 NaiveMeanEffectsPredictor (5 folds): MSE=0.8399, RMSE=0.9144, MAE=0.7218, R^2=0.6851, Pearson=0.8298, Spearman=0.8409, Kendall=0.6466
+                 NaiveMeanEffectsPredictor (5 folds): MSE=4.4532, RMSE=2.1055, MAE=1.6620, R^2=0.6851, Pearson=0.8298, Spearman=0.8409, Kendall=0.6466
          Metrics computed within each drug, averaged over drugs and folds (number of drugs scored in brackets):
          Model                      MSE        RMSE       MAE        R^2         Pearson    Spearman   Kendall
          NaiveMeanEffectsPredictor  0.852 (8)  0.895 (8)  0.731 (8)  -0.583 (8)  0.386 (8)  0.372 (8)  0.277 (8)
@@ -254,9 +254,9 @@ an annotation grouping, ``--dataset`` is not read.
              Split mode: LPO
              Normalized by: None
              Models: 1
-                 NaiveMeanEffectsPredictor (5 folds): MSE=0.8399, RMSE=0.9144, MAE=0.7218, R^2=0.6851, Pearson=0.8298, Spearman=0.8409, Kendall=0.6466
+                 NaiveMeanEffectsPredictor (5 folds): MSE=4.4532, RMSE=2.1055, MAE=1.6620, R^2=0.6851, Pearson=0.8298, Spearman=0.8409, Kendall=0.6466
 
-These are the numbers that ``drevalpy run NaiveMeanEffectsPredictor --dataset toy.h5mu --split-mode LPO --no-hpo``
+These are the numbers that ``drevalpy experiment NaiveMeanEffectsPredictor --dataset toy.h5mu --split-mode LPO --no-hpo``
 prints for the same dataset and seed. The experiment directory loads with
 ``ExperimentResult.load`` and feeds ``drevalpy report`` as any other; see
 :doc:`/how-to/make_report`. Compare several models by passing the runs of all of them to one
@@ -266,8 +266,8 @@ Run the robustness test as separate jobs
 ----------------------------------------
 
 A robustness test repeats each fold with the order of the pairs shuffled; see
-:doc:`/how-to/run_stress_tests`. ``drevalpy experiments robustness`` writes the shuffled folds as
-fold files named ``fold_<i>_repeat_<j>.npz``. They go through the same ``single`` call. The runs
+:doc:`/how-to/run_stress_tests`. ``drevalpy data split --robustness-repeats`` writes the shuffled folds as
+fold files named ``fold_<i>_repeat_<j>.npz`` alongside ``fold_<i>.npz``. They go through the same ``run`` call. The runs
 join the others in ``aggregate``, which saves them with the experiment, and the summary still
 averages only the ordinary runs.
 
@@ -279,26 +279,26 @@ averages only the ordinary runs.
 
       .. code-block:: bash
 
-         drevalpy experiments robustness splits rob --n-repeats 1
-         drevalpy single NaiveMeanEffectsPredictor toy.h5mu rob/fold_0_repeat_0.npz runs/rob_0.npz --no-hpo
+         drevalpy data split toy.h5mu rob --mode LPO --robustness-repeats 1
+         drevalpy run NaiveMeanEffectsPredictor toy.h5mu rob/fold_0_repeat_0.npz runs/rob_0.npz --no-hpo
 
       Train the other folds the same way, then pass all the run files to ``aggregate``. The
       folds ``rob/fold_<i>_repeat_0.npz`` give the same runs as the first repeat of
-      ``--robustness-repeats`` in ``run``.
+      ``--robustness-repeats`` in ``experiment``.
 
    .. tab-item:: Python
       :sync: python
 
-      The folds of a repeat come from the fold files only, so in Python use the command above on
-      the fold files you wrote, or run the whole test in one process with ``drevalpy.run(...,
+      The folds of a repeat come from ``drevalpy.robustness(fold, n_repeats)`` on each fold, or run
+      the whole test in one process with ``drevalpy.experiment(...,
       robustness_repeats=1)``, as in :doc:`/how-to/run_stress_tests`.
 
 Run the randomization test as separate jobs
 -------------------------------------------
 
 The randomization test trains the model on datasets whose views are shuffled, so the unit of
-work is a shuffled dataset and a fold. ``drevalpy experiments randomization`` and
-``drevalpy.randomization`` build the shuffled datasets for a model and a mode, and ``single``
+work is a shuffled dataset and a fold. ``drevalpy data randomization`` and
+``drevalpy.randomization`` build the shuffled datasets for a model and a mode, and ``run``
 trains on each. The run records the randomization it belongs to, and the record survives
 ``save`` and ``load``. ``aggregate`` keeps these runs apart from the ordinary ones, so the
 summary still averages only the ordinary runs.
@@ -313,13 +313,13 @@ skipped with a warning and gives no dataset; see :doc:`/how-to/run_stress_tests`
    .. tab-item:: CLI
       :sync: cli
 
-      ``experiments randomization`` takes the model, the dataset (a registered name or a file)
+      ``data randomization`` takes the model, the dataset (a registered name or a file)
       and a directory. It writes one file per shuffled dataset, named ``<MODE>__<view>.h5mu``.
       The default mode is ``SVRC``, and ``--mode`` chooses others:
 
       .. code-block:: bash
 
-         drevalpy experiments randomization Ridge toy.h5mu rand
+         drevalpy data randomization Ridge toy.h5mu rand
 
       The command writes ``rand/SVRC__gene_expression.h5mu`` and prints:
 
@@ -327,13 +327,13 @@ skipped with a warning and gives no dataset; see :doc:`/how-to/run_stress_tests`
 
          Wrote 1 randomized datasets to rand
 
-      Train on the shuffled file with ``single``, once per fold, next to the ordinary runs of
+      Train on the shuffled file with ``run``, once per fold, next to the ordinary runs of
       the same model, then pass all the run files to ``aggregate``:
 
       .. code-block:: bash
 
-         drevalpy single Ridge toy.h5mu splits/fold_0.npz runs/ridge_0.npz --no-hpo
-         drevalpy single Ridge rand/SVRC__gene_expression.h5mu splits/fold_0.npz runs/ridge_rand_0.npz --no-hpo
+         drevalpy run Ridge toy.h5mu splits/fold_0.npz runs/ridge_0.npz --no-hpo
+         drevalpy run Ridge rand/SVRC__gene_expression.h5mu splits/fold_0.npz runs/ridge_rand_0.npz --no-hpo
          drevalpy aggregate runs/ridge_0.npz runs/ridge_rand_0.npz --output-dir agg_rand
 
       Train the other folds the same way. The experiment directory ``agg_rand`` holds both
@@ -351,7 +351,7 @@ skipped with a warning and gives no dataset; see :doc:`/how-to/run_stress_tests`
          ridge = ModelSpec.from_name("Ridge")
          shuffled = drevalpy.randomization(ridge, dataset, ["SVRC"])
          print(len(shuffled))
-         stress_run = drevalpy.single(ridge, shuffled[0], folds[0], hyperparameter_tuning=False)
+         stress_run = drevalpy.run(ridge, shuffled[0], folds[0], hyperparameter_tuning=False)
          print(stress_run.randomization)
 
       .. code-block:: text

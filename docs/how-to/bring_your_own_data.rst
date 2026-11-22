@@ -190,12 +190,13 @@ pEC50 and the other curve summaries and quality measures, as one table of sample
          AnnData object with n_obs × n_vars = 6 × 3
              layers: 'EC50', 'IC50', 'LN_IC50', 'AUC', 'fold_change', 'slope', 'front', 'back', 'R2', 'RMSE', 'p_value', 'log_p_value', 'f_value', 'f_value_sam', 'relevance_score', 'signal_quality', 'regulation', 'pec50_error', 'slope_error', 'front_error', 'back_error', None (.X)
 
-``X`` holds the pEC50 of each pair, which is the response the models predict by default. The
-layers hold the other summaries (``EC50``, ``IC50``, ``AUC``) and the curve-quality measures. The splitters read
+``X`` holds the pEC50 of each pair. The layers hold the other summaries (``LN_IC50``, ``EC50``,
+``IC50``, ``AUC``) and the curve-quality measures. The models predict ``LN_IC50`` by default, or
+pEC50 for a dataset without an ``LN_IC50`` layer. The splitters read
 the quality layers ``relevance_score`` and ``fold_change``: they drop the pairs whose curve fits
 poorly or barely moves (see :doc:`/reference/datasets`). Splitting a dataset without these two
 layers raises ``KeyError``. If your dataset has only a pEC50 matrix, switch the rule off with
-``quality=CurveQuality.off()`` in ``drevalpy.split`` and ``drevalpy.run``, or ``--no-quality-filter``
+``quality=CurveQuality.off()`` in ``drevalpy.split`` and ``drevalpy.experiment``, or ``--no-quality-filter``
 on the command line; every pair with a finite response is then kept.
 
 ``SingleDrugMorgoth`` also reads the ``regulation`` layer, CurveCurator's verdict on each curve:
@@ -417,7 +418,7 @@ Load the file by path to check it, and pass the path wherever a command asks for
 
       .. code-block:: bash
 
-         drevalpy run NaiveDrugMeanPredictor NaiveMeanEffectsPredictor \
+         drevalpy experiment NaiveDrugMeanPredictor NaiveMeanEffectsPredictor \
              --dataset my_screen.h5mu --split-mode LPO --no-hpo --output-dir results_my_screen
 
       The command ends with:
@@ -429,8 +430,8 @@ Load the file by path to check it, and pass the path wherever a command asks for
              Split mode: LPO
              Normalized by: None
              Models: 2
-                 NaiveDrugMeanPredictor (5 folds): MSE=0.1570, RMSE=0.3638, MAE=0.3250, R^2=0.5778, Pearson=0.9383, Spearman=0.7967, Kendall=0.7173
-                 NaiveMeanEffectsPredictor (5 folds): MSE=0.3129, RMSE=0.5084, MAE=0.4556, R^2=0.2382, Pearson=0.7569, Spearman=0.8400, Kendall=0.8000
+                 NaiveDrugMeanPredictor (5 folds): MSE=0.8367, RMSE=0.8375, MAE=0.7523, R^2=0.5761, Pearson=0.9365, Spearman=0.7967, Kendall=0.7173
+                 NaiveMeanEffectsPredictor (5 folds): MSE=1.6623, RMSE=1.1680, MAE=1.0464, R^2=0.2402, Pearson=0.7516, Spearman=0.8400, Kendall=0.8000
 
    .. tab-item:: Python
       :sync: python
@@ -443,7 +444,7 @@ Load the file by path to check it, and pass the path wherever a command asks for
          dataset = drevalpy.load("my_screen.h5mu")
          print(dataset)
          models = [ModelSpec.from_name(name) for name in ["NaiveDrugMeanPredictor", "NaiveMeanEffectsPredictor"]]
-         results = drevalpy.run(models, dataset, "LPO", hyperparameter_tuning=False)
+         results = drevalpy.experiment(models, dataset, "LPO", hyperparameter_tuning=False)
          print(results)
 
       .. code-block:: text
@@ -452,7 +453,7 @@ Load the file by path to check it, and pass the path wherever a command asks for
              Name: MyScreen
              Samples: 6
              Drugs: 3
-             Measure: pEC50
+             Measure: LN_IC50
              Measured pairs: 18
              Randomization: None
              Modalities:
@@ -461,8 +462,8 @@ Load the file by path to check it, and pass the path wherever a command asks for
              Split mode: LPO
              Normalized by: None
              Models: 2
-                 NaiveDrugMeanPredictor (5 folds): MSE=0.1570, RMSE=0.3638, MAE=0.3250, R^2=0.5778, Pearson=0.9383, Spearman=0.7967, Kendall=0.7173
-                 NaiveMeanEffectsPredictor (5 folds): MSE=0.3129, RMSE=0.5084, MAE=0.4556, R^2=0.2382, Pearson=0.7569, Spearman=0.8400, Kendall=0.8000
+                 NaiveDrugMeanPredictor (5 folds): MSE=0.8367, RMSE=0.8375, MAE=0.7523, R^2=0.5761, Pearson=0.9365, Spearman=0.7967, Kendall=0.7173
+                 NaiveMeanEffectsPredictor (5 folds): MSE=1.6623, RMSE=1.1680, MAE=1.0464, R^2=0.2402, Pearson=0.7516, Spearman=0.8400, Kendall=0.8000
 
 ``Modalities:`` is empty because the dataset has no sample features yet. The baselines need none.
 With 18 pairs the scores are noisy: use a screen of realistic size for results you report.
@@ -513,7 +514,7 @@ the response, and name the modality after the feature: ``gene_expression``, ``me
              Name: MyScreen
              Samples: 6
              Drugs: 3
-             Measure: pEC50
+             Measure: LN_IC50
              Measured pairs: 18
              Randomization: None
              Modalities:
@@ -547,7 +548,7 @@ selection, and the error names the list, the view and the number of missing gene
 
       .. code-block:: bash
 
-         drevalpy run Ridge --dataset my_screen_expression.h5mu --split-mode LPO --no-hpo --output-dir results_expression
+         drevalpy experiment Ridge --dataset my_screen_expression.h5mu --split-mode LPO --no-hpo --output-dir results_expression
 
       .. code-block:: text
 
@@ -558,7 +559,7 @@ selection, and the error names the list, the view and the number of missing gene
 
       .. code-block:: bash
 
-         drevalpy run "scaledGeneExpression:fingerprints:ridge" \
+         drevalpy experiment "scaledGeneExpression:fingerprints:ridge" \
              --dataset my_screen_expression.h5mu --split-mode LPO --no-hpo --output-dir results_expression
 
    .. tab-item:: Python
@@ -572,12 +573,12 @@ selection, and the error names the list, the view and the number of missing gene
 
          dataset = drevalpy.load("my_screen_expression.h5mu")
          try:
-             drevalpy.run([ModelSpec.from_name("Ridge")], dataset, "LPO", hyperparameter_tuning=False, on_error="raise")
+             drevalpy.experiment([ModelSpec.from_name("Ridge")], dataset, "LPO", hyperparameter_tuning=False, on_error="raise")
          except InvalidInputError as error:
              print(error)
 
          ridge = ModelSpec("RawRidge", from_recipe("scaledGeneExpression:fingerprints:ridge"))
-         print(drevalpy.run([ridge], dataset, "LPO", hyperparameter_tuning=False))
+         print(drevalpy.experiment([ridge], dataset, "LPO", hyperparameter_tuning=False))
 
       The first call prints the error:
 

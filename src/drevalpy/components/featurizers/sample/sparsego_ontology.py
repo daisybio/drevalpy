@@ -7,7 +7,6 @@ from typing import Any, Self
 
 import numpy as np
 
-from drevalpy.components.contracts.feature_format import BlockSpec, FeatureFormat
 from drevalpy.components.featurizers.featurizer import Featurizer, all_nan_rows_mask
 from drevalpy.components.featurizers.sample._sparsego_metadata import (
     SparseGOOntologyMetadata,
@@ -15,6 +14,7 @@ from drevalpy.components.featurizers.sample._sparsego_metadata import (
 )
 from drevalpy.registry.featurizer import register
 from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
+from drevalpy.types.data.feature_format import BlockSpec, FeatureFormat
 from drevalpy.types.data.feature_source import FeatureSource, Side
 
 _INPUT_TYPES = frozenset({"expression", "mutations"})

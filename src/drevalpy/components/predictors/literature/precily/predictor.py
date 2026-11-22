@@ -12,7 +12,6 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
 
-from drevalpy.components.contracts.feature_format import BlockSpec
 from drevalpy.components.predictors._pair_loader import (
     concatenated_forward,
     declared_blocks,
@@ -22,10 +21,11 @@ from drevalpy.components.predictors._pair_loader import (
 from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.components.predictors.literature._torch_training import DevicePicklingMixin, run_epoch
-from drevalpy.experiment._tracking import log_metrics
+from drevalpy.execution._tracking import log_metrics
 from drevalpy.log import get_logger
 from drevalpy.registry._component import LiteratureReference
 from drevalpy.registry.predictor import register
+from drevalpy.types.data.feature_format import BlockSpec
 from drevalpy.types.data.predictor_input import PredictorInput
 from drevalpy.types.enums import Accelerator
 

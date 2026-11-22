@@ -27,15 +27,15 @@ dataset first, so it runs without a download:
 .. code-block:: bash
 
    drevalpy data synthetic --output toy.h5mu
-   drevalpy run NaiveTissueMeanPredictor NaiveDrugMeanPredictor NaiveMeanEffectsPredictor --dataset toy.h5mu --split-mode LSO --no-hpo --output-dir results/my_first_run
+   drevalpy experiment NaiveTissueMeanPredictor NaiveDrugMeanPredictor NaiveMeanEffectsPredictor --dataset toy.h5mu --split-mode LSO --no-hpo --output-dir results/my_first_run
 
 ``--split-mode LCO`` is accepted as an alias of ``LSO``. To cover several split
-modes, as the 1.x ``--test_mode LPO LCO`` did, call ``run`` once per mode with
+modes, as the 1.x ``--test_mode LPO LCO`` did, call ``experiment`` once per mode with
 its own output directory:
 
 .. code-block:: bash
 
-   drevalpy run NaiveTissueMeanPredictor NaiveDrugMeanPredictor NaiveMeanEffectsPredictor --dataset toy.h5mu --split-mode LPO --no-hpo --output-dir results/my_first_run_lpo
+   drevalpy experiment NaiveTissueMeanPredictor NaiveDrugMeanPredictor NaiveMeanEffectsPredictor --dataset toy.h5mu --split-mode LPO --no-hpo --output-dir results/my_first_run_lpo
 
 Then write the report from one results directory. ``--reference-model`` plays
 the part of the 1.x ``NaiveMeanEffectsPredictor`` normalization:
@@ -46,9 +46,9 @@ the part of the 1.x ``NaiveMeanEffectsPredictor`` normalization:
 
 What changed in how a run behaves:
 
-- ``run`` makes five folds by default. 1.x made ``--n_cv_splits`` folds, seven by
+- ``experiment`` makes five folds by default. 1.x made ``--n_cv_splits`` folds, seven by
   default.
-- ``run`` saves each run as it finishes and resumes a killed run when you run the
+- ``experiment`` saves each run as it finishes and resumes a killed run when you run the
   same command again. An output directory written with other settings is refused;
   ``--overwrite`` deletes it and starts again. See
   :ref:`how-to/run_experiment:Resume a killed run`.
@@ -75,7 +75,7 @@ Map the ``drevalpy`` flags
        by name are cached under ``DREVALPY_CACHE_DIR``
        (:doc:`/reference/environment`).
    * - ``--models``
-     - The positional ``MODELS`` arguments of ``run``. Names are in
+     - The positional ``MODELS`` arguments of ``experiment``. Names are in
        :ref:`how-to/migrate/index:Map 1.x model names to v2`.
    * - ``--baselines``
      - Put the baseline in the same ``MODELS`` list.
@@ -107,30 +107,30 @@ Map the ``drevalpy`` flags
      - ``drevalpy curate run --cores`` and ``--normalize``. See
        `Fit your own raw data`_.
    * - ``--measure``
-     - ``--measure`` on ``run``, ``train``, ``single`` and ``data split``. The default
-       changed from ``LN_IC50`` (``LN_IC50_curvecurator`` in 1.6) to ``pEC50``; pass
-       ``--measure LN_IC50`` for the 1.x target. See
+     - ``--measure`` on ``experiment``, ``train``, ``run`` and ``data split``. The default
+       is still ``LN_IC50`` (``LN_IC50_curvecurator`` in 1.6); ``--measure pEC50`` trains on
+       the measure ``X`` holds. See
        :ref:`how-to/run_experiment:Choose the response measure`.
    * - ``--overwrite``
      - ``--overwrite``. It deletes the experiment in the output directory first (its
        ``metadata.json``, ``failures.json`` and model directories, nothing else) and
-       refuses a directory of other files. Without it, ``run`` resumes a directory of the
+       refuses a directory of other files. Without it, ``experiment`` resumes a directory of the
        same run and refuses one of another run. See above.
    * - ``--optim_metric``
      - ``--hpo-metric``, default ``RMSE``.
    * - ``--wandb_project``
-     - ``--wandb-project`` on ``run`` and ``single``. See :doc:`/how-to/run_experiment`.
+     - ``--wandb-project`` on ``experiment`` and ``run``. See :doc:`/how-to/run_experiment`.
    * - ``--n_cv_splits``
-     - ``--n-splits`` (``-n``) on ``run`` and ``data split``, default 5 instead of 7.
+     - ``--n-splits`` (``-n``) on ``experiment`` and ``data split``, default 5 instead of 7.
    * - ``--response_transformation``
      - ``--response-transformation`` with ``none`` (default), ``standard``,
        ``minmax``, ``robust``, ``drug_mean`` or ``drug_tissue_mean``. See
        :doc:`/how-to/run_experiment`.
    * - ``--multiprocessing``
-     - Removed (it started Ray). Run folds in parallel with ``single``; see
+     - Removed (it started Ray). Run folds in parallel with ``run``; see
        :doc:`/how-to/run_folds_in_parallel`.
    * - ``--n_jobs``
-     - ``--n-jobs`` on ``run``, ``single`` and ``train``. It fits the per-drug models of
+     - ``--n-jobs`` on ``experiment``, ``run`` and ``train``. It fits the per-drug models of
        single-drug models in parallel and does not change the results. See
        :doc:`/how-to/run_experiment`.
    * - ``--model_checkpoint_dir``
@@ -169,7 +169,7 @@ command covers the job.
    * - 1.x script
      - v2
    * - ``drevalpy-report``
-     - ``drevalpy report EXPERIMENT_DIR``. It takes the directory ``run`` or
+     - ``drevalpy report EXPERIMENT_DIR``. It takes the directory ``experiment`` or
        ``aggregate`` wrote, not ``--run_id``, ``--dataset_name`` and
        ``--path_data``. See `Read the results`_.
    * - ``drevalpy-viability-preprocess``, ``drevalpy-viability-postprocess``
@@ -180,16 +180,16 @@ command covers the job.
    * - ``drevalpy-make-cv-pkls``
      - ``drevalpy data split DATASET OUTPUT_DIR --mode MODE``. It writes
        ``fold_N.npz`` files, not pickles. ``--validation_ratio`` is
-       ``--validation-ratio`` there and on ``run``, default 0.1 as before; the 1.x
+       ``--validation-ratio`` there and on ``experiment``, default 0.1 as before; the 1.x
        ``drevalpy`` command had no such flag.
    * - ``drevalpy-make-hpam-yamls``, ``drevalpy-evaluate-hpams``
-     - Removed. Tuning runs inside ``run`` and ``single``; see
+     - Removed. Tuning runs inside ``experiment`` and ``run``; see
        :doc:`/how-to/tune_hyperparameters`.
    * - ``drevalpy-train-cv``, ``drevalpy-test-cv``
-     - ``drevalpy single MODEL DATASET SPLIT OUTPUT``, which trains, tunes and
+     - ``drevalpy run MODEL DATASET SPLIT OUTPUT``, which trains, tunes and
        scores one model on one fold.
    * - ``drevalpy-make-randomization-yamls``
-     - ``drevalpy experiments randomization MODEL DATASET OUTPUT_DIR`` writes
+     - ``drevalpy data randomization MODEL DATASET OUTPUT_DIR`` writes
        the randomized datasets.
    * - ``drevalpy-make-final-split-pkls``, ``drevalpy-tune-final-model``,
        ``drevalpy-train-final-model``
@@ -203,7 +203,7 @@ command covers the job.
      - Removed. A single-drug model is one model in v2 and needs no
        consolidation.
    * - ``drevalpy-evaluate-test``
-     - Removed. ``run`` and ``single`` score the test fold themselves.
+     - Removed. ``experiment`` and ``run`` score the test fold themselves.
    * - ``drevalpy-collect-results``
      - ``drevalpy aggregate RESULTS... --output-dir experiment_results``.
    * - ``drevalpy-make-pipeline-report``
@@ -213,19 +213,19 @@ Split a run into jobs
 ---------------------
 
 To spread a run over a cluster, as the scripts did, split the dataset once, run
-``single`` for each fold and model, and gather the outputs with ``aggregate``.
+``run`` for each fold and model, and gather the outputs with ``aggregate``.
 This example uses three folds of leave-sample-out on the synthetic dataset:
 
 .. code-block:: bash
 
    drevalpy data split toy.h5mu splits --mode LSO --n-splits 3
-   drevalpy single NaiveTissueMeanPredictor toy.h5mu splits/fold_0.npz out/f0.npz --no-hpo
-   drevalpy single NaiveTissueMeanPredictor toy.h5mu splits/fold_1.npz out/f1.npz --no-hpo
-   drevalpy single NaiveTissueMeanPredictor toy.h5mu splits/fold_2.npz out/f2.npz --no-hpo
+   drevalpy run NaiveTissueMeanPredictor toy.h5mu splits/fold_0.npz out/f0.npz --no-hpo
+   drevalpy run NaiveTissueMeanPredictor toy.h5mu splits/fold_1.npz out/f1.npz --no-hpo
+   drevalpy run NaiveTissueMeanPredictor toy.h5mu splits/fold_2.npz out/f2.npz --no-hpo
    drevalpy aggregate out/f0.npz out/f1.npz out/f2.npz --output-dir experiment_results
 
-``single`` has the same ``--hpo``, ``--hpo-metric``, ``--hpo-trials``,
-``--seed`` and ``--response-transformation`` options as ``run``. It has no
+``run`` has the same ``--hpo``, ``--hpo-metric``, ``--hpo-trials``,
+``--seed`` and ``--response-transformation`` options as ``experiment``. It has no
 option for a hyperparameter file; ``--no-hpo`` uses the preset's defaults.
 :doc:`/how-to/run_folds_in_parallel` shows how to hand these commands to a
 scheduler. The stress tests have their own commands, covered in
@@ -240,7 +240,7 @@ curate run`` reads a table with one row per well and the columns ``drug``,
 ``sample``, ``concentration`` and ``intensity``, again in µM, and optional
 columns for the replicates. A 1.x ``replicate`` numbered extra measurements of
 one curve; in v2 it labels one dose series, such as a plate. It fits a
-dose-response curve per pair and writes an ``.h5ad`` file. ``run`` needs an
+dose-response curve per pair and writes an ``.h5ad`` file. ``experiment`` needs an
 ``.h5mu`` file with the feature tables added, as
 :doc:`/how-to/bring_your_own_data` describes.
 
@@ -254,7 +254,7 @@ The 1.x layout was ``results/<run_id>/<dataset>/<mode>/<model>/predictions/``
 and a report ``index.html`` next to four ``evaluation_results*.csv`` and
 ``true_vs_pred.csv`` files. In v2:
 
-- ``run`` writes ``metadata.json`` and, for each model, a directory with
+- ``experiment`` writes ``metadata.json`` and, for each model, a directory with
   one ``fold_N.npz`` per fold. See :doc:`/reference/results`.
 - ``report`` writes ``<title>_multiqc_report.html`` and, next to it, a
   ``..._multiqc_report_data`` directory. Its

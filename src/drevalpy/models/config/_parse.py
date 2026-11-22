@@ -1,6 +1,6 @@
 """Read every accepted spelling of a model config into canonical fields, and write a model back as a recipe.
 
-A recipe is how a model is named in configs, on the CLI, and in ``ModelConfig.model_id``.
+A recipe is how a model is named in configs, on the CLI, and in ``ModelConfig.recipe``.
 One grammar covers all three layers, so the delimiters are defined in a single place::
 
     model      := slot ":" slot ":" predictor | slot ":" predictor | predictor
@@ -30,7 +30,7 @@ name a tunable hyperparameter; ``defaults`` moves the ``default`` of entries of 
 form and the one-key mapping form (``{"fingerprints": {"n_bits": 512}}``) are rejected with the
 canonical mapping to write instead.
 
-:func:`format_model_recipe` writes the grammar back; :attr:`ModelConfig.model_id` uses it, so a
+:func:`format_model_recipe` writes the grammar back; :attr:`ModelConfig.recipe` uses it, so a
 model id reads back through ``from_recipe`` into the same components.
 """
 

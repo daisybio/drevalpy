@@ -118,7 +118,7 @@ that its features matter in that mode. That is why DrEvalPy asks you to run the
 naive baselines next to your model, and why the report can score every model
 relative to ``NaiveMeanEffectsPredictor``. The reasoning behind that comparison
 is on the :doc:`metrics` page. The naive baselines are part of the experiment
-like any other model. ``drevalpy.run`` treats every model alike and does not add
+like any other model. ``drevalpy.experiment`` treats every model alike and does not add
 them on your behalf, so you list them yourself (see
 :doc:`/how-to/run_experiment`).
 

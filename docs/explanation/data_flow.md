@@ -53,9 +53,9 @@ single `.h5mu` file (an HDF5-backed `MuData` archive) and wraps it in
 {py:class}`~drevalpy.types.data.dataset.Dataset`. Every modality in `mdata.mod` shares the
 `obs` axis of samples:
 
-- `mdata.mod["response"]` is a `(n_samples, n_drugs)` matrix whose `X` holds the default
-  measure and whose `layers` hold alternative response measures and curve-fit diagnostics
-  (such as `LN_IC50`, `AUC` or `regulation`). Drug metadata (`canonical_smiles`) lives in
+- `mdata.mod["response"]` is a `(n_samples, n_drugs)` matrix whose `X` holds pEC50 and whose
+  `layers` hold the other response measures and curve-fit diagnostics (such as `LN_IC50`, `AUC`
+  or `regulation`). Drug metadata (`canonical_smiles`) lives in
   `response.var` and precomputed dense drug views (such as `morgan_fingerprint`) live in
   `response.varm`, because drugs are the `var` axis of `response`.
 - Other modalities in `mdata.mod` hold sample views such as `gene_expression`, `proteomics` or
@@ -64,8 +64,9 @@ single `.h5mu` file (an HDF5-backed `MuData` archive) and wraps it in
   under `drug_graphs` or precomputed-view settings under `precomputed_views`) live in
   `mdata.uns`.
 
-`Dataset.with_measure(name)` switches which response layer `dataset.response_matrix` returns
-without copying the underlying `MuData`. See {doc}`/reference/datasets` for the full file
+`dataset.response_matrix` returns the `LN_IC50` layer by default (pEC50 from `X` for a dataset
+without one), and `Dataset.with_measure(name)` switches it to another measure without copying
+the underlying `MuData`. See {doc}`/reference/datasets` for the full file
 layout.
 
 The examples on this page run on a small synthetic dataset, so they work offline. In practice you
@@ -241,6 +242,10 @@ tables into a {py:class}`~drevalpy.types.data.predictor_input.PredictorInput`:
 - **Training context**: optional `early_stopping` (`ResponseTable` whose entities are already
   present in `sample` and `drug`) and `training_context` (checkpoint directory and `n_jobs`).
 
+Note: This example passes the full `val_table` as `early_stopping` for simplicity. In a real
+`drevalpy.experiment`, the early-stopping scope `E` is a seeded 25% of the validation set, cut by
+{func}`~drevalpy.data.splitters._folds.early_stopping_split` as described in {doc}`training_lifecycle`.
+
 Keeping entity tables separate from pair indices is the key memory trade-off in DrEvalPy. A
 large screen such as GDSC2 has roughly 200,000 pairs across ~1,000 samples and ~250 drugs;
 pre-expanding a 17,000-gene expression matrix to pair level would duplicate each sample row
@@ -315,3 +320,10 @@ predictor.fit(train_input)
 preds = predictor.predict(val_input)
 print("Validation predictions shape:", preds.shape, "| first 5:", preds[:5].round(3))
 ```
+
+## What happens next
+
+This page stops at `Predictor.predict`. See {doc}`results_flow` for what happens after prediction:
+how the predictions and metrics become a saved `RunResult`, how runs are grouped into `ModelResult`
+and `ExperimentResult`, how normalization subtracts a reference model, and how the report selects
+plots by requirement.

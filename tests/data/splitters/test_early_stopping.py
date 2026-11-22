@@ -9,7 +9,7 @@ import drevalpy
 from drevalpy.data import concat
 from drevalpy.data.splitters._folds import early_stopping_split
 from drevalpy.errors import InvalidInputError
-from drevalpy.experiment import robustness
+from drevalpy.execution import robustness
 from drevalpy.registry.splitter._groups import pair_groups
 from drevalpy.types import Dataset, Fold, SelectionMask
 
@@ -69,8 +69,8 @@ def test_a_validation_set_of_one_group_raises_and_names_the_unit_the_count_and_t
     assert f"the validation set of fold 0 has 1 of the dataset's {n_tissues}." in message
     for remedy in (
         "Raise validation_ratio (now 0.1)",
-        "drevalpy.run(validation_ratio=...)",
-        "drevalpy run --validation-ratio",
+        "drevalpy.experiment(validation_ratio=...)",
+        "drevalpy experiment --validation-ratio",
         "drevalpy.split(..., validation_ratio=...)",
     ):
         assert remedy in message

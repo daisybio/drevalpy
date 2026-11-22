@@ -21,8 +21,8 @@ runner = make_runner()
 
 
 COMMANDS = (
+    "experiment",
     "run",
-    "single",
     "describe",
     "train",
     "predict",
@@ -30,7 +30,6 @@ COMMANDS = (
     "curate",
     "report",
     "data",
-    "experiments",
     "list",
 )
 
@@ -66,9 +65,9 @@ MISSING_ARGUMENTS = [
     ["train", "ElasticNet"],
     ["train", "ElasticNet", "-d", "toy.h5mu"],
     ["train", "ElasticNet", "-o", "model"],
-    ["single"],
-    ["single", "ElasticNet"],
-    ["single", "ElasticNet", "ds.h5mu", "fold.npz"],
+    ["run"],
+    ["run", "ElasticNet"],
+    ["run", "ElasticNet", "ds.h5mu", "fold.npz"],
     ["predict"],
     ["predict", "model"],
     ["predict", "model", "-d", "toy.h5mu"],
@@ -79,11 +78,9 @@ MISSING_ARGUMENTS = [
     ["data", "load", "TOYv1"],
     ["data", "split"],
     ["data", "split", "TOYv1"],
-    ["experiments", "randomization"],
-    ["experiments", "randomization", "ElasticNet"],
-    ["experiments", "randomization", "ElasticNet", "TOYv1"],
-    ["experiments", "robustness"],
-    ["experiments", "robustness", "folds"],
+    ["data", "randomization"],
+    ["data", "randomization", "ElasticNet"],
+    ["data", "randomization", "ElasticNet", "TOYv1"],
 ]
 
 
@@ -240,7 +237,7 @@ class TestErrorHandling:
         assert isinstance(result.exception, RuntimeError)
 
     def test_an_unknown_model_is_reported_by_the_real_app(self) -> None:
-        result = runner.invoke(app, ["run", "NoSuchModel", "-d", "x"], env=HELP_ENV)
+        result = runner.invoke(app, ["experiment", "NoSuchModel", "-d", "x"], env=HELP_ENV)
 
         assert result.exit_code == 1
         assert plain(result.output).startswith("Error: 'NoSuchModel' is not a zoo name")

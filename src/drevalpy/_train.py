@@ -10,9 +10,7 @@ from drevalpy._utils.n_jobs import check_n_jobs
 from drevalpy.data import CurveQuality, load
 from drevalpy.data.splitters import observed_mask
 from drevalpy.errors import InvalidInputError
-from drevalpy.experiment._execution import build_execution
-from drevalpy.experiment._fit import fit
-from drevalpy.log import get_logger
+from drevalpy.execution._fit import fit
 from drevalpy.models.drp_model import DRPModel
 from drevalpy.models.spec import ModelSpec
 from drevalpy.types import Fold, SelectionMask
@@ -20,8 +18,6 @@ from drevalpy.types.data.dataset import Dataset
 
 if TYPE_CHECKING:
     from drevalpy.models.response_transformation import ResponseTransformer
-
-logger = get_logger(__name__)
 
 #: Fraction of the pairs held out for tuning and early stopping, as the ``validation_ratio`` of a split.
 VALIDATION_RATIO = 0.1
@@ -64,7 +60,7 @@ def train(
 ) -> DRPModel:
     """Train a model on every usable pair of a dataset, for later use on new data.
 
-    Unlike :func:`drevalpy.run` there is no test set. A random 10% of the pairs is set aside as a
+    Unlike :func:`drevalpy.experiment` there is no test set. A random 10% of the pairs is set aside as a
     validation slice, as in a run. Tuning, when enabled, scores on it. A model that stops early
     keeps a quarter of it as its early-stopping set, and every other pair is a training pair. A
     single-drug model fits one estimator per drug through its own routing. Save the result with
@@ -81,8 +77,8 @@ def train(
     :param hpo_random_state: Seed of the tuning sampler; defaults to ``seed``.
     :param response_transformation: Optional unfitted response transformation, cloned for every fit.
     :param quality: Curve-quality rule a pair must pass to be used; ``None`` means
-        ``CurveQuality.default()``, as for :func:`drevalpy.run`.
-    :param measure: Response measure to train on, as for :func:`drevalpy.run`; the model remembers it
+        ``CurveQuality.default()``, as for :func:`drevalpy.experiment`.
+    :param measure: Response measure to train on, as for :func:`drevalpy.experiment`; the model remembers it
         (:attr:`~drevalpy.models.DRPModel.measure`) and predicts it.
     :param seed: Root seed of the validation slice, the tuning and the final fit.
     :param n_jobs: Number of worker processes a single-drug model fits its per-drug models in, during tuning and in the
@@ -94,7 +90,7 @@ def train(
     data = load(dataset) if isinstance(dataset, str) else dataset
     if measure is not None:
         data = data.with_measure(measure)
-    execution = build_execution(
+    model, _ = fit(
         spec,
         data,
         _holdout_fold(data, quality, seed),
@@ -103,7 +99,7 @@ def train(
         hpo_num_trials=hpo_num_trials,
         hpo_random_state=hpo_random_state,
         seed=seed,
+        response_transformation=response_transformation,
+        n_jobs=n_jobs,
     )
-    logger.info("Training %s on %d pairs", spec.name, len(execution.scopes.final_training))
-    model, _ = fit(execution, data, response_transformation=response_transformation, n_jobs=n_jobs)
     return model

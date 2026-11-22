@@ -18,7 +18,7 @@ Run both tests
 --------------
 
 Add the randomization mode with ``--randomization-mode`` and the number of robustness repeats with
-``--robustness-repeats``. The tests belong to the experiment: a single ``run`` trains the
+``--robustness-repeats``. The tests belong to the experiment: a single ``experiment`` trains the
 model on the original data and on the shuffled data, for each fold and each repeat.
 
 .. tab-set::
@@ -30,7 +30,7 @@ model on the original data and on the shuffled data, for each fold and each repe
       .. code-block:: bash
 
          drevalpy data synthetic --output toy.h5mu
-         drevalpy run Ridge --dataset toy.h5mu --split-mode LPO --no-hpo \
+         drevalpy experiment Ridge --dataset toy.h5mu --split-mode LPO --no-hpo \
              --randomization-mode SVRC --robustness-repeats 1 --output-dir results_stress
 
       The command ends with the summary of the ordinary runs:
@@ -43,7 +43,7 @@ model on the original data and on the shuffled data, for each fold and each repe
              Split mode: LPO
              Normalized by: None
              Models: 1
-                 Ridge (5 folds): MSE=0.5648, RMSE=0.7509, MAE=0.5846, R^2=0.7878, Pearson=0.8899, Spearman=0.9006, Kendall=0.7262
+                 Ridge (5 folds): MSE=3.2142, RMSE=1.7906, MAE=1.3939, R^2=0.7722, Pearson=0.8822, Spearman=0.8891, Kendall=0.7081
 
    .. tab-item:: Python
       :sync: python
@@ -55,7 +55,7 @@ model on the original data and on the shuffled data, for each fold and each repe
 
          dataset = drevalpy.synthetic()
          ridge = ModelSpec.from_name("Ridge")
-         results = drevalpy.run(
+         results = drevalpy.experiment(
              [ridge],
              dataset,
              "LPO",
@@ -74,7 +74,7 @@ model on the original data and on the shuffled data, for each fold and each repe
              Split mode: LPO
              Normalized by: None
              Models: 1
-                 Ridge (5 folds): MSE=0.5648, RMSE=0.7509, MAE=0.5846, R^2=0.7878, Pearson=0.8899, Spearman=0.9006, Kendall=0.7262
+                 Ridge (5 folds): MSE=3.2142, RMSE=1.7906, MAE=1.3939, R^2=0.7722, Pearson=0.8822, Spearman=0.8891, Kendall=0.7081
 
 The summary averages only the ordinary runs: the original data in the original pair order. The
 stress-test runs are in the saved results, and no command prints them.
@@ -134,7 +134,7 @@ defaults to ``--seed``.
 
       .. code-block:: bash
 
-         drevalpy run Ridge --dataset toy.h5mu --split-mode LPO --no-hpo \
+         drevalpy experiment Ridge --dataset toy.h5mu --split-mode LPO --no-hpo \
              --randomization-mode SVRC --randomization-mode SVCC \
              --randomization-type invariant --output-dir results_invariant
 
@@ -143,7 +143,7 @@ defaults to ``--seed``.
 
       .. code-block:: python
 
-         invariant = drevalpy.run(
+         invariant = drevalpy.experiment(
              [ridge],
              dataset,
              "LPO",
@@ -244,8 +244,8 @@ difference to this model. A model with random components, such as a random fores
 Run the tests as separate jobs
 ------------------------------
 
-``run`` does everything in one process. To repeat the folds with shuffled pair order as separate
-jobs, write the shuffled folds with ``drevalpy experiments robustness`` and train each with
-``drevalpy single``. To train the randomized datasets as separate jobs, write them with
-``drevalpy experiments randomization`` (or ``drevalpy.randomization`` in Python) and train each
-with ``single``. Both accept a registered dataset name or a file. :doc:`/how-to/run_folds_in_parallel` shows the steps.
+``experiment`` does everything in one process. To repeat the folds with shuffled pair order as separate
+jobs, write the shuffled folds with ``drevalpy data split --robustness-repeats`` and train each with
+``drevalpy run``. To train the randomized datasets as separate jobs, write them with
+``drevalpy data randomization`` (or ``drevalpy.randomization`` in Python) and train each
+with ``run``. Both accept a registered dataset name or a file. :doc:`/how-to/run_folds_in_parallel` shows the steps.

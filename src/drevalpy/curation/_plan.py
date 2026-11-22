@@ -1,7 +1,7 @@
 """A curation split into steps that can run in one process or as separate jobs.
 
 :func:`plan` numbers the series of a well table and splits the pooled fit (and, with replicate
-fits, the per-series fit) into chunks; :meth:`Chunk.fit` fits one chunk; :func:`assemble`
+fits, the per-series fit) into chunks; :meth:`Chunk.run` fits one chunk; :func:`assemble`
 turns the fitted chunks into the curve AnnData. :func:`drevalpy.curation.curate` runs the three
 steps in one process. A workflow manager runs them as separate jobs through ``drevalpy curate
 plan``, ``fit-chunk`` and ``collect``, with the files :func:`write_plan`, :func:`write_chunk`
@@ -32,6 +32,7 @@ from drevalpy.curation._fit import (
     fit_config,
     split,
 )
+from drevalpy.curation._series import DEFAULT_MIN_DOSES
 from drevalpy.log import get_logger
 
 if TYPE_CHECKING:
@@ -49,6 +50,7 @@ _SERIES_FILE = "series.parquet"
 _CHUNK_DIR = "chunks"
 #: Version of the files this module writes; :func:`read_plan` and :func:`read_chunk` reject others.
 FORMAT_VERSION = 1
+_DEFAULT_OPTIONS = FitOptions()
 
 
 @dataclass(frozen=True)
@@ -97,11 +99,19 @@ class Plan:
 
 
 def plan(
-    df: pd.DataFrame, *, replicate_fits: bool, min_doses: int, metadata: Sequence[str], options: FitOptions
+    df: pd.DataFrame,
+    *,
+    replicate_fits: bool = False,
+    min_doses: int = DEFAULT_MIN_DOSES,
+    metadata: Sequence[str] = (),
+    options: FitOptions = _DEFAULT_OPTIONS,
 ) -> Plan:
-    """Split the curation of a validated well table into chunks, after numbering its series.
+    """Split the curation of a well table into chunks, after checking its columns and numbering its series.
 
-    :param df: Well-level table, already validated by :func:`drevalpy.curation.curate`.
+    The parameters mean what they mean for :func:`drevalpy.curation.curate`, which also lists the
+    columns :class:`~drevalpy.errors.InvalidInputError` rejects.
+
+    :param df: Well-level table.
     :param replicate_fits: Whether to also fit every series on its own.
     :param min_doses: Minimum number of distinct doses for a series to be fitted.
     :param metadata: Columns of *df* to keep per series.
@@ -109,8 +119,9 @@ def plan(
     :returns: The plan.
     """
     from drevalpy.curation._replicate_fits import tag_replicates
-    from drevalpy.curation._series import number_series
+    from drevalpy.curation._series import number_series, validate_columns
 
+    validate_columns(df, metadata)
     viability, series = number_series(df, metadata=metadata, min_doses=min_doses)
     tables = {Source.POOLED: viability}
     if replicate_fits:
@@ -192,7 +203,7 @@ def write_plan(plan: Plan, directory: UPath) -> None:
         "infos": {fit.value: infos for fit, infos in plan.infos.items()},
         "chunks": [chunk.name for chunk in plan.chunks],
     }
-    (directory / _PLAN_FILE).write_text(json.dumps(description, indent=2, sort_keys=True))
+    (directory / _PLAN_FILE).write_text(json.dumps(description, indent=2, sort_keys=True), encoding="utf-8")
     plan.series.to_parquet(directory / _SERIES_FILE, index=False)
     for chunk in plan.chunks:
         write_chunk(chunk, directory / _CHUNK_DIR / f"{chunk.name}.parquet")
@@ -204,7 +215,7 @@ def read_plan(directory: UPath) -> Plan:
     :param directory: The plan directory.
     :returns: The plan.
     """
-    description = json.loads((directory / _PLAN_FILE).read_text())
+    description = json.loads((directory / _PLAN_FILE).read_text(encoding="utf-8"))
     _check_format(description, directory / _PLAN_FILE)
     chunks = [read_chunk(directory / _CHUNK_DIR / f"{name}.parquet") for name in description["chunks"]]
     return Plan(

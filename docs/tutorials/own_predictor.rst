@@ -133,7 +133,7 @@ under.
 
    config = from_recipe("toySample:fingerprints:toyRidge")
    toy_ridge = ModelSpec("ToyRidge", config)
-   print(config.model_id)
+   print(config.recipe)
 
 The output:
 
@@ -154,7 +154,7 @@ tutorial. Tuning is off, so ``toyRidge`` uses its default ``alpha``.
 .. code-block:: python
 
    baseline = ModelSpec.from_name("NaiveMeanEffectsPredictor")
-   results = drevalpy.run([baseline, toy_ridge], dataset, "LPO", hyperparameter_tuning=False)
+   results = drevalpy.experiment([baseline, toy_ridge], dataset, "LPO", hyperparameter_tuning=False)
    print(results)
 
 The output ends with the pooled metrics of both models:
@@ -166,8 +166,8 @@ The output ends with the pooled metrics of both models:
        Split mode: LPO
        Normalized by: None
        Models: 2
-           NaiveMeanEffectsPredictor (5 folds): MSE=0.8399, RMSE=0.9144, MAE=0.7218, R^2=0.6851, Pearson=0.8298, Spearman=0.8409, Kendall=0.6466
-           ToyRidge (5 folds): MSE=0.5572, RMSE=0.7457, MAE=0.5800, R^2=0.7912, Pearson=0.8916, Spearman=0.8989, Kendall=0.7227
+           NaiveMeanEffectsPredictor (5 folds): MSE=4.4532, RMSE=2.1055, MAE=1.6620, R^2=0.6851, Pearson=0.8298, Spearman=0.8409, Kendall=0.6466
+           ToyRidge (5 folds): MSE=3.2160, RMSE=1.7911, MAE=1.3944, R^2=0.7720, Pearson=0.8822, Spearman=0.8891, Kendall=0.7084
 
 Over all pairs your model leads by about 0.06 Pearson. The first tutorial showed why that number
 alone is not enough. Compare the models within each drug:
@@ -180,10 +180,10 @@ alone is not enough. Compare the models within each drug:
 .. code-block:: text
 
                               Pearson  Spearman   RMSE
-   NaiveMeanEffectsPredictor    0.386     0.372  0.895
-   ToyRidge                     0.502     0.459  0.727
+   NaiveMeanEffectsPredictor    0.386     0.372  2.061
+   ToyRidge                     0.484     0.454  1.732
 
-Within drugs your model correlates at 0.50 against 0.39 for the naive baseline. ``ToyRidge``
+Within drugs your model correlates at 0.48 against 0.39 for the naive baseline. ``ToyRidge``
 reads the gene expression of the sample, which tells it something about which samples respond.
 The naive baseline sees only identities.
 

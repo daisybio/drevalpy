@@ -9,8 +9,8 @@ Every call into drevalpy that trains or predicts goes through :func:`train_and_p
 format change signature, adapt these two functions and nothing else: the baseline stays valid as
 long as the numbers they produce do not change.
 
-:func:`train_and_predict` calls ``drevalpy.experiment._fit.fit``, the path ``drevalpy.single`` takes,
-because ``drevalpy.single`` does not hand back the fitted model the round trip needs.
+:func:`train_and_predict` calls ``drevalpy.execution._fit.fit``, the path ``drevalpy.run`` takes,
+because ``drevalpy.run`` does not hand back the fitted model the round trip needs.
 """
 
 from __future__ import annotations
@@ -75,6 +75,10 @@ OVERRIDES: Final[dict[str, dict[str, Any]]] = {
     "RandomForestAEMolGNet": {"epochs_autoencoder": 10},
 }
 
+#: The measure the baseline was recorded on. It is pinned, not the default measure, so a change of the
+#: default does not move the numbers this file compares.
+MEASURE: Final = "pEC50"
+
 #: Every opt-in extra of ``drevalpy.synthetic``, so each zoo model finds the views it reads.
 DATASET_OPTIONS: Final[dict[str, Any]] = {
     "omics": ("gene_expression", "proteomics", "mutations", "methylation", "copy_number_variation_gistic"),
@@ -122,10 +126,11 @@ def single_threaded() -> Iterator[None]:
 
 
 def build_dataset():
-    """Build the golden dataset: ``drevalpy.synthetic`` with every extra view on."""
+    """Build the golden dataset: ``drevalpy.synthetic`` with every extra view on, on :data:`MEASURE`."""
     import drevalpy
 
-    return drevalpy.synthetic(seed=DATASET_SEED, **{key: list(value) for key, value in DATASET_OPTIONS.items()})
+    dataset = drevalpy.synthetic(seed=DATASET_SEED, **{key: list(value) for key, value in DATASET_OPTIONS.items()})
+    return dataset.with_measure(MEASURE)
 
 
 def build_fold(dataset):
@@ -153,26 +158,25 @@ def train_and_predict(
     hpo_random_state: int = HPO_SEED,
     seed: int = SEED,
 ) -> GoldenRun:
-    """Train zoo model *model_name* on *fold* the way ``drevalpy.single`` does and predict its test scope.
+    """Train zoo model *model_name* on *fold* the way ``drevalpy.run`` does and predict its test scope.
 
     The single place that trains: adapt it when the model or tuning API changes.
 
     :param model_name: Zoo preset name.
     :param dataset: Golden dataset.
     :param fold: Fold to train and test on.
-    :param hyperparameter_tuning: Whether to tune, as ``drevalpy.single(hyperparameter_tuning=...)``.
+    :param hyperparameter_tuning: Whether to tune, as ``drevalpy.run(hyperparameter_tuning=...)``.
     :param overrides: Short public hyperparameter names and values that replace defaults, untuned only.
     :param hpo_num_trials: Number of tuning trials.
     :param hpo_random_state: Seed of the tuning sampler.
     :param seed: Root seed of the run.
     :returns: Predictions, metrics, chosen hyperparameters and the fitted model.
     """
-    from drevalpy.experiment._execution import build_execution
-    from drevalpy.experiment._fit import fit
+    from drevalpy.execution._fit import fit
     from drevalpy.models import ModelSpec
 
     spec = ModelSpec.from_name(model_name)
-    execution = build_execution(
+    model, result = fit(
         spec if hyperparameter_tuning else spec.with_hyperparameters(overrides or {}),
         dataset,
         fold,
@@ -182,7 +186,6 @@ def train_and_predict(
         hpo_random_state=hpo_random_state,
         seed=seed,
     )
-    model, result = fit(execution, dataset)
     return GoldenRun(np.asarray(result.predictions), dict(result.metrics), model.hyperparameters, model)
 
 

@@ -13,13 +13,13 @@ from joblib.externals import cloudpickle
 from upath import UPath
 
 from drevalpy._utils.seed import seed_everything
-from drevalpy.components.contracts.training_context import TrainingContext
 from drevalpy.components.predictors.abstract.single_drug import SingleDrugPredictor
 from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.components.predictors.sklearn_models import SingleDrugElasticNetPredictor, SingleDrugRandomForestPredictor
 from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
 from drevalpy.types.data.predictor_input import PredictorInput
 from drevalpy.types.data.response_table import ResponseTable
+from drevalpy.types.data.training_context import TrainingContext
 from tests.components.predictors._helpers import pickle_round_trip
 
 

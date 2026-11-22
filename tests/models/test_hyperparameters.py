@@ -7,7 +7,7 @@ from typing import Any
 
 import pytest
 
-from drevalpy.components.contracts.hyperparameter_space import admits
+from drevalpy.components.hyperparameter_space import admits
 from drevalpy.models import ModelSpec
 from drevalpy.models.config import from_recipe
 from drevalpy.models.hyperparameters import component_values, key, qualify, validate

@@ -2,8 +2,8 @@
 
 :func:`space` merges the spaces of a model's components under their qualified keys
 (:mod:`drevalpy.models.hyperparameters`): sample featurizer leaves, drug featurizer leaves,
-then the predictor. A component's space is the one its config declares, else its class's
-``get_hyperparameter_space()``. :func:`draw` turns a space into values for one Optuna trial.
+then the predictor. A component's space is its config's ``effective_space``: the one the config
+declares, else its class's ``get_hyperparameter_space()``. :func:`draw` turns a space into values for one Optuna trial.
 """
 
 from __future__ import annotations
@@ -12,16 +12,9 @@ from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any
 
 from drevalpy.models.hyperparameters import PREDICTOR_SLOT, key
-from drevalpy.registry.predictor import get as get_predictor
 
 if TYPE_CHECKING:
     from drevalpy.models.config import ModelConfig
-
-
-def _effective_space(declared: Mapping[str, Any] | None, cls: type[Any]) -> dict[str, Any]:
-    if declared is not None:
-        return {name: dict(spec) for name, spec in declared.items()}
-    return dict(cls.get_hyperparameter_space())
 
 
 def space(config: ModelConfig) -> dict[str, Any]:
@@ -33,11 +26,10 @@ def space(config: ModelConfig) -> dict[str, Any]:
     merged: dict[str, Any] = {}
     for side, root in config.featurizers().items():
         for leaf in root.leaves():
-            leaf_space = _effective_space(leaf.hyperparameter_space, leaf.featurizer_class)
-            merged.update({key(f"{side}_featurizer", leaf.selector, name): spec for name, spec in leaf_space.items()})
+            slot = f"{side}_featurizer"
+            merged.update({key(slot, leaf.selector, name): spec for name, spec in leaf.effective_space.items()})
     predictor = config.predictor
-    predictor_space = _effective_space(predictor.hyperparameter_space, get_predictor(predictor.name))
-    merged.update({key(PREDICTOR_SLOT, predictor.name, name): spec for name, spec in predictor_space.items()})
+    merged.update({key(PREDICTOR_SLOT, predictor.name, name): spec for name, spec in predictor.effective_space.items()})
     return merged
 
 

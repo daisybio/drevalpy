@@ -28,20 +28,20 @@ Breaking changes from 1.6.0
 - **Nothing that 1.x wrote loads in v2.** Re-run experiments and retrain models. Result files,
   splits and saved models are in new formats; a saved model is a ``.zip`` archive of format version 3.
   :ref:`how-to/migrate/index:Which 1.x files still load` lists what each loader says.
-- **The command line is one script.** ``drevalpy`` has the subcommands ``run``, ``single``,
+- **The command line is one script.** ``drevalpy`` has the subcommands ``experiment``, ``run``,
   ``aggregate``, ``curate``, ``report``, ``data``, ``experiments`` and ``list``, and the 17
   ``drevalpy-*`` scripts are removed. Options are renamed; see :doc:`/how-to/migrate/cli`.
 - **The report takes no dataset.** ``drevalpy report --dataset`` is removed, because the report never
   read the file. A pipeline that still passes it, such as nf-core/drugresponseeval, must drop the flag.
 - **The Python API is new.** ``MODEL_FACTORY``, ``drug_response_experiment`` and
-  ``DrugResponseDataset`` are replaced by ``ModelSpec``, ``drevalpy.run`` and ``Dataset``; see
+  ``DrugResponseDataset`` are replaced by ``ModelSpec``, ``drevalpy.experiment`` and ``Dataset``; see
   :doc:`/how-to/migrate/python`. A 1.x ``DRPModel`` subclass becomes a featurizer and a predictor;
   see :doc:`/how-to/migrate/models`.
 - **Importing the package no longer configures logging.** Call ``drevalpy.log.setup_logging()`` to
   see progress and warnings from a script or notebook. The command line does it for you.
 - **"Cell line" is "sample"** in every name, as described next.
 - **Tuning is a serial Optuna search**, not a grid. Ray and the ``multiprocessing`` extra are
-  gone; run folds in parallel with ``drevalpy single`` instead
+  gone; run folds in parallel with ``drevalpy run`` instead
   (:doc:`/how-to/run_folds_in_parallel`).
 
 Breaking changes for code written against the 2.0 development branch
@@ -57,7 +57,7 @@ These affect only code, configurations and datasets written for an unreleased 2.
   ``ValueError`` that shows the form to write instead. The new ``defaults`` field sets the default
   of a tunable hyperparameter; ``options`` holds fixed values and may no longer name a tunable one.
   See :ref:`reference/recipes:Featurizer forms in YAML`.
-- ``ModelConfig.model_id`` is the full recipe with views and concatenation children, such as
+- ``ModelConfig.recipe`` is the full recipe with views and concatenation children, such as
   ``scaledGeneExpression+view[mutations]:fingerprints:neuralNetwork``, and ``drevalpy list
   zoo-presets`` shows it. Result directories are still named after the model.
 - **Precomputed features are views.** ``precompute(dataset, featurizer_name, side)`` stores one
@@ -92,7 +92,7 @@ These affect only code, configurations and datasets written for an unreleased 2.
   ``drevalpy.testing`` is ``build_synthetic_input``. The three data modules moved out of
   ``drevalpy.types.data.batch`` to ``drevalpy.types.data`` (``feature_block``,
   ``predictor_input``, ``response_table``), and ``BlockSpec`` moved next to
-  ``FeatureFormat`` in ``drevalpy.components.contracts.feature_format`` with
+  ``FeatureFormat`` in ``drevalpy.types.data.feature_format`` with
   ``FeatureFormat.NUMERIC_MATRIX`` as its default format. ``FeaturizerOutput`` no longer takes a
   ``projection`` argument (``matrix`` concatenates entity-aligned numeric blocks in order),
   ``PredictorInput.early_stopping_response`` is ``early_stopping``, and ``graph_feature_block``,
@@ -102,16 +102,16 @@ These affect only code, configurations and datasets written for an unreleased 2.
   ``ModelResult.n_runs`` are removed.
 - **``SplitMasks`` is now ``Fold`` and ``SplitMask`` is ``SelectionMask``**, in
   ``drevalpy.types.data.fold`` and ``drevalpy.types.data.selection_mask``. Parameters that take a fold
-  are called ``fold``: ``drevalpy.single(..., fold, ...)``, ``drevalpy.robustness(fold, n_repeats)``
-  and the ``FOLD`` argument of ``drevalpy single``. Fold files keep their format.
+  are called ``fold``: ``drevalpy.run(..., fold, ...)``, ``drevalpy.robustness(fold, n_repeats)``
+  and the ``FOLD`` argument of ``drevalpy run``. Fold files keep their format.
 - **Hyperparameter values are checked against the search space.** A ``default``, and every value
   given to ``with_hyperparameters`` or ``DRPModel``, must lie in the entry's range or choices;
   ``fixed`` entries take any value. Before, any value was accepted. Pass ``check_values=False`` to
   use a value outside the space on purpose. The EnsembleMF preset declares its own fingerprint
   space, with ``n_bits`` from 256 to 2048, so its 256-bit default lies inside it.
 - ``evaluate`` returns ``{}`` when no pair can be scored, instead of a ``NaN`` per metric.
-- ``HPOConfig`` is removed; the tuning settings are the ``hpo_*`` arguments of ``run``,
-  ``single`` and ``train``.
+- ``HPOConfig`` is removed; the tuning settings are the ``hpo_*`` arguments of ``experiment``,
+  ``run`` and ``train``.
 - The ``SRMF`` hyperparameter ``n_features`` and the ``Precily`` hyperparameter ``seed`` are
   removed; neither was used.
 - **Curation reads the replicate hierarchy.** In ``curate``, the ``replicate`` column of the
@@ -141,12 +141,12 @@ These affect only code, configurations and datasets written for an unreleased 2.
   validation pairs. These groups are left out of the rest of the validation set and of the final
   training set, and the split validators check all four parts. A validation set with fewer than
   two groups raises ``InvalidInputError`` when a model stops early, since it needs at least two
-  validation groups; ``run(validation_ratio=...)`` and ``drevalpy run --validation-ratio`` (0.1 by
+  validation groups; ``run(validation_ratio=...)`` and ``drevalpy experiment --validation-ratio`` (0.1 by
   default) raise their number. Scores of
   the models that stop early can change, and ``Fold.early_stopping_mask`` is removed. See
   :doc:`/explanation/training_lifecycle`.
 - **Single-drug models are rejected under LDO.** They fit one model per drug and cannot predict
-  a held-out drug, so ``run`` and ``single`` raise ``InvalidInputError`` before any fit.
+  a held-out drug, so ``experiment`` and ``run`` raise ``InvalidInputError`` before any fit.
 - **Importing drevalpy leaves the thread settings alone outside macOS.** ``OMP_NUM_THREADS``,
   ``OPENBLAS_NUM_THREADS``, ``MKL_NUM_THREADS`` and ``VECLIB_MAXIMUM_THREADS`` default to 1 only on
   macOS, where XGBoost can crash without them. Elsewhere torch and the other native libraries are
@@ -154,18 +154,18 @@ These affect only code, configurations and datasets written for an unreleased 2.
 - **NaN test predictions are reported.** A run that predicts NaN for some test pairs logs a
   warning with their number, and a run with NaN for more than 20 % of the test pairs with a finite
   response raises ``NaNPredictionError`` from ``drevalpy.errors`` instead of being scored on the
-  rest; ``run`` records it as a failure. ``RunResult.n_scored`` is the number of pairs the scores
+  rest; ``experiment`` records it as a failure. ``RunResult.n_scored`` is the number of pairs the scores
   use. See :ref:`reference/metrics:Missing and degenerate input`.
 - **Stress tests reuse the tuned hyperparameters.** Randomization and robustness runs no longer
   tune: each is fitted with the best hyperparameters of the original run on the same fold, so the
   search runs once per fold and the stress-test runs have no trials. When the original run fails,
   its stress-test runs are recorded as failures. See :doc:`/how-to/run_stress_tests`.
 - **The normalization reference is never transformed.** ``NaiveMeanEffectsPredictor`` trains on
-  the untransformed response in ``drevalpy.single`` and ``drevalpy single`` too, as it already did
-  in ``run``, so split + ``single`` + ``aggregate`` gives the same normalized metrics as ``run``.
+  the untransformed response in ``drevalpy.run`` and ``drevalpy run`` too, as it already did
+  in ``experiment``, so split + ``run`` + ``aggregate`` gives the same normalized metrics as ``experiment``.
 - **A run saves each result as it finishes and resumes from its output directory.** With
-  ``output_dir`` (``--output-dir``), ``run`` writes each run as soon as it is fitted, and a later
-  ``run`` with the same settings loads the runs on disk instead of fitting them again; failed runs
+  ``output_dir`` (``--output-dir``), ``experiment`` writes each run as soon as it is fitted, and a later
+  ``experiment`` with the same settings loads the runs on disk instead of fitting them again; failed runs
   are retried. The dataset is identified by its name and measure, so pass ``--overwrite`` after
   changing its content under the same name. A directory holding runs of other settings raises
   ``OutputDirectoryConflictError`` unless ``overwrite=True`` (``--overwrite``) deletes them first;
@@ -193,10 +193,11 @@ that said "cell line" now says "sample".
 Defaults and results that changed
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- **The response measure is a choice again, with pEC50 as the default.** 1.x trained on
-  ``LN_IC50_curvecurator`` by default. ``--measure`` on ``drevalpy run``, ``train``, ``single``
-  and ``data split``, and ``measure=`` on ``drevalpy.run``, ``train``, ``single`` and ``split``,
-  pick ``LN_IC50``, ``AUC`` or any other response layer. ``Dataset.measure``,
+- **The response measure is a choice again, with LN_IC50 as the default, as in 1.x**
+  (``LN_IC50_curvecurator`` there). A dataset without an ``LN_IC50`` layer trains on the pEC50
+  in ``X``. ``--measure`` on ``drevalpy experiment``, ``train``, ``run``
+  and ``data split``, and ``measure=`` on ``drevalpy.experiment``, ``train``, ``run`` and ``split``,
+  pick ``pEC50``, ``AUC`` or any other response layer. ``Dataset.measure``,
   ``Dataset.measures()`` and ``Dataset.with_measure(name)`` read and set it. The curve-quality
   rule does not change with the measure. Folds, results (``RunResult.measure``,
   ``ExperimentResult.measure``) and fitted models (``DRPModel.measure``) record it, and the
@@ -208,7 +209,7 @@ Defaults and results that changed
   bit-identical to results on the CPU. Set ``DREVALPY_FORCE_CPU=1`` to keep everything on the
   CPU; see :ref:`how-to/install:Use a GPU or another accelerator`.
 - PyTorch 2.6 or newer is required.
-- ``--response-transformation`` defaults to ``none`` in ``drevalpy run`` and ``drevalpy single``,
+- ``--response-transformation`` defaults to ``none`` in ``drevalpy experiment`` and ``drevalpy run``,
   so the response is not standardized unless you ask for it. The values are ``none``, ``standard``,
   ``minmax`` and ``robust``, plus the 1.x group means ``drug_mean`` and ``drug_tissue_mean``.
 - ``ExperimentResult.summary_table`` is a method, not a property. Call ``summary_table()`` for
@@ -221,8 +222,8 @@ Defaults and results that changed
   group is 0, not undefined, and counts in the mean, so ``NaiveDrugMeanPredictor`` scores 0 per
   drug. ``summary_group_counts`` returns how many groups each value is based
   on. Both return a ``pandas.DataFrame`` with one row per model and one column per metric.
-- ``drevalpy run`` and ``drevalpy aggregate`` take ``--group-by drug|sample|study`` or the name of a
-  sample or drug annotation column such as ``tissue`` and print that table. ``run`` reads the annotation
+- ``drevalpy experiment`` and ``drevalpy aggregate`` take ``--group-by drug|sample|study`` or the name of a
+  sample or drug annotation column such as ``tissue`` and print that table. ``experiment`` reads the annotation
   from its dataset; ``aggregate`` needs ``--dataset``. The report has a second summary table, "Model Summary Table per Drug".
 - One ``--seed`` (``seed=`` in Python, default 42) drives the splits, the hyperparameter search,
   the randomization tests and the seeding of every model fit. ``drevalpy data split`` and
@@ -231,7 +232,7 @@ Defaults and results that changed
 - The standard deviation of a metric across folds is the sample standard deviation (``ddof=1``), and
   ``0`` for a single fold.
 - **Saved results store each value once.** The ``metadata.json`` of an experiment directory holds only
-  ``normalized_by``, ``models`` and, when ``run`` wrote it, the ``settings`` of the run, a model directory has no ``metadata.json``,
+  ``normalized_by``, ``models`` and, when ``experiment`` wrote it, the ``settings`` of the run, a model directory has no ``metadata.json``,
   and the dataset name, the split mode and the model name are read from the run files, which load in fold
   order. The
   split mode is always stored under ``split_mode``. :doc:`/reference/results` has the layout.
@@ -322,14 +323,14 @@ New commands and functions
   simulated dataset, by default 60 samples, 8 drugs and 6 tissues with a gene expression view.
   It needs no download, and its drugs differ so much in average potency that pooled scores
   look good for models that rank samples poorly.
-- ``drevalpy data split``, ``drevalpy experiments randomization`` and ``drevalpy single`` accept a
-  registered dataset name as well as a file, like ``drevalpy run --dataset``.
-- ``drevalpy run --n-splits`` (``-n``) and ``drevalpy.run(..., n_splits=)`` set the number of
-  folds, 5 by default; before, ``run`` always made 5. ``drevalpy run --validation-ratio`` and
-  ``drevalpy.run(..., validation_ratio=)`` set the share of validation data, 0.1 by default as
+- ``drevalpy data split``, ``drevalpy experiments randomization`` and ``drevalpy run`` accept a
+  registered dataset name as well as a file, like ``drevalpy experiment --dataset``.
+- ``drevalpy experiment --n-splits`` (``-n``) and ``drevalpy.experiment(..., n_splits=)`` set the number of
+  folds, 5 by default; before, ``experiment`` always made 5. ``drevalpy experiment --validation-ratio`` and
+  ``drevalpy.experiment(..., validation_ratio=)`` set the share of validation data, 0.1 by default as
   before.
 - ``drevalpy list zoo-presets`` and ``drevalpy list datasets`` show the model presets you can
-  pass to ``run`` and the datasets you can load by name.
+  pass to ``experiment`` and the datasets you can load by name.
 - ``DREVALPY_EXTENSIONS_DIR`` is read by ``load_extensions()`` in Python, not only by the
   command line. It can name several directories, separated by ``:`` on Linux and macOS.
 - ``register_source`` and ``register_dataset`` raise ``ValueError`` when the name is already
@@ -355,7 +356,7 @@ Errors and logging
   mapping lists the keys it accepts and says that featurizer arguments go under ``options`` and predictor
   hyperparameters under ``defaults`` or ``hyperparameter_space``. See :doc:`/reference/recipes`.
 - The randomization tests write their datasets to files named ``<mode>__<view>.h5mu``.
-- ``drevalpy run`` has no short ``-r`` for ``--randomization-mode``; repeat the long flag. A
+- ``drevalpy experiment`` has no short ``-r`` for ``--randomization-mode``; repeat the long flag. A
   mode, ``--fit-speed`` or ``--join`` value that does not exist is rejected with the list of valid
   choices (``drevalpy curate run`` no longer takes ``--fit-type``, since OLS was its only value).
   ``drevalpy data synthetic`` prints an error when ``--n-drugs`` is over the number of drugs it
@@ -368,20 +369,20 @@ Cross-study evaluation, component grids and recorded failures
   datasets of several studies into one dataset. Sample IDs become ``<study>::<sample_id>``,
   ``obs`` gains ``study`` and ``source_sample_id``, and ``join="inner"`` (``--join inner``) keeps
   only the features that all studies share. The new split mode ``LStO`` (leave-study-out) holds
-  out one study per fold. ``drevalpy run`` takes several ``--dataset`` options, and
-  ``drevalpy.run`` a list of datasets, and concatenates them. ``--group-by study`` and
+  out one study per fold. ``drevalpy experiment`` takes several ``--dataset`` options, and
+  ``drevalpy.experiment`` a list of datasets, and concatenates them. ``--group-by study`` and
   ``summary_table(group_by="study")`` score each study separately, and the report adds a per-study
   section to the comparison scatter plot. See :doc:`/how-to/run_cross_study`.
-- **Component grids and recipe names.** ``drevalpy run -S/-D/-P`` and
+- **Component grids and recipe names.** ``drevalpy experiment -S/-D/-P`` and
   ``drevalpy.models.combinations`` evaluate every valid combination of sample featurizers, drug
   featurizers and predictors, and report the skipped ones with the reason. ``ModelSpec.from_name``,
-  ``drevalpy run`` and ``drevalpy single`` accept a recipe such as
+  ``drevalpy experiment`` and ``drevalpy run`` accept a recipe such as
   ``pca[gene_expression]:fingerprints:ridge`` wherever they accepted a zoo name, and the model is
   named by the recipe. See :doc:`/how-to/evaluate_component_grids`.
-- **Recorded failures.** A run that raises no longer aborts the experiment. ``drevalpy.run``
+- **Recorded failures.** A run that raises no longer aborts the experiment. ``drevalpy.experiment``
   logs a warning, keeps the failure in ``ExperimentResult.failures`` and writes ``failures.json``;
-  ``on_error="raise"`` restores the old behavior. ``drevalpy run`` prints the failures and exits
-  with status 1, and the report has a "Failed runs" table. If every run fails, ``run`` raises
+  ``on_error="raise"`` restores the old behavior. ``drevalpy experiment`` prints the failures and exits
+  with status 1, and the report has a "Failed runs" table. If every run fails, ``experiment`` raises
   ``ExperimentFailedError``. Each record in ``failures.json`` holds the ``oneHot`` of the failed run
   (model, dataset, split mode, fold, randomization and robustness repeat), the exception type and its message.
 - **Stress tests.** A randomization test or a robustness test is a stress test. The number of
@@ -389,16 +390,16 @@ Cross-study evaluation, component grids and recorded failures
   1.x called it ``--n_trials_robustness``. Randomizing a graph view keeps the degree of every node.
   See :doc:`/how-to/run_stress_tests`.
 - **Curve-quality rule.** ``drevalpy.data.CurveQuality`` describes the rule that ``split`` hands
-  to the splitter, with the default unchanged. ``drevalpy run`` and ``drevalpy data split`` take
+  to the splitter, with the default unchanged. ``drevalpy experiment`` and ``drevalpy data split`` take
   ``--no-quality-filter``, ``--min-relevance-score`` and ``--min-abs-fold-change``, and
   ``CurveQuality.off()`` splits a dataset that has only a pEC50 matrix. Each fold records the rule
   under ``quality``. A splitter takes a required ``quality`` keyword and calls
   ``observed_mask(dataset, quality)``; a splitter without it fails at registration. See
   :doc:`/reference/datasets` and :doc:`/how-to/extend/write_splitter`.
-- **Weights & Biases.** ``--wandb-project`` on ``drevalpy run`` and ``drevalpy single``, and
+- **Weights & Biases.** ``--wandb-project`` on ``drevalpy experiment`` and ``drevalpy run``, and
   ``wandb_project=`` in Python, log one W&B run per tuning trial and a final run per fold with the
   test metrics.
-- **Parallel single-drug models.** ``--n-jobs`` on ``drevalpy run``, ``single`` and ``train``, and
+- **Parallel single-drug models.** ``--n-jobs`` on ``drevalpy experiment``, ``run`` and ``train``, and
   ``n_jobs=`` in Python, fit the per-drug models of ``SingleDrugElasticNet``,
   ``SingleDrugRandomForest``, ``SingleDrugKNN``, ``MOLIR`` and ``SuperFELTR`` in parallel
   worker processes. The results are identical for every value. ``MOLIR`` and ``SuperFELTR`` write

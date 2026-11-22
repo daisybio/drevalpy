@@ -162,8 +162,7 @@ class DatasetRegistry(TableReprMixin):
         """Register a custom source (base URL + optional fsspec storage options).
 
         Registering an entry identical to the one already in effect (built-in or custom) is a no-op
-        and writes nothing; the same source and file count as identical and keep the entry's
-        ``sha256``. Raises ``ValueError`` if *name* is already registered with a different
+        and writes nothing. Raises ``ValueError`` if *name* is already registered with a different
         entry and *replace* is false.
 
         :param name: Source name (used to reference from dataset entries).

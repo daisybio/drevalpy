@@ -104,20 +104,19 @@ class TestFeaturizerCreateInstance:
 
         assert config.create_instance({"view": "gene_expression"})._view == "gene_expression"
 
-    def test_a_concat_builds_one_child_per_config(self) -> None:
+    def test_a_concat_takes_the_children_the_caller_built(self) -> None:
+        config = FeaturizerConfig.parse("scaledGeneExpression+pca[methylation]", "sample")
+        children = [leaf.create_instance() for leaf in config.leaves()]
+
+        instance = config.create_instance({"featurizers": children})
+
+        assert instance._children == children
+
+    def test_a_concat_does_not_build_its_children_itself(self) -> None:
         config = FeaturizerConfig.parse("scaledGeneExpression+pca[methylation]", "sample")
 
-        instance = config.create_instance()
-
-        assert [type(child) for child in instance._children] == [leaf.featurizer_class for leaf in config.leaves()]
-
-    def test_the_caller_may_supply_the_children_itself(self) -> None:
-        config = FeaturizerConfig.parse("scaledGeneExpression+pca[methylation]", "sample")
-        only_pca = [{"name": "pca", "view": "methylation"}]
-
-        instance = config.create_instance({"featurizers": only_pca})
-
-        assert [type(child).__name__ for child in instance._children] == ["PCASampleFeaturizer"]
+        with pytest.raises(ValueError, match="non-empty list"):
+            config.create_instance()
 
 
 def test_featurizer_config_has_no_registry_field() -> None:
@@ -126,24 +125,24 @@ def test_featurizer_config_has_no_registry_field() -> None:
 
 
 @pytest.mark.parametrize(
-    ("drug", "predictor", "model_id"),
+    ("drug", "predictor", "recipe"),
     [
         (FeaturizerConfig(name="oneHot", side="drug"), "randomForest", "scaledGeneExpression:oneHot:randomForest"),
         (None, "singleDrugElasticNet", "scaledGeneExpression:singleDrugElasticNet"),
     ],
     ids=["full-triple", "single-drug-without-drug-featurizer"],
 )
-def test_model_id(drug, predictor, model_id) -> None:
+def test_recipe(drug, predictor, recipe) -> None:
     config = ModelConfig(sample_featurizer=SAMPLE, drug_featurizer=drug, predictor=PredictorConfig(name=predictor))
 
-    assert config.model_id == model_id
+    assert config.recipe == recipe
     assert config.drug_featurizer == drug
 
 
-def test_model_id_for_predictor_only_baseline() -> None:
+def test_recipe_of_a_predictor_only_baseline() -> None:
     config = ModelConfig(sample_featurizer=None, drug_featurizer=None, predictor=PredictorConfig(name="naiveMean"))
 
-    assert config.model_id == "naiveMean"
+    assert config.recipe == "naiveMean"
 
 
 @pytest.mark.parametrize(
@@ -154,19 +153,19 @@ def test_model_id_for_predictor_only_baseline() -> None:
         "oneHot+tissue:oneHot:naiveMeanEffects",
     ],
 )
-def test_model_id_reads_back_into_the_same_components(recipe: str) -> None:
+def test_recipe_reads_back_into_the_same_components(recipe: str) -> None:
     config = from_recipe(recipe)
 
-    assert config.model_id == recipe
-    assert from_recipe(config.model_id) == config
+    assert config.recipe == recipe
+    assert from_recipe(config.recipe) == config
 
 
-def test_model_id_of_every_zoo_preset_reads_back_into_its_featurizer_trees() -> None:
+def test_recipe_of_every_zoo_preset_reads_back_into_its_featurizer_trees() -> None:
     from drevalpy.models.zoo import list_zoo_names
 
     for name in list_zoo_names():
         config = get_zoo_config(name)
-        recipe = from_recipe(config.model_id)
+        recipe = from_recipe(config.recipe)
         for slot in ("sample_featurizer", "drug_featurizer"):
             original, read = getattr(config, slot), getattr(recipe, slot)
             assert (original and [leaf.selector for leaf in original.leaves()]) == (
@@ -174,14 +173,14 @@ def test_model_id_of_every_zoo_preset_reads_back_into_its_featurizer_trees() -> 
             ), name
 
 
-def test_model_id_of_a_drug_only_stack_is_none() -> None:
+def test_recipe_of_a_drug_only_stack_is_none() -> None:
     config = ModelConfig.model_construct(
         sample_featurizer=None,
         drug_featurizer=FeaturizerConfig(name="fingerprints", side="drug"),
         predictor=PredictorConfig(name="elasticNet"),
     )
 
-    assert config.model_id is None
+    assert config.recipe is None
 
 
 @pytest.mark.parametrize(

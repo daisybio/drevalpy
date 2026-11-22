@@ -19,7 +19,7 @@ Create an extension directory
 
 The directory below has one Python file that registers a featurizer and a predictor, and one
 YAML file that gives two model presets a name. The command line selects models by preset name
-only, so a predictor needs a preset before ``drevalpy run`` can use it.
+only, so a predictor needs a preset before ``drevalpy experiment`` can use it.
 
 .. tab-set::
    :sync-group: interface
@@ -182,13 +182,13 @@ Run a model from the extension
    .. tab-item:: CLI
       :sync: cli
 
-      ``drevalpy run`` takes preset names, so use the name from ``zoo.yaml``. ``--no-hpo``
+      ``drevalpy experiment`` takes preset names, so use the name from ``zoo.yaml``. ``--no-hpo``
       skips hyperparameter search to keep the run short.
 
       .. code-block:: bash
 
          drevalpy data synthetic --output toy.h5mu
-         drevalpy -e my_extensions run MeanBaseline --dataset toy.h5mu --split-mode LSO --no-hpo -o results
+         drevalpy -e my_extensions experiment MeanBaseline --dataset toy.h5mu --split-mode LSO --no-hpo -o results
 
    .. tab-item:: Python
       :sync: python
@@ -204,7 +204,7 @@ Run a model from the extension
 
          dataset = drevalpy.load("toy.h5mu")
          spec = ModelSpec.from_name("MeanBaseline")
-         results = drevalpy.run([spec], dataset, "LSO", hyperparameter_tuning=False)
+         results = drevalpy.experiment([spec], dataset, "LSO", hyperparameter_tuning=False)
 
 Load a directory automatically
 ------------------------------
@@ -226,7 +226,7 @@ extensions, and its directories are loaded **before** any ``-e`` directory.
       .. code-block:: bash
 
          export DREVALPY_EXTENSIONS_DIR=my_extensions
-         drevalpy run MeanBaseline --dataset toy.h5mu --split-mode LSO --no-hpo
+         drevalpy experiment MeanBaseline --dataset toy.h5mu --split-mode LSO --no-hpo
 
    .. tab-item:: Python
       :sync: python

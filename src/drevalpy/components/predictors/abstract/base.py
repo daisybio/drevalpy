@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
 
-from drevalpy.components.contracts.hyperparameter_space import TunableComponent
+from drevalpy.components.hyperparameter_space import TunableComponent
 from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.log import get_logger
 from drevalpy.types.enums import Accelerator, ModelScope, PredictionMode

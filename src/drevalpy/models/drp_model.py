@@ -24,7 +24,6 @@ from upath import UPath
 
 from drevalpy._utils.accelerator import ensure_available
 from drevalpy._utils.n_jobs import check_n_jobs
-from drevalpy.components.contracts.training_context import TrainingContext
 from drevalpy.components.featurizers.featurizer import CONCAT
 from drevalpy.models._feature_preparation import prepare_features, unique_entity_ids, usable_pairs
 from drevalpy.models.config.immutable import thaw_value
@@ -41,6 +40,7 @@ from drevalpy.types.data.feature_source import FeatureSource, Side
 from drevalpy.types.data.predictor_input import PredictorInput
 from drevalpy.types.data.response_table import ResponseTable
 from drevalpy.types.data.selection_mask import SelectionMask
+from drevalpy.types.data.training_context import TrainingContext
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -170,14 +170,13 @@ class DRPModel:
 
     @property
     def measure(self) -> str | None:
-        """The response measure the model was trained on, such as ``pEC50``; ``None`` before training."""
+        """The response measure the model was trained on, such as ``LN_IC50``; ``None`` before training."""
         return self._measure
 
     def _reset(self) -> None:
         self.state = ModelState.UNTRAINED
         self._measure = None
         self._fitted_response_transformation = None
-        self._sample_featurizer = self._drug_featurizer = self._predictor = None
         self._sample_featurizer, self._drug_featurizer, self._predictor = _build_components(self.spec)
 
     def train(

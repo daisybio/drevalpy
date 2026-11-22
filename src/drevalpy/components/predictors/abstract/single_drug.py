@@ -24,11 +24,11 @@ import numpy as np
 from upath import UPath
 
 from drevalpy._utils.seed import drug_seed, seed_everything
-from drevalpy.components.contracts.training_context import TrainingContext
 from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.types.data.feature_block import FeaturizerOutput
 from drevalpy.types.data.predictor_input import PredictorInput
+from drevalpy.types.data.training_context import TrainingContext
 from drevalpy.types.enums import ModelScope
 
 

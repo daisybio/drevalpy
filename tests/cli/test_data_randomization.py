@@ -1,17 +1,13 @@
-"""Tests for the ``drevalpy experiments`` command group: ``robustness`` and ``randomization``."""
+"""Tests for the ``drevalpy data randomization`` command."""
 
 from __future__ import annotations
 
-import numpy as np
 import pytest
 from upath import UPath
 
-from drevalpy.cli.experiments import experiments_app, randomization_cmd, robustness_cmd
 from drevalpy.cli.main import app
-from drevalpy.types import Fold, SelectionMask
 from tests.cli._helpers import (
     FakeDataset,
-    GroupSurface,
     Recorder,
     make_runner,
     patch_loader,
@@ -45,14 +41,14 @@ def worker(monkeypatch: pytest.MonkeyPatch, constructed: list[str], loader: Reco
 
     recorder = Recorder(return_value=[FakeDataset(randomization=tag) for tag in RANDOMIZED])
     monkeypatch.setattr("drevalpy.models.ModelSpec.from_name", fake_construct_model)
-    patch_worker(monkeypatch, "drevalpy.experiment._randomization", "randomization", recorder)
+    patch_worker(monkeypatch, "drevalpy.execution._randomization", "randomization", recorder)
     return recorder
 
 
 def _invoke_randomization(tmp_path: UPath, *extra: str):
     return runner.invoke(
         app,
-        ["experiments", "randomization", "ElasticNet", "TOYv1", str(tmp_path / "randomized"), *extra],
+        ["data", "randomization", "ElasticNet", "TOYv1", str(tmp_path / "randomized"), *extra],
     )
 
 
@@ -99,7 +95,7 @@ def test_invalid_options_are_usage_errors_before_the_worker(
 def test_writes_one_file_per_randomized_dataset_and_echoes_the_count(worker: Recorder, tmp_path: UPath) -> None:
     out_dir = tmp_path / "nested" / "randomized"
 
-    result = runner.invoke(app, ["experiments", "randomization", "ElasticNet", "TOYv1", str(out_dir)])
+    result = runner.invoke(app, ["data", "randomization", "ElasticNet", "TOYv1", str(out_dir)])
 
     written = sorted(p.name for p in out_dir.glob("*.h5mu"))
     assert written == sorted(f"{mode}__{view}.h5mu" for mode, view in RANDOMIZED)
@@ -120,7 +116,7 @@ def test_untagged_and_empty_results(
     message: str,
 ) -> None:
     monkeypatch.setattr("drevalpy.models.ModelSpec.from_name", lambda name: type("Stub", (), {}))
-    patch_worker(monkeypatch, "drevalpy.experiment._randomization", "randomization", Recorder(return_value=datasets))
+    patch_worker(monkeypatch, "drevalpy.execution._randomization", "randomization", Recorder(return_value=datasets))
 
     result = _invoke_randomization(tmp_path)
 
@@ -147,21 +143,19 @@ def test_an_unknown_model_is_reported_and_creates_no_output_directory(
 
 
 class TestOnRealFiles:
-    """The command on real ``.h5mu`` files; ``single`` records a file it wrote as a randomization run."""
+    """The command on real ``.h5mu`` files; ``run`` records a file it wrote as a randomization run."""
 
     pytestmark = pytest.mark.slow
 
     @pytest.fixture()
     def written(self, tmp_path: UPath) -> tuple[UPath, UPath, UPath]:
         dataset, fold = write_synthetic_fold(runner, tmp_path)
-        result = runner.invoke(
-            app, ["experiments", "randomization", "ElasticNet", str(dataset), str(tmp_path / "rand")]
-        )
+        result = runner.invoke(app, ["data", "randomization", "ElasticNet", str(dataset), str(tmp_path / "rand")])
         assert result.exit_code == 0, result.output
         return dataset, fold, tmp_path / "rand" / "SVRC__gene_expression.h5mu"
 
     def test_the_file_loads_with_its_identity_and_provenance(self, written: tuple[UPath, UPath, UPath]) -> None:
-        from drevalpy.experiment._randomization import randomization
+        from drevalpy.execution._randomization import randomization
         from drevalpy.models import ModelSpec
         from drevalpy.types.data.dataset import Dataset
 
@@ -172,7 +166,7 @@ class TestOnRealFiles:
         assert loaded.randomization == ("SVRC", "gene_expression")
         assert loaded.mdata.uns["randomization_provenance"] == in_process.mdata.uns["randomization_provenance"]
 
-    def test_single_records_a_randomization_run_that_aggregate_keeps_apart(
+    def test_run_records_a_randomization_run_that_aggregate_keeps_apart(
         self, written: tuple[UPath, UPath, UPath], tmp_path: UPath
     ) -> None:
         from drevalpy.types.results import ExperimentResult, RunResult
@@ -180,7 +174,7 @@ class TestOnRealFiles:
         dataset, fold, path = written
         for source, name in ((dataset, "plain"), (path, "randomized")):
             result = runner.invoke(
-                app, ["single", "ElasticNet", str(source), str(fold), str(tmp_path / f"{name}.npz"), "--no-hpo"]
+                app, ["run", "ElasticNet", str(source), str(fold), str(tmp_path / f"{name}.npz"), "--no-hpo"]
             )
             assert result.exit_code == 0, result.output
         aggregated = runner.invoke(
@@ -208,7 +202,7 @@ class TestOnRealFiles:
         register_dataset("CACHED", source="local", file="CACHED.h5mu")
         synthetic().save(tmp_path / "cache" / "CACHED.h5mu")
 
-        result = runner.invoke(app, ["experiments", "randomization", "ElasticNet", "CACHED", str(tmp_path / "rand")])
+        result = runner.invoke(app, ["data", "randomization", "ElasticNet", "CACHED", str(tmp_path / "rand")])
 
         assert result.exit_code == 0, result.output
         assert (tmp_path / "rand" / "SVRC__gene_expression.h5mu").is_file()
@@ -217,133 +211,9 @@ class TestOnRealFiles:
         dataset, _ = write_synthetic_fold(runner, tmp_path)
 
         result = runner.invoke(
-            app, ["experiments", "randomization", "ElasticNet", str(dataset), str(tmp_path / "rand"), "-m", "SVRD"]
+            app, ["data", "randomization", "ElasticNet", str(dataset), str(tmp_path / "rand"), "-m", "SVRD"]
         )
 
         assert result.exit_code == 0, result.output
         assert list((tmp_path / "rand").glob("*.h5mu")) == []
         assert "Wrote 0 randomized datasets" in plain(result.output)
-
-
-N_PERMUTATIONS_DEFAULT = 5
-
-
-def _write_fold(path: UPath, fold_index: int) -> None:
-    rng = np.random.default_rng(fold_index)
-    assignment = rng.integers(0, 3, size=(3, 3))
-    Fold(
-        train=SelectionMask(assignment == 0),
-        test=SelectionMask(assignment == 1),
-        val=SelectionMask(assignment == 2),
-        metadata={"fold_index": fold_index},
-    ).save(path)
-
-
-@pytest.fixture()
-def folds_dir(tmp_path: UPath) -> UPath:
-    path = tmp_path / "folds"
-    path.mkdir()
-    for fold_index in range(2):
-        _write_fold(path / f"fold_{fold_index}.npz", fold_index)
-    return path
-
-
-def _invoke_robustness(folds_dir: UPath, out_dir: UPath, *extra: str):
-    return runner.invoke(app, ["experiments", "robustness", str(folds_dir), str(out_dir), *extra])
-
-
-@pytest.mark.parametrize("kind", ["empty", "no-npz", "absent"])
-def test_a_directory_without_folds_is_an_exit_one_error_and_creates_no_output(tmp_path: UPath, kind: str) -> None:
-    folds_dir = tmp_path / "folds"
-    if kind != "absent":
-        folds_dir.mkdir()
-    if kind == "no-npz":
-        (folds_dir / "notes.txt").write_text("not a fold")
-
-    result = _invoke_robustness(folds_dir, tmp_path / "out")
-
-    assert result.exit_code == 1
-    assert f"Error: No .npz files found in {folds_dir}" in plain(result.output)
-    assert "Traceback" not in result.output
-    assert not (tmp_path / "out").exists()
-
-
-def test_default_generates_one_variant_per_fold_and_repeat(folds_dir: UPath, tmp_path: UPath) -> None:
-    out_dir = tmp_path / "nested" / "out"
-
-    result = _invoke_robustness(folds_dir, out_dir)
-
-    assert result.exit_code == 0, result.output
-    assert len(list(out_dir.glob("*.npz"))) == 2 * N_PERMUTATIONS_DEFAULT
-
-
-@pytest.mark.parametrize("flag", ["--n-repeats", "-n"])
-def test_permutation_count_names_files_after_fold_and_repeat_and_echoes_the_count(
-    folds_dir: UPath, tmp_path: UPath, flag: str
-) -> None:
-    out_dir = tmp_path / "out"
-
-    result = _invoke_robustness(folds_dir, out_dir, flag, "2")
-
-    assert sorted(p.name for p in out_dir.glob("*.npz")) == [
-        "fold_0_repeat_0.npz",
-        "fold_0_repeat_1.npz",
-        "fold_1_repeat_0.npz",
-        "fold_1_repeat_1.npz",
-    ]
-    assert f"Wrote 4 robustness folds to {out_dir}" in plain(result.output)
-
-
-def test_variants_record_their_repeat_and_preserve_metadata_and_masks(folds_dir: UPath, tmp_path: UPath) -> None:
-    out_dir = tmp_path / "out"
-    _invoke_robustness(folds_dir, out_dir, "-n", "2")
-
-    variant = Fold.load(out_dir / "fold_1_repeat_1.npz")
-    original = Fold.load(folds_dir / "fold_1.npz")
-    assert variant.metadata["robustness_repeat"] == 1
-    assert variant.metadata["fold_index"] == 1
-    np.testing.assert_array_equal(variant.train.mask, original.train.mask)
-
-
-def test_zero_permutations_writes_nothing_and_a_non_integer_count_is_a_usage_error(
-    folds_dir: UPath, tmp_path: UPath
-) -> None:
-    _invoke_robustness(folds_dir, tmp_path / "out", "-n", "0")
-
-    assert list((tmp_path / "out").glob("*.npz")) == []
-    assert _invoke_robustness(folds_dir, tmp_path / "out2", "-n", "several").exit_code == 2
-
-
-class TestRobustnessOnRealFiles:
-    """A shuffled fold trains through ``single`` and is recorded under its robustness repeat."""
-
-    pytestmark = pytest.mark.slow
-
-    def test_single_records_the_robustness_repeat(self, tmp_path: UPath) -> None:
-        from drevalpy.types.results import RunResult
-
-        dataset, fold = write_synthetic_fold(runner, tmp_path)
-        shuffled = runner.invoke(app, ["experiments", "robustness", str(fold.parent), str(tmp_path / "rob"), "-n", "2"])
-        result = runner.invoke(
-            app,
-            [
-                "single",
-                "ElasticNet",
-                str(dataset),
-                str(tmp_path / "rob" / "fold_0_repeat_1.npz"),
-                str(tmp_path / "r.npz"),
-                "--no-hpo",
-            ],
-        )
-
-        assert shuffled.exit_code == 0, shuffled.output
-        assert result.exit_code == 0, result.output
-        run = RunResult.load(str(tmp_path / "r.npz"))
-        assert run.robustness_repeat == 1
-        assert run.randomization is None
-
-
-class TestGroup(GroupSurface):
-    group = experiments_app
-    path = "experiments"
-    callbacks = {"robustness": robustness_cmd, "randomization": randomization_cmd}

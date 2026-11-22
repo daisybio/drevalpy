@@ -227,8 +227,8 @@ space raises. Fixed constructor values that are not tuned go under ``options``.
 Tuning
 ------
 
-With tuning enabled, ``drevalpy run``, ``drevalpy single``, ``drevalpy.run`` and
-``drevalpy.single`` draw each trial from the model's space with an Optuna ``TPESampler``.
+With tuning enabled, ``drevalpy experiment``, ``drevalpy run``, ``drevalpy.experiment`` and
+``drevalpy.run`` draw each trial from the model's space with an Optuna ``TPESampler``.
 
 .. list-table::
    :header-rows: 1

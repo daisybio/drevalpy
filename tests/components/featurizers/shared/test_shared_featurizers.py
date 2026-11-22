@@ -6,9 +6,7 @@ import pickle
 
 import numpy as np
 import pytest
-from pydantic import ValidationError
 
-from drevalpy.components.contracts.feature_format import FeatureFormat
 from drevalpy.components.featurizers.sample.view import ViewSampleFeaturizer
 from drevalpy.components.featurizers.shared.concat import ConcatFeaturizer
 from drevalpy.components.featurizers.shared.constant import ConstantFeaturizer
@@ -17,6 +15,7 @@ from drevalpy.models._feature_preparation import prepare_features
 from drevalpy.models.config import FeaturizerConfig
 from drevalpy.registry.featurizer import get_featurizer
 from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
+from drevalpy.types.data.feature_format import FeatureFormat
 from tests.conftest import MockFeatureSource
 
 _IDS = np.array(["cl1", "cl2"], dtype=str)
@@ -62,8 +61,8 @@ def _run(featurizer, source, ids) -> FeaturizerOutput:
     return prepare_features(featurizer, source, ids, train_pair_ids=ids)
 
 
-def _raw_configs() -> list[FeaturizerConfig]:
-    return [FeaturizerConfig(name="view", side="sample", view=view) for view in ("gene_expression", "mutations")]
+def _view_children() -> list[ViewSampleFeaturizer]:
+    return [ViewSampleFeaturizer(view=view) for view in ("gene_expression", "mutations")]
 
 
 @pytest.mark.parametrize(
@@ -78,7 +77,7 @@ def test_each_shared_featurizer_is_registered_once_per_side(name: str, cls: type
 
 
 def test_sample_concat_merges_the_children_blocks() -> None:
-    result = _run(ConcatFeaturizer(featurizers=_raw_configs()), _sample_features(), _IDS)
+    result = _run(ConcatFeaturizer(featurizers=_view_children()), _sample_features(), _IDS)
 
     assert result.matrix.shape == (2, 4)
     assert set(result.blocks) == {"gene_expression", "mutations"}
@@ -88,9 +87,12 @@ def test_sample_concat_merges_the_children_blocks() -> None:
     )
 
 
-def test_drug_concat_builds_its_children_for_the_drug_side() -> None:
+def test_drug_concat_merges_drug_side_children() -> None:
     featurizer = ConcatFeaturizer(
-        featurizers=[FeaturizerConfig(name="fingerprints", side="drug"), FeaturizerConfig(name="oneHot", side="drug")]
+        featurizers=[
+            FeaturizerConfig(name="fingerprints", side="drug").create_instance(),
+            FeaturizerConfig(name="oneHot", side="drug").create_instance(),
+        ]
     )
 
     result = _run(featurizer, _drug_features(), _DRUG_IDS)
@@ -100,7 +102,7 @@ def test_drug_concat_builds_its_children_for_the_drug_side() -> None:
 
 
 def test_concat_pads_entities_unusable_for_any_child() -> None:
-    featurizer = ConcatFeaturizer(featurizers=_raw_configs())
+    featurizer = ConcatFeaturizer(featurizers=_view_children())
     _run(featurizer, _sample_features(), np.array(["cl1"], dtype=str))
 
     result = prepare_features(featurizer, _sample_features(), np.array(["cl1", "cl3"], dtype=str))
@@ -123,19 +125,15 @@ def test_concat_of_the_same_featurizer_on_two_views_names_blocks_by_view() -> No
     assert result.matrix.shape == (2, 2)
 
 
-def test_concat_rejects_duplicate_block_names_and_selectors() -> None:
+def test_concat_rejects_duplicate_block_names() -> None:
     featurizer = ConcatFeaturizer(
         featurizers=[
-            FeaturizerConfig(name="view", side="sample", view="gene_expression"),
-            FeaturizerConfig(name="scaledGeneExpression", side="sample"),
+            ViewSampleFeaturizer(view="gene_expression"),
+            FeaturizerConfig(name="scaledGeneExpression", side="sample").create_instance(),
         ]
     )
     with pytest.raises(ValueError, match="Duplicate featurizer block name 'gene_expression'"):
         _run(featurizer, _sample_features(), _IDS)
-
-    duplicate = FeaturizerConfig(name="view", side="sample", view="gene_expression")
-    with pytest.raises(ValidationError, match="Duplicate featurizer selector 'view\\[gene_expression\\]'"):
-        ConcatFeaturizer(featurizers=[duplicate, duplicate])
 
 
 def test_concat_rejects_non_numeric_children_and_empty_lists() -> None:
@@ -152,16 +150,13 @@ def test_concat_rejects_non_numeric_children_and_empty_lists() -> None:
         ConcatFeaturizer(featurizers=[])
 
 
-def test_concat_accepts_pre_built_featurizer_instances() -> None:
-    featurizer = ConcatFeaturizer(
-        featurizers=[ViewSampleFeaturizer(view="gene_expression"), ViewSampleFeaturizer(view="mutations")]
-    )
-
-    assert _run(featurizer, _sample_features(), _IDS).matrix.shape == (2, 4)
+def test_concat_rejects_children_that_are_not_built() -> None:
+    with pytest.raises(TypeError, match="must be built featurizers, got \\['FeaturizerConfig'\\]"):
+        ConcatFeaturizer(featurizers=[FeaturizerConfig(name="view", side="sample", view="gene_expression")])
 
 
 def test_concat_declares_no_blocks_or_views_of_its_own() -> None:
-    config = {"featurizers": _raw_configs()}
+    config = {"featurizers": _view_children()}
 
     assert ConcatFeaturizer.output_blocks(config) == ()
     assert ConcatFeaturizer.views(config) == ()
@@ -177,7 +172,7 @@ def test_concat_requires_early_stopping_when_a_child_does() -> None:
 
 def test_a_fitted_concat_pickles() -> None:
     features = _sample_features()
-    featurizer = ConcatFeaturizer(featurizers=_raw_configs())
+    featurizer = ConcatFeaturizer(featurizers=_view_children())
     expected = _run(featurizer, features, _IDS)
 
     restored = pickle.loads(pickle.dumps(featurizer))  # noqa: S301 -- pickled in the same expression

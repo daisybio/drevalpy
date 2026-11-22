@@ -6,8 +6,7 @@ import numpy as np
 import pytest
 import torch
 
-from drevalpy.components.contracts.hyperparameter_space import is_fixed
-from drevalpy.components.contracts.training_context import TrainingContext
+from drevalpy.components.hyperparameter_space import is_fixed
 from drevalpy.components.predictors.literature.paccmann.network import (
     ContextAttentionLayer,
     PaccMannConfig,
@@ -22,6 +21,7 @@ from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
 from drevalpy.types.data.predictor_input import PredictorInput
 from drevalpy.types.data.response_table import ResponseTable
+from drevalpy.types.data.training_context import TrainingContext
 from tests.components.predictors._helpers import pickle_round_trip
 from tests.components.predictors.literature._helpers import entity_pair_batch, seed_literature
 

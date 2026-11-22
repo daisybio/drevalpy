@@ -11,7 +11,7 @@ from torch.nn import functional
 from torch.utils.data import DataLoader
 
 from drevalpy._utils.accelerator import select_device
-from drevalpy.experiment._tracking import log_metrics
+from drevalpy.execution._tracking import log_metrics
 
 logger = logging.getLogger(__name__)
 

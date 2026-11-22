@@ -18,7 +18,7 @@ from drevalpy.log import get_logger
 from drevalpy.models.config import ModelConfig
 from drevalpy.models.config.io import from_dict, from_yaml, read_yaml_mapping
 from drevalpy.registry._registry import Registry, Snapshot
-from drevalpy.types.enums import ModelScope, PredictionMode
+from drevalpy.types.enums import ModelScope
 
 _BUILTIN_ZOO_DIR = Path(__file__).resolve().parent
 logger = get_logger(__name__)
@@ -85,21 +85,16 @@ def list_zoo_names(
     )
 
 
-def get_zoo_config(name: str, *, prediction_mode: PredictionMode | None = None) -> ModelConfig:
+def get_zoo_config(name: str) -> ModelConfig:
     """Return a zoo entry by name.
 
     An unknown *name* raises :class:`~drevalpy.errors.UnknownNameError`. Configs are deep-frozen,
     so the entry itself is returned and shared safely.
 
     :param name: Built-in or externally registered zoo preset name.
-    :param prediction_mode: Optional prediction mode overriding the preset's own; the config is
-        validated again with it, since the predictor must support the mode.
     :returns: The zoo ``ModelConfig``.
     """
-    config = zoo_registry().get(name)
-    if prediction_mode is None:
-        return config
-    return ModelConfig.model_validate({**config.model_dump(mode="python"), "prediction_mode": prediction_mode})
+    return zoo_registry().get(name)
 
 
 def _assert_not_builtin(name: str) -> None:

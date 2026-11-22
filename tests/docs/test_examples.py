@@ -17,7 +17,7 @@ from typing import Any
 import pytest
 
 from tests._trusted_subprocess import run_trusted_python
-from tests.docs.test_docs_structure import built_pages, exclude_patterns
+from tests.docs.test_docs_structure import built_pages, exclude_patterns, source_suffixes
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DOCS = REPO_ROOT / "docs"
@@ -54,7 +54,7 @@ def verification() -> dict[str, Any]:
 
 def _includer_pages() -> list[Path]:
     """The built pages."""
-    return built_pages(DOCS, exclude_patterns(DOCS))
+    return built_pages(DOCS, exclude_patterns(DOCS), source_suffixes(DOCS))
 
 
 def _literalincludes(pages: list[Path]) -> list[tuple[Path, Path]]:

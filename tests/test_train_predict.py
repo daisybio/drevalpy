@@ -20,7 +20,7 @@ from drevalpy.types import SelectionMask
 from drevalpy.types.results.run import RunResult
 
 TRAIN_MODULE = importlib.import_module("drevalpy._train")
-FIT_MODULE = importlib.import_module("drevalpy.experiment._fit")
+FIT_MODULE = importlib.import_module("drevalpy.execution._fit")
 
 
 class _RecordingModel(DRPModel):
@@ -43,8 +43,8 @@ def recorded_fits(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
 def tuner(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     seen: dict[str, Any] = {}
 
-    def fake_tune(execution, dataset, **kwargs: Any) -> tuple[dict[str, Any], list]:
-        seen.update(kwargs, execution=execution)
+    def fake_tune(spec, dataset, fold, **kwargs: Any) -> tuple[dict[str, Any], list]:
+        seen.update(kwargs, spec=spec, fold=fold)
         return {"alpha": 0.5}, []
 
     monkeypatch.setattr(FIT_MODULE, "hpam_tune", fake_tune)
@@ -137,14 +137,13 @@ class TestTuning:
         )
 
         assert fitted.hyperparameters["predictor.elasticNet.alpha"] == 0.5
-        execution = tuner["execution"]
-        assert execution.hyperparameter_tuning
-        assert (execution.hpo_metric, execution.hpo_num_trials, execution.hpo_random_state) == ("Pearson", 3, 9)
+        assert tuner["tuning"]
+        assert (tuner["metric"], tuner["n_trials"], tuner["sampler_seed"]) == ("Pearson", 3, 9)
         assert tuner["n_jobs"] == 3
-        scopes = execution.scopes
-        assert not (scopes.training.mask & scopes.validation.mask).any()
-        assert scopes.validation.mask.any()
-        assert recorded_fits[0]["scope"] == scopes.training | scopes.validation
+        fold = tuner["fold"]
+        assert not (fold.train.mask & fold.val.mask).any()
+        assert fold.val.mask.any()
+        assert recorded_fits[0]["scope"] == fold.train | fold.val
 
     @pytest.mark.slow
     def test_tuning_a_real_model_returns_a_fitted_model(self, synthetic_dataset) -> None:
@@ -165,8 +164,9 @@ class TestInputs:
 
     def test_fewer_than_two_usable_pairs_are_rejected(self) -> None:
         dataset = synthetic(n_samples=2, n_drugs=1, missing_fraction=0.0)
-        dataset.mdata["response"].X[:] = np.nan
-        dataset.mdata["response"].X[0, 0] = 1.0
+        ln_ic50 = np.full(dataset.response.shape, np.nan, dtype=np.float32)
+        ln_ic50[0, 0] = 1.0
+        dataset.response.layers["LN_IC50"] = ln_ic50
 
         with pytest.raises(InvalidInputError, match="at least 2"):
             drevalpy.train("NaivePredictor", dataset, hyperparameter_tuning=False, quality=CurveQuality.off())

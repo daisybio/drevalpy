@@ -12,7 +12,7 @@ from collections.abc import Callable, Iterable, Mapping
 from types import MappingProxyType
 from typing import Any, TypeVar
 
-from drevalpy.components.contracts.hyperparameter_space import validate_component_hyperparameter_space
+from drevalpy.components.hyperparameter_space import validate_component_hyperparameter_space
 from drevalpy.errors import UnknownNameError
 from drevalpy.registry._component import LiteratureReference, component_decorator
 from drevalpy.registry._registry import Registry

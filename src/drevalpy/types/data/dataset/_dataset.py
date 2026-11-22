@@ -33,7 +33,10 @@ if TYPE_CHECKING:
     import pandas as pd
 
 #: The measure ``X`` holds when ``response.uns`` does not name it.
-DEFAULT_MEASURE = "pEC50"
+X_MEASURE = "pEC50"
+#: The measure models train on unless the caller picks one, as in drevalpy 1.x. A dataset without
+#: it trains on the measure ``X`` holds.
+DEFAULT_MEASURE = "LN_IC50"
 
 
 class Dataset:
@@ -46,7 +49,8 @@ class Dataset:
     :func:`drevalpy.curation.curate`.
 
     :attr:`measure` names the response that models are trained on and scored against, and
-    :attr:`response_matrix` returns it: pEC50 by default, any layer after :meth:`with_measure`.
+    :attr:`response_matrix` returns it: :data:`DEFAULT_MEASURE` (``LN_IC50``) by default, or the
+    measure ``X`` holds when the dataset has no such layer, and any layer after :meth:`with_measure`.
 
     Drug features are stored as ``response.varm`` entries, drug graphs in
     ``mdata.uns["drug_graphs"]``, and model-specific auxiliary data in other
@@ -66,7 +70,7 @@ class Dataset:
         :param mdata: A MuData object with at least a "response" modality.
         :param name: Human-readable dataset name.
         :param measure: The response measure to train on, see :meth:`with_measure`; ``None``
-            means the measure ``X`` holds.
+            means :data:`DEFAULT_MEASURE` if the dataset has it, else the measure ``X`` holds.
         :raises KeyError: If the "response" modality is missing.
         :raises UnknownNameError: If *measure* is neither the measure ``X`` holds nor a response layer.
         """
@@ -74,12 +78,10 @@ class Dataset:
             raise KeyError("MuData must contain a 'response' modality.")
         self._mdata = mdata
         mdata.uns["dataset_name"] = name
-        self._measure = self.x_measure
-        if measure is not None:
-            if measure not in self.measures():
-                msg = f"Dataset {self.name!r} has no response measure {measure!r}. Available: {self.measures()}"
-                raise UnknownNameError(msg)
-            self._measure = measure
+        if measure is not None and measure not in self.measures():
+            msg = f"Dataset {self.name!r} has no response measure {measure!r}. Available: {self.measures()}"
+            raise UnknownNameError(msg)
+        self._measure = measure
 
     @classmethod
     def load(cls, path: str | Path) -> Dataset:
@@ -158,12 +160,17 @@ class Dataset:
     @property
     def x_measure(self) -> str:
         """The measure ``X`` holds: ``response.uns["x_column"]``, ``pEC50`` when unset."""
-        return str(self.response.uns.get("x_column", DEFAULT_MEASURE))
+        return str(self.response.uns.get("x_column", X_MEASURE))
 
     @property
     def measure(self) -> str:
-        """The response measure models are trained on, such as ``pEC50`` or ``LN_IC50``."""
-        return self._measure
+        """The response measure models are trained on, such as ``LN_IC50`` or ``pEC50``."""
+        return self._measure or self.default_measure
+
+    @property
+    def default_measure(self) -> str:
+        """The measure :attr:`measure` is unless one was chosen: :data:`DEFAULT_MEASURE`, else the one ``X`` holds."""
+        return DEFAULT_MEASURE if DEFAULT_MEASURE in self.measures() else self.x_measure
 
     def measures(self) -> list[str]:
         """Return the measures :meth:`with_measure` accepts: the one ``X`` holds, then every layer.
@@ -182,7 +189,7 @@ class Dataset:
         :param measure: ``pEC50`` or the name of any response layer, such as ``LN_IC50`` or ``AUC``.
         :returns: A dataset whose :attr:`response_matrix` is *measure*; this one if it already is.
         """
-        if measure == self._measure:
+        if measure == self.measure:
             return self
         return Dataset(self._mdata, name=self.name, measure=measure)
 
@@ -192,7 +199,7 @@ class Dataset:
 
         :returns: Dense float32 array of shape (n_samples, n_drugs).
         """
-        return self.get_response_layer(self._measure)
+        return self.get_response_layer(self.measure)
 
     @property
     def sample_ids(self) -> np.ndarray:

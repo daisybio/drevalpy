@@ -12,7 +12,6 @@ from typing import Any, ClassVar, Self
 
 import numpy as np
 
-from drevalpy.components.contracts.feature_format import BlockSpec
 from drevalpy.components.featurizers.drug.smiles_tokenizer import (
     BASE_VOCABULARY,
     build_vocabulary,
@@ -23,6 +22,7 @@ from drevalpy.components.featurizers.featurizer import Featurizer
 from drevalpy.errors import InvalidInputError
 from drevalpy.registry.featurizer import register
 from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
+from drevalpy.types.data.feature_format import BlockSpec
 from drevalpy.types.data.feature_source import FeatureSource, Side
 
 TOKENS_BLOCK = "smiles_tokens"

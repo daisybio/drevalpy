@@ -58,7 +58,7 @@ class ModelConfig(BaseModel):
         return get_predictor(self.predictor.name).scope
 
     @property
-    def model_id(self) -> str | None:
+    def recipe(self) -> str | None:
         """The model recipe of this config, which ``from_recipe`` reads back into the same components.
 
         Each featurizer slot is written with its views and concat children

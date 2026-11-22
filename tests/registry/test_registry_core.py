@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import pytest
 
-from drevalpy.components.contracts.feature_format import FeatureFormat
 from drevalpy.models.config.featurizer import requires_explicit_view
 from drevalpy.registry._all import all_registries, restore_all, snapshot_all
 from drevalpy.registry._builtins import BUILTIN_MODULES, builtin_names, get_skipped_builtin_modules, register_builtins
@@ -15,6 +14,7 @@ from drevalpy.registry.featurizer import featurizer_registries
 from drevalpy.registry.predictor import predictor_registry
 from drevalpy.registry.splitter import splitter_registry
 from drevalpy.registry.visualization import visualization_registry
+from drevalpy.types.data.feature_format import FeatureFormat
 from tests._trusted_subprocess import run_trusted_python
 
 

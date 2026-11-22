@@ -162,7 +162,7 @@ run fail the test instead of being recorded:
 
 
    def test_preset_runs_end_to_end():
-       result = drevalpy.run(
+       result = drevalpy.experiment(
            [ModelSpec.from_name("MyModel")],
            drevalpy.synthetic(),
            "LPO",

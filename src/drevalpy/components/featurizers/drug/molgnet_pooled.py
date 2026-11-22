@@ -14,12 +14,12 @@ from typing import Any, ClassVar, Final, Self
 
 import numpy as np
 
-from drevalpy.components.contracts.feature_format import BlockSpec
 from drevalpy.components.featurizers.drug.molgnet import molgnet_node_matrices
 from drevalpy.components.featurizers.featurizer import Featurizer
 from drevalpy.errors import InvalidInputError
 from drevalpy.registry.featurizer import register
 from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
+from drevalpy.types.data.feature_format import BlockSpec
 from drevalpy.types.data.feature_source import FeatureSource, Side
 
 _BLOCK = "molgnet_pooled"

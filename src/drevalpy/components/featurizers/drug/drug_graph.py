@@ -7,11 +7,11 @@ from typing import Any, ClassVar, Self
 
 import numpy as np
 
-from drevalpy.components.contracts.feature_format import BlockSpec, FeatureFormat
 from drevalpy.components.featurizers.featurizer import Featurizer
 from drevalpy.log import get_logger
 from drevalpy.registry.featurizer import register
 from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
+from drevalpy.types.data.feature_format import BlockSpec, FeatureFormat
 from drevalpy.types.data.feature_source import FeatureSource, Side
 
 _logger = get_logger(__name__)

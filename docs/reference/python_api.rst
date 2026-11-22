@@ -14,8 +14,8 @@ else is imported from the subpackages in the next section.
    :toctree: _autosummary
    :nosignatures:
 
-   drevalpy.run
-   drevalpy.single
+   drevalpy.experiment
+   drevalpy.experiment
    drevalpy.train
    drevalpy.load
    drevalpy.split
@@ -39,7 +39,7 @@ Subpackages
      - Dataset loading, ``concat``, splitting, synthetic datasets and the ``CurveQuality`` rule
    * - ``drevalpy.types``
      - ``Dataset``, ``Fold`` and ``SelectionMask``, and results; enums and other value types live in their defining modules
-   * - ``drevalpy.experiment``
+   * - ``drevalpy.execution``
      - The ``randomization`` and ``robustness`` stress tests
    * - ``drevalpy.evaluation``
      - ``Metric``, ``evaluate`` and ``evaluate_per_group``
@@ -62,7 +62,7 @@ Submodules, classes and functions are generated recursively from the package tre
 
    drevalpy.data
    drevalpy.types
-   drevalpy.experiment
+   drevalpy.execution
    drevalpy.evaluation
    drevalpy.models
    drevalpy.components

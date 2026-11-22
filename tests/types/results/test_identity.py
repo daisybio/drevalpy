@@ -37,14 +37,14 @@ def test_an_index_cannot_collide_with_a_string_fold_id():
 def test_the_fold_key_prefers_the_stable_fold_id_else_the_index() -> None:
     assert make_run_result(fold_index=7, fold_id="stable").identity.fold_key == (
         "SyntheticDataset",
-        "pEC50",
+        "LN_IC50",
         "LPO",
         "id",
         "stable",
     )
     assert make_run_result(fold_index=7, fold_id="").identity.fold_key == (
         "SyntheticDataset",
-        "pEC50",
+        "LN_IC50",
         "LPO",
         "index",
         7,

@@ -1,4 +1,4 @@
-"""``--group-by`` with a sample or drug annotation column in ``drevalpy run`` and ``drevalpy aggregate``."""
+"""``--group-by`` with a sample or drug annotation column in ``drevalpy experiment`` and ``drevalpy aggregate``."""
 
 from __future__ import annotations
 
@@ -130,7 +130,7 @@ class TestRun:
         result = runner.invoke(
             app,
             [
-                "run",
+                "experiment",
                 "NaiveMeanEffectsPredictor",
                 "-d",
                 dataset_file,
@@ -153,11 +153,11 @@ class TestRun:
     ) -> None:
         worker = Recorder(return_value=ExperimentResult([make_run_result()]))
         monkeypatch.setattr("drevalpy.models.ModelSpec.from_name", lambda name: SimpleNamespace(name=name))
-        patch_worker(monkeypatch, "drevalpy._run", "run", worker)
+        patch_worker(monkeypatch, "drevalpy._experiment", "experiment", worker)
         out = ["-o", str(tmp_path / "results")]
 
-        builtin = runner.invoke(app, ["run", "ElasticNet", "-d", dataset_file, *out, "--group-by", "drug"])
-        annotated = runner.invoke(app, ["run", "ElasticNet", "-d", dataset_file, *out, "--group-by", "tissue"])
+        builtin = runner.invoke(app, ["experiment", "ElasticNet", "-d", dataset_file, *out, "--group-by", "drug"])
+        annotated = runner.invoke(app, ["experiment", "ElasticNet", "-d", dataset_file, *out, "--group-by", "tissue"])
 
         assert builtin.exit_code == annotated.exit_code == 0, annotated.output
         assert worker.calls[0][1]["dataset"] == [dataset_file]
@@ -168,10 +168,10 @@ class TestRun:
     ) -> None:
         worker = Recorder()
         monkeypatch.setattr("drevalpy.models.ModelSpec.from_name", lambda name: SimpleNamespace(name=name))
-        patch_worker(monkeypatch, "drevalpy._run", "run", worker)
+        patch_worker(monkeypatch, "drevalpy._experiment", "experiment", worker)
 
         result = runner.invoke(
-            app, ["run", "ElasticNet", "-d", dataset_file, "-o", str(tmp_path / "results"), "--group-by", "nope"]
+            app, ["experiment", "ElasticNet", "-d", dataset_file, "-o", str(tmp_path / "results"), "--group-by", "nope"]
         )
 
         assert result.exit_code == 2

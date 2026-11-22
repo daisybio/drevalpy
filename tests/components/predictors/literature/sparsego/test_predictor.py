@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 import torch
 
-from drevalpy.components.contracts.hyperparameter_space import is_fixed
+from drevalpy.components.hyperparameter_space import is_fixed
 from drevalpy.components.predictors.literature.sparsego.algorithm import SparseLinearNew
 from drevalpy.components.predictors.literature.sparsego.predictor import SparseGOPredictor, _resolve_active_view
 from drevalpy.components.predictors.literature.sparsego.utils import load_ontology, resolve_ontology_metadata

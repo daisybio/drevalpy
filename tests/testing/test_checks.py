@@ -14,7 +14,6 @@ from typing import ClassVar
 import numpy as np
 import pytest
 
-from drevalpy.components.contracts.feature_format import BlockSpec, FeatureFormat
 from drevalpy.components.featurizers.featurizer import Featurizer
 from drevalpy.components.predictors.abstract.matrix import MatrixPredictor
 from drevalpy.components.predictors.inputs import Inputs, predictor_inputs
@@ -47,6 +46,7 @@ from drevalpy.testing.plugins import (
 )
 from drevalpy.types.data.dataset import Dataset
 from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
+from drevalpy.types.data.feature_format import BlockSpec, FeatureFormat
 from drevalpy.types.data.feature_source import FeatureSource, Side
 from drevalpy.types.data.predictor_input import PredictorInput
 from drevalpy.types.enums import ModelScope
@@ -334,7 +334,7 @@ _FEATURIZERS_NOT_CHECKED = {
 def _featurizer_kwargs(side: str, name: str) -> dict[str, object]:
     """Return the constructor arguments *name* needs to be built at all; the other featurizers take none."""
     if name == "concatFeaturizers":
-        return {"featurizers": [{"name": "constant"}]}
+        return {"featurizers": [get_featurizer("constant", side)()]}
     return {"view": "gene_expression"} if requires_explicit_view(name, Side(side)) else {}
 
 

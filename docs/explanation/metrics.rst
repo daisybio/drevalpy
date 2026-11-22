@@ -99,7 +99,7 @@ Three consequences follow from the definition:
   residual is zero by construction. Only the leaderboard and the critical
   difference diagram of the report still list it, as the baseline that the other
   models are ranked against.
-- Normalization is explicit. ``drevalpy.run`` never adds the reference model for
+- Normalization is explicit. ``drevalpy.experiment`` never adds the reference model for
   you: it must be among the models you ran, and normalization fails with a clear
   error if it is missing, if the result is already normalized, or if the
   reference has more than one ordinary run. The report normalizes only when you

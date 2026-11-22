@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from functools import cached_property
 from typing import Any
 
-from drevalpy.components.contracts.hyperparameter_space import default_values
+from drevalpy.components.hyperparameter_space import default_values
 from drevalpy.errors import UnknownNameError
 from drevalpy.models import hyperparameters as hp
 from drevalpy.models.config import ModelConfig

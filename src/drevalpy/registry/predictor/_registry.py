@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable
 from typing import Any
 
-from drevalpy.components.contracts.hyperparameter_space import validate_component_hyperparameter_space
+from drevalpy.components.hyperparameter_space import validate_component_hyperparameter_space
 from drevalpy.components.predictors.inputs import predictor_inputs
 from drevalpy.registry._component import LiteratureReference, component_decorator
 from drevalpy.registry._registry import Registry

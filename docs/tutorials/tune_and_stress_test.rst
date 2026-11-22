@@ -66,7 +66,7 @@ original and two repeats) × 2 datasets (the original and the permuted one) = 12
 
       .. code-block:: bash
 
-         drevalpy run NaiveMeanEffectsPredictor ElasticNet \
+         drevalpy experiment NaiveMeanEffectsPredictor ElasticNet \
              --dataset toy.h5mu --split-mode LPO --n-splits 2 --hpo-trials 4 \
              --randomization-mode SVRC --robustness-repeats 2
 
@@ -80,8 +80,8 @@ original and two repeats) × 2 datasets (the original and the permuted one) = 12
              Split mode: LPO
              Normalized by: None
              Models: 2
-                 NaiveMeanEffectsPredictor (2 folds): MSE=1.2802, RMSE=1.1308, MAE=0.9000, R^2=0.5215, Pearson=0.7443, Spearman=0.7519, Kendall=0.5504
-                 ElasticNet (2 folds): MSE=0.5937, RMSE=0.7704, MAE=0.6048, R^2=0.7791, Pearson=0.8881, Spearman=0.8974, Kendall=0.7175
+                 NaiveMeanEffectsPredictor (2 folds): MSE=6.7874, RMSE=2.6038, MAE=2.0723, R^2=0.5215, Pearson=0.7443, Spearman=0.7519, Kendall=0.5504
+                 ElasticNet (2 folds): MSE=3.2995, RMSE=1.8164, MAE=1.4247, R^2=0.7683, Pearson=0.8816, Spearman=0.8911, Kendall=0.7086
 
    .. tab-item:: Python
       :sync: python
@@ -92,7 +92,7 @@ original and two repeats) × 2 datasets (the original and the permuted one) = 12
 
          names = ["NaiveMeanEffectsPredictor", "ElasticNet"]
          models = [ModelSpec.from_name(name) for name in names]
-         results = drevalpy.run(
+         results = drevalpy.experiment(
              models,
              dataset,
              "LPO",
@@ -112,8 +112,8 @@ original and two repeats) × 2 datasets (the original and the permuted one) = 12
              Split mode: LPO
              Normalized by: None
              Models: 2
-                 NaiveMeanEffectsPredictor (2 folds): MSE=1.2802, RMSE=1.1308, MAE=0.9000, R^2=0.5215, Pearson=0.7443, Spearman=0.7519, Kendall=0.5504
-                 ElasticNet (2 folds): MSE=0.5937, RMSE=0.7704, MAE=0.6048, R^2=0.7791, Pearson=0.8881, Spearman=0.8974, Kendall=0.7175
+                 NaiveMeanEffectsPredictor (2 folds): MSE=6.7874, RMSE=2.6038, MAE=2.0723, R^2=0.5215, Pearson=0.7443, Spearman=0.7519, Kendall=0.5504
+                 ElasticNet (2 folds): MSE=3.2995, RMSE=1.8164, MAE=1.4247, R^2=0.7683, Pearson=0.8816, Spearman=0.8911, Kendall=0.7086
 
 The summary is the one the same command prints without the two stress-test options. It averages
 only the ordinary runs, the ones on the original data in the original pair order, so the stress
@@ -151,7 +151,7 @@ fold reuse the best hyperparameters of its ordinary run and have no trials; see
    .. tab-item:: Python
       :sync: python
 
-      The ``results`` object returned by ``drevalpy.run`` already holds them:
+      The ``results`` object returned by ``drevalpy.experiment`` already holds them:
 
       .. code-block:: python
 
@@ -167,20 +167,20 @@ Both print the same lines:
 
 .. code-block:: text
 
-   0 0.817 0.0002
-   1 0.818 0.0008
-   2 0.813 0.0029
-   3 0.766 0.1091
+   0 1.882 0.0002
+   1 1.887 0.0008
+   2 1.879 0.0029
+   3 1.788 0.1091
    best: {'alpha': 0.1091, 'l1_ratio': 0.1705}
 
 Each line is one trial: its number, its validation RMSE (the tuning metric, lower is better) and
 the penalty strength ``alpha`` it tried. Trial 3 had the lowest RMSE, so the final model of fold 0
 uses ``alpha`` = 0.1091. Each fold tunes on its own validation pairs, so other folds can pick other
 configurations. The three trials with a weak penalty score about the same, and the stronger
-penalty of trial 3 lowers the RMSE by 0.05. Too strong a penalty hurts again, though: a search
-with 8 trials also tries ``alpha`` = 1.39 in this fold, and its RMSE is 0.925. The preset starts from
+penalty of trial 3 lowers the RMSE by 0.09. Too strong a penalty hurts again, though: a search
+with 8 trials also tries ``alpha`` = 1.39 in this fold, and its RMSE is 1.858. The preset starts from
 ``alpha`` = 1 and ``l1_ratio`` = 0 and already works: without tuning, this experiment scores an RMSE of
-0.834 over all pairs, against 0.770 tuned, so tuning refines a usable preset
+1.921 over all pairs, against 1.816 tuned, so tuning refines a usable preset
 rather than rescuing it. See
 :doc:`/how-to/tune_hyperparameters` for the metric, the number of trials and the search spaces, and
 :doc:`/reference/hyperparameters` for the keys.
@@ -255,16 +255,16 @@ Both print:
 .. code-block:: text
 
                              all pairs  within drug
-   ordinary                      0.888        0.505
-   gene_expression permuted      0.871        0.397
-   robustness repeat 0           0.888        0.505
-   robustness repeat 1           0.888        0.505
+   ordinary                      0.882        0.477
+   gene_expression permuted      0.874        0.425
+   robustness repeat 0           0.882        0.477
+   robustness repeat 1           0.882        0.477
 
 Two things stand out.
 
 **The randomization test.** Permuting ``gene_expression`` across the samples removes what the
-features say about each sample, and the within-drug score falls from 0.505 to 0.397. The score over
-all pairs falls only from 0.888 to 0.871: the drug fingerprints still tell the model which drug it
+features say about each sample, and the within-drug score falls from 0.477 to 0.425. The score over
+all pairs falls only from 0.882 to 0.874: the drug fingerprints still tell the model which drug it
 is predicting, and that carries the pooled score. This is the pattern of the first tutorial again.
 The test shows that ``ElasticNet`` uses its gene expression, and that the within-drug score is the
 one that registers it. Most of the within-drug score remains. A likely reason is that leave-pair-out

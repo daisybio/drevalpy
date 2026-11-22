@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import pytest
 
-from drevalpy.components.contracts.feature_format import FeatureFormat
 from drevalpy.components.featurizers.featurizer import Featurizer
 from drevalpy.models.config.featurizer import requires_explicit_view
 from drevalpy.registry.featurizer import featurizer_registries, featurizer_registry, get_featurizer
 from drevalpy.types.data.dataset import Dataset
+from drevalpy.types.data.feature_format import FeatureFormat
 from drevalpy.types.data.feature_source import FeatureSource, Side
 
 _PROBE_VIEW = "gene_expression"

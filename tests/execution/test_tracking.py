@@ -6,7 +6,7 @@ import sys
 
 import pytest
 
-from drevalpy.experiment import _tracking
+from drevalpy.execution import _tracking
 from tests._fake_wandb import FakeWandb, install_fake_wandb
 from tests._import_shims import block_imports
 

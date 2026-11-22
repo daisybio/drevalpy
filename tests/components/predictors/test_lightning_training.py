@@ -16,7 +16,7 @@ from drevalpy.components.predictors._lightning_training import (
     _versioned_name,
     run_lightning_fit,
 )
-from drevalpy.experiment._tracking import tracking_run
+from drevalpy.execution._tracking import tracking_run
 from tests._fake_wandb import install_fake_wandb
 from tests.components.predictors._helpers import spy_trainer
 

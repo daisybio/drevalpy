@@ -20,7 +20,7 @@ class FakeResponseDataset:
     ``relevance_score`` and ``fold_change`` layers pass the default quality rule.
     """
 
-    #: ``CurveQuality`` reads the primary measure through ``dataset.x_measure``.
+    #: The measure ``get_response_layer`` reads from the response matrix itself.
     x_measure = "pEC50"
     measure = "pEC50"
 

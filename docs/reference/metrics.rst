@@ -178,13 +178,13 @@ below zero. Such a group enters the mean over groups with the same weight as any
 few of them can dominate it. The mean number of groups behind each score, from
 ``summary_group_counts``, does not show how small the groups are.
 
-``drevalpy run --group-by <grouping>`` and ``drevalpy aggregate --group-by <grouping>``
+``drevalpy experiment --group-by <grouping>`` and ``drevalpy aggregate --group-by <grouping>``
 print the grouped table after the run, where ``<grouping>`` is ``drug``, ``sample``, ``study`` or
-an annotation column as above. ``run`` reads the annotation from the dataset of the run.
+an annotation column as above. ``experiment`` reads the annotation from the dataset of the run.
 ``aggregate`` does not know the dataset, so an annotation grouping needs
 ``--dataset NAME_OR_PATH`` (``-d``), the registered name or ``.h5mu`` path of the dataset the runs
 were made on. Repeat the option for runs on several datasets; they are combined as in
-``run``. ``--dataset`` is not read for ``drug``, ``sample`` and ``study``. Each cell shows the mean and, in brackets, the mean
+``experiment``. ``--dataset`` is not read for ``drug``, ``sample`` and ``study``. Each cell shows the mean and, in brackets, the mean
 number of groups scored; ``undefined`` marks a metric that no group could score, which can
 only happen because of the data, so it is the same for every model.
 
@@ -203,7 +203,7 @@ The result holds the models other than the reference, and its ``normalized_by`` 
 reference. ``normalize`` raises ``ValueError`` if the result is already normalized, if the reference
 model is missing, or if a fold has no reference run.
 
-``drevalpy run`` never adds a reference model; put ``NaiveMeanEffectsPredictor`` in the model
+``drevalpy experiment`` never adds a reference model; put ``NaiveMeanEffectsPredictor`` in the model
 list if you want one. ``drevalpy report`` normalizes only when ``--reference-model`` /
 ``-r`` is given. Its ``--dataset`` option is accepted but has no effect.
 
@@ -221,7 +221,7 @@ the original response scale.
    * - Name
      - Transformer
    * - ``none``
-     - No transformation; the default for ``drevalpy run`` and ``drevalpy single``
+     - No transformation; the default for ``drevalpy experiment`` and ``drevalpy run``
    * - ``standard``
      - ``sklearn.preprocessing.StandardScaler``
    * - ``minmax``
@@ -234,7 +234,7 @@ the original response scale.
      - ``drevalpy.models.response_transformation.GroupMeanCenterer(("drug", "tissue"))``
 
 The command-line option is ``--response-transformation none|standard|minmax|robust|drug_mean|drug_tissue_mean``, matched
-without regard to case. In Python, ``drevalpy.run`` and ``drevalpy.single`` take
+without regard to case. In Python, ``drevalpy.experiment`` and ``drevalpy.run`` take
 ``response_transformation=`` as an unfitted scikit-learn transformer, which is cloned for each
 fit, and ``None`` for no transformation. ``drevalpy.models.get_response_transformation(name)``
 turns ``"standard"``, ``"minmax"``, ``"robust"``, ``"drug_mean"`` or ``"drug_tissue_mean"`` into
@@ -247,7 +247,7 @@ mean of its drug when that combination was not in the training pairs, and to the
 mean when the drug is unseen as well. The drug comes from the pair and the tissue from the sample
 metadata of the dataset being fitted or predicted, so ``drug_tissue_mean`` needs a ``tissue``
 sample column. For a single-drug model the offset of a drug is a constant shift of that drug's own
-responses. ``drevalpy run`` always fits ``NaiveMeanEffectsPredictor``, the reference of the
+responses. ``drevalpy experiment`` always fits ``NaiveMeanEffectsPredictor``, the reference of the
 normalized metrics, on the untransformed response.
 
 .. autoclass:: drevalpy.models.response_transformation.GroupMeanCenterer

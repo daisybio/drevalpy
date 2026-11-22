@@ -13,7 +13,7 @@ One root seed
 An experiment has one root ``seed``, which defaults to 42. Everything that is
 random derives from it:
 
-- The folds. ``run`` splits the dataset with the root seed as its random state,
+- The folds. ``experiment`` splits the dataset with the root seed as its random state,
   so the same dataset, split mode and seed give the same folds.
 - Hyperparameter search. The sampler for the search (a tree-structured Parzen
   estimator) is seeded, and trials run one after another rather than in

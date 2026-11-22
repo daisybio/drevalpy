@@ -13,11 +13,10 @@ from drevalpy.cli.catalog import list_app
 from drevalpy.cli.curate import curate_app
 from drevalpy.cli.data import data_app
 from drevalpy.cli.describe import describe_cmd
-from drevalpy.cli.experiments import experiments_app
+from drevalpy.cli.experiment import experiment_cmd
 from drevalpy.cli.predict import predict_cmd
 from drevalpy.cli.report import report_cmd
 from drevalpy.cli.run import run_cmd
-from drevalpy.cli.single import single_cmd
 from drevalpy.cli.train import train_cmd
 from drevalpy.errors import DrEvalError
 
@@ -99,10 +98,9 @@ def main_callback(
 
 
 app.add_typer(data_app, name="data")
-app.add_typer(experiments_app, name="experiments")
 app.add_typer(list_app, name="list")
+app.command("experiment")(experiment_cmd)
 app.command("run")(run_cmd)
-app.command("single")(single_cmd)
 app.command("describe")(describe_cmd)
 app.command("train")(train_cmd)
 app.command("predict")(predict_cmd)

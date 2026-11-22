@@ -2,7 +2,7 @@ Model zoo
 =========
 
 The zoo is a set of named model configurations, called zoo presets. A zoo name selects a
-complete model in ``drevalpy run``, ``drevalpy single`` and ``ModelSpec.from_name``.
+complete model in ``drevalpy experiment``, ``drevalpy run`` and ``ModelSpec.from_name``.
 ``drevalpy list zoo-presets`` prints the names.
 
 Each built-in zoo preset is a YAML file in ``drevalpy/models/zoo``. It has the keys of a model
@@ -41,7 +41,7 @@ Description
    The description of the predictor.
 
 Composition
-   The recipe of the zoo preset, its ``model_id``. Passing it to
+   The recipe of the zoo preset, its ``ModelConfig.recipe``. Passing it to
    ``drevalpy.models.config.from_recipe`` gives the same components, but without the preset's
    fixed options, defaults and hyperparameter spaces, which a recipe cannot express. See
    :doc:`recipes`.

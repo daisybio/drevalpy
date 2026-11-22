@@ -8,16 +8,16 @@ from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
-from drevalpy.components.contracts.hyperparameter_space import validate_hyperparameter_space
 from drevalpy.components.featurizers.featurizer import CONCAT
+from drevalpy.components.hyperparameter_space import effective_space, validate_hyperparameter_space
 from drevalpy.models.config._parse import normalize_featurizer
 from drevalpy.models.config.immutable import FrozenMapping, thaw_value
 from drevalpy.registry.featurizer import get_featurizer
 from drevalpy.types.data.feature_source import Side
 
 if TYPE_CHECKING:
-    from drevalpy.components.contracts.feature_format import BlockSpec
     from drevalpy.components.featurizers.featurizer import Featurizer
+    from drevalpy.types.data.feature_format import BlockSpec
 
 
 def requires_explicit_view(name: str, side: Side) -> bool:
@@ -106,6 +106,11 @@ class FeaturizerConfig(BaseModel):
     def featurizer_class(self) -> type[Featurizer]:
         """The registered featurizer class this node names on its side."""
         return get_featurizer(self.name, self.side)
+
+    @property
+    def effective_space(self) -> dict[str, Any]:
+        """The search space this node is tuned over: its declared ``hyperparameter_space``, else its class's."""
+        return effective_space(self.hyperparameter_space, self.featurizer_class)
 
     @model_validator(mode="after")
     def _validate_hyperparameter_space(self) -> FeaturizerConfig:
@@ -230,8 +235,7 @@ class FeaturizerConfig(BaseModel):
         :returns: Keyword arguments for featurizer construction.
         """
         kwargs: dict[str, Any] = dict(self.options or {})
-        space = self.hyperparameter_space or self.featurizer_class.get_hyperparameter_space()
-        for key, spec in space.items():
+        for key, spec in self.effective_space.items():
             if isinstance(spec, Mapping) and "default" in spec:
                 kwargs.setdefault(key, spec["default"])
         if self.view is not None:
@@ -258,12 +262,10 @@ class FeaturizerConfig(BaseModel):
         Turns this declarative template into a live object: resolves ``name`` in the
         featurizer registry, then merges constructor arguments so that
         *hyperparameters* (typically a tuning trial's picks) override the config's own
-        ``options``. ``view`` and ``featurizers`` are filled in only when the
-        caller has not already supplied them.
+        ``options``. ``view`` is filled in only when the caller has not supplied it.
 
-        :param hyperparameters: Concrete constructor values for this node. Nested
-            concat children should already be resolved by the caller into instances
-            or config payloads under the ``featurizers`` key.
+        :param hyperparameters: Concrete constructor values for this node. A concat node takes its
+            built children under the ``featurizers`` key.
         :returns: Featurizer instance for this config.
         """
         cls = self.featurizer_class
@@ -271,8 +273,6 @@ class FeaturizerConfig(BaseModel):
         hp.update(thaw_value(dict(hyperparameters or {})))
         if self.view is not None:
             hp.setdefault("view", self.view)
-        if self.featurizers is not None and "featurizers" not in hp:
-            hp["featurizers"] = [child.model_dump(mode="python") for child in self.featurizers]
         return cls(**hp)
 
 

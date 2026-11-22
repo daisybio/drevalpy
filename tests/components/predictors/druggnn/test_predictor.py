@@ -13,13 +13,13 @@ from torch.utils.data import DataLoader
 from torch_geometric.data import Data
 
 from drevalpy.cli.describe import describe_row
-from drevalpy.components.contracts.feature_format import FeatureFormat
 from drevalpy.components.predictors.druggnn.algorithm import DrugGNNModule, DrugGraphNet
 from drevalpy.components.predictors.druggnn.predictor import DrugGNNPredictor
 from drevalpy.models import ModelSpec
 from drevalpy.registry._component import predictor_component_metadata
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.data.feature_block import FeatureBlock
+from drevalpy.types.data.feature_format import FeatureFormat
 from drevalpy.types.data.predictor_input import PredictorInput
 from tests.components.predictors._helpers import pickle_round_trip
 from tests.components.predictors.literature._helpers import (

@@ -6,7 +6,14 @@ import numpy as np
 import pytest
 from upath import UPath
 
-from drevalpy.cli.data import concat_datasets, data_app, load_dataset, split_dataset, synthetic_dataset
+from drevalpy.cli.data import (
+    concat_datasets,
+    data_app,
+    load_dataset,
+    randomization_dataset,
+    split_dataset,
+    synthetic_dataset,
+)
 from drevalpy.cli.main import app
 from drevalpy.data._synthetic import MAX_SYNTHETIC_DRUGS, N_DRUGS, N_SAMPLES
 from drevalpy.errors import UnknownNameError
@@ -228,6 +235,7 @@ class TestGroup(GroupSurface):
     callbacks = {
         "concat": concat_datasets,
         "load": load_dataset,
+        "randomization": randomization_dataset,
         "split": split_dataset,
         "synthetic": synthetic_dataset,
     }

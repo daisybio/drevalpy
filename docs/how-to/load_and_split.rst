@@ -5,7 +5,7 @@ Load a dataset and split it into folds
 
 This page shows how to load a built-in dataset or a dataset file, check what it holds, and split
 it into cross-validation folds with a split mode. You do not need to split by hand to run an
-experiment: ``run`` splits for you. Split yourself to inspect the folds, to reuse the same folds
+experiment: ``experiment`` splits for you. Split yourself to inspect the folds, to reuse the same folds
 across tools, or to train the folds in parallel; see :doc:`/how-to/run_folds_in_parallel`.
 
 The examples use the simulated dataset, so they run offline. :doc:`/reference/datasets`
@@ -26,7 +26,7 @@ this out. ``GDSC1``, ``CTRPv2`` and the other screens are much larger.
       :sync: cli
 
       The command writes the loaded dataset to a file, which you can pass to any command as
-      ``--dataset``. You can also pass the name itself to ``run`` and the other commands that
+      ``--dataset``. You can also pass the name itself to ``experiment`` and the other commands that
       take ``--dataset``.
 
       .. snippet: network
@@ -113,7 +113,7 @@ and then loads that file.
              Name: SYNTHETIC
              Samples: 60
              Drugs: 8
-             Measure: pEC50
+             Measure: LN_IC50
              Measured pairs: 456
              Randomization: None
              Modalities:
@@ -128,7 +128,7 @@ Look inside a dataset
 
 The command line has no command that prints a dataset; use Python. A ``Dataset`` gives the
 identifiers of its samples and drugs, the tissue of each sample, and the response matrix with
-the response measure of every pair, pEC50 by default. Unmeasured pairs are ``NaN``.
+the response measure of every pair, ``LN_IC50`` by default. Unmeasured pairs are ``NaN``.
 
 .. tab-set::
    :sync-group: interface
@@ -164,7 +164,7 @@ Split a dataset into folds
 A split mode decides what is held out together; see :doc:`/reference/split_modes`. This example
 holds out whole samples (``LSO``) in 5 folds. ``--mode`` takes ``LPO``, ``LSO``, ``LDO`` or
 ``LTO``; ``--n-splits`` and ``--validation-ratio`` change the number of folds and the share of
-validation data; ``drevalpy run`` takes the same ``--n-splits`` and ``--validation-ratio`` (see
+validation data; ``drevalpy experiment`` takes the same ``--n-splits`` and ``--validation-ratio`` (see
 :doc:`/how-to/run_experiment`).
 The default ``random_state`` (``--seed`` on the command line) is 42, so repeating a split gives the same folds.
 
@@ -218,7 +218,7 @@ The default ``random_state`` (``--seed`` on the command line) is 42, so repeatin
                  dataset: SYNTHETIC
                  fold_id: 35d304f70093
                  quality: {'min_relevance_score': 1.3010299956639813, 'min_abs_fold_change': 0.45}
-                 measure: pEC50
+                 measure: LN_IC50
 
 Each mask is a boolean matrix of the same shape as the response matrix: samples by drugs. The
 three masks of a fold do not overlap. With the built-in split modes, only pairs that pass the curve-quality rule in
@@ -278,7 +278,7 @@ them:
       :sync: cli
 
       ``drevalpy data split`` already saved them. :doc:`/how-to/run_folds_in_parallel` passes
-      them to ``drevalpy single``.
+      them to ``drevalpy run``.
 
    .. tab-item:: Python
       :sync: python

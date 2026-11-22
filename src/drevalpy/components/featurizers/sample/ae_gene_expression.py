@@ -18,7 +18,6 @@ from typing import TYPE_CHECKING, Any, ClassVar, Self
 
 import numpy as np
 
-from drevalpy.components.contracts.feature_format import BlockSpec
 from drevalpy.components.featurizers._dense import dense_result, view_matrix
 from drevalpy.components.featurizers.featurizer import Featurizer, all_nan_rows_mask
 from drevalpy.components.featurizers.sample.dipk_gene_expression import _is_linear_expression
@@ -26,6 +25,7 @@ from drevalpy.components.featurizers.sample.gene_lists import view_genes
 from drevalpy.errors import InvalidInputError
 from drevalpy.registry.featurizer import register
 from drevalpy.types.data.feature_block import FeaturizerOutput
+from drevalpy.types.data.feature_format import BlockSpec
 from drevalpy.types.data.feature_source import FeatureSource, Side
 from drevalpy.types.enums import Accelerator
 

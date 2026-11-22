@@ -52,7 +52,7 @@ features per sample. About 5 % of the sample-drug combinations are missing, as i
              Name: SYNTHETIC
              Samples: 60
              Drugs: 8
-             Measure: pEC50
+             Measure: LN_IC50
              Measured pairs: 456
              Randomization: None
              Modalities:
@@ -106,7 +106,7 @@ learns, but tuning lowers its RMSE over all pairs from 0.778 to 0.743 on this da
 
       .. code-block:: bash
 
-         drevalpy run NaiveDrugMeanPredictor NaiveMeanEffectsPredictor ElasticNet \
+         drevalpy experiment NaiveDrugMeanPredictor NaiveMeanEffectsPredictor ElasticNet \
              --dataset toy.h5mu --split-mode LPO --hpo-trials 4 --group-by drug
 
       Tuning logs one line per trial and fold while it runs. The command ends with this
@@ -120,14 +120,14 @@ learns, but tuning lowers its RMSE over all pairs from 0.778 to 0.743 on this da
              Split mode: LPO
              Normalized by: None
              Models: 3
-                 NaiveDrugMeanPredictor (5 folds): MSE=0.7908, RMSE=0.8880, MAE=0.7195, R^2=0.7031, Pearson=0.8415, Spearman=0.8440, Kendall=0.6882
-                 NaiveMeanEffectsPredictor (5 folds): MSE=0.8399, RMSE=0.9144, MAE=0.7218, R^2=0.6851, Pearson=0.8298, Spearman=0.8409, Kendall=0.6466
-                 ElasticNet (5 folds): MSE=0.5524, RMSE=0.7428, MAE=0.5827, R^2=0.7925, Pearson=0.8927, Spearman=0.8974, Kendall=0.7195
+                 NaiveDrugMeanPredictor (5 folds): MSE=4.1928, RMSE=2.0446, MAE=1.6566, R^2=0.7031, Pearson=0.8415, Spearman=0.8440, Kendall=0.6882
+                 NaiveMeanEffectsPredictor (5 folds): MSE=4.4532, RMSE=2.1055, MAE=1.6620, R^2=0.6851, Pearson=0.8298, Spearman=0.8409, Kendall=0.6466
+                 ElasticNet (5 folds): MSE=2.9946, RMSE=1.7288, MAE=1.3489, R^2=0.7878, Pearson=0.8900, Spearman=0.8962, Kendall=0.7202
          Metrics computed within each drug, averaged over drugs and folds (number of drugs scored in brackets):
          Model                      MSE        RMSE       MAE        R^2         Pearson    Spearman   Kendall
-         NaiveDrugMeanPredictor     0.789 (8)  0.866 (8)  0.720 (8)  -0.124 (8)  0.000 (8)  0.000 (8)  0.000 (8)
-         NaiveMeanEffectsPredictor  0.852 (8)  0.895 (8)  0.731 (8)  -0.583 (8)  0.386 (8)  0.372 (8)  0.277 (8)
-         ElasticNet                 0.558 (8)  0.723 (8)  0.588 (8)  -0.013 (8)  0.518 (8)  0.483 (8)  0.366 (8)
+         NaiveDrugMeanPredictor     4.185 (8)  1.993 (8)  1.657 (8)  -0.124 (8)  0.000 (8)  0.000 (8)  0.000 (8)
+         NaiveMeanEffectsPredictor  4.517 (8)  2.061 (8)  1.683 (8)  -0.583 (8)  0.386 (8)  0.372 (8)  0.277 (8)
+         ElasticNet                 3.021 (8)  1.678 (8)  1.363 (8)  -0.038 (8)  0.512 (8)  0.478 (8)  0.371 (8)
 
       The results are in the ``results`` directory, one subdirectory per model; see
       :doc:`/reference/results`.
@@ -141,7 +141,7 @@ learns, but tuning lowers its RMSE over all pairs from 0.778 to 0.743 on this da
 
          names = ["NaiveDrugMeanPredictor", "NaiveMeanEffectsPredictor", "ElasticNet"]
          models = [ModelSpec.from_name(name) for name in names]
-         results = drevalpy.run(models, dataset, "LPO", hpo_num_trials=4)
+         results = drevalpy.experiment(models, dataset, "LPO", hpo_num_trials=4)
          print(results)
 
       Tuning logs one line per trial and fold while it runs. The ``print`` shows:
@@ -153,9 +153,9 @@ learns, but tuning lowers its RMSE over all pairs from 0.778 to 0.743 on this da
              Split mode: LPO
              Normalized by: None
              Models: 3
-                 NaiveDrugMeanPredictor (5 folds): MSE=0.7908, RMSE=0.8880, MAE=0.7195, R^2=0.7031, Pearson=0.8415, Spearman=0.8440, Kendall=0.6882
-                 NaiveMeanEffectsPredictor (5 folds): MSE=0.8399, RMSE=0.9144, MAE=0.7218, R^2=0.6851, Pearson=0.8298, Spearman=0.8409, Kendall=0.6466
-                 ElasticNet (5 folds): MSE=0.5524, RMSE=0.7428, MAE=0.5827, R^2=0.7925, Pearson=0.8927, Spearman=0.8974, Kendall=0.7195
+                 NaiveDrugMeanPredictor (5 folds): MSE=4.1928, RMSE=2.0446, MAE=1.6566, R^2=0.7031, Pearson=0.8415, Spearman=0.8440, Kendall=0.6882
+                 NaiveMeanEffectsPredictor (5 folds): MSE=4.4532, RMSE=2.1055, MAE=1.6620, R^2=0.6851, Pearson=0.8298, Spearman=0.8409, Kendall=0.6466
+                 ElasticNet (5 folds): MSE=2.9946, RMSE=1.7288, MAE=1.3489, R^2=0.7878, Pearson=0.8900, Spearman=0.8962, Kendall=0.7202
 
       ``results`` is an ``ExperimentResult``; ``results.save("results")`` writes it to a
       directory, as the CLI does.
@@ -209,9 +209,9 @@ compute each metric within each drug and average over the drugs and folds.
       .. code-block:: text
 
                                     Pearson  Spearman   RMSE    R^2
-         NaiveDrugMeanPredictor       0.000     0.000  0.866 -0.124
-         NaiveMeanEffectsPredictor    0.386     0.372  0.895 -0.583
-         ElasticNet                   0.518     0.483  0.723 -0.013
+         NaiveDrugMeanPredictor       0.000     0.000  1.993 -0.124
+         NaiveMeanEffectsPredictor    0.386     0.372  2.061 -0.583
+         ElasticNet                   0.512     0.478  1.678 -0.038
 
       ``summary_group_counts(group_by="drug")`` gives the number of drugs behind each cell.
 
@@ -222,7 +222,7 @@ Model                     Pearson (all pairs)         Pearson (within drug)
 ========================= =========================== ======================
 NaiveDrugMeanPredictor    0.842                       0.000
 NaiveMeanEffectsPredictor 0.830                       0.386
-ElasticNet                0.893                       0.518
+ElasticNet                0.890                       0.512
 ========================= =========================== ======================
 
 ``NaiveDrugMeanPredictor`` predicts one value per drug. Within a drug its predictions are
@@ -293,7 +293,7 @@ What you learned
 
 - ``drevalpy data synthetic`` and ``drevalpy.synthetic()`` give an offline dataset that behaves
   like a real screen.
-- ``drevalpy run`` and ``drevalpy.run`` evaluate several models over the folds of one split mode.
+- ``drevalpy experiment`` and ``drevalpy.experiment`` evaluate several models over the folds of one split mode.
 - A pooled score is dominated by drug potency. Read the within-drug scores, and compare a model
   with ``NaiveMeanEffectsPredictor``, not with nothing.
 

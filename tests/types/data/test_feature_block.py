@@ -5,8 +5,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from drevalpy.components.contracts.feature_format import BlockSpec, FeatureFormat
 from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
+from drevalpy.types.data.feature_format import BlockSpec, FeatureFormat
 
 
 def test_feature_block_defaults_to_numeric_entity_aligned() -> None:

@@ -1,4 +1,4 @@
-"""HPO: the trial loop reading its settings from the execution, and W&B tracking of trials."""
+"""HPO: the trial loop and metric selection, and W&B tracking of trials."""
 
 from __future__ import annotations
 
@@ -12,13 +12,11 @@ import pytest
 
 from drevalpy.errors import DrEvalError
 from drevalpy.evaluation import Metric
-from drevalpy.experiment._execution import ExecutionSpec, FitScopes
 from drevalpy.models import DRPModel, ModelSpec
 from drevalpy.models.config import from_recipe
 from drevalpy.models.tuning import hpo
 from drevalpy.models.tuning.hpo import HPOTrialsFailedError, hpam_tune
-from drevalpy.types import SelectionMask
-from drevalpy.types.results._identity import RunIdentity
+from drevalpy.types import Fold, SelectionMask
 from tests._fake_wandb import FakeWandb, install_fake_wandb
 from tests._import_shims import block_imports
 from tests.models.synthetic_fixtures import synthetic_model_dataset_gene_expression_fingerprints
@@ -26,26 +24,18 @@ from tests.models.synthetic_fixtures import synthetic_model_dataset_gene_express
 SRC = Path(__file__).resolve().parents[3] / "src" / "drevalpy"
 
 
-def _execution(
-    spec: ModelSpec, n_trials: int, *, tuning: bool = True, metric: str = "RMSE", fold_index: int = 0
-) -> ExecutionSpec:
-    scope = SelectionMask.from_pairs(np.array([[0, 0], [0, 1], [1, 0], [1, 1]]), shape=(2, 2))
-    return ExecutionSpec(
-        model=spec,
-        scopes=FitScopes(scope, None, scope, scope, scope),
-        identity=RunIdentity(spec.name, "synthetic", "LPO", fold_index),
-        hyperparameter_tuning=tuning,
-        hpo_metric=metric,
-        hpo_num_trials=n_trials,
-        hpo_random_state=42,
-        seed=42,
-        metadata={},
-    )
-
-
 def _tune(spec: ModelSpec, n_trials: int, *, tuning: bool = True, metric: str = "RMSE", fold_index: int = 0, **kwargs):
-    execution = _execution(spec, n_trials, tuning=tuning, metric=metric, fold_index=fold_index)
-    return hpam_tune(execution, synthetic_model_dataset_gene_expression_fingerprints(), **kwargs)
+    scope = SelectionMask.from_pairs(np.array([[0, 0], [0, 1], [1, 0], [1, 1]]), shape=(2, 2))
+    return hpam_tune(
+        spec,
+        synthetic_model_dataset_gene_expression_fingerprints(),
+        Fold(scope, scope, scope, metadata={"fold_index": fold_index}),
+        tuning=tuning,
+        metric=Metric(metric),
+        n_trials=n_trials,
+        sampler_seed=42,
+        **kwargs,
+    )
 
 
 @pytest.mark.parametrize(
@@ -84,7 +74,7 @@ def test_each_trial_trains_on_the_training_scope_with_n_jobs(train, predict) -> 
 
 
 @pytest.mark.parametrize("metric", list(Metric), ids=lambda metric: metric.replace("^", ""))
-def test_the_study_direction_follows_the_execution_metric(metric: Metric, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_the_study_direction_follows_the_metric(metric: Metric, monkeypatch: pytest.MonkeyPatch) -> None:
     import optuna
 
     created = []

@@ -14,7 +14,7 @@ experiment the report describes.
 Build a report from saved results
 ---------------------------------
 
-``report`` reads an experiment directory, as written by ``drevalpy run`` or ``drevalpy aggregate``
+``report`` reads an experiment directory, as written by ``drevalpy experiment`` or ``drevalpy aggregate``
 (see :doc:`/reference/results`). Here ``NaiveMeanEffectsPredictor`` is the reference model; the
 next section explains what that does. Leave ``--reference-model`` out to report the raw metrics.
 
@@ -27,7 +27,7 @@ next section explains what that does. Leave ``--reference-model`` out to report 
       .. code-block:: bash
 
          drevalpy data synthetic --output toy.h5mu
-         drevalpy run NaiveDrugMeanPredictor NaiveMeanEffectsPredictor Ridge \
+         drevalpy experiment NaiveDrugMeanPredictor NaiveMeanEffectsPredictor Ridge \
              --dataset toy.h5mu --split-mode LPO --no-hpo --output-dir results
          drevalpy report results --reference-model NaiveMeanEffectsPredictor --output-dir report
 
@@ -52,7 +52,7 @@ next section explains what that does. Leave ``--reference-model`` out to report 
          dataset = drevalpy.synthetic()
          names = ["NaiveDrugMeanPredictor", "NaiveMeanEffectsPredictor", "Ridge"]
          models = [ModelSpec.from_name(name) for name in names]
-         results = drevalpy.run(models, dataset, "LPO", hyperparameter_tuning=False)
+         results = drevalpy.experiment(models, dataset, "LPO", hyperparameter_tuning=False)
          create_report(results, "report", reference_model="NaiveMeanEffectsPredictor")
 
 Open ``report/Drug-Response-Evaluation_multiqc_report.html`` in a browser. The report is a
@@ -152,7 +152,7 @@ Put the numbers in a table
 
 The tables of the report are also available as data. ``results.summary_table()`` gives the pooled
 metrics of each model and ``results.summary_table(group_by="drug")`` the metrics within each drug;
-the command-line ``run`` and ``aggregate`` print the second with ``--group-by drug``. Other groupings
+the command-line ``experiment`` and ``aggregate`` print the second with ``--group-by drug``. Other groupings
 are ``"sample"``, ``"study"`` and annotations of the dataset such as ``"tissue"``; see
 :doc:`/reference/metrics`. Both are
 ``pandas.DataFrame`` objects with one row per model and one column per metric.

@@ -116,9 +116,9 @@ Where each part goes
      - The decorator ``register_predictor`` or ``register_featurizer``.
        No file in the package is edited.
    * - ``drevalpy --models YourModel``
-     - ``drevalpy -e DIR run YourModel ...``, after the predictor and a zoo
+     - ``drevalpy -e DIR experiment YourModel ...``, after the predictor and a zoo
        preset named ``YourModel`` are in a directory that ``-e`` loads. See
-       :doc:`/how-to/extend/load_extensions`. ``run`` takes zoo preset names,
+       :doc:`/how-to/extend/load_extensions`. ``experiment`` takes zoo preset names,
        not recipes.
 
 Write the predictor
@@ -184,14 +184,14 @@ one-hot encodes each drug.
    spec = ModelSpec("MigratedRidge", from_recipe("tissue:oneHot:migratedRidge"))
    baseline = ModelSpec.from_name("NaiveMeanEffectsPredictor")
 
-   result = drevalpy.run([spec, baseline], dataset, "LSO", hyperparameter_tuning=False)
+   result = drevalpy.experiment([spec, baseline], dataset, "LSO", hyperparameter_tuning=False)
    print(result.summary_table())
 
 Tuning now searches the space your predictor declares:
 
 .. code-block:: python
 
-   tuned = drevalpy.run([spec], dataset, "LSO", hpo_num_trials=3)
+   tuned = drevalpy.experiment([spec], dataset, "LSO", hpo_num_trials=3)
    print(tuned.models[0].runs[0].best_hyperparameters)
 
 The registration lives in the process that ran it. To use the model from the
@@ -204,9 +204,8 @@ Check the port
 --------------
 
 Numbers from a ported model need not match the 1.x model, even when the
-algorithm is the same. Preprocessing, the choice of folds, the response scale
-(pEC50 by default in v2, ``LN_IC50`` in 1.x) and the search over hyperparameters
-have all changed. Compare both against a baseline on the same data instead of
+algorithm is the same. Preprocessing, the choice of folds and the search over
+hyperparameters have all changed. Compare both against a baseline on the same data instead of
 comparing the two outputs. To test the predictor itself, use the shipped
 conformance checks, as :doc:`/how-to/extend/test_components` shows.
 

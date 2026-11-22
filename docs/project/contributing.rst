@@ -43,7 +43,7 @@ How to set up your development environment
    .. code:: console
 
       $ uv run drevalpy data synthetic --output toy.h5mu
-      $ uv run drevalpy run NaiveDrugMeanPredictor NaiveMeanEffectsPredictor --dataset toy.h5mu --split-mode LSO --no-hpo
+      $ uv run drevalpy experiment NaiveDrugMeanPredictor NaiveMeanEffectsPredictor --dataset toy.h5mu --split-mode LSO --no-hpo
 
 5. Visualize the results by running the following command:
 
@@ -171,6 +171,11 @@ Build it from the repository root with warnings treated as errors, exactly as CI
 The generated static HTML files can be found in ``docs/_build``.
 Simply open them with your favorite browser.
 
+The build also executes the code cells of the MyST notebooks in ``docs/explanation/`` and fails
+when one raises. It caches the results in ``docs/_build/.jupyter_cache`` and reruns a page only
+when its cells change, so delete that directory to check the pages against a change in
+``src/``; CI builds without the cache.
+
 The tests in ``tests/docs`` check the layout and run the code on the tutorial and how-to pages:
 
 .. code:: console
@@ -194,7 +199,12 @@ The documentation follows the Diátaxis_ modes. Each page belongs to exactly one
    Facts only: no steps and no advice. The command-line, component, model zoo and example
    pages include files that ``docs/conf.py`` generates from the code.
 ``explanation/``
-   Background and design decisions, with no ``python`` or ``bash`` code blocks.
+   Background and design decisions. Code on an explanation page runs: the page is a MyST
+   notebook (``.md``) whose ``{code-cell}`` cells the documentation build executes offline,
+   on a synthetic dataset when they need data, so the printed output always matches the code;
+   ``explanation/data_flow.md`` is the model. Static ``python`` and ``bash`` blocks, which
+   nothing runs, stay off these pages. MyST notebooks stay in this section, because the
+   snippet runner and the interface rules below read only ``.rst`` pages.
 ``project/``
    This guide, the citation, the news and the contributors.
 

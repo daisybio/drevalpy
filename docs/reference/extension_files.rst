@@ -48,7 +48,7 @@ Zoo files
 ---------
 
 A zoo file defines zoo presets that are available by name in
-``drevalpy run``, ``drevalpy single`` and ``ModelSpec.from_name``. It is read by
+``drevalpy experiment``, ``drevalpy run`` and ``ModelSpec.from_name``. It is read by
 ``drevalpy.models.zoo.load_external_zoo_file``, which a directory load also calls. A zoo file
 has one of two shapes.
 

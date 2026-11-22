@@ -27,7 +27,7 @@ from drevalpy._utils.accelerator import select_device
 from drevalpy._utils.filenames import safe_filename
 from drevalpy._utils.torch_io import load_state_dict, save_torch_payload
 from drevalpy.components.predictors._lightning_training import _versioned_name
-from drevalpy.experiment._tracking import log_metrics
+from drevalpy.execution._tracking import log_metrics
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable

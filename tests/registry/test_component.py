@@ -7,7 +7,6 @@ from abc import ABC, abstractmethod
 
 import pytest
 
-from drevalpy.components.contracts.feature_format import BlockSpec, FeatureFormat
 from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.registry._component import (
     LiteratureReference,
@@ -19,6 +18,7 @@ from drevalpy.registry._registry import Registry
 from drevalpy.registry.featurizer import featurizer_registry
 from drevalpy.registry.featurizer import register as register_featurizer
 from drevalpy.registry.predictor import predictor_registry
+from drevalpy.types.data.feature_format import BlockSpec, FeatureFormat
 from drevalpy.types.enums import Accelerator
 from tests.registry._helpers import empty_component_registries
 

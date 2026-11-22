@@ -121,7 +121,7 @@ run when the documentation is tested.
       :sync: cli
 
       Pass the name wherever a dataset is expected, for example
-      ``drevalpy run MeanBaseline --dataset MyScreen --split-mode LSO``.
+      ``drevalpy experiment MeanBaseline --dataset MyScreen --split-mode LSO``.
 
    .. tab-item:: Python
       :sync: python

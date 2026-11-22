@@ -1,7 +1,7 @@
 """End-to-end contract for the ``response_transformation`` pipeline setting.
 
 Not a module mirror: the behaviour only exists once ``models/response_transformation/``, ``models/drp_model.py``,
-``models/tuning/hpo.py`` and ``_single.py`` agree. Fit the scaler on the training scope only, train on
+``models/tuning/hpo.py`` and ``_run.py`` agree. Fit the scaler on the training scope only, train on
 transformed targets, inverse-transform the predictions, score against untouched ground truth.
 
 ``KNNRegressor`` is affine-equivariant, so a symmetric transform/inverse round trip must be a no-op for it; the
@@ -17,9 +17,9 @@ import numpy as np
 import pytest
 from sklearn.preprocessing import StandardScaler
 
-from drevalpy import single
+from drevalpy import run
 from drevalpy.data import split
-from drevalpy.experiment._execution import build_execution
+from drevalpy.evaluation import Metric
 from drevalpy.models import DRPModel, ModelSpec
 from drevalpy.models.response_transformation import GroupMeanCenterer
 from drevalpy.models.tuning.hpo import hpam_tune
@@ -78,17 +78,16 @@ def _drug_means(dataset, scope) -> dict[str, float]:
 
 
 def _tune(dataset, fold: Fold, transformation, n_trials: int):
-    execution = build_execution(
+    return hpam_tune(
         ModelSpec.from_name("ElasticNet"),
         dataset,
         fold,
-        hyperparameter_tuning=True,
-        hpo_metric="RMSE",
-        hpo_num_trials=n_trials,
-        hpo_random_state=0,
-        seed=0,
+        tuning=True,
+        metric=Metric.RMSE,
+        n_trials=n_trials,
+        sampler_seed=0,
+        response_transformation=transformation,
     )
-    return hpam_tune(execution, dataset, response_transformation=transformation)
 
 
 def _trial_metrics(dataset, fold: Fold, transformation) -> dict[str, float]:
@@ -99,11 +98,9 @@ def _trial_metrics(dataset, fold: Fold, transformation) -> dict[str, float]:
 
 def test_standardizing_the_target_is_a_no_op_for_an_affine_equivariant_model(synthetic_dataset, fold) -> None:
     spec = ModelSpec.from_name("KNNRegressor")
-    raw = single(spec, synthetic_dataset, fold, hyperparameter_tuning=False)
-    raw_again = single(spec, synthetic_dataset, fold, hyperparameter_tuning=False)
-    standard = single(
-        spec, synthetic_dataset, fold, hyperparameter_tuning=False, response_transformation=StandardScaler()
-    )
+    raw = run(spec, synthetic_dataset, fold, hyperparameter_tuning=False)
+    raw_again = run(spec, synthetic_dataset, fold, hyperparameter_tuning=False)
+    standard = run(spec, synthetic_dataset, fold, hyperparameter_tuning=False, response_transformation=StandardScaler())
     pairs = fold.test.pairs
 
     np.testing.assert_array_equal(raw_again.predictions, raw.predictions)  # determinism control
@@ -173,9 +170,9 @@ class TestGroupMeanTransformations:
         out = {}
         for model in ("NaivePredictor", "KNNRegressor"):
             spec = ModelSpec.from_name(model)
-            out[model] = single(spec, synthetic_dataset, fold, hyperparameter_tuning=False)
+            out[model] = run(spec, synthetic_dataset, fold, hyperparameter_tuning=False)
             for name, levels in (("drug_mean", ("drug",)), ("drug_tissue_mean", ("drug", "tissue"))):
-                out[f"{model}/{name}"] = single(
+                out[f"{model}/{name}"] = run(
                     spec,
                     synthetic_dataset,
                     fold,
@@ -206,8 +203,8 @@ class TestGroupMeanTransformations:
 
     def test_a_single_drug_model_is_indifferent_to_the_drug_offset(self, synthetic_dataset, fold) -> None:
         spec = ModelSpec.from_name("SingleDrugElasticNet")
-        raw = single(spec, synthetic_dataset, fold, hyperparameter_tuning=False)
-        centred = single(
+        raw = run(spec, synthetic_dataset, fold, hyperparameter_tuning=False)
+        centred = run(
             spec, synthetic_dataset, fold, hyperparameter_tuning=False, response_transformation=GroupMeanCenterer()
         )
 

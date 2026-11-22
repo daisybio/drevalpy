@@ -40,7 +40,7 @@ List models
 -----------
 
 Models have two layers. A **zoo preset** is a ready-made model with a **zoo name**; you pass
-that name to ``run``. Behind it is a recipe of three components: a sample featurizer, a drug
+that name to ``experiment``. Behind it is a recipe of three components: a sample featurizer, a drug
 featurizer and a predictor. :doc:`/how-to/choose_models` explains how to pick a model, and
 :doc:`/reference/model_zoo` and :doc:`/reference/recipes` describe the presets and the recipe
 syntax.
@@ -121,7 +121,7 @@ syntax.
          ('constant', 'oneHot', 'concatFeaturizers', 'bpePharmaformer')
 
 Naive baselines appear twice: as zoo names such as ``NaiveDrugMeanPredictor``, which you pass to
-``run``, and as the ``naive*`` predictors, such as ``naiveDrugMean``, which are the components
+``experiment``, and as the ``naive*`` predictors, such as ``naiveDrugMean``, which are the components
 behind them. The zoo name of the ``naiveMean`` predictor is ``NaivePredictor``.
 
 List split modes and plots

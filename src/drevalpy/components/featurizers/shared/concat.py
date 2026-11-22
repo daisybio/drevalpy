@@ -13,44 +13,33 @@ from typing import Any, Self
 
 import numpy as np
 
-from drevalpy.components.contracts.feature_format import BlockSpec, FeatureFormat
 from drevalpy.components.featurizers.featurizer import CONCAT, Featurizer
 from drevalpy.registry.featurizer import register
 from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
+from drevalpy.types.data.feature_format import BlockSpec, FeatureFormat
 from drevalpy.types.data.feature_source import FeatureSource, Side
-
-
-def _build_children(featurizers: list[Any], side: Side | None) -> list[Featurizer]:
-    """Return the child featurizers: built instances as they are, configs instantiated.
-
-    :param featurizers: Built featurizers, or config payloads (mappings or ``FeaturizerConfig``).
-    :param side: Side of the concat featurizer, given to child configs that set none.
-    :returns: Child featurizer instances.
-    """
-    if all(isinstance(item, Featurizer) for item in featurizers):
-        return list(featurizers)
-    from drevalpy.models.config.featurizer import FeaturizerConfig
-
-    children = [
-        item if isinstance(item, FeaturizerConfig) else FeaturizerConfig.parse(item, side) for item in featurizers
-    ]
-    parent = FeaturizerConfig(name=CONCAT, side=side or children[0].side, featurizers=tuple(children))
-    return [child.create_instance() for child in parent.featurizers or ()]
 
 
 class ConcatFeaturizer(Featurizer):
     """Fit child featurizers independently and collect their numeric blocks for block or matrix access."""
 
-    def __init__(self, *, featurizers: list[Any] | None = None) -> None:
+    def __init__(self, *, featurizers: list[Featurizer] | None = None) -> None:
         """Bind the child featurizers.
 
-        :param featurizers: Child featurizers, either built instances or configs of this side; must be non-empty.
+        A model builds the children from its config (``models/drp_model.py``), so this class never
+        reads a config itself.
+
+        :param featurizers: Built child featurizers; must be non-empty.
         :raises ValueError: If *featurizers* is empty.
+        :raises TypeError: If a child is not a built featurizer.
         """
         if not featurizers:
             msg = "featurizers must be a non-empty list"
             raise ValueError(msg)
-        self._children = _build_children(featurizers, getattr(type(self), "side", None))
+        unbuilt = [type(child).__name__ for child in featurizers if not isinstance(child, Featurizer)]
+        if unbuilt:
+            raise TypeError(f"concat featurizer children must be built featurizers, got {unbuilt}")
+        self._children = list(featurizers)
 
     @classmethod
     def output_blocks(cls, config: Mapping[str, Any]) -> tuple[BlockSpec, ...]:

@@ -8,7 +8,6 @@ import pytorch_lightning as pl
 import torch
 from torch import nn
 
-from drevalpy.components.contracts.training_context import TrainingContext
 from drevalpy.components.predictors.literature.superfeltr import predictor as superfeltr_predictor
 from drevalpy.components.predictors.literature.superfeltr.predictor import SuperFELTRPredictor
 from drevalpy.components.predictors.literature.superfeltr.utils import SuperFELTEncoder, SuperFELTRegressor
@@ -16,6 +15,7 @@ from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
 from drevalpy.types.data.predictor_input import PredictorInput
 from drevalpy.types.data.response_table import ResponseTable
+from drevalpy.types.data.training_context import TrainingContext
 from tests.components.predictors._helpers import spy_trainer
 from tests.components.predictors.literature._helpers import (
     assert_frozen_reference,

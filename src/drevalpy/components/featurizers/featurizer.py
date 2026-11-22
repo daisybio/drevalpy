@@ -21,9 +21,9 @@ from typing import Any, ClassVar, Self
 
 import numpy as np
 
-from drevalpy.components.contracts.feature_format import BlockSpec
-from drevalpy.components.contracts.hyperparameter_space import TunableComponent
+from drevalpy.components.hyperparameter_space import TunableComponent
 from drevalpy.types.data.feature_block import FeaturizerOutput
+from drevalpy.types.data.feature_format import BlockSpec
 from drevalpy.types.data.feature_source import FeatureSource, Side
 from drevalpy.types.enums import Accelerator
 

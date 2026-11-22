@@ -30,8 +30,8 @@ def dataset() -> Dataset:
 
 
 class TestDatasetView:
-    def test_x_is_the_default_measure(self, dataset: Dataset) -> None:
-        assert (dataset.measure, dataset.x_measure) == ("pEC50", "pEC50")
+    def test_ln_ic50_is_the_default_measure_and_x_holds_pec50(self, dataset: Dataset) -> None:
+        assert (dataset.measure, dataset.x_measure) == ("LN_IC50", "pEC50")
         assert dataset.measures()[:1] == ["pEC50"]
         assert {"LN_IC50", "AUC"} <= set(dataset.measures())
 
@@ -41,8 +41,8 @@ class TestDatasetView:
         assert auc.measure == "AUC"
         assert auc.mdata is dataset.mdata
         np.testing.assert_array_equal(auc.response_matrix, dataset.get_response_layer("AUC"))
-        np.testing.assert_array_equal(auc.get_response_layer("pEC50"), dataset.response_matrix)
-        assert dataset.measure == "pEC50"
+        np.testing.assert_array_equal(auc.get_response_layer("LN_IC50"), dataset.response_matrix)
+        assert dataset.measure == "LN_IC50"
         assert auc.with_measure("AUC") is auc
         assert "Measure: AUC" in repr(auc)
 
@@ -70,7 +70,7 @@ class TestSplit:
 
     def test_the_quality_rule_keeps_reading_pec50(self, dataset: Dataset) -> None:
         rule = dataclasses.replace(CurveQuality.off(), min_pec50=6.0)
-        pec50 = dataset.response_matrix
+        pec50 = dataset.get_response_layer("pEC50")
 
         mask = rule.mask(dataset.with_measure("LN_IC50"))
 
@@ -79,7 +79,7 @@ class TestSplit:
 
 class TestRunAndSingle:
     def test_a_run_trains_and_scores_on_the_measure(self, dataset: Dataset) -> None:
-        result = drevalpy.run(
+        result = drevalpy.experiment(
             [ModelSpec.from_name("NaiveDrugMeanPredictor")],
             dataset,
             "LPO",
@@ -101,16 +101,16 @@ class TestRunAndSingle:
         fold = split(dataset, "LPO", n_splits=2, quality=CurveQuality.off(), measure="AUC")[0]
         spec = ModelSpec.from_name("NaiveDrugMeanPredictor")
 
-        result = drevalpy.single(spec, dataset, fold, hyperparameter_tuning=False)
+        result = drevalpy.run(spec, dataset, fold, hyperparameter_tuning=False)
 
         assert result.measure == "AUC"
         with pytest.raises(InvalidInputError, match="split on the response measure 'AUC'"):
-            drevalpy.single(spec, dataset, fold, hyperparameter_tuning=False, measure="LN_IC50")
+            drevalpy.run(spec, dataset, fold, hyperparameter_tuning=False, measure="LN_IC50")
 
     def test_results_of_different_measures_do_not_mix(self, dataset: Dataset) -> None:
         spec = ModelSpec.from_name("NaiveDrugMeanPredictor")
         runs = [
-            drevalpy.single(spec, dataset, fold, hyperparameter_tuning=False)
+            drevalpy.run(spec, dataset, fold, hyperparameter_tuning=False)
             for fold in (
                 split(dataset, "LPO", n_splits=2, quality=CurveQuality.off(), measure=measure)[0]
                 for measure in ("AUC", "LN_IC50")
@@ -142,8 +142,8 @@ class TestFittedModel:
         assert len(result.predictions) == int(np.isfinite(dataset.get_response_layer("AUC")).sum())
 
     def test_another_measure_set_on_the_dataset_is_rejected(self, model: DRPModel, dataset: Dataset) -> None:
-        with pytest.raises(InvalidInputError, match="trained on 'AUC', but the dataset is set to 'LN_IC50'"):
-            predict_observed(model, dataset.with_measure("LN_IC50"))
+        with pytest.raises(InvalidInputError, match="trained on 'AUC', but the dataset is set to 'pEC50'"):
+            predict_observed(model, dataset.with_measure("pEC50"))
 
     def test_an_untrained_model_cannot_predict(self, dataset: Dataset) -> None:
         with pytest.raises(InvalidInputError, match="must be trained or loaded"):

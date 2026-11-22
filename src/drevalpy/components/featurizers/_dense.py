@@ -22,9 +22,9 @@ from typing import Any, ClassVar, Self
 
 import numpy as np
 
-from drevalpy.components.contracts.feature_format import BlockSpec
 from drevalpy.components.featurizers.featurizer import Featurizer, all_nan_rows_mask
 from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
+from drevalpy.types.data.feature_format import BlockSpec
 from drevalpy.types.data.feature_source import FeatureSource
 
 _SHOWN_NAMES = 5

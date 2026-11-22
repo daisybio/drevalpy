@@ -2,7 +2,7 @@ Recipe syntax
 =============
 
 A recipe is a string that names a model by its parts. The same notation is used for
-``ModelConfig.model_id`` and for featurizer values in YAML files.
+``ModelConfig.recipe`` and for featurizer values in YAML files.
 
 Grammar
 -------
@@ -72,7 +72,7 @@ Views
    the drug feature keys it stores; see :doc:`datasets`. There are no aliases such as
    ``expression`` or ``cnv``. A view the dataset lacks fails when the model trains, for
    example ``KeyError: "Modality 'expression' not found. Available: ['gene_expression',
-   'response']"``. ``drevalpy.run`` records such a failure and continues with the other runs; see
+   'response']"``. ``drevalpy.experiment`` records such a failure and continues with the other runs; see
    :doc:`/how-to/evaluate_component_grids`.
 
 Featurizers that need a view
@@ -115,11 +115,11 @@ Where recipes are accepted
      - A recipe only; zoo names are resolved by ``ModelSpec.from_name``
    * - ``ModelSpec(name, config)``
      - A ``ModelConfig``, for example ``from_recipe(...)``
-   * - ``ModelSpec.from_name``, the ``MODELS`` of ``drevalpy run`` and ``drevalpy single``
+   * - ``ModelSpec.from_name``, the ``MODELS`` of ``drevalpy experiment`` and ``drevalpy run``
      - A zoo name, else a recipe. A zoo name wins over a recipe of the same name. The model is
        named by the string as given. A name that is neither raises ``UnknownModelError``, a
        ``ValueError`` whose message gives the reason the recipe reading failed
-   * - ``drevalpy.models.combinations``, ``drevalpy run -S/-D/-P``
+   * - ``drevalpy.models.combinations``, ``drevalpy experiment -S/-D/-P``
      - Lists of sample featurizer recipes, drug featurizer recipes and predictor names; every
        valid ``sample:drug:predictor`` is built and the others are reported. See
        :doc:`/how-to/evaluate_component_grids`
@@ -132,8 +132,8 @@ A recipe needs no registration. To give it a short name, register it as a zoo pr
 Model identifier
 ----------------
 
-``ModelConfig.model_id`` writes the recipe of a configuration, keeping the views and the
-concatenation children, so ``from_recipe(config.model_id)`` builds the same components. For
+``ModelConfig.recipe`` writes the recipe of a configuration, keeping the views and the
+concatenation children, so ``from_recipe(config.recipe)`` builds the same components. For
 example, ``pca[gene_expression]:fingerprints:elasticNet`` has that string as its identifier, and
 the zoo preset ``MultiViewNeuralNetwork`` has the identifier
 ``scaledGeneExpression+view[mutations]:fingerprints:neuralNetwork``. Fixed options, defaults and

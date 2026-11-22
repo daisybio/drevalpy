@@ -53,7 +53,7 @@ same holds for ``NaiveSampleMeanPredictor`` in ``LSO`` and ``NaiveTissueMeanPred
       .. code-block:: bash
 
          drevalpy data synthetic --output toy.h5mu
-         drevalpy run NaivePredictor NaiveDrugMeanPredictor \
+         drevalpy experiment NaivePredictor NaiveDrugMeanPredictor \
              --dataset toy.h5mu --split-mode LDO --no-hpo --output-dir results_baselines
 
       The summary at the end shows identical scores:
@@ -65,8 +65,8 @@ same holds for ``NaiveSampleMeanPredictor`` in ``LSO`` and ``NaiveTissueMeanPred
              Split mode: LDO
              Normalized by: None
              Models: 2
-                 NaivePredictor (5 folds): MSE=3.0137, RMSE=1.6920, MAE=1.4340, R^2=-1.0724, Pearson=0.0000, Spearman=0.0000, Kendall=0.0000
-                 NaiveDrugMeanPredictor (5 folds): MSE=3.0137, RMSE=1.6920, MAE=1.4340, R^2=-1.0724, Pearson=0.0000, Spearman=0.0000, Kendall=0.0000
+                 NaivePredictor (5 folds): MSE=15.9782, RMSE=3.8959, MAE=3.3018, R^2=-1.0724, Pearson=0.0000, Spearman=0.0000, Kendall=0.0000
+                 NaiveDrugMeanPredictor (5 folds): MSE=15.9782, RMSE=3.8959, MAE=3.3018, R^2=-1.0724, Pearson=0.0000, Spearman=0.0000, Kendall=0.0000
 
    .. tab-item:: Python
       :sync: python
@@ -80,7 +80,7 @@ same holds for ``NaiveSampleMeanPredictor`` in ``LSO`` and ``NaiveTissueMeanPred
 
          dataset = drevalpy.synthetic()
          baselines = [ModelSpec.from_name(name) for name in ["NaivePredictor", "NaiveDrugMeanPredictor"]]
-         results = drevalpy.run(baselines, dataset, "LDO", hyperparameter_tuning=False)
+         results = drevalpy.experiment(baselines, dataset, "LDO", hyperparameter_tuning=False)
          print(results)
 
       The ``print`` shows the same scores for both models:
@@ -92,8 +92,8 @@ same holds for ``NaiveSampleMeanPredictor`` in ``LSO`` and ``NaiveTissueMeanPred
              Split mode: LDO
              Normalized by: None
              Models: 2
-                 NaivePredictor (5 folds): MSE=3.0137, RMSE=1.6920, MAE=1.4340, R^2=-1.0724, Pearson=0.0000, Spearman=0.0000, Kendall=0.0000
-                 NaiveDrugMeanPredictor (5 folds): MSE=3.0137, RMSE=1.6920, MAE=1.4340, R^2=-1.0724, Pearson=0.0000, Spearman=0.0000, Kendall=0.0000
+                 NaivePredictor (5 folds): MSE=15.9782, RMSE=3.8959, MAE=3.3018, R^2=-1.0724, Pearson=0.0000, Spearman=0.0000, Kendall=0.0000
+                 NaiveDrugMeanPredictor (5 folds): MSE=15.9782, RMSE=3.8959, MAE=3.3018, R^2=-1.0724, Pearson=0.0000, Spearman=0.0000, Kendall=0.0000
 
 Find a model that fits your data
 --------------------------------
@@ -181,7 +181,7 @@ PCA of the ``gene_expression`` view, Morgan fingerprints of the drugs, and a rid
 
       .. code-block:: bash
 
-         drevalpy run NaivePredictor "pca[gene_expression]:fingerprints:ridge" \
+         drevalpy experiment NaivePredictor "pca[gene_expression]:fingerprints:ridge" \
              --dataset toy.h5mu --split-mode LDO --no-hpo --output-dir results_recipe
 
       .. code-block:: text
@@ -191,7 +191,7 @@ PCA of the ``gene_expression`` view, Morgan fingerprints of the drugs, and a rid
              Split mode: LDO
              Normalized by: None
              Models: 2
-                 NaivePredictor (5 folds): MSE=3.0137, RMSE=1.6920, MAE=1.4340, R^2=-1.0724, Pearson=0.0000, Spearman=0.0000, Kendall=0.0000
+                 NaivePredictor (5 folds): MSE=15.9782, RMSE=3.8959, MAE=3.3018, R^2=-1.0724, Pearson=0.0000, Spearman=0.0000, Kendall=0.0000
                  pca[gene_expression]:fingerprints:ridge (5 folds): MSE=2.6447, RMSE=1.5637, MAE=1.3321, R^2=-0.7880, Pearson=0.4109, Spearman=0.3940, Kendall=0.2949
 
       To give your combination a short name, put a YAML file in an extension directory, here
@@ -210,7 +210,7 @@ PCA of the ``gene_expression`` view, Morgan fingerprints of the drugs, and a rid
 
       .. code-block:: bash
 
-         drevalpy -e my_models run NaivePredictor PcaRidge \
+         drevalpy -e my_models experiment NaivePredictor PcaRidge \
              --dataset toy.h5mu --split-mode LDO --no-hpo
 
       See :doc:`/how-to/extend/load_extensions` for extension directories and
@@ -229,7 +229,7 @@ PCA of the ``gene_expression`` view, Morgan fingerprints of the drugs, and a rid
          from drevalpy.models.config import from_recipe
 
          ridge = ModelSpec("PcaRidge", from_recipe("pca[gene_expression]:fingerprints:ridge"))
-         results = drevalpy.run([baselines[0], ridge], dataset, "LDO", hyperparameter_tuning=False)
+         results = drevalpy.experiment([baselines[0], ridge], dataset, "LDO", hyperparameter_tuning=False)
          print(results)
 
       The ``print`` shows that the model beats the baseline, which is the point of including
@@ -242,8 +242,8 @@ PCA of the ``gene_expression`` view, Morgan fingerprints of the drugs, and a rid
              Split mode: LDO
              Normalized by: None
              Models: 2
-                 NaivePredictor (5 folds): MSE=3.0137, RMSE=1.6920, MAE=1.4340, R^2=-1.0724, Pearson=0.0000, Spearman=0.0000, Kendall=0.0000
-                 PcaRidge (5 folds): MSE=2.6447, RMSE=1.5637, MAE=1.3321, R^2=-0.7880, Pearson=0.4109, Spearman=0.3940, Kendall=0.2949
+                 NaivePredictor (5 folds): MSE=15.9782, RMSE=3.8959, MAE=3.3018, R^2=-1.0724, Pearson=0.0000, Spearman=0.0000, Kendall=0.0000
+                 PcaRidge (5 folds): MSE=14.0130, RMSE=3.6010, MAE=3.0662, R^2=-0.7875, Pearson=0.4150, Spearman=0.3989, Kendall=0.2971
 
 To compare many combinations at once instead of writing each recipe, use a grid; see
 :doc:`/how-to/evaluate_component_grids`. To write a featurizer or a predictor of your own, see :doc:`/how-to/extend/write_predictor` and
