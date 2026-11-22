@@ -1,4 +1,8 @@
-"""Violin plot visualization (Plotly + MultiQC violin)."""
+"""Violin plot visualization (Plotly + MultiQC violin).
+
+One violin is the distribution of one metric over the folds of one model, in both outputs;
+:func:`_violins` collects them once, so the figure and the report section cannot disagree.
+"""
 
 from __future__ import annotations
 
@@ -9,7 +13,6 @@ from drevalpy.evaluation import Metric
 from drevalpy.log import get_logger
 from drevalpy.registry.visualization import register
 from drevalpy.visualization.base import Plot, Section
-from drevalpy.visualization.plots._utils import runs_frame
 from drevalpy.visualization.requirements import PlotRequirement
 
 if TYPE_CHECKING:
@@ -20,18 +23,31 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-def _run_metrics(result: ExperimentResult) -> dict[str, dict[str, float]]:
-    """Collect the metrics of every non-randomized run, keyed by run identity.
+def _violins(result: ExperimentResult) -> dict[tuple[str, str], dict[str, float]]:
+    """Collect the distribution behind each violin: one per model and metric.
+
+    Only non-randomized runs count, and only finite values: a model that never reports a
+    metric gets no violin for it. Both outputs draw exactly these violins.
 
     :param result: Experiment to read.
-    :returns: ``{run_id: {metric: value}}``, the payload of MultiQC's violin plot.
+    :returns: ``{(model, metric): {run_id: value}}``, metric-major in :class:`Metric` order.
     """
-    return {run.run_id: dict(run.metrics) for model in result.models for run in model.select_runs()}
+    violins: dict[tuple[str, str], dict[str, float]] = {}
+    for metric in Metric:
+        for model in result.models:
+            values = {
+                run.run_id: run.metrics[metric.value]
+                for run in model.select_runs()
+                if math.isfinite(run.metrics.get(metric.value, math.nan))
+            }
+            if values:
+                violins[(model.model_name, metric.value)] = values
+    return violins
 
 
 @register("violin", "Violin plots of evaluation metrics across CV folds")
 class ViolinPlot(Plot):
-    """Violin plot showing metric distributions across folds per model."""
+    """Violin plot showing one metric distribution across folds per model."""
 
     requirements = frozenset({PlotRequirement.MULTIPLE_FOLDS})
 
@@ -43,26 +59,22 @@ class ViolinPlot(Plot):
         """
         import plotly.graph_objects as go
 
-        df = runs_frame(result)
-        df = df.dropna(axis=1, how="all")
-
-        metrics = [m.value for m in Metric if m in df.columns]
-        if not metrics:
+        violins = _violins(result)
+        if not violins:
             logger.warning("violin: no metric has a finite value in any fold; the figure is empty")
 
         fig = go.Figure()
-        for metric in metrics:
-            for _, tmp_df in df.groupby(["algorithm", "rand_setting", "test_mode"], sort=False):
-                label = f"{tmp_df['algorithm'].iloc[0]}: {metric}"
-                fig.add_trace(
-                    go.Violin(
-                        y=tmp_df[metric],
-                        x=[label] * len(tmp_df[metric]),
-                        name=label,
-                        box_visible=True,
-                        meanline_visible=True,
-                    )
+        for (model, metric), values in violins.items():
+            label = f"{model}: {metric}"
+            fig.add_trace(
+                go.Violin(
+                    y=list(values.values()),
+                    x=[label] * len(values),
+                    name=label,
+                    box_visible=True,
+                    meanline_visible=True,
                 )
+            )
 
         fig.update_layout(title_text="All Metrics", height=600, width=1100)
         return fig
@@ -75,19 +87,26 @@ class ViolinPlot(Plot):
         """
         from multiqc.plots import violin as mqc_violin
 
-        data = _run_metrics(result)
-        metric_names = sorted({m for metrics in data.values() for m in metrics if math.isfinite(metrics[m])})
-        if not metric_names:
+        violins = _violins(result)
+        if not violins:
             logger.warning("violin: no metric has a finite value in any fold; skipping the section")
             return []
-        headers: dict[str, dict[str, str]] = {m: {"title": m, "description": f"Metric: {m}"} for m in metric_names}
-        plot = mqc_violin.plot(data, headers, pconfig={"id": "dreval_violin"})
+        # MultiQC draws one violin per column, with the samples as its points: a column per
+        # model and metric, filled only on the rows of that model's runs.
+        data: dict[str, dict[str, float]] = {}
+        headers: dict[str, dict[str, str]] = {}
+        for (model, metric), values in violins.items():
+            column = f"{model}: {metric}"
+            headers[column] = {"title": metric, "namespace": model, "description": f"{metric} of {model}"}
+            for run_id, value in values.items():
+                data.setdefault(run_id, {})[column] = value
+        plot = mqc_violin.plot(data, headers, pconfig={"id": "dreval_violin", "title": "Metric Distributions"})
 
         return [
             Section(
                 name="Metric Distributions",
                 anchor="dreval_violin",
-                description="Distribution of evaluation metrics across cross-validation folds.",
+                description="Distribution of evaluation metrics across folds, one violin per model and metric.",
                 plot=plot,
             )
         ]
