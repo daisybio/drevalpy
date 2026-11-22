@@ -170,8 +170,8 @@ Two package pairs genuinely import each other at runtime:
   imported mid-initialization of `models.config`, `register_builtins` retries once so startup still
   succeeds.
 - **`models` ↔ `execution`**: hyperparameter tuning in `models/tuning/hpo.py` uses
-  `execution._tracking` and `execution._execution` to run and track trials, while `execution`
-  imports `models` to train the final model.
+  `execution._tracking` to record trials. The shared fit path in `execution` calls the tuner
+  and uses `models` to train the final model.
 
 One other pair shows up when imports are aggregated at the top-level package boundary, even though
 no individual module participates in a cycle:

@@ -43,8 +43,8 @@ def recorded_fits(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
 def tuner(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     seen: dict[str, Any] = {}
 
-    def fake_tune(execution, dataset, **kwargs: Any) -> tuple[dict[str, Any], list]:
-        seen.update(kwargs, execution=execution)
+    def fake_tune(spec, dataset, fold, **kwargs: Any) -> tuple[dict[str, Any], list]:
+        seen.update(kwargs, spec=spec, fold=fold)
         return {"alpha": 0.5}, []
 
     monkeypatch.setattr(FIT_MODULE, "hpam_tune", fake_tune)
@@ -137,11 +137,10 @@ class TestTuning:
         )
 
         assert fitted.hyperparameters["predictor.elasticNet.alpha"] == 0.5
-        execution = tuner["execution"]
-        assert execution.hyperparameter_tuning
-        assert (execution.hpo_metric, execution.hpo_num_trials, execution.hpo_random_state) == ("Pearson", 3, 9)
+        assert tuner["tuning"]
+        assert (tuner["metric"], tuner["n_trials"], tuner["sampler_seed"]) == ("Pearson", 3, 9)
         assert tuner["n_jobs"] == 3
-        fold = execution.fold
+        fold = tuner["fold"]
         assert not (fold.train.mask & fold.val.mask).any()
         assert fold.val.mask.any()
         assert recorded_fits[0]["scope"] == fold.train | fold.val

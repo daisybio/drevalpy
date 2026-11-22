@@ -517,16 +517,16 @@ class TestStressTestHyperparameters:
         real_tune = fit_module.hpam_tune
         tuned: list[tuple[int, Any, Any]] = []
 
-        def counting_tune(execution, dataset, **kwargs):
-            if execution.hyperparameter_tuning:
+        def counting_tune(spec, dataset, fold, **kwargs):
+            if kwargs["tuning"]:
                 tuned.append(
                     (
-                        execution.identity.fold_index,
-                        execution.identity.randomization,
-                        execution.identity.robustness_repeat,
+                        fold.metadata["fold_index"],
+                        dataset.randomization,
+                        fold.metadata.get("robustness_repeat"),
                     )
                 )
-            return real_tune(execution, dataset, **kwargs)
+            return real_tune(spec, dataset, fold, **kwargs)
 
         monkeypatch.setattr(fit_module, "hpam_tune", counting_tune)
 

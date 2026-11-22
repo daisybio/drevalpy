@@ -92,8 +92,8 @@ def tuner(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     """Replace ``hpam_tune``; the kwargs of its last call are collected in the returned dict."""
     seen: dict[str, Any] = {}
 
-    def fake_tune(execution, dataset, **kwargs: Any):
-        seen.update(kwargs, execution=execution, dataset=dataset)
+    def fake_tune(spec, dataset, fold, **kwargs: Any):
+        seen.update(kwargs, spec=spec, fold=fold, dataset=dataset)
         return {"predictor.elasticNet.alpha": 0.2}, []
 
     monkeypatch.setattr(FIT_MODULE, "hpam_tune", fake_tune)
@@ -280,8 +280,8 @@ class TestHyperparameterTuning:
             TrialResult({"predictor.elasticNet.alpha": 0.9}, {"RMSE": 2.0}, "RMSE", np.array([3.0, 4.0])),
         ]
 
-        def fake_tune(execution, dataset, **kwargs: Any):
-            seen.update(kwargs, execution=execution, dataset=dataset)
+        def fake_tune(spec, dataset, fold, **kwargs: Any):
+            seen.update(kwargs, spec=spec, fold=fold, dataset=dataset)
             return {"predictor.elasticNet.alpha": 0.1}, trials
 
         monkeypatch.setattr(FIT_MODULE, "hpam_tune", fake_tune)
@@ -298,14 +298,13 @@ class TestHyperparameterTuning:
 
         assert result.trials == trials
         assert result.best_hyperparameters == {"predictor.elasticNet.alpha": 0.1}
-        execution = seen["execution"]
-        assert execution.model is stub_model.recipe
+        assert seen["spec"] is stub_model.recipe
         assert seen["dataset"] is synthetic_dataset
-        assert execution.fold.stopping is None
-        np.testing.assert_array_equal(execution.fold.train.mask, folds[0].train.mask)
-        np.testing.assert_array_equal(execution.fold.val.mask, folds[0].val.mask)
-        assert (execution.hyperparameter_tuning, execution.hpo_num_trials, execution.hpo_metric) == (True, 3, "RMSE")
-        assert execution.hpo_random_state == 11
+        assert seen["fold"].stopping is None
+        np.testing.assert_array_equal(seen["fold"].train.mask, folds[0].train.mask)
+        np.testing.assert_array_equal(seen["fold"].val.mask, folds[0].val.mask)
+        assert (seen["tuning"], seen["n_trials"], seen["metric"]) == (True, 3, "RMSE")
+        assert seen["sampler_seed"] == 11
 
     def test_given_hyperparameters_are_fitted_without_tuning(self, synthetic_dataset, folds, stub_model, tuner) -> None:
         result = _fit_fold(
@@ -323,9 +322,8 @@ class TestHyperparameterTuning:
             hyperparameters={"alpha": 7.5},
         )
 
-        execution = tuner["execution"]
-        assert execution.hyperparameter_tuning is False
-        assert execution.model.hyperparameters["predictor.elasticNet.alpha"] == 7.5
+        assert tuner["tuning"] is False
+        assert tuner["spec"].hyperparameters["predictor.elasticNet.alpha"] == 7.5
         assert result.fold_metadata["execution"]["hpo"]["enabled"] is False
 
     @pytest.mark.slow
@@ -362,8 +360,8 @@ class TestHyperparameterTuning:
         run(stub_model.recipe, synthetic_dataset, fold, hyperparameter_tuning=True)
 
         es_expected, val_expected = early_stopping_split(synthetic_dataset, fold, "LSO")
-        np.testing.assert_array_equal(tuner["execution"].fold.stopping.mask, es_expected.mask)
-        np.testing.assert_array_equal(tuner["execution"].fold.val.mask, val_expected.mask)
+        np.testing.assert_array_equal(tuner["fold"].stopping.mask, es_expected.mask)
+        np.testing.assert_array_equal(tuner["fold"].val.mask, val_expected.mask)
 
 
 @pytest.mark.parametrize("tuning", [False, True])
@@ -375,8 +373,8 @@ def test_final_fit_excludes_stopping_holdout_and_transforms_training_only(
     es, val = early_stopping_split(synthetic_dataset, fold, "LSO")
     seen = []
 
-    def tune(execution, dataset, **kwargs):
-        seen.append({**kwargs, "execution": execution})
+    def tune(spec, dataset, fold, **kwargs):
+        seen.append({**kwargs, "fold": fold})
         return dict(stub_model.recipe.hyperparameters), []
 
     monkeypatch.setattr(FIT_MODULE, "hpam_tune", tune)
@@ -395,9 +393,9 @@ def test_final_fit_excludes_stopping_holdout_and_transforms_training_only(
     expected = synthetic_dataset.response_matrix[pairs[:, 0], pairs[:, 1]]
     np.testing.assert_allclose(call["response_transformation"].mean_, [np.nanmean(expected.astype(float))])
     if tuning:
-        assert seen[0]["execution"].fold.stopping == es
-        assert seen[0]["execution"].fold.val == val
-        assert seen[0]["execution"].fold.train == fold.train
+        assert seen[0]["fold"].stopping == es
+        assert seen[0]["fold"].val == val
+        assert seen[0]["fold"].train == fold.train
 
 
 @pytest.mark.parametrize("defect", ["shape", "pair_overlap", "entity_overlap"])
@@ -463,8 +461,8 @@ class TestSeeding:
     ) -> None:
         sampler_states: list[int] = []
 
-        def fake_tune(execution, dataset, **kwargs: Any):
-            sampler_states.append(execution.hpo_random_state)
+        def fake_tune(spec, dataset, fold, **kwargs: Any):
+            sampler_states.append(kwargs["sampler_seed"])
             return {"predictor.elasticNet.alpha": 0.2}, []
 
         monkeypatch.setattr(FIT_MODULE, "hpam_tune", fake_tune)

@@ -167,12 +167,11 @@ def train_and_predict(
     :param seed: Root seed of the run.
     :returns: Predictions, metrics, chosen hyperparameters and the fitted model.
     """
-    from drevalpy.execution._execution import build_execution
     from drevalpy.execution._fit import fit
     from drevalpy.models import ModelSpec
 
     spec = ModelSpec.from_name(model_name)
-    execution = build_execution(
+    model, result = fit(
         spec if hyperparameter_tuning else spec.with_hyperparameters(overrides or {}),
         dataset,
         fold,
@@ -182,7 +181,6 @@ def train_and_predict(
         hpo_random_state=hpo_random_state,
         seed=seed,
     )
-    model, result = fit(execution, dataset)
     return GoldenRun(np.asarray(result.predictions), dict(result.metrics), model.hyperparameters, model)
 
 

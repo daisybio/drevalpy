@@ -19,7 +19,7 @@ from sklearn.preprocessing import StandardScaler
 
 from drevalpy import run
 from drevalpy.data import split
-from drevalpy.execution._execution import build_execution
+from drevalpy.evaluation import Metric
 from drevalpy.models import DRPModel, ModelSpec
 from drevalpy.models.response_transformation import GroupMeanCenterer
 from drevalpy.models.tuning.hpo import hpam_tune
@@ -78,17 +78,16 @@ def _drug_means(dataset, scope) -> dict[str, float]:
 
 
 def _tune(dataset, fold: Fold, transformation, n_trials: int):
-    execution = build_execution(
+    return hpam_tune(
         ModelSpec.from_name("ElasticNet"),
         dataset,
         fold,
-        hyperparameter_tuning=True,
-        hpo_metric="RMSE",
-        hpo_num_trials=n_trials,
-        hpo_random_state=0,
-        seed=0,
+        tuning=True,
+        metric=Metric.RMSE,
+        n_trials=n_trials,
+        sampler_seed=0,
+        response_transformation=transformation,
     )
-    return hpam_tune(execution, dataset, response_transformation=transformation)
 
 
 def _trial_metrics(dataset, fold: Fold, transformation) -> dict[str, float]:

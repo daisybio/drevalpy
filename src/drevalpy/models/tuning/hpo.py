@@ -1,10 +1,8 @@
 """Optuna hyperparameter tuning of one model on one fold.
 
-:func:`hpam_tune` reads every tuning decision (trial count, metric, sampler seed and the scopes)
-from the fold's ``ExecutionSpec``, so it is called the same way whether or not the run tunes: an
-untuned run, zero trials or an empty search space return the spec's defaults without Optuna.
-Each trial trains a fresh ``DRPModel`` on the training scope and is scored on the validation
-scope with every metric; the study minimizes or maximizes the execution's metric.
+An untuned run, zero trials or an empty search space returns the model recipe's values
+without Optuna. Each trial trains a fresh ``DRPModel`` on the training scope and is scored
+on the validation scope with every metric. The study optimizes the chosen metric.
 """
 
 from __future__ import annotations
@@ -30,8 +28,8 @@ from drevalpy.types.results.run import TrialResult
 if TYPE_CHECKING:
     import optuna
 
-    from drevalpy.execution._execution import ExecutionSpec
     from drevalpy.models.response_transformation import ResponseTransformer
+    from drevalpy.types.data.fold import Fold
 
 logger = get_logger(__name__)
 
@@ -46,21 +44,31 @@ class HPOTrialsFailedError(DrEvalError, RuntimeError):
 
 
 def hpam_tune(
-    execution: ExecutionSpec,
+    spec: ModelSpec,
     dataset: Dataset,
+    fold: Fold,
     *,
+    tuning: bool,
+    metric: Metric,
+    n_trials: int,
+    sampler_seed: int,
     response_transformation: ResponseTransformer | None = None,
     wandb_project: str | None = None,
     wandb_base_config: Mapping[str, Any] | None = None,
     n_jobs: int = 1,
 ) -> tuple[dict[str, Any], list[TrialResult]]:
-    """Tune the hyperparameters of the execution's model with Optuna.
+    """Tune the model recipe with Optuna using the prepared fold.
 
     Raises ``ImportError`` if *wandb_project* is set and ``wandb`` is not installed, and
     ``HPOTrialsFailedError`` if every trial raised, so no tuning information was produced.
 
-    :param execution: Fold decisions: the model, its scopes, and the tuning metric, trial count and sampler seed.
+    :param spec: Named, unfitted model recipe.
     :param dataset: Full dataset with all features.
+    :param fold: Prepared fold with training, validation, and optional stopping masks.
+    :param tuning: Whether to search the hyperparameter space.
+    :param metric: Validation metric to optimize.
+    :param n_trials: Number of Optuna trials.
+    :param sampler_seed: Seed for the Optuna sampler.
     :param response_transformation: Optional unfitted response transformation, cloned for every trial.
     :param wandb_project: W&B project to log one run per trial to; ``None`` disables tracking.
     :param wandb_base_config: Base W&B config; each trial's drawn hyperparameters are added to it.
@@ -68,13 +76,12 @@ def hpam_tune(
     :returns: The complete best values under qualified keys (the spec's defaults when nothing is tuned),
         and one ``TrialResult`` per completed trial.
     """
-    spec = execution.model
     structured_space = spec.hyperparameter_space
-    if not (execution.hyperparameter_tuning and execution.hpo_num_trials and structured_space):
+    if not (tuning and n_trials and structured_space):
         return _defaults(spec), []
 
     require_tracking(wandb_project)
-    metric, fold, fold_index = execution.hpo_metric, execution.fold, execution.identity.fold_index
+    fold_index = fold.metadata.get("fold_index", 0)
     ground_truth = ResponseTable.from_dataset(dataset, fold.val).response
     trials: list[TrialResult] = []
     failures: list[Exception] = []
@@ -106,28 +113,32 @@ def hpam_tune(
             return float("nan")
 
         if metrics:
-            trials.append(TrialResult(drawn, metrics, metric, predictions))
+            trials.append(TrialResult(drawn, metrics, metric.value, predictions))
         target = metrics.get(metric, float("nan"))
         return target if np.isfinite(target) else float("nan")
 
-    study = _run_study(objective, execution)
+    study = _run_study(objective, metric=metric, n_trials=n_trials, sampler_seed=sampler_seed)
     _report_trial_failures(study, failures)
     return _best_params(study, spec), trials
 
 
-def _run_study(objective: Callable[[optuna.Trial], float], execution: ExecutionSpec) -> optuna.Study:
-    """Run a seeded TPE study of ``execution.hpo_num_trials`` trials in the direction of the metric.
+def _run_study(
+    objective: Callable[[optuna.Trial], float], *, metric: Metric, n_trials: int, sampler_seed: int
+) -> optuna.Study:
+    """Run a seeded TPE study in the direction of the metric.
 
     :param objective: Function Optuna calls once per trial; it returns the score.
-    :param execution: Fold decisions giving the metric, trial count and sampler seed.
+    :param metric: Validation metric to optimize.
+    :param n_trials: Number of Optuna trials.
+    :param sampler_seed: Seed for the Optuna sampler.
     :returns: Completed Optuna study.
     """
     import optuna
 
-    direction = "minimize" if Metric(execution.hpo_metric).direction == "min" else "maximize"
-    sampler = optuna.samplers.TPESampler(seed=execution.hpo_random_state)
+    direction = "minimize" if metric.direction == "min" else "maximize"
+    sampler = optuna.samplers.TPESampler(seed=sampler_seed)
     study = optuna.create_study(direction=direction, sampler=sampler)
-    study.optimize(objective, n_trials=execution.hpo_num_trials)
+    study.optimize(objective, n_trials=n_trials)
     return study
 
 

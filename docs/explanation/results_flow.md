@@ -13,7 +13,7 @@ kernelspec:
 
 Once a model is ready to train on a fold (see {doc}`data_flow` and {doc}`training_lifecycle`), a lot
 still happens before numbers appear in a report. This page follows that second half of an
-experiment: freezing the fold setup, running tuning and final training through one shared function,
+experiment: preparing the fold, running tuning and final training through one shared function,
 saving each run safely to disk, aggregating scores, normalizing against a naive baseline, and
 selecting plots for the MultiQC report.
 
@@ -24,18 +24,19 @@ derived, see {doc}`reproducibility`.
 
 ```text
 drevalpy.experiment / drevalpy.run / drevalpy.train
-  │  RunStore.open writes <out>/metadata.json (experiment and run)
-  │  split → robustness() / randomization() variants (run)
+  │  RunStore.open writes <out>/metadata.json (experiment)
+  │  split → robustness() / randomization() variants (experiment)
   ▼
 Per model, fold, and dataset variant (_run._fit_fold)
-  │  build_execution → ExecutionSpec(Fold, RunIdentity, hpo, seed, metadata)
-  │    Fold: train (A), optional stopping (E), val (V), test
-  │          train_val (A ∪ V) is derived from train and val
+  │  original Fold: train, val, test
   ▼
 execution._fit.fit  ← shared by every entry point
+  │  prepare Fold: train (A), optional stopping (E), val (V), test
+  │    train_val (A ∪ V) is derived from train and val
+  │  capture run provenance and derive RunIdentity
   │  seed_everything(fit_seed(...))
   │  hpam_tune → best hyperparameters + TrialResult list
-  │  DRPModel(spec, best).train(final_training, early_stopping=E)
+  │  DRPModel.train(dataset, fold.train_val, early_stopping_scope=fold.stopping)
   │  predict(test) → NaN check → evaluate → metrics
   ▼
 RunResult (predictions, ground_truth, sample_ids, drug_ids, metrics, trials, ...)
@@ -53,23 +54,18 @@ visualization.report.create_report
   │  registry.visualization.applicable(experiment) → PlotRequirement → MultiQC
 ```
 
-## Step 1: Freezing fold decisions in `ExecutionSpec`
+## Step 1: Preparing the fold for fitting
 
-Before tuning or training starts, `build_execution` constructs an immutable
-{py:class}`~drevalpy.execution._execution.ExecutionSpec` that captures every decision about the
-fold: its {py:class}`~drevalpy.types.data.fold.Fold`, its
-{py:class}`~drevalpy.types.results._identity.RunIdentity`, and its tuning settings.
-
-Freezing these choices up front ensures that hyperparameter tuning, the final fit, and any stress
-tests (robustness or randomization runs) all work on the exact same scopes and seed. Given the same
-`ExecutionSpec`, a fold always behaves the same way.
+Before tuning starts, `fit` validates the original split and prepares the fold for the model.
+It resolves the sampler seed and records the tuning settings, mask checksums, and pair-order
+seeds as run provenance. Tuning and final training then use the same prepared fold.
 
 Each scope in the {py:class}`~drevalpy.types.data.fold.Fold` uses a
 {py:class}`~drevalpy.types.data.selection_mask.SelectionMask`, a boolean mask of shape
 `(n_samples, n_drugs)`.
 
 - **`train` (A).** Each tuning trial fits on these pairs.
-- **`stopping` (E).** For models that support early stopping, `build_execution` cuts a
+- **`stopping` (E).** For models that support early stopping, fold preparation cuts a
   seeded holdout from the validation set. For other models, `stopping` is `None`.
 - **`val` (V).** Tuning scores each trial on the validation pairs left after any
   early-stopping holdout.
@@ -89,41 +85,25 @@ import warnings
 warnings.filterwarnings("ignore")
 
 import drevalpy
-from drevalpy.data.splitters._folds import early_stopping_split
-from drevalpy.execution._execution import build_execution
+from drevalpy.execution._execution import prepare_fold
 from drevalpy.models.spec import ModelSpec
-from drevalpy.registry.splitter import canonical
 
 dataset = drevalpy.synthetic(omics=("gene_expression",), n_samples=50, n_drugs=20)
 folds = drevalpy.split(dataset, "LSO", n_splits=3, validation_ratio=0.3)
 fold = folds[0]
 
-model_spec = ModelSpec.from_name("NaiveMeanEffectsPredictor")
-execution = build_execution(
-    model_spec,
-    dataset,
-    fold,
-    hyperparameter_tuning=True,
-    hpo_metric="RMSE",
-    hpo_num_trials=4,
-    hpo_random_state=None,
-    seed=42,
-)
+print("Fold from the splitter:")
+print(f"  train:     {len(fold.train)} pairs")
+print(f"  stopping:  {fold.stopping}")
+print(f"  val:       {len(fold.val)} pairs")
+print(f"  train_val: {len(fold.train_val)} pairs")
+print(f"  test:      {len(fold.test)} pairs")
 
-stopping_scope = execution.fold.stopping
-print("Fold:")
-print(f"  train:     {len(execution.fold.train)} pairs")
-print(f"  stopping:  {len(stopping_scope) if stopping_scope is not None else 'None'}")
-print(f"  val:       {len(execution.fold.val)} pairs")
-print(f"  train_val: {len(execution.fold.train_val)} pairs")
-print(f"  test:      {len(execution.fold.test)} pairs")
-print(f"\nIdentity: {execution.identity.model_name}, fold {execution.identity.fold_index}, {execution.identity.split_mode}")
-
-# Show the early-stopping cut explicitly.
-stopping, remaining_val = early_stopping_split(dataset, fold, canonical("LSO"))
-print("\nEarly-stopping cut on this fold:")
-print(f"  E (stopping):   {len(stopping)} pairs")
-print(f"  V (remaining):  {len(remaining_val)} pairs")
+# A model that supports early stopping gets a stopping holdout cut from val.
+early_stopping_model = ModelSpec.from_name("SimpleNeuralNetwork")
+prepared_with_stopping = prepare_fold(early_stopping_model, dataset, fold, fold.metadata["split_mode"])
+print(f"Early-stopping holdout: {len(prepared_with_stopping.stopping)} pairs")
+print(f"Remaining validation:  {len(prepared_with_stopping.val)} pairs")
 ```
 
 ## Step 2: One shared training path (`fit`)
@@ -135,7 +115,7 @@ launched it.
 
 Inside `fit`, six steps run in order:
 
-1. Seed the global RNG state with `fit_seed(execution.seed, identity)`.
+1. Seed the global RNG state with `fit_seed(seed, identity)`.
 2. Run `hpam_tune` to select the best hyperparameters and collect a list of
    {py:class}`~drevalpy.types.results.run.TrialResult` objects (or return the model's defaults if
    tuning is turned off).
@@ -149,6 +129,7 @@ Inside `fit`, six steps run in order:
 ```{code-cell} ipython3
 from drevalpy import run
 
+model_spec = ModelSpec.from_name("NaiveMeanEffectsPredictor")
 result = run(
     model_spec,
     dataset,

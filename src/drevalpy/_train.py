@@ -10,9 +10,7 @@ from drevalpy._utils.n_jobs import check_n_jobs
 from drevalpy.data import CurveQuality, load
 from drevalpy.data.splitters import observed_mask
 from drevalpy.errors import InvalidInputError
-from drevalpy.execution._execution import build_execution
 from drevalpy.execution._fit import fit
-from drevalpy.log import get_logger
 from drevalpy.models.drp_model import DRPModel
 from drevalpy.models.spec import ModelSpec
 from drevalpy.types import Fold, SelectionMask
@@ -20,8 +18,6 @@ from drevalpy.types.data.dataset import Dataset
 
 if TYPE_CHECKING:
     from drevalpy.models.response_transformation import ResponseTransformer
-
-logger = get_logger(__name__)
 
 #: Fraction of the pairs held out for tuning and early stopping, as the ``validation_ratio`` of a split.
 VALIDATION_RATIO = 0.1
@@ -94,7 +90,7 @@ def train(
     data = load(dataset) if isinstance(dataset, str) else dataset
     if measure is not None:
         data = data.with_measure(measure)
-    execution = build_execution(
+    model, _ = fit(
         spec,
         data,
         _holdout_fold(data, quality, seed),
@@ -103,7 +99,7 @@ def train(
         hpo_num_trials=hpo_num_trials,
         hpo_random_state=hpo_random_state,
         seed=seed,
+        response_transformation=response_transformation,
+        n_jobs=n_jobs,
     )
-    logger.info("Training %s on %d pairs", spec.name, len(execution.fold.train_val))
-    model, _ = fit(execution, data, response_transformation=response_transformation, n_jobs=n_jobs)
     return model

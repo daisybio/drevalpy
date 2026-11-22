@@ -1,8 +1,8 @@
 """Single model + single fold execution unit.
 
 :func:`_fit_fold` is the one path from a model, a dataset and a fold to a ``RunResult``:
-``drevalpy.experiment``, ``drevalpy.run`` and ``drevalpy run`` all go through it. It builds the
-execution, fits and predicts, and trains the normalization reference ``NaiveMeanEffectsPredictor``
+``drevalpy.experiment``, ``drevalpy.run`` and ``drevalpy run`` all go through it. It fits and
+predicts, and trains the normalization reference ``NaiveMeanEffectsPredictor``
 without the response transformation, so a fold and the same settings give the same ``RunResult``
 whichever entry point ran them.
 """
@@ -13,7 +13,6 @@ from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any
 
 from drevalpy._utils.n_jobs import check_n_jobs
-from drevalpy.execution._execution import build_execution
 from drevalpy.execution._fit import fit
 from drevalpy.log import get_logger
 from drevalpy.models.spec import ModelSpec
@@ -119,7 +118,7 @@ def _fit_fold(
     if hyperparameters is not None:
         model_spec = model_spec.with_hyperparameters(hyperparameters, check_values=False)
         hyperparameter_tuning = False
-    execution = build_execution(
+    _, result = fit(
         model_spec,
         dataset,
         fold,
@@ -128,10 +127,6 @@ def _fit_fold(
         hpo_num_trials=hpo_num_trials,
         hpo_random_state=hpo_random_state,
         seed=seed,
-    )
-    _, result = fit(
-        execution,
-        dataset,
         response_transformation=_transformation_for(model_spec, response_transformation),
         wandb_project=wandb_project,
         n_jobs=n_jobs,
@@ -143,7 +138,7 @@ def _transformation_for(
     model: ModelSpec, response_transformation: ResponseTransformer | None
 ) -> ResponseTransformer | None:
     """Return the transformation *model* trains with: none for the normalization reference."""
-    if model.name == NORMALIZATION_REFERENCE and response_transformation is not None:
+    if response_transformation is not None and isinstance(model, ModelSpec) and model.name == NORMALIZATION_REFERENCE:
         logger.info("%s trains on the untransformed response: it is the normalization reference", model.name)
         return None
     return response_transformation

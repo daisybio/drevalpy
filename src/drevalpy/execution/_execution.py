@@ -1,24 +1,19 @@
-"""Immutable fit decisions made once, before HPO or model training begins."""
+"""Validate folds and capture run provenance before tuning or training."""
 
 from __future__ import annotations
 
 import copy
 import hashlib
-from collections.abc import Mapping
-from dataclasses import dataclass
 from typing import Any, cast
 
 from drevalpy.data.splitters._folds import early_stopping_split
 from drevalpy.errors import InvalidInputError
-from drevalpy.evaluation import Metric
-from drevalpy.models.config.immutable import freeze_value, thaw_value
 from drevalpy.models.spec import ModelSpec
 from drevalpy.registry.splitter import Validation, canonical, splitter_registry
 from drevalpy.registry.splitter._groups import MODES
 from drevalpy.registry.splitter._validation import validate_folds
 from drevalpy.types import Dataset, Fold, SelectionMask
 from drevalpy.types.enums import ModelScope
-from drevalpy.types.results._identity import RunIdentity
 
 
 def _scope_provenance(scope: SelectionMask | None) -> dict[str, Any] | None:
@@ -41,29 +36,6 @@ def _fold_provenance(fold: Fold) -> dict[str, Any]:
         "final_training": _scope_provenance(fold.train_val),
         "test": _scope_provenance(fold.test),
     }
-
-
-@dataclass(frozen=True)
-class ExecutionSpec:
-    """All fold decisions consumed by one executor; no fitted state or dataset."""
-
-    model: ModelSpec
-    fold: Fold
-    identity: RunIdentity
-    hyperparameter_tuning: bool
-    hpo_metric: str
-    hpo_num_trials: int
-    hpo_random_state: int
-    seed: int
-    metadata: Mapping[str, Any]
-
-    def __post_init__(self) -> None:
-        """Capture independent, recursively frozen provenance."""
-        object.__setattr__(self, "metadata", freeze_value(copy.deepcopy(dict(self.metadata))))
-
-    def result_metadata(self) -> dict[str, Any]:
-        """Return an independent JSON-compatible snapshot for results."""
-        return thaw_value(self.metadata)
 
 
 def _validation_of(mode: str) -> Validation:
@@ -92,58 +64,23 @@ def check_mode_supported(model: ModelSpec, mode: str) -> None:
         )
 
 
-def build_execution(
-    model: ModelSpec,
-    dataset: Dataset,
-    fold: Fold,
-    *,
-    hyperparameter_tuning: bool,
-    hpo_metric: str,
-    hpo_num_trials: int,
-    hpo_random_state: int | None,
-    seed: int,
-) -> ExecutionSpec:
-    """Validate the original fold and reserve stopping data exactly once.
-
-    An unknown *hpo_metric* raises ``ValueError`` from ``Metric``. A single-drug model under LDO
-    raises ``InvalidInputError`` from :func:`check_mode_supported`. A model that stops early gets
-    whole groups of the split mode cut out of the validation set as its stopping set by
-    :func:`~drevalpy.data.splitters._folds.early_stopping_split`, which raises
-    ``InvalidInputError`` when the validation set has fewer than two groups.
+def prepare_fold(model: ModelSpec, dataset: Dataset, fold: Fold, mode: str) -> Fold:
+    """Validate the original fold and reserve stopping data for models that use it.
 
     :param model: Named model recipe.
-    :param dataset: Source data (not retained).
-    :param fold: Original training/validation/test partition.
-    :param hyperparameter_tuning: Whether to search parameters.
-    :param hpo_metric: Selection metric.
-    :param hpo_num_trials: Number of trials.
-    :param hpo_random_state: Sampler seed; defaults to *seed*.
-    :param seed: Root seed from which every fit's RNG seed is derived.
-    :returns: Immutable execution decisions.
-    :raises TypeError: If *model* is not a ``ModelSpec``.
-    :raises ValueError: If *hpo_num_trials* is negative.
+    :param dataset: Dataset the fold indexes.
+    :param fold: Original training, validation, and test partition.
+    :param mode: Canonical split mode.
+    :returns: Fold with the validation and stopping masks used during fitting.
     :raises InvalidInputError: If the fold was split on another response measure than the dataset's.
     """
-    if not isinstance(model, ModelSpec):
-        raise TypeError("Experiment models must be ModelSpec values")
-    Metric(hpo_metric)
-    if hpo_num_trials < 0:
-        raise ValueError(f"n_trials must be >= 0 (got {hpo_num_trials}); use 0 for default-only tuning")
-    hpo_random_state = seed if hpo_random_state is None else hpo_random_state
-    mode = canonical(fold.metadata.get("split_mode", ""))
     validation = _validation_of(mode)
     check_mode_supported(model, mode)
     validate_folds([fold], validation, dataset)
     stopping, validation_scope = None, fold.val
     if model.supports_early_stopping:
         stopping, validation_scope = early_stopping_split(dataset, fold, validation)
-    execution_fold = Fold(
-        train=fold.train,
-        test=fold.test,
-        val=validation_scope,
-        metadata=fold.metadata,
-        stopping=stopping,
-    )
+
     fold_measure = fold.metadata.get("measure", dataset.measure)
     if fold_measure != dataset.measure:
         msg = (
@@ -151,6 +88,28 @@ def build_execution(
             f"{dataset.measure!r}; split again, or use dataset.with_measure({fold_measure!r})"
         )
         raise InvalidInputError(msg)
+    return Fold(
+        train=fold.train,
+        test=fold.test,
+        val=validation_scope,
+        metadata=fold.metadata,
+        stopping=stopping,
+    )
+
+
+def result_metadata(
+    model: ModelSpec, dataset: Dataset, fold: Fold, mode: str, *, hpo: dict[str, Any], seed: int
+) -> dict[str, Any]:
+    """Capture independent result metadata before training.
+
+    :param model: Named model recipe.
+    :param dataset: Source of the response measure and any randomization provenance.
+    :param fold: Prepared fold whose mask checksums and pair order are recorded.
+    :param mode: Canonical split mode.
+    :param hpo: Resolved tuning settings.
+    :param seed: Root seed of the run.
+    :returns: Snapshot of fold metadata and run provenance.
+    """
     metadata = copy.deepcopy(fold.metadata)
     metadata["measure"] = dataset.measure
     if "split_mode" in metadata:
@@ -159,24 +118,8 @@ def build_execution(
         metadata["randomization_provenance"] = copy.deepcopy(dataset.randomization_provenance)
     metadata["execution"] = {
         "config": model.config.model_dump(mode="json"),
-        "scopes": _fold_provenance(execution_fold),
-        "hpo": {
-            "enabled": hyperparameter_tuning,
-            "metric": hpo_metric,
-            "num_trials": hpo_num_trials,
-            "random_state": hpo_random_state,
-        },
+        "scopes": _fold_provenance(fold),
+        "hpo": hpo,
         "seed": seed,
     }
-    identity = RunIdentity.from_fold(model.name, dataset.name, mode, metadata, dataset.randomization)
-    return ExecutionSpec(
-        model,
-        execution_fold,
-        identity,
-        hyperparameter_tuning,
-        hpo_metric,
-        hpo_num_trials,
-        hpo_random_state,
-        seed,
-        metadata,
-    )
+    return metadata
