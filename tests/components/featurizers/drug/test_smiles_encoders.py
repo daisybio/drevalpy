@@ -243,6 +243,11 @@ def test_bpe_registration_and_hyperparameter_space() -> None:
     assert set(BpePharmaformerDrugFeaturizer.get_hyperparameter_space()) == {"num_symbols", "max_length"}
 
 
+def test_the_smiles_encoders_read_no_view_because_they_compute_from_the_smiles() -> None:
+    assert BpePharmaformerDrugFeaturizer.views({}) == ()
+    assert SmilesTokensFeaturizer.views({}) == ()
+
+
 @pytest.mark.parametrize(
     ("featurizer_cls", "fit_error"),
     [(SmilesTokensFeaturizer, "no SMILES available"), (BpePharmaformerDrugFeaturizer, "Cannot learn BPE codes")],

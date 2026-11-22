@@ -44,7 +44,6 @@ class SmilesTokensFeaturizer(Featurizer):
     maps to ``<unk>``. Drugs outside the fit get their own SMILES in every variant slot.
     """
 
-    input_views: ClassVar[tuple[str, ...]] = (TOKENS_BLOCK,)
     source_views: ClassVar[tuple[str, ...]] = ("canonical_smiles",)
 
     def __init__(self, *, padding_length: int = 512, n_variants: int = 20, augment: bool = True) -> None:

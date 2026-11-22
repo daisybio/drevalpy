@@ -63,17 +63,14 @@ class BpePharmaformerDrugFeaturizer(Featurizer):
     and applied to encode any SMILES during transform.
     """
 
-    input_views: ClassVar[tuple[str, ...]] = ("bpe_smiles",)
     source_views: ClassVar[tuple[str, ...]] = ("canonical_smiles",)
 
-    def __init__(self, *, view: str = "bpe_smiles", num_symbols: int = 10000, max_length: int = 128) -> None:
+    def __init__(self, *, num_symbols: int = 10000, max_length: int = 128) -> None:
         """Configure the BPE vocabulary and encoded sequence length.
 
-        :param view: Name of the view the encoded tokens are published under.
         :param num_symbols: Number of BPE merge operations (vocabulary size).
         :param max_length: Maximum encoded sequence length.
         """
-        self._view = view
         self._num_symbols = int(num_symbols)
         self._max_length = int(max_length)
         self._bpe: Any = None

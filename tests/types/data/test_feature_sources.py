@@ -12,7 +12,8 @@ import pytest
 
 from drevalpy.errors import InvalidInputError
 from drevalpy.types.data.dataset import Dataset
-from drevalpy.types.data.feature_source import FeatureSource, Side, precomputed_views
+from drevalpy.types.data.dataset._anndata import precomputed_views
+from drevalpy.types.data.feature_source import FeatureSource, Side
 from drevalpy.types.data.views import PRECOMPUTED_VIEWS_KEY
 from tests.synthetic import BPE_LENGTH, CHEMBERTA_DIM, FINGERPRINT_BITS, N_GENES, N_PATHWAYS
 

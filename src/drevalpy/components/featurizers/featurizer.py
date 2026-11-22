@@ -3,7 +3,7 @@
 A featurizer turns the views of one entity side into a
 :class:`~drevalpy.types.data.feature_block.FeaturizerOutput`. What it
 declares on the class body is read without instantiating it: the views it
-reads (``input_views``, empty for a featurizer that needs only entity IDs), the
+reads (``input_views``, empty for a featurizer that needs only entity IDs or computes from the SMILES), the
 raw views it computes from when a view is absent (``source_views``) and, through
 :meth:`Featurizer.output_blocks` and :meth:`Featurizer.views`, the blocks it emits and the views it reads for a config.
 
@@ -38,7 +38,7 @@ class Featurizer(TunableComponent, ABC):
     name: ClassVar[str]
     #: The entity side the featurizer reads, set by the registry.
     side: ClassVar[Side]
-    #: Views the featurizer reads; empty when it needs only entity IDs.
+    #: Views the featurizer reads; empty when it needs only entity IDs or computes only from the SMILES.
     input_views: ClassVar[tuple[str, ...]] = ()
     #: Raw views the featurizer computes its input from when an input view is absent.
     source_views: ClassVar[tuple[str, ...]] = ()
