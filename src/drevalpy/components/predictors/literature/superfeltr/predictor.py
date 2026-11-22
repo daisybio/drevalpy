@@ -148,7 +148,7 @@ class SuperFELTRPredictor(SingleDrugOmicsPredictor):
         )
 
     def _fit_module(self, model: pl.LightningModule, data: PredictorInput) -> pl.callbacks.ModelCheckpoint:
-        """Fit one encoder or the regressor on the CPU with early stopping.
+        """Fit one encoder or the regressor at this predictor's accelerator level, with early stopping.
 
         :param model: Encoder or regressor to fit.
         :param data: Training batch carrying all three omic views and optional early-stopping pairs.
@@ -158,4 +158,6 @@ class SuperFELTRPredictor(SingleDrugOmicsPredictor):
         epochs, mini_batch = self._hyperparameters["epochs"], self._hyperparameters["mini_batch"]
         if not isinstance(epochs, int) or not isinstance(mini_batch, int):
             raise ValueError("epochs and mini_batch must be integers!")
-        return fit_omics_model(model, data, batch_size=mini_batch, epochs=epochs, patience=5)
+        return fit_omics_model(
+            model, data, batch_size=mini_batch, epochs=epochs, patience=5, accelerator=self.accelerator
+        )

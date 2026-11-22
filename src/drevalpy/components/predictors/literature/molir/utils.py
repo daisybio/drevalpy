@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from drevalpy.types.data.predictor_input import PredictorInput
+    from drevalpy.types.enums import Accelerator
 
 
 def generate_triplets_indices(
@@ -240,7 +241,7 @@ class MOLIModel(LossSteps, OmicsRegressionModule):
         self.cna_encoder = MOLIEncoder(input_dim_cnv, self.h_dim3, self.dropout_rate)
         self.regressor = MOLIRegressor(self.h_dim1 + self.h_dim2 + self.h_dim3, self.dropout_rate)
 
-    def fit(self, data: PredictorInput, patience: int = 5) -> None:
+    def fit(self, data: PredictorInput, accelerator: Accelerator, patience: int = 5) -> None:
         """Train the MOLIR model.
 
         First, the ranges for the triplet loss are determined using the standard deviation of the training responses.
@@ -248,6 +249,7 @@ class MOLIModel(LossSteps, OmicsRegressionModule):
         with an early stopping callback.
 
         :param data: Training batch carrying all three omic views and optional early-stopping pairs.
+        :param accelerator: The registered accelerator level of the MOLIR predictor.
         :param patience: For early stopping.
         """
         std = float(np.std(np.asarray(data.response, dtype=np.float32)))
@@ -260,6 +262,7 @@ class MOLIModel(LossSteps, OmicsRegressionModule):
             batch_size=self.mini_batch,
             epochs=self.epochs,
             patience=patience,
+            accelerator=accelerator,
             save_weights_only=True,
             enable_model_summary=False,
         )

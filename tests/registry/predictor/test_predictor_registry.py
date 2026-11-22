@@ -94,31 +94,13 @@ def test_single_drug_predictors_declare_only_their_scope(base: type) -> None:
     assert cls.scope is ModelScope.SINGLE_DRUG
 
 
-@pytest.mark.parametrize("level", [Accelerator.OPTIONAL, "required"])
-def test_a_single_drug_predictor_cannot_declare_an_accelerator(level: Accelerator | str) -> None:
-    cls = type("SingleDrugPred", (_ConcreteBlock,), {"scope": ModelScope.SINGLE_DRUG})
+@pytest.mark.parametrize("scope", [ModelScope.SINGLE_DRUG, ModelScope.MULTI_DRUG])
+def test_a_predictor_of_either_scope_may_declare_an_accelerator(scope: ModelScope) -> None:
+    cls = type("GpuPred", (_ConcreteBlock,), {"scope": scope})
 
-    with pytest.raises(ValueError, match="'singleDrugPred' fits one model per drug.*CPU only"):
-        register_predictor("singleDrugPred", description="x", accelerator=level)(cls)
+    registered = register_predictor("gpuPred", description="x", accelerator=Accelerator.OPTIONAL)(cls)
 
-    assert "singleDrugPred" not in predictor_registry
-
-
-def test_a_single_drug_predictor_declares_the_cpu_only_level() -> None:
-    cls = type("SingleDrugPred", (_ConcreteBlock,), {"scope": ModelScope.SINGLE_DRUG})
-
-    registered = register_predictor("singleDrugPred", description="x", accelerator=Accelerator.NONE)(cls)
-
-    assert registered.accelerator is Accelerator.NONE
-
-
-def test_a_multi_drug_predictor_may_declare_an_accelerator() -> None:
-    cls = _register("gpuPred", type("GpuPred", (_ConcreteBlock,), {}))
-    registered = register_predictor("gpuPred2", description="x", accelerator=Accelerator.OPTIONAL)(
-        type("GpuPred2", (_ConcreteBlock,), {})
-    )
-
-    assert (cls.accelerator, registered.accelerator) == (Accelerator.NONE, Accelerator.OPTIONAL)
+    assert registered.accelerator is Accelerator.OPTIONAL
 
 
 def test_registered_predictor_scope_defaults_to_multi_drug() -> None:

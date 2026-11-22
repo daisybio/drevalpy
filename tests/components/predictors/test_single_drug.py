@@ -289,7 +289,7 @@ def test_pickle_round_trips_every_per_drug_estimator() -> None:
     assert restored._hyperparameters["alpha"] == pytest.approx(0.1)
 
 
-def test_every_registered_single_drug_predictor_runs_on_the_cpu() -> None:
+def test_the_built_in_single_drug_predictors_run_on_the_cpu() -> None:
     single_drug = {
         name: cls.accelerator
         for name, cls in ((name, predictor_registry.get(name)) for name in predictor_registry.names())

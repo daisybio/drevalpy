@@ -67,7 +67,7 @@ class MOLIRPredictor(SingleDrugOmicsPredictor):
         model = self._build_model(widths)
 
         if len(data) >= self._hyperparameters["mini_batch"]:
-            model.fit(data)
+            model.fit(data, self.accelerator)
 
         return model
 

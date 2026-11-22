@@ -10,15 +10,14 @@ ID, and predicts NaN for the pairs of a drug it has no model for.
 A drug's input keeps only the sample and drug rows its pairs and early-stopping pairs use, so
 what is sent to a worker grows with the drug's pairs rather than with the whole entity table.
 
-A single-drug predictor runs on the CPU. Many drugs are fitted in parallel (tens of worker
-processes on a cluster, against a few GPUs), and each fit is short, so moving every small fit to
-an accelerator costs more than it saves. The rule has two halves that cannot disagree: registering a
-single-drug predictor with any accelerator level but ``NONE`` raises (``registry.predictor``), so
-``drevalpy describe`` reports ``none`` for it, and the torch fits of this package read that level
-(:attr:`SingleDrugPredictor.accelerator`) when they ask for a device, which stays the CPU for
-``NONE`` (:func:`drevalpy._utils.accelerator.select_device`). The rule covers the per-drug fits only:
-a featurizer runs once for all drugs, so a model that pairs a single-drug predictor with an
-accelerator featurizer still reports that featurizer's level.
+The built-in single-drug predictors run on the CPU. Many drugs are fitted in parallel (tens of
+worker processes on a cluster, against a few GPUs), and each of their fits is short, so moving
+every small fit to an accelerator costs more than it saves. They are registered without an
+``accelerator=`` level, so ``drevalpy describe`` reports ``none``, and their torch fits ask for a
+device at that registered level, which stays the CPU for ``NONE``
+(:func:`drevalpy._utils.accelerator.select_device`). A plugin whose per-drug fit gains from an
+accelerator, such as a tabular foundation model, registers with ``accelerator="optional"`` or
+``"required"`` and picks its device itself.
 """
 
 from __future__ import annotations
