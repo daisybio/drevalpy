@@ -20,6 +20,7 @@ from tests.models.synthetic_fixtures import (
     synthetic_model_dataset_gene_expression_fingerprints,
     synthetic_model_dataset_identity,
 )
+from tests.synthetic.variants import small_hyperparameters
 
 
 @pytest.mark.parametrize("name", list_zoo_names(include_external=False))
@@ -58,7 +59,8 @@ _SKLEARN_PRESETS = (
 def test_direct_component_round_trip(preset: str, naive: bool, tmp_path) -> None:
     dataset = synthetic_model_dataset_identity() if naive else synthetic_model_dataset_gene_expression_fingerprints()
     fold = lso_fold()
-    model = DRPModel(ModelSpec.from_name(preset) if naive else small_data_spec(preset))
+    spec = ModelSpec.from_name(preset) if naive else small_data_spec(preset)
+    model = DRPModel(spec, small_hyperparameters(preset), check_values=False)
     model.train(dataset, fold.train)
     preds = model.predict(dataset, fold.test)
     assert preds.shape[0] > 0
@@ -196,17 +198,6 @@ def test_custom_recipe_spec_has_matching_checkpoint_round_trip(tmp_path) -> None
     assert loaded.name == "PcaIdentityRF"
 
 
-_SMALL_HYPERPARAMETERS = {
-    "DIPK": {"epochs": 1, "epochs_autoencoder": 1, "heads": 1},
-    "SimpleNeuralNetwork": {"units_per_layer": [2, 2], "max_epochs": 1},
-    "MultiViewNeuralNetwork": {"units_per_layer": [2, 2], "max_epochs": 1},
-    "PharmaFormer": {"epochs": 1, "patience": 2},
-    "Precily": {"epochs": 1, "batch_size": 32},
-    "SparseGO": {"epochs": 1, "batch_size": 32},
-    "SingleDrugMorgoth": {"n_estimators": 2, "mrmr_k": 2},
-}
-
-
 @pytest.mark.parametrize(
     "model_name",
     [
@@ -225,26 +216,21 @@ _SMALL_HYPERPARAMETERS = {
 )
 def test_literature_models_build_with_defaults(model_name: str) -> None:
     spec = ModelSpec.from_name(model_name)
-    DRPModel(spec, _SMALL_HYPERPARAMETERS.get(model_name, {}), check_values=False)
+    DRPModel(spec, small_hyperparameters(model_name), check_values=False)
 
 
 @pytest.mark.parametrize(
-    ("model_name", "hyperparameters", "extra_views"),
+    ("model_name", "extra_views"),
     [
-        ("SimpleNeuralNetwork", {"units_per_layer": [2, 2], "max_epochs": 1}, ()),
-        ("SRMF", {"K": 2, "max_iter": 2}, ()),
-        ("MultiViewNeuralNetwork", {"units_per_layer": [2, 2], "max_epochs": 1}, ("mutations",)),
+        ("SimpleNeuralNetwork", ()),
+        ("SRMF", ()),
+        pytest.param("MultiViewNeuralNetwork", ("mutations",), marks=pytest.mark.slow),
     ],
 )
-def test_literature_model_lifecycle(
-    model_name: str,
-    hyperparameters: dict,
-    extra_views: tuple[str, ...],
-    tmp_path,
-) -> None:
+def test_literature_model_lifecycle(model_name: str, extra_views: tuple[str, ...], tmp_path) -> None:
     dataset = synthetic_model_dataset(n_features_per_view=4, fingerprint_width=4, extra_views=extra_views)
     fold = lso_fold()
-    model = DRPModel(small_data_spec(model_name), hyperparameters, check_values=False)
+    model = DRPModel(small_data_spec(model_name), small_hyperparameters(model_name), check_values=False)
     model.train(dataset, fold.train)
     preds = model.predict(dataset, fold.test)
     assert preds.shape[0] > 0

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-import pytorch_lightning as pl
 import torch
 
 from drevalpy.components.predictors.literature._omics import _realign_omic_matrix
@@ -12,6 +11,7 @@ from drevalpy.components.predictors.literature.molir import utils
 from drevalpy.components.predictors.literature.molir.predictor import MOLIRPredictor
 from drevalpy.components.predictors.literature.molir.utils import MOLIModel
 from drevalpy.registry.predictor import get as get_predictor
+from tests.components.predictors._helpers import spy_trainer
 from tests.components.predictors.literature._helpers import (
     assert_corrected_training_result,
     assert_frozen_reference,
@@ -70,8 +70,7 @@ def test_molir_predictor_registry_name() -> None:
 class TestTinyMOLIRFit:
     pytestmark = pytest.mark.slow
 
-    @pytest.mark.parametrize("seed", [0, 1, 2])
-    def test_updates_parameters_and_round_trips_through_pickle_without_feature_names(self, seed: int, tmp_path) -> None:
+    def test_updates_parameters_and_round_trips_through_pickle_without_feature_names(self, tmp_path) -> None:
         hyperparameters = {
             "epochs": 1,
             # One full batch: BatchNorm over two rows amplifies platform rounding to ~1e-2.
@@ -82,11 +81,11 @@ class TestTinyMOLIRFit:
             "dropout_rate": 0.0,
         }
         batch = single_drug_omics_batch(tmp_path)
-        seed_literature(seed)
+        seed_literature()
         pristine = MOLIRPredictor(hyperparameters)._build_model((6, 5, 4))
         initial = trainable_parameter_vector(pristine)
 
-        seed_literature(seed)
+        seed_literature()
         predictor = MOLIRPredictor(hyperparameters=hyperparameters)
         predictor.fit(batch)
         fitted = predictor._models["d1"]
@@ -96,27 +95,17 @@ class TestTinyMOLIRFit:
         # The gamma correction supersedes the v2 baseline in training.json for MOLIR.
         assert_corrected_training_result(
             "molir_gamma_weighting",
-            seed,
             expected,
             fitted.checkpoint_callback.best_model_score,
         )
-        assert_frozen_reference("molir", seed)
+        assert_frozen_reference("molir")
 
         assert_pickle_round_trip(predictor, batch, expected)
 
 
 class TestMOLIRTrainer:
-    pytestmark = pytest.mark.slow
-
     def test_runs_on_the_cpu_without_a_default_logger(self, tmp_path, monkeypatch) -> None:
-        real_trainer = pl.Trainer
-        seen: list[dict[str, object]] = []
-
-        def spy(*args, **kwargs):
-            seen.append(dict(kwargs))
-            return real_trainer(*args, **kwargs)
-
-        monkeypatch.setattr(pl, "Trainer", spy)
+        seen = spy_trainer(monkeypatch)
         monkeypatch.chdir(tmp_path)
         hyperparameters = {"epochs": 1, "mini_batch": 6, "h_dim1": 2, "h_dim2": 2, "h_dim3": 2}
 

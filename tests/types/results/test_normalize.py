@@ -9,17 +9,9 @@ from drevalpy.evaluation import Metric
 from drevalpy.evaluation._scoring import run_per_group_score
 from drevalpy.types.results._normalize import normalize_run, reference_summary
 from drevalpy.types.results.experiment import ExperimentResult
-from drevalpy.types.results.run import TrialResult, _intern_ids
+from drevalpy.types.results.run import _intern_ids
 from tests.synthetic import REFERENCE_MODEL, make_experiment_result, make_run_result
-
-
-def _trial(n: int = 4) -> TrialResult:
-    return TrialResult(
-        hyperparameters={"alpha": 0.1},
-        metrics={"MSE": 0.3},
-        optimization_metric="MSE",
-        predictions=np.zeros(n),
-    )
+from tests.synthetic.results import make_trial_result
 
 
 def _normalized_run(reference, other):
@@ -121,7 +113,7 @@ class TestNormalize:
 
     def test_carries_trials_over(self) -> None:
         other = make_run_result(model_name="ElasticNet", n_pairs=4)
-        other.trials = [_trial()]
+        other.trials = [make_trial_result()]
 
         run = _normalized_run(make_run_result(model_name=REFERENCE_MODEL, n_pairs=4), other)
 

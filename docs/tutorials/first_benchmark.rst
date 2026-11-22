@@ -94,9 +94,9 @@ An experiment evaluates the models over all folds of one split mode. You use lea
 in Python) changes the number.
 
 ``ElasticNet`` has hyperparameters, so DrEvalPy tunes them on a validation part of each
-training set before the final fit. ``--hpo-trials 8`` tries 8 configurations per fold; the
+training set before the final fit. ``--hpo-trials 4`` tries 4 configurations per fold; the
 default is 16. Keep tuning on for ``ElasticNet``: with its default hyperparameters it already
-learns, but tuning lowers its RMSE over all pairs from 0.778 to 0.746 on this dataset.
+learns, but tuning lowers its RMSE over all pairs from 0.778 to 0.743 on this dataset.
 
 .. tab-set::
    :sync-group: interface
@@ -107,7 +107,7 @@ learns, but tuning lowers its RMSE over all pairs from 0.778 to 0.746 on this da
       .. code-block:: bash
 
          drevalpy run NaiveDrugMeanPredictor NaiveMeanEffectsPredictor ElasticNet \
-             --dataset toy.h5mu --split-mode LPO --hpo-trials 8 --group-by drug
+             --dataset toy.h5mu --split-mode LPO --hpo-trials 4 --group-by drug
 
       Tuning logs one line per trial and fold while it runs. The command ends with this
       output:
@@ -122,12 +122,12 @@ learns, but tuning lowers its RMSE over all pairs from 0.778 to 0.746 on this da
              Models: 3
                  NaiveDrugMeanPredictor (5 folds): MSE=0.7908, RMSE=0.8880, MAE=0.7195, R^2=0.7031, Pearson=0.8415, Spearman=0.8440, Kendall=0.6882
                  NaiveMeanEffectsPredictor (5 folds): MSE=0.8399, RMSE=0.9144, MAE=0.7218, R^2=0.6851, Pearson=0.8298, Spearman=0.8409, Kendall=0.6466
-                 ElasticNet (5 folds): MSE=0.5569, RMSE=0.7458, MAE=0.5860, R^2=0.7908, Pearson=0.8926, Spearman=0.8970, Kendall=0.7189
+                 ElasticNet (5 folds): MSE=0.5524, RMSE=0.7428, MAE=0.5827, R^2=0.7925, Pearson=0.8927, Spearman=0.8974, Kendall=0.7195
          Metrics computed within each drug, averaged over drugs and folds (number of drugs scored in brackets):
          Model                      MSE        RMSE       MAE        R^2         Pearson    Spearman   Kendall
          NaiveDrugMeanPredictor     0.789 (8)  0.866 (8)  0.720 (8)  -0.124 (8)  0.000 (8)  0.000 (8)  0.000 (8)
          NaiveMeanEffectsPredictor  0.852 (8)  0.895 (8)  0.731 (8)  -0.583 (8)  0.386 (8)  0.372 (8)  0.277 (8)
-         ElasticNet                 0.564 (8)  0.727 (8)  0.593 (8)  -0.018 (8)  0.520 (8)  0.480 (8)  0.359 (8)
+         ElasticNet                 0.558 (8)  0.723 (8)  0.588 (8)  -0.013 (8)  0.518 (8)  0.483 (8)  0.366 (8)
 
       The results are in the ``results`` directory, one subdirectory per model; see
       :doc:`/reference/results`.
@@ -141,7 +141,7 @@ learns, but tuning lowers its RMSE over all pairs from 0.778 to 0.746 on this da
 
          names = ["NaiveDrugMeanPredictor", "NaiveMeanEffectsPredictor", "ElasticNet"]
          models = [ModelSpec.from_name(name) for name in names]
-         results = drevalpy.run(models, dataset, "LPO", hpo_num_trials=8)
+         results = drevalpy.run(models, dataset, "LPO", hpo_num_trials=4)
          print(results)
 
       Tuning logs one line per trial and fold while it runs. The ``print`` shows:
@@ -155,7 +155,7 @@ learns, but tuning lowers its RMSE over all pairs from 0.778 to 0.746 on this da
              Models: 3
                  NaiveDrugMeanPredictor (5 folds): MSE=0.7908, RMSE=0.8880, MAE=0.7195, R^2=0.7031, Pearson=0.8415, Spearman=0.8440, Kendall=0.6882
                  NaiveMeanEffectsPredictor (5 folds): MSE=0.8399, RMSE=0.9144, MAE=0.7218, R^2=0.6851, Pearson=0.8298, Spearman=0.8409, Kendall=0.6466
-                 ElasticNet (5 folds): MSE=0.5569, RMSE=0.7458, MAE=0.5860, R^2=0.7908, Pearson=0.8926, Spearman=0.8970, Kendall=0.7189
+                 ElasticNet (5 folds): MSE=0.5524, RMSE=0.7428, MAE=0.5827, R^2=0.7925, Pearson=0.8927, Spearman=0.8974, Kendall=0.7195
 
       ``results`` is an ``ExperimentResult``; ``results.save("results")`` writes it to a
       directory, as the CLI does.
@@ -211,7 +211,7 @@ compute each metric within each drug and average over the drugs and folds.
                                     Pearson  Spearman   RMSE    R^2
          NaiveDrugMeanPredictor       0.000     0.000  0.866 -0.124
          NaiveMeanEffectsPredictor    0.386     0.372  0.895 -0.583
-         ElasticNet                   0.520     0.480  0.727 -0.018
+         ElasticNet                   0.518     0.483  0.723 -0.013
 
       ``summary_group_counts(group_by="drug")`` gives the number of drugs behind each cell.
 
@@ -222,7 +222,7 @@ Model                     Pearson (all pairs)         Pearson (within drug)
 ========================= =========================== ======================
 NaiveDrugMeanPredictor    0.842                       0.000
 NaiveMeanEffectsPredictor 0.830                       0.386
-ElasticNet                0.893                       0.520
+ElasticNet                0.893                       0.518
 ========================= =========================== ======================
 
 ``NaiveDrugMeanPredictor`` predicts one value per drug. Within a drug its predictions are

@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import functools
 import importlib.metadata
 import inspect
 import itertools
 import sys
 import types
+from dataclasses import replace
 from typing import ClassVar
 
 import numpy as np
@@ -15,11 +17,13 @@ import pytest
 from drevalpy.components.contracts.feature_format import BlockSpec, FeatureFormat
 from drevalpy.components.featurizers.featurizer import Featurizer
 from drevalpy.components.predictors.abstract.matrix import MatrixPredictor
-from drevalpy.components.predictors.inputs import Inputs
-from drevalpy.data._synthetic import synthetic as build_synthetic_dataset
+from drevalpy.components.predictors.inputs import Inputs, predictor_inputs
+from drevalpy.data import synthetic
+from drevalpy.models.config.featurizer import requires_explicit_view
 from drevalpy.plugin import Predictor
 from drevalpy.registry import predictor
-from drevalpy.registry.featurizer import featurizer_registry, get_featurizer, register
+from drevalpy.registry._builtins import builtin_names
+from drevalpy.registry.featurizer import featurizer_registries, featurizer_registry, get_featurizer, register
 from drevalpy.testing import plugins as plugins_module
 from drevalpy.testing.conformance import (
     FEATURIZER_CHECKS,
@@ -34,16 +38,19 @@ from drevalpy.testing.conformance import (
     check_predictor_single_drug_routing,
     feature_source_for,
 )
-from drevalpy.testing.inputs import build_synthetic_input
+from drevalpy.testing.inputs import N_DRUG_FEATURES, build_synthetic_input
 from drevalpy.testing.plugins import (
     ENTRY_POINT_GROUP,
     PluginCheckError,
     PluginReport,
     check_plugin,
 )
+from drevalpy.types.data.dataset import Dataset
 from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
 from drevalpy.types.data.feature_source import FeatureSource, Side
+from drevalpy.types.data.predictor_input import PredictorInput
 from drevalpy.types.enums import ModelScope
+from tests.synthetic.variants import predictor_small_hyperparameters
 
 BLOCK = "probe"
 
@@ -212,27 +219,22 @@ class GlobalMeanForUnseenDrugsPredictor(PerDrugMeanPredictor):
 
 
 @pytest.fixture(scope="module")
-def dataset():
-    return build_synthetic_dataset()
+def batch(synthetic_dataset):
+    return build_synthetic_input(synthetic_dataset)
 
 
-@pytest.fixture(scope="module")
-def batch(dataset):
-    return build_synthetic_input(dataset)
-
-
-def test_feature_source_for_matches_the_featurizer_side(dataset):
-    sample_source = feature_source_for(GoodFeaturizer, dataset)
+def test_feature_source_for_matches_the_featurizer_side(synthetic_dataset):
+    sample_source = feature_source_for(GoodFeaturizer, synthetic_dataset)
     assert isinstance(sample_source, FeatureSource)
     assert sample_source.side == "sample"
-    source = feature_source_for(GoodDrugFeaturizer, dataset)
+    source = feature_source_for(GoodDrugFeaturizer, synthetic_dataset)
     assert source.side == "drug"
 
 
 @pytest.mark.parametrize("check", FEATURIZER_CHECKS)
 @pytest.mark.parametrize("cls", [GoodFeaturizer, GoodDrugFeaturizer])
-def test_a_conforming_featurizer_passes_every_check(check, cls, dataset):
-    check(cls, dataset)
+def test_a_conforming_featurizer_passes_every_check(check, cls, synthetic_dataset):
+    check(cls, synthetic_dataset)
 
 
 @pytest.mark.parametrize("check", PREDICTOR_CHECKS)
@@ -241,6 +243,7 @@ def test_a_conforming_predictor_passes_every_check(check, batch):
 
 
 @pytest.mark.parametrize("check", PREDICTOR_CHECKS)
+@pytest.mark.slow
 def test_a_conforming_single_drug_predictor_passes_every_check_on_the_default_batch(check):
     check(PerDrugMeanPredictor)
 
@@ -256,9 +259,10 @@ def test_single_drug_routing_needs_two_drugs(batch):
         check_predictor_single_drug_routing(PerDrugMeanPredictor, one_drug)
 
 
-def test_checks_default_to_synthetic_data_forward_kwargs_and_return_instances(dataset):
+@pytest.mark.slow
+def test_checks_default_to_synthetic_data_forward_kwargs_and_return_instances(synthetic_dataset):
     check_featurizer_fit_transform(GoodFeaturizer)
-    check_featurizer_fit_transform(GoodFeaturizer, dataset, n_features=7)
+    check_featurizer_fit_transform(GoodFeaturizer, synthetic_dataset, n_features=7)
     check_predictor_fit_predict(GoodPredictor)
     assert isinstance(check_featurizer_instantiates(GoodFeaturizer), GoodFeaturizer)
     assert isinstance(check_predictor_instantiates(GoodPredictor), GoodPredictor)
@@ -276,9 +280,9 @@ def test_checks_default_to_synthetic_data_forward_kwargs_and_return_instances(da
         (check_featurizer_pickle_round_trip, UnpicklableFeaturizer, ConformanceError, "could not be pickled"),
     ],
 )
-def test_featurizer_defects_are_rejected(check, cls, error, match, dataset):
+def test_featurizer_defects_are_rejected(check, cls, error, match, synthetic_dataset):
     with pytest.raises(error, match=match):
-        check(cls, dataset)
+        check(cls, synthetic_dataset)
 
 
 @pytest.mark.parametrize(
@@ -315,16 +319,159 @@ def test_check_tuples_name_every_check_with_two_positional_arguments():
         assert kinds.count(inspect.Parameter.POSITIONAL_OR_KEYWORD) == 2
 
 
-@pytest.mark.parametrize("check", FEATURIZER_CHECKS)
-@pytest.mark.parametrize("name", ["oneHot", "tissue"])
-def test_builtin_sample_featurizers_conform(check, name, dataset):
-    check(get_featurizer(name, "sample"), dataset)
+#: Built-in featurizers the conformance run leaves out, by ``(side, name)``, each with the reason.
+_FEATURIZERS_NOT_CHECKED = {
+    ("sample", "aeGeneExpression"): "trains on an early-stopping holdout, which the featurizer checks do not pass",
+    ("sample", "dipkGeneExpression"): "trains on an early-stopping holdout, which the featurizer checks do not pass",
+    ("sample", "bionic"): "downloads the PPI features from the artifacts bucket",
+    ("drug", "drugGraph"): "its graph blocks hold objects that compare by identity, so the pickle check always differs",
+    ("drug", "molgnet"): "downloads the MolGNet checkpoint from the artifacts bucket",
+    ("drug", "molgnetPooled"): "downloads the MolGNet checkpoint from the artifacts bucket",
+    ("drug", "smilesvec"): "downloads pretrained weights from the artifacts bucket",
+}
 
 
-@pytest.mark.parametrize("check", PREDICTOR_CHECKS)
-@pytest.mark.parametrize("name", ["ridge", "elasticNet", "knn"])
-def test_builtin_predictors_conform(check, name, batch):
-    check(predictor.get(name), batch)
+def _featurizer_kwargs(side: str, name: str) -> dict[str, object]:
+    """Return the constructor arguments *name* needs to be built at all; the other featurizers take none."""
+    if name == "concatFeaturizers":
+        return {"featurizers": [{"name": "constant"}]}
+    return {"view": "gene_expression"} if requires_explicit_view(name, Side(side)) else {}
+
+
+_BUILTIN_FEATURIZERS = [
+    (side, name)
+    for side, registry in featurizer_registries.items()
+    for name in builtin_names(registry)
+    if (side, name) not in _FEATURIZERS_NOT_CHECKED
+]
+
+#: Featurizers whose checks take 0.2s or more: they read a shipped gene list, fit a model or pickle a large block.
+_SLOW_FEATURIZERS = frozenset(
+    {
+        ("sample", "landmarkGenes"),
+        ("sample", "pathways"),
+        ("sample", "pca"),
+        ("sample", "superfeltrOmics"),
+        ("sample", "pharmaFormerGeneExpression"),
+        ("sample", "molirOmics"),
+        ("sample", "sparsegoOntology"),
+    }
+)
+
+
+def _conformance_params(components, checks, *, slow, trivial):
+    """Pair every check with every component, marking slow the checks that do real work on a slow component.
+
+    :param components: Component names, or ``(side, name)`` pairs for featurizers.
+    :param checks: The conformance checks to run on each.
+    :param slow: Components whose checks take 0.2s or more.
+    :param trivial: ``trivial(check, component)`` is whether that check returns at once, so it carries no mark.
+    :yields: One parameter set per component and check, as ``(check, *component)``.
+    """
+    for component in components:
+        arguments = component if isinstance(component, tuple) else (component,)
+        for check in checks:
+            marks = [pytest.mark.slow] if component in slow and not trivial(check, component) else []
+            yield pytest.param(check, *arguments, id="-".join((*arguments, check.__name__)), marks=marks)
+
+
+@pytest.mark.parametrize(
+    ("check", "side", "name"),
+    _conformance_params(
+        _BUILTIN_FEATURIZERS,
+        FEATURIZER_CHECKS,
+        slow=_SLOW_FEATURIZERS,
+        trivial=lambda check, _: check is check_featurizer_instantiates,
+    ),
+)
+def test_builtin_featurizers_conform(check, side, name, synthetic_dataset):
+    check(get_featurizer(name, side), synthetic_dataset, **_featurizer_kwargs(side, name))
+
+
+#: Built-in predictors the conformance run leaves out, each with the reason: they read blocks that
+#: only their own featurizers can produce, and the synthetic input draws plain matrices.
+_PREDICTORS_NOT_CHECKED = {
+    "dipk": "reads ragged MolGNet node embeddings and gene-expression autoencoder features",
+    "drugGNN": "reads molecular graphs",
+    "paccMann": "needs the vocabulary metadata that the smilesTokens featurizer attaches to its blocks",
+    "sparsego": "needs the ontology metadata that the sparsegoOntology featurizer attaches to its block",
+}
+
+#: Drug feature widths the predictors need where the synthetic default of the input builder is too narrow.
+_DRUG_FEATURE_WIDTHS = {"pharmaFormer": 128}
+
+_BUILTIN_PREDICTORS = [
+    name for name in builtin_names(predictor.predictor_registry) if name not in _PREDICTORS_NOT_CHECKED
+]
+
+
+@functools.cache
+def _library_dataset() -> Dataset:
+    """Return ``drevalpy.synthetic()``, the dataset the checks default to: enough pairs per drug to fit a forest."""
+    return synthetic()
+
+
+def _predictor_input(cls: type[Predictor], name: str) -> PredictorInput:
+    """Build the input *cls* reads: blocks named as it declares them, a holdout where it needs one."""
+    block_names = {
+        side: tuple((spec[0] if isinstance(spec, tuple) else spec).name for spec in predictor_inputs(cls, side).specs)
+        for side in Side
+    }
+    drug_free = predictor_inputs(cls, Side.DRUG).kind == "none"
+    data = build_synthetic_input(
+        _library_dataset(),
+        sample_block_names=block_names[Side.SAMPLE],
+        drug_block_names=block_names[Side.DRUG],
+        n_drug_features=None if drug_free else _DRUG_FEATURE_WIDTHS.get(name, N_DRUG_FEATURES),
+        response_layers=cls.response_layers,
+    )
+    return replace(data, early_stopping=data.pairs[::4]) if cls.requires_early_stopping else data
+
+
+def _returns_at_once(check, name: str) -> bool:
+    """Whether the predictor check returns at once: construction, or routing on a predictor that is not single-drug."""
+    return check is check_predictor_instantiates or (
+        check is check_predictor_single_drug_routing and predictor.get(name).scope is not ModelScope.SINGLE_DRUG
+    )
+
+
+#: Predictors whose checks take 0.2s or more: they train a network, a forest or a boosted model.
+_SLOW_PREDICTORS = frozenset(
+    {
+        "ensembleMF",
+        "gradientBoosting",
+        "molir",
+        "neuralNetwork",
+        "pharmaFormer",
+        "precily",
+        "randomForest",
+        "singleDrugKnn",
+        "singleDrugMorgoth",
+        "singleDrugRandomForest",
+        "superfeltr",
+        "xgboost",
+    }
+)
+
+
+@pytest.mark.parametrize(
+    ("check", "name"),
+    _conformance_params(
+        _BUILTIN_PREDICTORS,
+        PREDICTOR_CHECKS,
+        slow=_SLOW_PREDICTORS,
+        trivial=_returns_at_once,
+    ),
+)
+def test_builtin_predictors_conform(check, name):
+    cls = predictor.get(name)
+    check(cls, _predictor_input(cls, name), hyperparameters=predictor_small_hyperparameters(name))
+
+
+def test_the_checks_leave_out_only_registered_components():
+    assert set(_PREDICTORS_NOT_CHECKED) <= set(builtin_names(predictor.predictor_registry))
+    for side, name in _FEATURIZERS_NOT_CHECKED:
+        assert name in builtin_names(featurizer_registries[side])
 
 
 PLUGIN_NAME = "fake_plugin"

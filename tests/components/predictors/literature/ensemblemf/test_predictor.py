@@ -66,6 +66,7 @@ def test_registry_name_and_published_defaults() -> None:
     assert defaults["use_drug_id_embedding"] is True
 
 
+@pytest.mark.slow
 def test_fit_predict_one_value_per_pair_and_averages_the_members(tmp_path) -> None:
     predictor = EnsembleMFPredictor(TINY)
     predictor.fit(_batch(tmp_path))
@@ -93,6 +94,7 @@ def test_fit_predict_one_value_per_pair_and_averages_the_members(tmp_path) -> No
     np.testing.assert_allclose(prediction, np.mean(members, axis=0), rtol=1e-6)
 
 
+@pytest.mark.slow
 def test_members_use_consecutive_seeds_and_fit_is_reproducible_without_touching_global_rng(tmp_path) -> None:
     different = EnsembleMFPredictor({**TINY, "seed": 7, "max_epochs": 1})
     different.fit(_batch(tmp_path))
@@ -110,6 +112,7 @@ def test_members_use_consecutive_seeds_and_fit_is_reproducible_without_touching_
     np.testing.assert_array_equal(first.predict(query), second.predict(query))
 
 
+@pytest.mark.slow
 def test_without_an_early_stopping_set_a_seeded_tenth_is_held_out(tmp_path) -> None:
     first, second = EnsembleMFPredictor(TINY), EnsembleMFPredictor(TINY)
     first.fit(_batch(tmp_path, early_stopping=False))
@@ -127,6 +130,7 @@ def test_the_fallback_split_needs_two_pairs(tmp_path) -> None:
         EnsembleMFPredictor(TINY).fit(batch)
 
 
+@pytest.mark.slow
 def test_only_drugs_seen_in_training_get_an_id_embedding(tmp_path) -> None:
     predictor = EnsembleMFPredictor({**TINY, "n_ensemble": 1})
     predictor.fit(_batch(tmp_path))
@@ -144,6 +148,7 @@ def test_only_drugs_seen_in_training_get_an_id_embedding(tmp_path) -> None:
     torch.testing.assert_close(unseen[1], net.drug_id_emb.weight[1])
 
 
+@pytest.mark.slow
 def test_embedding_can_be_switched_off(tmp_path) -> None:
     predictor = EnsembleMFPredictor({**TINY, "use_drug_id_embedding": False, "use_mlp_head": False})
     predictor.fit(_batch(tmp_path))
@@ -152,6 +157,7 @@ def test_embedding_can_be_switched_off(tmp_path) -> None:
     assert np.isfinite(predictor.predict(_query(["s0"], ["d2"]))).all()
 
 
+@pytest.mark.slow
 def test_pickle_round_trips_the_predictions(tmp_path) -> None:
     predictor = EnsembleMFPredictor(TINY)
     predictor.fit(_batch(tmp_path))

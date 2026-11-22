@@ -45,6 +45,33 @@ def test_molir_omics_selects_expression_and_round_trips_through_pickle() -> None
     assert gene_expression.name == "gene_expression"
 
 
+def test_molir_omics_transforms_no_samples_into_empty_blocks_of_the_fitted_width() -> None:
+    features = MockFeatureSource(
+        {
+            f"cl{i}": {
+                "gene_expression": np.array([i, i * 2, 1], dtype=np.float32),
+                "mutations": np.array([i, 1], dtype=np.float32),
+                "copy_number_variation_gistic": np.array([2, i], dtype=np.float32),
+            }
+            for i in range(3)
+        },
+        meta_info={
+            "gene_expression": ["a", "b", "c"],
+            "mutations": ["m1", "m2"],
+            "copy_number_variation_gistic": ["c1", "c2"],
+        },
+    )
+    featurizer = MOLIROmicsFeaturizer(n_gene_expression_features=2).fit(features, np.array(["cl0", "cl1"]))
+
+    blocks = featurizer.transform(features, np.array([], dtype=str)).blocks
+
+    assert {name: block.values.shape for name, block in blocks.items()} == {
+        "gene_expression": (0, 2),
+        "mutations": (0, 2),
+        "copy_number_variation_gistic": (0, 2),
+    }
+
+
 def test_molir_omics_unfitted_and_without_metadata() -> None:
     with pytest.raises(RuntimeError, match="must be fit before transform"):
         MOLIROmicsFeaturizer().transform(MockFeatureSource({}), np.array(["cl0"]))

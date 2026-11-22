@@ -17,12 +17,16 @@ jobs:
         name: Check out source-code repository
 
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          cache-suffix: docs
+          prune-cache: true
 
+      # CPU torch and no NCCL, as in run_tests.yml.
       - name: Install dependencies
-        run: uv sync --group docs
+        run: uv sync --locked --extra cpu --group docs --no-install-package nvidia-nccl-cu12
 
       - name: Build docs
-        run: uv run sphinx-build -W -b html docs docs/_build/html
+        run: uv run --no-sync sphinx-build -W -b html docs docs/_build/html
 
       - name: Deploy
         if: ${{ github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main' }}

@@ -15,7 +15,7 @@ from drevalpy.types.results._identity import RunIdentity
 from drevalpy.types.results.experiment import ExperimentResult
 from drevalpy.types.results.failure import RunFailure
 from drevalpy.types.results.model import ModelResult
-from drevalpy.types.results.run import RunResult
+from drevalpy.types.results.run import RunResult, TrialResult
 
 #: ``normalize()`` uses this name as its default reference model.
 REFERENCE_MODEL: Final = "NaiveMeanEffectsPredictor"
@@ -25,6 +25,14 @@ DEFAULT_MODEL_NAMES: Final = (REFERENCE_MODEL, "ElasticNet", "RandomForest")
 
 DEFAULT_DATASET_NAME: Final = "SyntheticDataset"
 DEFAULT_SPLIT_MODE: Final = "LPO"
+
+#: The shape ``make_experiment_result()`` builds: models, folds per model, pairs per fold, and the distinct
+#: samples and drugs the pair ids cycle through.
+DEFAULT_N_MODELS: Final = len(DEFAULT_MODEL_NAMES)
+DEFAULT_N_FOLDS: Final = 3
+DEFAULT_N_PAIRS: Final = 20
+DEFAULT_N_SAMPLES: Final = 5
+DEFAULT_N_DRUGS: Final = 4
 
 
 def make_metrics(*, seed: int = 0) -> dict[str, float]:
@@ -40,9 +48,9 @@ def make_run_result(
     fold_index: int = 0,
     fold_id: str | None = None,
     split_mode: str = DEFAULT_SPLIT_MODE,
-    n_pairs: int = 20,
-    n_samples: int = 5,
-    n_drugs: int = 4,
+    n_pairs: int = DEFAULT_N_PAIRS,
+    n_samples: int = DEFAULT_N_SAMPLES,
+    n_drugs: int = DEFAULT_N_DRUGS,
     metrics: dict[str, float] | None = None,
     best_hyperparameters: dict[str, Any] | None = None,
     fold_metadata: dict[str, Any] | None = None,
@@ -78,6 +86,16 @@ def make_run_result(
     )
 
 
+def make_trial_result(n_pairs: int = 4) -> TrialResult:
+    """Build one hyperparameter trial whose predictions are *n_pairs* zeros."""
+    return TrialResult(
+        hyperparameters={"alpha": 0.1},
+        metrics={"MSE": 0.3},
+        optimization_metric="MSE",
+        predictions=np.zeros(n_pairs),
+    )
+
+
 def make_run_failure(
     model_name: str = "ElasticNet",
     fold_index: int = 0,
@@ -102,9 +120,9 @@ def make_model_result(
     *,
     model_name: str = "ElasticNet",
     dataset_name: str = DEFAULT_DATASET_NAME,
-    n_folds: int = 3,
+    n_folds: int = DEFAULT_N_FOLDS,
     split_mode: str = DEFAULT_SPLIT_MODE,
-    n_pairs: int = 20,
+    n_pairs: int = DEFAULT_N_PAIRS,
 ) -> ModelResult:
     """Build one model's ``n_folds`` runs."""
     return ModelResult(
@@ -125,12 +143,12 @@ def make_model_result(
 
 def make_experiment_result(
     *,
-    n_models: int = 3,
-    n_folds: int = 3,
+    n_models: int = DEFAULT_N_MODELS,
+    n_folds: int = DEFAULT_N_FOLDS,
     model_names: tuple[str, ...] | None = None,
     dataset_name: str = DEFAULT_DATASET_NAME,
     split_mode: str = DEFAULT_SPLIT_MODE,
-    n_pairs: int = 20,
+    n_pairs: int = DEFAULT_N_PAIRS,
     with_randomization: bool = False,
     with_robustness: bool = False,
 ) -> ExperimentResult:

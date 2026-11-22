@@ -18,8 +18,7 @@ from drevalpy.components.predictors._lightning_training import (
 )
 from drevalpy.experiment._tracking import tracking_run
 from tests._fake_wandb import install_fake_wandb
-
-pytestmark = pytest.mark.slow
+from tests.components.predictors._helpers import spy_trainer
 
 N_PAIRS = 4
 FEATURE_DIM = 2
@@ -124,20 +123,9 @@ def test_save_weights_only_produces_a_checkpoint_without_optimizer_state(tmp_pat
     assert "optimizer_states" not in payload
 
 
-def _spy_trainer(monkeypatch) -> list[dict[str, object]]:
-    seen: list[dict[str, object]] = []
-    real_trainer = pl.Trainer
-
-    def spy(*args, **kwargs):
-        seen.append(dict(kwargs))
-        return real_trainer(*args, **kwargs)
-
-    monkeypatch.setattr(pl, "Trainer", spy)
-    return seen
-
-
+@pytest.mark.slow
 def test_trainer_settings_follow_the_run(tmp_path, monkeypatch) -> None:
-    seen = _spy_trainer(monkeypatch)
+    seen = spy_trainer(monkeypatch)
     train_loader, val_loader = _loaders(with_validation=True)
     run = _run(tmp_path, devices=1, precision=32, log_every_n_steps=1, logger=False, patience=7)
 
@@ -157,7 +145,7 @@ def test_trainer_settings_follow_the_run(tmp_path, monkeypatch) -> None:
 
 
 def test_without_checkpointing_no_callback_is_attached_and_none_is_returned(tmp_path, monkeypatch) -> None:
-    seen = _spy_trainer(monkeypatch)
+    seen = spy_trainer(monkeypatch)
     train_loader, val_loader = _loaders(with_validation=True)
 
     checkpoint = run_lightning_fit(_TinyModule(), train_loader, val_loader, _run(tmp_path, checkpoint=False))

@@ -160,6 +160,13 @@ def test_concat_accepts_pre_built_featurizer_instances() -> None:
     assert _run(featurizer, _sample_features(), _IDS).matrix.shape == (2, 4)
 
 
+def test_concat_declares_no_blocks_or_views_of_its_own() -> None:
+    config = {"featurizers": _raw_configs()}
+
+    assert ConcatFeaturizer.output_blocks(config) == ()
+    assert ConcatFeaturizer.views(config) == ()
+
+
 def test_concat_requires_early_stopping_when_a_child_does() -> None:
     child = type("OneHotFeaturizer", (OneHotFeaturizer,), {"requires_early_stopping": True})()
     featurizer = ConcatFeaturizer(featurizers=[child])

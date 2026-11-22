@@ -110,6 +110,7 @@ def test_validation_mse_is_infinite_without_validation_pairs() -> None:
     assert validation_mse(_net(), empty) == float("inf")
 
 
+@pytest.mark.slow
 def test_training_restores_the_best_validation_weights() -> None:
     data = _data()
     net = _net()
@@ -120,6 +121,7 @@ def test_training_restores_the_best_validation_weights() -> None:
     assert validation_mse(net, data) < before
 
 
+@pytest.mark.slow
 def test_training_is_reproducible_under_a_fixed_seed() -> None:
     data = _data()
     results = []
@@ -133,6 +135,7 @@ def test_training_is_reproducible_under_a_fixed_seed() -> None:
     np.testing.assert_array_equal(results[0], results[1])
 
 
+@pytest.mark.slow
 def test_training_stops_when_patience_runs_out_and_restores_the_best_state() -> None:
     data = _data()
     net = _net()
@@ -144,6 +147,7 @@ def test_training_stops_when_patience_runs_out_and_restores_the_best_state() -> 
         torch.testing.assert_close(value, initial[key])
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize("use_embedding", [True, False])
 def test_training_runs_with_and_without_the_id_embedding(use_embedding: bool) -> None:
     torch.manual_seed(0)

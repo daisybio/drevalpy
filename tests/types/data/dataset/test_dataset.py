@@ -18,25 +18,24 @@ from tests.synthetic import (
     N_DRUGS,
     N_SAMPLES,
     OMICS_MODALITIES,
-    build_synthetic_dataset,
 )
 
 
 @pytest.fixture(scope="module")
-def h5mu_path(tmp_path_factory: pytest.TempPathFactory) -> UPath:
-    path = UPath(tmp_path_factory.mktemp("dataset")) / "synthetic.h5mu"
-    build_synthetic_dataset().save(path)
-    return path
+def dataset(h5mu_path: UPath) -> Dataset:
+    """The synthetic dataset read back from disk, shared by the tests that only read it."""
+    return Dataset.load(h5mu_path)
 
 
 @pytest.fixture()
-def dataset(h5mu_path: UPath) -> Dataset:
+def mutable_dataset(h5mu_path: UPath) -> Dataset:
+    """A fresh read-back copy for a test that writes to its dataset."""
     return Dataset.load(h5mu_path)
 
 
 class TestRoundTrip:
-    def test_identity_and_structure_survive(self, dataset: Dataset):
-        assert dataset.name == build_synthetic_dataset().name
+    def test_identity_and_structure_survive(self, dataset: Dataset, synthetic_dataset: Dataset):
+        assert dataset.name == synthetic_dataset.name
         assert set(dataset.mdata.mod) == {"response", *OMICS_MODALITIES}
         assert CNV_MODALITY == "copy_number_variation"
         assert "Samples:" in repr(dataset)
@@ -48,13 +47,17 @@ class TestRoundTrip:
         assert len(ids) == n
         assert ids.dtype.kind in ("U", "O")
 
+    def test_an_unrandomized_dataset_reads_back_without_a_label(self, dataset: Dataset):
+        assert dataset.randomization is None
+        assert dataset.randomization_provenance is None
+
 
 class TestRandomizationRoundTrip:
     pytestmark = pytest.mark.slow
 
-    def test_label_and_provenance_survive(self, tmp_path):
+    def test_label_and_provenance_survive(self, synthetic_dataset: Dataset, tmp_path):
         provenance = {"root_seed": 42, "effective_seed": 3, "type": "permutation", "views": ["gene_expression"]}
-        randomized = build_synthetic_dataset().with_randomized_views(
+        randomized = synthetic_dataset.with_randomized_views(
             ["gene_expression"], random_state=3, randomization=("SVRC", "gene_expression")
         )
         randomized.randomization_provenance = dict(provenance)
@@ -68,22 +71,20 @@ class TestRandomizationRoundTrip:
         assert reloaded_provenance is not None
         assert isinstance(reloaded_provenance["views"], list)
 
-    def test_an_unrandomized_dataset_reads_back_without_a_label(self, dataset: Dataset):
-        assert dataset.randomization is None
-        assert dataset.randomization_provenance is None
-
 
 class TestIdentity:
-    def test_name_and_randomization_are_read_from_uns(self, dataset: Dataset):
-        dataset.randomization = ("SVRC", "gene_expression")
+    pytestmark = pytest.mark.slow
 
-        assert dataset.name == dataset.mdata.uns["dataset_name"]
-        assert list(dataset.mdata.uns["randomization"]) == ["SVRC", "gene_expression"]
-        assert "SVRC (gene_expression)" in repr(dataset)
+    def test_name_and_randomization_are_read_from_uns(self, mutable_dataset: Dataset):
+        mutable_dataset.randomization = ("SVRC", "gene_expression")
 
-        dataset.randomization = None
+        assert mutable_dataset.name == mutable_dataset.mdata.uns["dataset_name"]
+        assert list(mutable_dataset.mdata.uns["randomization"]) == ["SVRC", "gene_expression"]
+        assert "SVRC (gene_expression)" in repr(mutable_dataset)
 
-        assert "randomization" not in dataset.mdata.uns
+        mutable_dataset.randomization = None
+
+        assert "randomization" not in mutable_dataset.mdata.uns
 
     def test_save_creates_the_parent_directory_and_leaves_the_dataset_untouched(self, dataset: Dataset, tmp_path):
         keys_before = set(dataset.mdata.uns)
@@ -122,12 +123,14 @@ class TestMetadata:
 
 
 class TestReplicateFitsRoundTrip:
-    def test_the_table_and_its_dtypes_survive_save_and_load(self, dataset: Dataset, tmp_path: UPath):
-        table = fits_table(list(dataset.sample_ids), list(dataset.drug_ids), extra="cell_batch")
-        dataset.response.uns[KEY] = table
+    pytestmark = pytest.mark.slow
+
+    def test_the_table_and_its_dtypes_survive_save_and_load(self, mutable_dataset: Dataset, tmp_path: UPath):
+        table = fits_table(list(mutable_dataset.sample_ids), list(mutable_dataset.drug_ids), extra="cell_batch")
+        mutable_dataset.response.uns[KEY] = table
         path = UPath(tmp_path) / "with_fits.h5mu"
 
-        dataset.save(path)
+        mutable_dataset.save(path)
         loaded = Dataset.load(path).response.uns[KEY]
 
         pd.testing.assert_frame_equal(loaded, table, check_index_type=False)

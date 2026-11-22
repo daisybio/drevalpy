@@ -27,6 +27,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          cache-suffix: network
+          prune-cache: true
 
       # The bucket refuses anonymous reads (403), so without credentials every
       # one of these tests fails for a reason that has nothing to do with the
@@ -44,6 +47,11 @@ jobs:
             echo "::notice title=Network tests skipped::AWS_ACCESS_KEY_ID is not configured, so the artifacts bucket is unreachable. Add the AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY secrets to enable the network tests."
           fi
 
+      # CPU torch and no NCCL, as in run_tests.yml.
+      - name: Install dependencies
+        if: steps.creds.outputs.available == 'true'
+        run: uv sync --locked --extra cpu --no-install-package nvidia-nccl-cu12
+
       - name: Run network tests
         if: steps.creds.outputs.available == 'true'
         env:
@@ -56,4 +64,4 @@ jobs:
         # The explicit `-m network` replaces the `addopts` marker expression
         # rather than adding to it, so this selects exactly the network tests.
         # No coverage: run_tests.yml owns the coverage floor.
-        run: uv run pytest -m "network and not golden"
+        run: uv run --no-sync pytest -m "network and not golden"

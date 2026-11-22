@@ -11,6 +11,7 @@ from drevalpy.data.splitters.builtins import leave_pair_out
 from drevalpy.registry.splitter import register as register_splitter
 from drevalpy.types import Fold
 from tests._barrel_surface import DeclaredSurface
+from tests.data.splitters._helpers import covered_pairs
 
 EAGER_ORIGINS: dict[str, str] = {
     "load": "drevalpy.data.datasets",
@@ -58,13 +59,6 @@ def low_quality_dataset() -> data.Dataset:
     return data.synthetic(low_quality_fraction=0.3)
 
 
-def _covered(folds: list) -> np.ndarray:
-    covered = np.zeros(folds[0].train.shape, dtype=bool)
-    for fold in folds:
-        covered |= fold.train.mask | fold.test.mask | fold.val.mask
-    return covered
-
-
 class TestSplitQuality:
     def test_the_default_rule_is_the_one_used_without_an_argument(self, low_quality_dataset: data.Dataset) -> None:
         implicit = data.split(low_quality_dataset, "LPO", n_splits=2)
@@ -80,7 +74,7 @@ class TestSplitQuality:
         measured = np.isfinite(low_quality_dataset.response_matrix)
         assert (measured & ~passes).any()
 
-        covered = _covered(data.split(low_quality_dataset, mode, n_splits=2))
+        covered = covered_pairs(data.split(low_quality_dataset, mode, n_splits=2))
 
         assert not (covered & ~passes).any()
 
@@ -88,9 +82,9 @@ class TestSplitQuality:
         self, low_quality_dataset: data.Dataset
     ) -> None:
         median = float(np.nanmedian(low_quality_dataset.response_matrix))
-        default = _covered(data.split(low_quality_dataset, "LPO", n_splits=2))
-        off = _covered(data.split(low_quality_dataset, "LPO", n_splits=2, quality=data.CurveQuality.off()))
-        strict = _covered(
+        default = covered_pairs(data.split(low_quality_dataset, "LPO", n_splits=2))
+        off = covered_pairs(data.split(low_quality_dataset, "LPO", n_splits=2, quality=data.CurveQuality.off()))
+        strict = covered_pairs(
             data.split(low_quality_dataset, "LPO", n_splits=2, quality=data.CurveQuality(min_pec50=median))
         )
 
@@ -152,5 +146,5 @@ class TestSplitQuality:
         folds = data.split(low_quality_dataset, "P3_IGNORES", n_splits=2)
 
         failed = ~data.CurveQuality.default().mask(low_quality_dataset)
-        assert _covered(folds)[failed].any()
+        assert covered_pairs(folds)[failed].any()
         assert folds[0].metadata["quality"] == data.CurveQuality.default().to_metadata()

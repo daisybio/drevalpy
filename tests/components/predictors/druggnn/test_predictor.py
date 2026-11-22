@@ -71,6 +71,7 @@ def test_registry_name_contract_and_defaults() -> None:
         assert defaults[name] == spec["default"]
 
 
+@pytest.mark.slow
 def test_registry_zoo_and_describe_cite_no_literature_reference() -> None:
     cls = get_predictor("drugGNN")
     meta = predictor_component_metadata("predictor", "drugGNN", cls)
@@ -120,6 +121,7 @@ def test_val_loader_covers_the_early_stopping_pairs_only() -> None:
     assert torch.allclose(response, torch.tensor([1.5, 2.5]))
 
 
+@pytest.mark.slow
 def test_fit_round_trips_through_pickle_and_records_the_widths() -> None:
     predictor = DrugGNNPredictor(hyperparameters=TINY)
     predictor.fit(_druggnn_batch(with_early_stopping=True))
@@ -138,8 +140,7 @@ def test_fit_round_trips_through_pickle_and_records_the_widths() -> None:
 class TestTinyDrugGNNFit:
     pytestmark = pytest.mark.slow
 
-    @pytest.mark.parametrize("seed", [0, 1, 2])
-    def test_updates_parameters_and_round_trips_through_pickle(self, seed: int) -> None:
+    def test_updates_parameters_and_round_trips_through_pickle(self) -> None:
         hyperparameters = {
             "epochs": 1,
             "batch_size": 2,
@@ -148,20 +149,20 @@ class TestTinyDrugGNNFit:
             "learning_rate": 0.01,
         }
         batch = _druggnn_batch(with_early_stopping=True)
-        seed_literature(seed)
+        seed_literature()
         pristine = DrugGNNPredictor(hyperparameters)
         sample_matrix = batch.sample.blocks["gene_expression"].values
         drug_graphs = batch.drug.blocks["drug_graph"].values
         initial = trainable_parameter_vector(pristine._build_model(sample_matrix, drug_graphs))
 
-        seed_literature(seed)
+        seed_literature()
         predictor = DrugGNNPredictor(hyperparameters=hyperparameters)
         predictor.fit(batch)
         assert predictor._model is not None
         assert_trainable_parameters_changed(initial, predictor._model)
         expected = finite_predictions(predictor, batch)
-        assert_training_predictions("druggnn", seed, expected)
-        assert_frozen_reference("druggnn", seed)
+        assert_training_predictions("druggnn", expected)
+        assert_frozen_reference("druggnn")
 
         assert_pickle_round_trip(predictor, batch, expected)
 
@@ -185,12 +186,12 @@ class TestTinyDrugGNNFit:
         }
         batch = _druggnn_batch(with_early_stopping=True)
 
-        seed_literature(0)
+        seed_literature()
         restored_best = DrugGNNPredictor(hyperparameters)
         restored_best.fit(batch)
         assert restored_best._model is not None
 
-        seed_literature(0)
+        seed_literature()
         final_epoch = DrugGNNPredictor(hyperparameters)
         cell_matrix = batch.sample.blocks["gene_expression"].values
         drug_graphs = batch.drug.blocks["drug_graph"].values

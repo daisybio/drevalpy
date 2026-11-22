@@ -10,6 +10,8 @@ from drevalpy.components.featurizers.featurizer import CONCAT
 from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.models.config import FeaturizerConfig, ModelConfig, PredictorConfig, validate
 from drevalpy.registry.featurizer import featurizer_registry
+from drevalpy.registry.predictor import get as get_predictor
+from drevalpy.types.enums import ModelScope, PredictionMode
 from tests.models.config._stubs import (
     register_block_predictor_stub,
     register_dense_trio,
@@ -162,6 +164,58 @@ def test_block_alternatives_need_one_of_them() -> None:
             predictor=PredictorConfig(name="blockPred"),
         )
     )
+
+
+def test_block_alternatives_fail_when_none_of_them_is_emitted() -> None:
+    register_featurizer_stub("cellBlocks", side="sample", output_block_specs=_numeric("methylation"))
+    register_featurizer_stub("denseDrug", side="drug")
+    alternatives = (*_numeric("gene_expression"), *_numeric("tissue"))
+    register_block_predictor_stub("blockPred").sample_inputs = Inputs.blocks(alternatives)
+
+    with pytest.raises(
+        (ValueError, ValidationError),
+        match=r"blockPred.*needs one of the sample blocks \[gene_expression, tissue\].*emits \[methylation\]",
+    ):
+        _dense_model_config(
+            sample_featurizer=FeaturizerConfig(name="cellBlocks", side="sample"),
+            predictor=PredictorConfig(name="blockPred"),
+        )
+
+
+@pytest.mark.parametrize(
+    ("supported", "accepted"),
+    [
+        (frozenset({PredictionMode.REGRESSION}), False),
+        (frozenset({PredictionMode.REGRESSION, PredictionMode.CLASSIFICATION}), True),
+    ],
+    ids=["regression-only", "both-modes"],
+)
+def test_the_prediction_mode_must_be_one_the_predictor_supports(supported, accepted) -> None:
+    register_dense_trio()
+    get_predictor("densePred").supported_modes = supported
+    mode = PredictionMode.CLASSIFICATION
+
+    if accepted:
+        assert _dense_model_config(prediction_mode=mode).prediction_mode is mode
+    else:
+        with pytest.raises(
+            (ValueError, ValidationError),
+            match=r"Predictor 'densePred' does not support prediction_mode=.*CLASSIFICATION.*supported_modes=.*REGR",
+        ):
+            _dense_model_config(prediction_mode=mode)
+
+
+def test_a_single_drug_predictor_may_read_drug_features_but_need_not_be_given_a_featurizer_for_them() -> None:
+    register_featurizer_stub("denseSample", side="sample", output_format=FeatureFormat.NUMERIC_MATRIX)
+    stub = register_matrix_predictor_stub("perDrug")
+    stub.scope = ModelScope.SINGLE_DRUG
+    sample_only = {"sample_featurizer": FeaturizerConfig(name="denseSample", side="sample", view="gene_expression")}
+
+    validate(ModelConfig(drug_featurizer=None, predictor=PredictorConfig(name="perDrug"), **sample_only))
+
+    stub.scope = ModelScope.MULTI_DRUG
+    with pytest.raises((ValueError, ValidationError), match="Predictor 'perDrug' requires a drug_featurizer"):
+        ModelConfig(drug_featurizer=None, predictor=PredictorConfig(name="perDrug"), **sample_only)
 
 
 def test_none_inputs_forbid_a_featurizer() -> None:

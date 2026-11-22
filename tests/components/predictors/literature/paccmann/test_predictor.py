@@ -23,7 +23,7 @@ from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
 from drevalpy.types.data.predictor_input import PredictorInput
 from drevalpy.types.data.response_table import ResponseTable
 from tests.components.predictors._helpers import pickle_round_trip
-from tests.components.predictors.literature._helpers import entity_pair_batch
+from tests.components.predictors.literature._helpers import entity_pair_batch, seed_literature
 
 TINY = {
     "epochs": 3,
@@ -90,7 +90,10 @@ def test_registry_name_and_published_defaults() -> None:
     assert all(is_fixed(spec) for spec in PaccMannPredictor.get_hyperparameter_space().values())
 
 
+@pytest.mark.slow
 def test_fit_predict_reads_the_plain_tokens_not_the_variants(tmp_path) -> None:
+    # Unseeded, some torch RNG states leave the tiny network dead and its output constant.
+    seed_literature()
     predictor = PaccMannPredictor(TINY)
     predictor.fit(_batch(tmp_path))
     query = _query(["s0", "v0", "s3"], ["d0", "d1", "d2"])
@@ -111,6 +114,7 @@ def test_fit_predict_reads_the_plain_tokens_not_the_variants(tmp_path) -> None:
     assert not np.array_equal(predictor.predict(query), expected)
 
 
+@pytest.mark.slow
 def test_early_stopping_restores_the_best_epoch_and_the_budget_runs_without_a_stopping_set(tmp_path) -> None:
     stopped = PaccMannPredictor({**TINY, "epochs": 4, "patience": 1})
     stopped.fit(_batch(tmp_path))
@@ -122,6 +126,7 @@ def test_early_stopping_restores_the_best_epoch_and_the_budget_runs_without_a_st
     assert np.isfinite(full.predict(_query(["s0"], ["d2"]))).all()
 
 
+@pytest.mark.slow
 def test_a_trailing_batch_of_one_is_dropped_only_when_it_is_not_the_only_batch(tmp_path) -> None:
     predictor = PaccMannPredictor({**TINY, "batch_size": 4})
     predictor.fit(_batch(tmp_path, n_pairs=5))
@@ -155,6 +160,7 @@ def test_each_row_draws_one_of_the_drug_variants(tmp_path) -> None:
     assert variants.shape[1] == VARIANTS * PADDING
 
 
+@pytest.mark.slow
 def test_pickle_round_trips_the_predictions(tmp_path) -> None:
     predictor = PaccMannPredictor(TINY)
     predictor.fit(_batch(tmp_path))

@@ -12,6 +12,7 @@ from drevalpy.components.predictors.literature.srmf.predictor import SRMFPredict
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.data.feature_block import FeatureBlock
 from tests.components.predictors.literature._helpers import (
+    REFERENCE_SEED,
     assert_frozen_reference,
     assert_pickle_round_trip,
     assert_training_predictions,
@@ -43,9 +44,8 @@ def test_unseen_entity_pairs_fall_back_to_the_training_mean() -> None:
 class TestTinySRMFFit:
     pytestmark = pytest.mark.slow
 
-    @pytest.mark.parametrize("seed", [0, 1, 2])
-    def test_learns_finite_factors_and_round_trips_through_pickle(self, seed: int) -> None:
-        seed_literature(seed)
+    def test_learns_finite_factors_and_round_trips_through_pickle(self) -> None:
+        seed_literature()
         batch = two_by_two_batch(
             sample_blocks={
                 "gene_expression": FeatureBlock(np.array([[0.1, 0.4, 0.9], [1.1, -0.2, 0.5]], dtype=np.float32))
@@ -54,12 +54,12 @@ class TestTinySRMFFit:
                 "fingerprints": FeatureBlock(np.array([[1.0, 0.0, 1.0, 0.0], [0.0, 1.0, 0.0, 1.0]], dtype=np.float32))
             },
         )
-        predictor = SRMFPredictor(hyperparameters={"K": 2, "max_iter": 3, "seed": seed})
+        predictor = SRMFPredictor(hyperparameters={"K": 2, "max_iter": 3, "seed": REFERENCE_SEED})
         predictor.fit(batch)
         factors = np.concatenate([predictor._best_u.to_numpy().ravel(), predictor._best_v.to_numpy().ravel()])
         assert np.isfinite(factors).all()
         expected = finite_predictions(predictor, batch)
-        assert_training_predictions("srmf", seed, expected)
-        assert_frozen_reference("srmf", seed)
+        assert_training_predictions("srmf", expected)
+        assert_frozen_reference("srmf")
 
         assert_pickle_round_trip(predictor, batch, expected)

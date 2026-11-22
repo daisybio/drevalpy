@@ -98,14 +98,8 @@ Install the MORGOTH extra
 -------------------------
 
 ``SingleDrugMorgoth`` needs the ``morgoth`` package, which comes with the ``morgoth`` extra.
-Without it, training the model raises an ``ImportError`` that names the extra. From source, add
-it next to a PyTorch extra:
-
-.. snippet: skip
-
-.. code-block:: bash
-
-   uv sync --extra cpu --extra morgoth
+Without it, training the model raises an ``ImportError`` that names the extra. A source checkout
+needs no extra: ``uv sync`` installs ``morgoth`` with the ``dev`` dependency group.
 
 On Linux, ``morgoth`` requires ``fireducks``, which pins pyarrow 21 and pandas below 2.4 and has
 wheels only for x86_64 Linux and arm64 macOS. DrEvalPy does not need it: uv leaves it out, through

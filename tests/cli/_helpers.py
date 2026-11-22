@@ -8,7 +8,7 @@ from __future__ import annotations
 import importlib
 import re
 from collections.abc import Callable
-from typing import Any, ClassVar
+from typing import Any, ClassVar, TypeVar
 
 import pytest
 import typer
@@ -16,6 +16,8 @@ from typer.testing import CliRunner
 from upath import UPath
 
 _ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;]*m")
+
+_Worker = TypeVar("_Worker", bound=Callable[..., Any])
 
 HELP_ENV = {"COLUMNS": "200", "NO_COLOR": "1", "TERM": "dumb"}
 
@@ -33,6 +35,13 @@ def plain(text: str) -> str:
 def patch_worker(monkeypatch: pytest.MonkeyPatch, module_name: str, attribute: str, value: Any) -> None:
     """Replace ``attribute`` on the private worker module ``module_name`` (resolved by import, not dotted string)."""
     monkeypatch.setattr(importlib.import_module(module_name), attribute, value)
+
+
+def patch_loader(monkeypatch: pytest.MonkeyPatch, worker: _Worker) -> _Worker:
+    """Replace ``drevalpy.data.load`` at its definition and at its re-export with *worker*; return *worker*."""
+    patch_worker(monkeypatch, "drevalpy.data.datasets._load", "load", worker)
+    patch_worker(monkeypatch, "drevalpy.data", "load", worker)
+    return worker
 
 
 class FakeMuData:

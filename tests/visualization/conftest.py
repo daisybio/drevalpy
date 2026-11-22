@@ -1,4 +1,4 @@
-"""Fixtures shared by the plot tests."""
+"""Fixtures shared by the visualization tests."""
 
 from __future__ import annotations
 

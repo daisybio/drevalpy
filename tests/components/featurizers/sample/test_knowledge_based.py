@@ -129,6 +129,34 @@ def test_bionic_compute_aggregates_per_sample_and_needs_feature_names(
         BionicSampleFeaturizer().compute(nameless, np.array(["cl1"], dtype=str))
 
 
+def test_load_ppi_data_reads_the_features_gene_names_and_selection_from_the_artifacts(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    import drevalpy.components.featurizers.sample.bionic as bionic_module
+
+    files = {
+        "human_ppi_features.tsv": "gene\tf0\tf1\nTP53\t0.5\t1.5\nEGFR\t2\t3\n",
+        "gene_list_sel.txt": "TP53\n\n  KRAS  \nEGFR\n",
+    }
+    for name, content in files.items():
+        (tmp_path / name).write_text(content, encoding="utf-8")
+    requested: list[str] = []
+
+    def get_artifact(name: str) -> Path:
+        requested.append(name)
+        return tmp_path / name
+
+    monkeypatch.setattr(bionic_module, "get_artifact", get_artifact)
+
+    ppi_features, ppi_gene_names, gene_list_sel = bionic_module._load_ppi_data()
+
+    assert sorted(requested) == sorted(files)
+    assert ppi_features.dtype == np.float64
+    np.testing.assert_array_equal(ppi_features, [[0.5, 1.5], [2.0, 3.0]])
+    assert ppi_gene_names == ["TP53", "EGFR"]
+    assert gene_list_sel == {"TP53", "KRAS", "EGFR"}
+
+
 @pytest.mark.network
 def test_load_ppi_data_returns_features_gene_names_and_selection() -> None:
     from drevalpy.components.featurizers.sample.bionic import _load_ppi_data
@@ -225,6 +253,30 @@ def test_run_gsva_removes_its_temporary_gmt_file_when_gsva_fails(
 
     assert len(seen) == 1
     assert not seen[0].exists()
+
+
+def test_run_gsva_scores_a_sample_gsva_dropped_as_zeros_and_orders_columns_by_the_schema(
+    synthetic_dataset: Dataset, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import gseapy
+    import pandas as pd
+
+    ids = synthetic_dataset.sample_ids[:3]
+    scored = pd.DataFrame(
+        {
+            "Name": [ids[0], ids[0], ids[2], ids[2]],
+            "Term": ["P_B", "P_A", "P_B", "P_A"],
+            "ES": [0.25, 0.5, -0.75, -1.0],
+        }
+    )
+    monkeypatch.setattr(gseapy, "gsva", lambda **_kwargs: type("Result", (), {"res2d": scored})())
+    featurizer = PathwaysSampleFeaturizer()
+    featurizer._pathway_names = ("P_B", "P_A")
+
+    scores = featurizer._run_gsva(_sample_source(synthetic_dataset), ids)
+
+    np.testing.assert_array_equal(scores, [[0.25, 0.5], [0.0, 0.0], [-0.75, -1.0]])
+    assert scores.dtype == np.float32
 
 
 class TestGSVAIntegration:
@@ -398,6 +450,15 @@ def test_ontology_order_controls_values_and_names_and_missing_genes_fail() -> No
     source._meta_info["gene_expression"] = ["a", "unrelated"]
     with pytest.raises(ValueError, match="missing ontology genes"):
         SparseGOOntologyFeaturizer().fit(source, _CL1).transform(source, _CL1)
+
+
+def test_ontology_needs_named_input_features() -> None:
+    source = _with_ontology()
+    featurizer = SparseGOOntologyFeaturizer().fit(source, _CL1)
+    del source._meta_info["gene_expression"]
+
+    with pytest.raises(ValueError, match="SparseGO requires named input features"):
+        featurizer.transform(source, _CL1)
 
 
 def _metadata() -> dict[str, Any]:

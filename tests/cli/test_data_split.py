@@ -10,7 +10,7 @@ from drevalpy.cli.main import app
 from drevalpy.data.quality import CurveQuality
 from drevalpy.types import Fold, SelectionMask
 from drevalpy.types.data.dataset import Dataset
-from tests.cli._helpers import FakeDataset, Recorder, make_runner, patch_worker, plain
+from tests.cli._helpers import FakeDataset, Recorder, make_runner, patch_loader, patch_worker, plain
 
 runner = make_runner()
 
@@ -34,11 +34,7 @@ def _make_fold(fold_index: int) -> Fold:
 
 @pytest.fixture()
 def loader(monkeypatch: pytest.MonkeyPatch) -> Recorder:
-
-    recorder = Recorder(return_value=FakeDataset())
-    patch_worker(monkeypatch, "drevalpy.data.datasets._load", "load", recorder)
-    patch_worker(monkeypatch, "drevalpy.data", "load", recorder)
-    return recorder
+    return patch_loader(monkeypatch, Recorder(return_value=FakeDataset()))
 
 
 @pytest.fixture()

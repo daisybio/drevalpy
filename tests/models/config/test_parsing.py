@@ -322,6 +322,11 @@ def test_normalizing_needs_a_side_and_keeps_a_matching_one() -> None:
             ValueError,
             "featurizers must be a list when set",
         ),
+        (
+            {"not a recipe[": {"a": 1}},
+            ValueError,
+            "write {'name': 'not a recipe[', 'options': {'a': 1}}",
+        ),
         (123, TypeError, "recipe string or a mapping with 'name'"),
     ],
     ids=[
@@ -335,6 +340,7 @@ def test_normalizing_needs_a_side_and_keeps_a_matching_one() -> None:
         "defaults-not-a-mapping",
         "tunable-option",
         "children-not-a-list",
+        "one-key-that-is-not-a-recipe",
         "not-a-config",
     ],
 )

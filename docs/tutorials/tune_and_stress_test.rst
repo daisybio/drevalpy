@@ -9,7 +9,7 @@ randomization test and a robustness test, and read both. Along the way you see w
 all pairs is the wrong place to look.
 
 You need the skills of :doc:`first_benchmark`. The dataset is simulated, so everything runs offline.
-The experiment takes about 20 seconds.
+The experiment takes about 10 seconds: it uses 2 folds instead of the default 5.
 
 Create a dataset
 ----------------
@@ -54,8 +54,9 @@ Three options turn a plain experiment into a tuned, stress-tested one:
    A robustness test. Each fold is repeated twice more, with a new seed for the pair order and for
    the model's own randomness. The spread of the repeats shows how much the score depends on chance.
 
-All three belong to the experiment, so it trains ``ElasticNet`` on 5 folds × 3 splits (the
-original and two repeats) × 2 datasets (the original and the permuted one) = 30 times.
+All three belong to the experiment, so it trains ``ElasticNet`` on 2 folds × 3 splits (the
+original and two repeats) × 2 datasets (the original and the permuted one) = 12 times. ``--n-splits 2``
+(``n_splits=2``) keeps that short; the default is 5 folds.
 
 .. tab-set::
    :sync-group: interface
@@ -66,7 +67,7 @@ original and two repeats) × 2 datasets (the original and the permuted one) = 30
       .. code-block:: bash
 
          drevalpy run NaiveMeanEffectsPredictor ElasticNet \
-             --dataset toy.h5mu --split-mode LPO --hpo-trials 4 \
+             --dataset toy.h5mu --split-mode LPO --n-splits 2 --hpo-trials 4 \
              --randomization-mode SVRC --robustness-repeats 2
 
       The command ends with:
@@ -79,8 +80,8 @@ original and two repeats) × 2 datasets (the original and the permuted one) = 30
              Split mode: LPO
              Normalized by: None
              Models: 2
-                 NaiveMeanEffectsPredictor (5 folds): MSE=0.8399, RMSE=0.9144, MAE=0.7218, R^2=0.6851, Pearson=0.8298, Spearman=0.8409, Kendall=0.6466
-                 ElasticNet (5 folds): MSE=0.5524, RMSE=0.7428, MAE=0.5827, R^2=0.7925, Pearson=0.8927, Spearman=0.8974, Kendall=0.7195
+                 NaiveMeanEffectsPredictor (2 folds): MSE=1.2802, RMSE=1.1308, MAE=0.9000, R^2=0.5215, Pearson=0.7443, Spearman=0.7519, Kendall=0.5504
+                 ElasticNet (2 folds): MSE=0.5937, RMSE=0.7704, MAE=0.6048, R^2=0.7791, Pearson=0.8881, Spearman=0.8974, Kendall=0.7175
 
    .. tab-item:: Python
       :sync: python
@@ -95,6 +96,7 @@ original and two repeats) × 2 datasets (the original and the permuted one) = 30
              models,
              dataset,
              "LPO",
+             n_splits=2,
              hpo_num_trials=4,
              randomization_modes=["SVRC"],
              robustness_repeats=2,
@@ -110,8 +112,8 @@ original and two repeats) × 2 datasets (the original and the permuted one) = 30
              Split mode: LPO
              Normalized by: None
              Models: 2
-                 NaiveMeanEffectsPredictor (5 folds): MSE=0.8399, RMSE=0.9144, MAE=0.7218, R^2=0.6851, Pearson=0.8298, Spearman=0.8409, Kendall=0.6466
-                 ElasticNet (5 folds): MSE=0.5524, RMSE=0.7428, MAE=0.5827, R^2=0.7925, Pearson=0.8927, Spearman=0.8974, Kendall=0.7195
+                 NaiveMeanEffectsPredictor (2 folds): MSE=1.2802, RMSE=1.1308, MAE=0.9000, R^2=0.5215, Pearson=0.7443, Spearman=0.7519, Kendall=0.5504
+                 ElasticNet (2 folds): MSE=0.5937, RMSE=0.7704, MAE=0.6048, R^2=0.7791, Pearson=0.8881, Spearman=0.8974, Kendall=0.7175
 
 The summary is the one the same command prints without the two stress-test options. It averages
 only the ordinary runs, the ones on the original data in the original pair order, so the stress
@@ -165,18 +167,20 @@ Both print the same lines:
 
 .. code-block:: text
 
-   0 0.727 0.0002
-   1 0.727 0.0008
-   2 0.723 0.0029
-   3 0.664 0.1091
+   0 0.817 0.0002
+   1 0.818 0.0008
+   2 0.813 0.0029
+   3 0.766 0.1091
    best: {'alpha': 0.1091, 'l1_ratio': 0.1705}
 
 Each line is one trial: its number, its validation RMSE (the tuning metric, lower is better) and
 the penalty strength ``alpha`` it tried. Trial 3 had the lowest RMSE, so the final model of fold 0
 uses ``alpha`` = 0.1091. Each fold tunes on its own validation pairs, so other folds can pick other
 configurations. The three trials with a weak penalty score about the same, and the stronger
-penalty of trial 3 lowers the RMSE by 0.06. Too strong a penalty ruins the model, though: a search
-with 8 trials also tries ``alpha`` = 1.39 in this fold, and its RMSE is 1.14. The default ``alpha`` is 0.1, close to the winner here, so tuning refines a usable preset
+penalty of trial 3 lowers the RMSE by 0.05. Too strong a penalty hurts again, though: a search
+with 8 trials also tries ``alpha`` = 1.39 in this fold, and its RMSE is 0.925. The preset starts from
+``alpha`` = 1 and ``l1_ratio`` = 0 and already works: without tuning, this experiment scores an RMSE of
+0.834 over all pairs, against 0.770 tuned, so tuning refines a usable preset
 rather than rescuing it. See
 :doc:`/how-to/tune_hyperparameters` for the metric, the number of trials and the search spaces, and
 :doc:`/reference/hyperparameters` for the keys.
@@ -251,16 +255,16 @@ Both print:
 .. code-block:: text
 
                              all pairs  within drug
-   ordinary                      0.893        0.518
-   gene_expression permuted      0.886        0.468
-   robustness repeat 0           0.893        0.518
-   robustness repeat 1           0.893        0.518
+   ordinary                      0.888        0.505
+   gene_expression permuted      0.871        0.397
+   robustness repeat 0           0.888        0.505
+   robustness repeat 1           0.888        0.505
 
 Two things stand out.
 
 **The randomization test.** Permuting ``gene_expression`` across the samples removes what the
-features say about each sample, and the within-drug score falls from 0.52 to 0.47. The score over
-all pairs falls only from 0.893 to 0.886: the drug fingerprints still tell the model which drug it
+features say about each sample, and the within-drug score falls from 0.505 to 0.397. The score over
+all pairs falls only from 0.888 to 0.871: the drug fingerprints still tell the model which drug it
 is predicting, and that carries the pooled score. This is the pattern of the first tutorial again.
 The test shows that ``ElasticNet`` uses its gene expression, and that the within-drug score is the
 one that registers it. Most of the within-drug score remains. A likely reason is that leave-pair-out

@@ -198,6 +198,20 @@ def test_landmark_selects_the_list_in_list_order_and_persists_state(small_lists:
     np.testing.assert_allclose(pickled(featurizer).transform(features, ids).matrix, matrix)
 
 
+@pytest.mark.parametrize("scaling", [{"standardize": True}, {"standardize": True, "minmax_scale": True}])
+def test_landmark_transforms_no_samples_into_an_empty_matrix_of_the_fitted_width(
+    small_lists: tuple[str, ...], scaling: dict[str, bool]
+) -> None:
+    fitted_on = _source(small_lists, {"cl1": [1, 2, 3, 4], "cl2": [4, 3, 2, 1]})
+    featurizer = LandmarkGenesFeaturizer(**scaling).fit(fitted_on, np.array(["cl1", "cl2"]))
+    nothing = MockFeatureSource({}, fitted_on._meta_info)
+
+    result = featurizer.transform(nothing, np.array([], dtype=str))
+
+    assert result.matrix.shape == (0, len(small_lists))
+    assert result.blocks["gene_expression"].feature_names == tuple(small_lists)
+
+
 def test_landmark_reduced_uses_the_reduced_list(small_lists: tuple[str, ...]) -> None:
     featurizer = LandmarkGenesReducedFeaturizer(standardize=False)
     featurizer.fit(_source(small_lists), np.array(["cl1"]))

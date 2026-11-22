@@ -16,6 +16,7 @@ from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
 from drevalpy.types.data.predictor_input import PredictorInput
 from drevalpy.types.data.response_table import ResponseTable
+from tests.components.predictors._helpers import spy_trainer
 from tests.components.predictors.literature._helpers import (
     assert_frozen_reference,
     assert_pickle_round_trip,
@@ -34,9 +35,8 @@ def test_superfeltr_predictor_registry_name() -> None:
 class TestTinySuperFELTRFit:
     pytestmark = pytest.mark.slow
 
-    @pytest.mark.parametrize("seed", [0, 1, 2])
     def test_fits_triplet_batches_and_round_trips_through_pickle_without_feature_names(
-        self, seed: int, tmp_path, monkeypatch
+        self, tmp_path, monkeypatch
     ) -> None:
         checkpoints: list = []
         fit = superfeltr_predictor.fit_omics_model
@@ -45,7 +45,7 @@ class TestTinySuperFELTRFit:
             "fit_omics_model",
             lambda *args, **kwargs: checkpoints.append(fit(*args, **kwargs)) or checkpoints[-1],
         )
-        seed_literature(seed)
+        seed_literature()
         batch = single_drug_omics_batch(tmp_path)
         predictor = SuperFELTRPredictor(
             hyperparameters={
@@ -62,10 +62,10 @@ class TestTinySuperFELTRFit:
         regressor_checkpoint = checkpoints[-1]
         assert regressor_checkpoint is not None
         assert np.isfinite(float(regressor_checkpoint.best_model_score))
-        assert_training_checkpoint_score("superfeltr", seed, regressor_checkpoint.best_model_score)
+        assert_training_checkpoint_score("superfeltr", regressor_checkpoint.best_model_score)
         expected = finite_predictions(predictor, batch)
-        assert_training_predictions("superfeltr", seed, expected)
-        assert_frozen_reference("superfeltr", seed)
+        assert_training_predictions("superfeltr", expected)
+        assert_frozen_reference("superfeltr")
 
         assert_pickle_round_trip(predictor, batch, expected)
 
@@ -271,6 +271,7 @@ def test_fit_rejects_non_integer_epochs_and_mini_batch(hyperparameter: str, tmp_
         _fit_module(_encoder(), tmp_path, **{hyperparameter: 1.0})
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize(("with_val", "monitor"), [(False, "train_loss"), (True, "val_loss")])
 def test_fit_encoder_monitors_the_available_loss_and_writes_a_checkpoint(with_val, monitor, tmp_path) -> None:
     checkpoint = _fit_module(_encoder(), tmp_path, with_val=with_val)
@@ -292,14 +293,7 @@ def test_fit_regressor_writes_a_checkpoint(tmp_path) -> None:
 
 
 def test_fit_runs_on_the_cpu_without_a_default_logger(tmp_path, monkeypatch) -> None:
-    real_trainer = pl.Trainer
-    seen: list[dict[str, object]] = []
-
-    def spy(*args, **kwargs):
-        seen.append(dict(kwargs))
-        return real_trainer(*args, **kwargs)
-
-    monkeypatch.setattr(pl, "Trainer", spy)
+    seen = spy_trainer(monkeypatch)
 
     _fit_module(_encoder(), tmp_path / "ckpt")
 

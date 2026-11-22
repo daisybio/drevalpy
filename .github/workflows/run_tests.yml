@@ -2,7 +2,11 @@ name: Run drevalpy Tests
 
 on:
   push:
+    # A pull request can restore only the caches of its own ref, its base branch and
+    # the default branch. Runs on these bases save the caches every PR into them starts from.
     branches:
+      - development
+      - v2
       - "release/*"
   pull_request:
     branches:
@@ -21,16 +25,20 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # The dev tools are prebuilt wheels, which a pruned cache would not keep anyway.
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          enable-cache: false
 
+      # Static checks need only the dev tools, not the project and its torch.
       - name: Ruff check
-        run: uv run ruff check .
+        run: uv run --only-dev ruff check .
 
       - name: Ruff format check
-        run: uv run ruff format --check .
+        run: uv run --only-dev ruff format --check .
 
       - name: Docstring check
-        run: uv run pydoclint src
+        run: uv run --only-dev pydoclint src
 
       - name: Check lockfile is up to date
         run: uv lock --check
@@ -41,10 +49,20 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # Each job caches under its own suffix: jobs that share a key race to save it, and the
+      # first, smallest save wins. Pruning keeps only the wheels uv built (curve-curator from
+      # git); restoring the multi-GB set of prebuilt wheels was slower than downloading them.
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          cache-suffix: typecheck
+          prune-cache: true
+
+      # CPU torch and no NCCL; see the tests job.
+      - name: Install dependencies
+        run: uv sync --locked --extra cpu --no-install-package nvidia-nccl-cu12
 
       - name: Run ty
-        run: uv run ty check
+        run: uv run --no-sync ty check
 
   tests:
     name: Tests (Python ${{ matrix.python-version }} / ${{ matrix.os }})
@@ -63,7 +81,15 @@ jobs:
 
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
+          cache-suffix: tests
+          prune-cache: true
           python-version: ${{ matrix.python-version }}
+
+      # The cpu extra takes torch from the PyTorch CPU index instead of the CUDA build
+      # on PyPI. xgboost's NCCL is only dlopened for GPU training, so it stays out too.
+      # Every later `uv run` passes --no-sync, which keeps this environment as it is.
+      - name: Install dependencies
+        run: uv sync --locked --extra cpu --no-install-package nvidia-nccl-cu12
 
       - name: Run tests
         # The explicit `-m` is load-bearing: `addopts` in pyproject.toml defaults
@@ -73,7 +99,10 @@ jobs:
         # `not network` (rather than no marker at all) deselects the tests that
         # download pretrained weights from the artifacts bucket, which is not
         # readable without credentials; run_network_tests.yml covers those.
-        run: uv run --extra morgoth pytest -m "not network and not golden" --cov --cov-report=xml
+        # `-n logical` starts one worker per logical CPU and `--dist worksteal` keeps
+        # the long docs snippet pages from piling up on one worker; see "How to test
+        # the project" in docs/project/contributing.rst.
+        run: uv run --no-sync pytest -m "not network and not golden" -n logical --dist worksteal --cov --cov-report=xml
 
       - name: Upload coverage
         if: always() && matrix.os == 'ubuntu-latest'
@@ -88,6 +117,13 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          cache-suffix: docs
+          prune-cache: true
+
+      # CPU torch and no NCCL; see the tests job.
+      - name: Install dependencies
+        run: uv sync --locked --extra cpu --group docs --no-install-package nvidia-nccl-cu12
 
       - name: Build docs
-        run: uv run --group docs sphinx-build -W docs docs/_build
+        run: uv run --no-sync sphinx-build -W docs docs/_build

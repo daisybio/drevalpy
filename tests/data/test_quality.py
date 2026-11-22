@@ -10,9 +10,10 @@ import pytest
 from drevalpy.curation._anndata import REGULATION_ENCODING
 from drevalpy.data import synthetic
 from drevalpy.data.quality import _RESPONSE_MATRIX, _RULES, CurveQuality
+from tests._fake_dataset import FakeResponseDataset
 
 
-def _mask(dataset: FakeDataset, **options) -> np.ndarray:
+def _mask(dataset: FakeResponseDataset, **options) -> np.ndarray:
     return CurveQuality(**options).mask(dataset)
 
 
@@ -55,72 +56,35 @@ _THRESHOLDS: dict[str, tuple[float, float]] = {
 }
 
 
-class FakeDataset:
-    """Minimal ``Dataset`` whose layers are set per test."""
-
-    def __init__(self, layers: dict[str, np.ndarray], response: np.ndarray | None = None) -> None:
-        """Store the layers and the response matrix backing ``pEC50``."""
-        self._layers = layers
-        self._response = response if response is not None else np.full(_SHAPE, 6.0)
-
-    @property
-    def sample_ids(self) -> np.ndarray:
-        return np.array([f"CL_{i}" for i in range(_SHAPE[0])])
-
-    @property
-    def drug_ids(self) -> np.ndarray:
-        return np.array([f"D_{i}" for i in range(_SHAPE[1])])
-
-    x_measure = "pEC50"
-    measure = "pEC50"
-
-    @property
-    def response_matrix(self) -> np.ndarray:
-        return self._response
-
-    def get_tissue(self, ids: np.ndarray) -> np.ndarray:
-        return np.array(["Lung"] * len(ids))
-
-    def sample_column(self, column: str, ids: np.ndarray) -> np.ndarray:
-        if column != "tissue":
-            raise KeyError(f"Sample column '{column}' not found. Available: ['tissue']")
-        return self.get_tissue(ids)
-
-    def response_layer_names(self) -> list[str]:
-        return list(self._layers)
-
-    def get_response_layer(self, name: str) -> np.ndarray:
-        if name == self.x_measure:
-            return self._response
-        if name not in self._layers:
-            raise KeyError(f"Response layer '{name}' not found. Available: {list(self._layers)}")
-        return self._layers[name]
+def _fake(layers: dict[str, np.ndarray], response: np.ndarray | None = None) -> FakeResponseDataset:
+    """A fake holding exactly *layers*; *response* backs ``pEC50`` and defaults to a constant 6.0."""
+    return FakeResponseDataset(np.full(_SHAPE, 6.0) if response is None else response, layers=layers)
 
 
-def _dataset_for(option: str, value: float) -> FakeDataset:
+def _dataset_for(option: str, value: float) -> FakeResponseDataset:
     layer, _comparison, _transform = _RULES[option]
     matrix = np.full(_SHAPE, value)
     if layer == _RESPONSE_MATRIX:
-        return FakeDataset({}, response=matrix)
-    return FakeDataset({layer: matrix})
+        return _fake({}, response=matrix)
+    return _fake({layer: matrix})
 
 
 def _only(option: str, threshold: float) -> dict[str, float | None]:
     return {"min_relevance_score": None, "min_abs_fold_change": None, option: threshold}
 
 
-def _passing_dataset() -> FakeDataset:
+def _passing_dataset() -> FakeResponseDataset:
     layers: dict[str, np.ndarray] = {}
     for option, value in _PASSING.items():
         layer, _comparison, _transform = _RULES[option]
         if layer != _RESPONSE_MATRIX:
             layers[layer] = np.full(_SHAPE, value)
-    return FakeDataset(layers)
+    return _fake(layers)
 
 
-def _both(extra: dict[str, np.ndarray] | None = None, relevance: float | np.ndarray = 9.0) -> FakeDataset:
+def _both(extra: dict[str, np.ndarray] | None = None, relevance: float | np.ndarray = 9.0) -> FakeResponseDataset:
     layers = {"relevance_score": np.broadcast_to(relevance, _SHAPE), "fold_change": np.full(_SHAPE, -2.0)}
-    return FakeDataset({**layers, **(extra or {})})
+    return _fake({**layers, **(extra or {})})
 
 
 def test_the_table_and_the_expectations_cover_the_same_options() -> None:
@@ -148,9 +112,7 @@ def test_the_default_rule_consults_only_relevance_score_and_fold_change() -> Non
 def test_the_default_thresholds_are_minus_log10_alpha_and_fc_lim() -> None:
     cut = -np.log10(0.05)
     relevance = _mask(_both(relevance=np.array([[cut, cut * 0.999, 0.0]] * 2)))
-    fold = _mask(
-        FakeDataset({"relevance_score": np.full(_SHAPE, 9.0), "fold_change": np.array([[0.45, -0.45, 0.44]] * 2)})
-    )
+    fold = _mask(_fake({"relevance_score": np.full(_SHAPE, 9.0), "fold_change": np.array([[0.45, -0.45, 0.44]] * 2)}))
 
     assert relevance.tolist() == [[True, False, False]] * 2
     assert fold.tolist() == [[True, True, False]] * 2
@@ -170,7 +132,7 @@ def test_options_are_anded_and_a_passing_dataset_survives_all_of_them() -> None:
 
 
 def test_disabling_everything_keeps_every_pair_even_with_no_layers() -> None:
-    mask = _mask(FakeDataset({}), min_relevance_score=None, min_abs_fold_change=None)
+    mask = _mask(_fake({}), min_relevance_score=None, min_abs_fold_change=None)
 
     assert mask.shape == _SHAPE
     assert mask.all()
@@ -178,13 +140,13 @@ def test_disabling_everything_keeps_every_pair_even_with_no_layers() -> None:
 
 def test_a_requested_layer_that_is_absent_raises_and_an_unused_one_may_be_absent() -> None:
     with pytest.raises(KeyError, match="fold_change"):
-        _mask(FakeDataset({"relevance_score": np.full(_SHAPE, 9.0)}))
+        _mask(_fake({"relevance_score": np.full(_SHAPE, 9.0)}))
     with pytest.raises(TypeError):
-        _mask(FakeDataset({}), min_nonsense=1.0)
+        _mask(_fake({}), min_nonsense=1.0)
 
 
 class TestRegulation:
-    def _dataset(self) -> FakeDataset:
+    def _dataset(self) -> FakeResponseDataset:
         up, down, not_ = (REGULATION_ENCODING[label] for label in ("up", "down", "not"))
         return _both({"regulation": np.array([[up, down, not_], [np.nan, down, not_]], dtype=float)})
 
@@ -217,7 +179,7 @@ class TestRegulation:
         fold_change = rng.uniform(-3.0, 1.0, size=shape)
         regulated = (relevance >= -np.log10(0.05)) & (np.abs(fold_change) >= 0.45)
         regulation = np.where(regulated, np.sign(fold_change), 0.0)
-        dataset = FakeDataset(
+        dataset = _fake(
             {"relevance_score": relevance, "fold_change": fold_change, "regulation": regulation},
             response=np.full(shape, 6.0),
         )
@@ -258,7 +220,7 @@ class TestCurveQuality:
         assert CurveQuality.default() == CurveQuality()
 
     def test_off_keeps_exactly_the_finite_responses_even_after_the_quality_layers_are_removed(self) -> None:
-        explicit = FakeDataset({}, response=np.array([[6.0, np.nan, 5.0], [np.inf, 7.0, 6.5]]))
+        explicit = _fake({}, response=np.array([[6.0, np.nan, 5.0], [np.inf, 7.0, 6.5]]))
         dataset = synthetic(low_quality_fraction=0.3)
         for name in dataset.response_layer_names():
             if name != "LN_IC50":

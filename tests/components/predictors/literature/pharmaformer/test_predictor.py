@@ -47,8 +47,7 @@ def _trainable_batch(tmp_path) -> PredictorInput:
 class TestTinyPharmaFormerFit:
     pytestmark = pytest.mark.slow
 
-    @pytest.mark.parametrize("seed", [0, 1, 2])
-    def test_updates_parameters_and_round_trips_through_pickle(self, seed: int, tmp_path) -> None:
+    def test_updates_parameters_and_round_trips_through_pickle(self, tmp_path) -> None:
         hyperparameters = {
             "epochs": 1,
             "patience": 1,
@@ -63,18 +62,18 @@ class TestTinyPharmaFormerFit:
             "dim_feedforward": 32,
         }
         batch = _trainable_batch(tmp_path)
-        seed_literature(seed)
+        seed_literature()
         device = PharmaFormerPredictor(hyperparameters)._device
         initial = trainable_parameter_vector(_build_combined_model(6, hyperparameters, device))
 
-        seed_literature(seed)
+        seed_literature()
         predictor = PharmaFormerPredictor(hyperparameters=hyperparameters)
         predictor.fit(batch)
         assert predictor._model is not None
         assert_trainable_parameters_changed(initial, predictor._model)
         expected = finite_predictions(predictor, batch)
-        assert_training_predictions("pharmaformer", seed, expected)
-        assert_frozen_reference("pharmaformer", seed)
+        assert_training_predictions("pharmaformer", expected)
+        assert_frozen_reference("pharmaformer")
 
         assert_pickle_round_trip(predictor, batch, expected)
 

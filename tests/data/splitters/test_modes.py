@@ -13,12 +13,13 @@ from drevalpy.registry.splitter import get as get_splitter
 from drevalpy.registry.splitter import register as register_splitter
 from drevalpy.registry.splitter import splitter_registry
 from drevalpy.registry.splitter._validation import validate_folds
-from tests.data.splitters._helpers import MockDataset, covered_pairs, first_measured_pairs
+from tests._fake_dataset import FakeResponseDataset
+from tests.data.splitters._helpers import covered_pairs, first_measured_pairs
 
 QUALITY = CurveQuality.default()
 
 
-def test_no_drug_in_both_train_and_test(mock_dataset: MockDataset) -> None:
+def test_no_drug_in_both_train_and_test(mock_dataset: FakeResponseDataset) -> None:
     folds = get_splitter("LDO")(mock_dataset, n_splits=3, quality=QUALITY)
     assert len(folds) == 3
     for fold in folds:
@@ -28,19 +29,19 @@ def test_no_drug_in_both_train_and_test(mock_dataset: MockDataset) -> None:
 
 
 @pytest.mark.parametrize("mode", ["LDO", "LTO", "LPO", "LSO"])
-def test_low_quality_pairs_appear_in_no_fold(mock_dataset: MockDataset, mode: str) -> None:
+def test_low_quality_pairs_appear_in_no_fold(mock_dataset: FakeResponseDataset, mode: str) -> None:
     failing = first_measured_pairs(mock_dataset, 3)
     splitter = get_splitter(mode)
 
     without_filtering = covered_pairs(splitter(mock_dataset, n_splits=3, quality=QUALITY))
-    with_filtering = covered_pairs(splitter(MockDataset(failing_pairs=failing), n_splits=3, quality=QUALITY))
+    with_filtering = covered_pairs(splitter(FakeResponseDataset(failing_pairs=failing), n_splits=3, quality=QUALITY))
 
     for row, column in failing:
         assert without_filtering[row, column]
         assert not with_filtering[row, column]
 
 
-def test_no_tissue_in_both_train_and_test(mock_dataset: MockDataset) -> None:
+def test_no_tissue_in_both_train_and_test(mock_dataset: FakeResponseDataset) -> None:
     folds = get_splitter("LTO")(mock_dataset, n_splits=3, quality=QUALITY)
     assert len(folds) == 3
     tissues = mock_dataset.get_tissue(mock_dataset.sample_ids)
@@ -50,7 +51,7 @@ def test_no_tissue_in_both_train_and_test(mock_dataset: MockDataset) -> None:
         assert set(tissues[train_rows].tolist()) & set(tissues[test_rows].tolist()) == set()
 
 
-def test_folds_are_disjoint_boolean_masks_with_metadata(mock_dataset: MockDataset) -> None:
+def test_folds_are_disjoint_boolean_masks_with_metadata(mock_dataset: FakeResponseDataset) -> None:
     folds = get_splitter("LPO")(mock_dataset, n_splits=3, quality=QUALITY)
     assert len(folds) == 3
     for i, fold in enumerate(folds):
@@ -63,7 +64,7 @@ def test_folds_are_disjoint_boolean_masks_with_metadata(mock_dataset: MockDatase
         assert fold.metadata["n_splits"] == 3
 
 
-def test_no_sample_in_both_train_and_test(mock_dataset: MockDataset) -> None:
+def test_no_sample_in_both_train_and_test(mock_dataset: FakeResponseDataset) -> None:
     folds = get_splitter("LSO")(mock_dataset, n_splits=3, quality=QUALITY)
     assert len(folds) == 3
     for fold in folds:
@@ -80,7 +81,7 @@ class TestLcoAlias:
     def test_the_alias_returns_the_same_splitter(self) -> None:
         assert get_splitter("LCO") is get_splitter("LSO")
 
-    def test_the_alias_gives_the_same_folds_under_the_canonical_mode(self, mock_dataset: MockDataset) -> None:
+    def test_the_alias_gives_the_same_folds_under_the_canonical_mode(self, mock_dataset: FakeResponseDataset) -> None:
         via_alias = get_splitter("LCO")(mock_dataset, n_splits=3, quality=QUALITY)
         via_mode = get_splitter("LSO")(mock_dataset, n_splits=3, quality=QUALITY)
 
@@ -102,24 +103,16 @@ class TestLcoAlias:
 STUDIES = ("GDSC2", "CTRPv2", "PRISM")
 
 
-class StudyMuDataset(MockDataset):
-    """A mock whose samples cycle over *studies*, served as the ``study`` column."""
-
-    def __init__(self, studies: tuple[str, ...] = STUDIES, **kwargs) -> None:
-        """Build the mock with one study per sample, cycling through *studies*."""
-        super().__init__(n_cl=12, n_dr=8, **kwargs)
-        self._studies = np.array([studies[i % len(studies)] for i in range(len(self._cl_ids))])
-
-    def sample_column(self, column: str, ids: np.ndarray) -> np.ndarray:
-        """Serve the study column on top of the tissue column."""
-        if column == "study":
-            return self._studies
-        return super().sample_column(column, ids)
+def _study_dataset(studies: tuple[str, ...] = STUDIES, **kwargs) -> FakeResponseDataset:
+    """A 12x8 fake with one study per sample, cycling through *studies*, served as the ``study`` column."""
+    return FakeResponseDataset(
+        shape=(12, 8), columns={"study": [studies[i % len(studies)] for i in range(12)]}, **kwargs
+    )
 
 
 @pytest.fixture
-def study_dataset() -> StudyMuDataset:
-    return StudyMuDataset()
+def study_dataset() -> FakeResponseDataset:
+    return _study_dataset()
 
 
 @pytest.fixture
@@ -134,7 +127,7 @@ class TestLeaveStudyOut:
         assert metadata["validation"] == "LStO"
         assert metadata["description"] == "Leave-Study-Out: test folds contain one unseen study"
 
-    def test_one_fold_per_study_ignoring_n_splits(self, splitter, study_dataset: StudyMuDataset) -> None:
+    def test_one_fold_per_study_ignoring_n_splits(self, splitter, study_dataset: FakeResponseDataset) -> None:
         folds = splitter(study_dataset, n_splits=7, quality=QUALITY)
 
         assert len(folds) == len(STUDIES)
@@ -143,7 +136,9 @@ class TestLeaveStudyOut:
         assert {fold.metadata["split_mode"] for fold in folds} == {"LStO"}
         assert [fold.metadata["test_study"] for fold in folds] == sorted(STUDIES)
 
-    def test_the_test_set_is_every_observed_pair_of_the_study(self, splitter, study_dataset: StudyMuDataset) -> None:
+    def test_the_test_set_is_every_observed_pair_of_the_study(
+        self, splitter, study_dataset: FakeResponseDataset
+    ) -> None:
         studies = study_dataset.sample_column("study", study_dataset.sample_ids)
         observed = ~np.isnan(study_dataset.response_matrix)
 
@@ -151,7 +146,7 @@ class TestLeaveStudyOut:
             np.testing.assert_array_equal(fold.test.mask, observed & (studies == study)[:, None])
 
     def test_the_masks_partition_the_observed_pairs_and_no_study_is_shared(
-        self, splitter, study_dataset: StudyMuDataset
+        self, splitter, study_dataset: FakeResponseDataset
     ) -> None:
         studies = study_dataset.sample_column("study", study_dataset.sample_ids)
         observed = ~np.isnan(study_dataset.response_matrix)
@@ -167,19 +162,21 @@ class TestLeaveStudyOut:
 
     @pytest.mark.parametrize("ratio", [0.0, 0.1, 0.3])
     def test_validation_is_that_share_of_the_training_pairs(
-        self, splitter, study_dataset: StudyMuDataset, ratio: float
+        self, splitter, study_dataset: FakeResponseDataset, ratio: float
     ) -> None:
         for fold in splitter(study_dataset, validation_ratio=ratio, quality=QUALITY):
             n_rest = int(fold.train.mask.sum() + fold.val.mask.sum())
             assert int(fold.val.mask.sum()) == int(n_rest * ratio)
 
-    def test_the_validation_pairs_span_the_training_studies(self, splitter, study_dataset: StudyMuDataset) -> None:
+    def test_the_validation_pairs_span_the_training_studies(self, splitter, study_dataset: FakeResponseDataset) -> None:
         studies = study_dataset.sample_column("study", study_dataset.sample_ids)
         fold = splitter(study_dataset, validation_ratio=0.5, quality=QUALITY)[0]
 
         assert len(set(studies[fold.val.mask.any(axis=1)].tolist())) == 2
 
-    def test_the_folds_are_reproducible_and_depend_on_the_seed(self, splitter, study_dataset: StudyMuDataset) -> None:
+    def test_the_folds_are_reproducible_and_depend_on_the_seed(
+        self, splitter, study_dataset: FakeResponseDataset
+    ) -> None:
         first = splitter(study_dataset, random_state=1, quality=QUALITY)
         again = splitter(study_dataset, random_state=1, quality=QUALITY)
         other = splitter(study_dataset, random_state=2, quality=QUALITY)
@@ -188,22 +185,22 @@ class TestLeaveStudyOut:
         assert not np.array_equal(first[0].val.mask, other[0].val.mask)
         np.testing.assert_array_equal(first[0].test.mask, other[0].test.mask)
 
-    def test_the_folds_pass_study_validation(self, splitter, study_dataset: StudyMuDataset) -> None:
+    def test_the_folds_pass_study_validation(self, splitter, study_dataset: FakeResponseDataset) -> None:
         validate_folds(splitter(study_dataset, quality=QUALITY), "LStO", study_dataset)
 
     def test_a_single_study_is_rejected(self, splitter) -> None:
         with pytest.raises(ValueError, match="at least two studies, found 1"):
-            splitter(StudyMuDataset(studies=("GDSC2",)), quality=QUALITY)
+            splitter(_study_dataset(studies=("GDSC2",)), quality=QUALITY)
 
-    def test_a_dataset_without_study_points_to_concat(self, splitter, mock_dataset: MockDataset) -> None:
+    def test_a_dataset_without_study_points_to_concat(self, splitter, mock_dataset: FakeResponseDataset) -> None:
         with pytest.raises(KeyError, match=r"drevalpy\.data\.concat"):
             splitter(mock_dataset, quality=QUALITY)
 
     def test_low_quality_pairs_appear_in_no_fold(self, splitter) -> None:
-        failing = first_measured_pairs(StudyMuDataset(), 3)
+        failing = first_measured_pairs(_study_dataset(), 3)
 
-        covered = covered_pairs(splitter(StudyMuDataset(failing_pairs=failing), quality=QUALITY))
-        uncovered = covered_pairs(splitter(StudyMuDataset(failing_pairs=failing), quality=CurveQuality.off()))
+        covered = covered_pairs(splitter(_study_dataset(failing_pairs=failing), quality=QUALITY))
+        uncovered = covered_pairs(splitter(_study_dataset(failing_pairs=failing), quality=CurveQuality.off()))
 
         for row, column in failing:
             assert not covered[row, column]
@@ -240,7 +237,7 @@ def test_folds_of_a_dataset_that_is_not_concatenated_are_the_recorded_ones(key: 
     source, mode = key.split("-")
     datasets = {
         "synthetic": lambda: drevalpy.synthetic(low_quality_fraction=0.1),
-        "mock": StudyMuDataset if mode == "LStO" else MockDataset,
+        "mock": _study_dataset if mode == "LStO" else FakeResponseDataset,
     }
     folds = get_splitter(mode)(datasets[source](), n_splits=3, validation_ratio=0.3, random_state=7, quality=QUALITY)
 

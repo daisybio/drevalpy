@@ -187,7 +187,6 @@ def _loader_batch(n_pairs: int = 5, *, val_pairs: int | None = None) -> Predicto
     return PredictorInput(pairs=pairs, sample=sample, early_stopping=early_stopping)
 
 
-@pytest.mark.slow
 def test_each_batch_carries_the_three_views_and_response() -> None:
     batch = _loader_batch(n_pairs=4)
     train_loader, val_loader = make_omics_loaders(batch, batch_size=4)
@@ -203,7 +202,6 @@ def test_each_batch_carries_the_three_views_and_response() -> None:
     np.testing.assert_allclose(expression.numpy(), batch.sample.blocks["gene_expression"].values[batch.sample_pair_idx])
 
 
-@pytest.mark.slow
 def test_early_stopping_needs_at_least_two_validation_pairs() -> None:
     _, without = make_omics_loaders(_loader_batch(n_pairs=4), batch_size=2)
     _, single = make_omics_loaders(_loader_batch(n_pairs=4, val_pairs=1), batch_size=2)
@@ -212,7 +210,6 @@ def test_early_stopping_needs_at_least_two_validation_pairs() -> None:
     assert single is None
 
 
-@pytest.mark.slow
 def test_training_drops_the_trailing_incomplete_batch_but_validation_keeps_it() -> None:
     train_loader, val_loader = make_omics_loaders(_loader_batch(n_pairs=5, val_pairs=5), batch_size=2)
 
@@ -221,7 +218,6 @@ def test_training_drops_the_trailing_incomplete_batch_but_validation_keeps_it() 
     assert sum(batch[0].shape[0] for batch in val_loader) == 5
 
 
-@pytest.mark.slow
 def test_neither_loader_shuffles() -> None:
     batch = _loader_batch(n_pairs=4, val_pairs=3)
     train_loader, val_loader = make_omics_loaders(batch, batch_size=1)

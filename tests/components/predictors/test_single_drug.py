@@ -124,6 +124,32 @@ def test_a_drug_batch_keeps_only_the_rows_its_pairs_and_stopping_pairs_use() -> 
     np.testing.assert_array_equal(d1.early_stopping.sample_ids, ["s3"])
 
 
+class _RecordingDrugFeaturePredictor(_RecordingPredictor):
+    """The recording predictor, reading a drug feature table as well."""
+
+    drug_inputs: ClassVar[Inputs] = Inputs.matrix()
+
+
+def test_a_drug_batch_keeps_only_its_own_row_of_the_drug_table() -> None:
+    batch = _batch({"d1": [0, 2], "d2": [1]})
+    drug_ids = np.array(["d0", "d1", "d2"])
+    drug_values = np.array([[10.0], [11.0], [12.0]])
+    batch = PredictorInput(
+        batch.pairs,
+        sample=batch.sample,
+        drug=FeaturizerOutput(drug_ids, {"fingerprints": FeatureBlock(drug_values)}),
+        training_context=batch.training_context,
+    )
+    predictor = _RecordingDrugFeaturePredictor()
+    predictor.fit(batch)
+
+    for drug_id, value in [("d1", 11.0), ("d2", 12.0)]:
+        drug_batch = predictor._models[drug_id].batch
+        assert drug_batch.drug is not None
+        np.testing.assert_array_equal(drug_batch.drug.entity_ids, [drug_id])
+        np.testing.assert_array_equal(drug_batch.drug.matrix[drug_batch.drug_pair_idx], [[value]] * len(drug_batch))
+
+
 @pytest.mark.parametrize("n_jobs", [1, pytest.param(2, marks=pytest.mark.slow)])
 def test_response_layers_stay_aligned_through_the_nan_filter_and_the_per_drug_cut(n_jobs: int) -> None:
     stopping = ResponseTable(

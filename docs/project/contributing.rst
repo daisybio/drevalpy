@@ -78,14 +78,19 @@ The remaining tests carry markers and are deselected by default:
    artifacts bucket, which is not readable without credentials. These run on a
    weekly schedule in CI.
 
+``golden``
+   Bit-for-bit comparisons of every zoo model with a recorded baseline. They
+   reproduce only on the recording machine, so CI never runs them; see
+   ``tests/golden/``.
+
 A ``-m`` on the command line replaces the default marker expression rather than
-adding to it, so run the extended tier — or both tiers, which is what CI does on
-every pull request — like this:
+adding to it, so run the extended tier, or both tiers as CI does on every pull
+request, like this:
 
 .. code:: console
 
    $ uv run pytest -m slow
-   $ uv run pytest -m "not network"
+   $ uv run pytest -m "not network and not golden"
 
 To see how many tests each tier holds, count them without running them:
 
@@ -95,24 +100,31 @@ To see how many tests each tier holds, count them without running them:
    $ uv run pytest --collect-only -q -m slow
    $ uv run pytest --collect-only -q -m network
 
-Coverage is measured and enforced in CI on the full ``-m "not network"`` run,
+Coverage is measured and enforced in CI on that full run,
 as an aggregate floor (``[tool.coverage.report].fail_under`` in ``pyproject.toml``).
 The commit hook does not measure it, because the floor is only meaningful on the full
 suite. To reproduce the CI check locally:
 
 .. code:: console
 
-   $ uv run pytest -m "not network" --cov --cov-report=term-missing
+   $ uv run pytest -m "not network and not golden" -n logical --dist worksteal --cov --cov-report=term-missing
 
-Run the suite serially. ``pytest-xdist`` is deliberately not a dependency: it was
-measured at best ~11% faster on the full coverage run and 9–70% *slower* on the
-fast tier, because a cheap ``import drevalpy`` (0.21s, down from 3.59s) left
-parallelism nothing to hide. More importantly, ``--dist loadfile``,
-``--dist loadscope`` and random ordering are **not** safe yet: the component
-registries are process-global, so a test that registers a component without
-evicting it again changes what a later test sees. If you introduce parallelism or
-shuffling, audit every test that loads an extension or registers a component for
-cleanup first.
+CI runs the tests in parallel with ``pytest-xdist``, which is how the command above
+reproduces it; add ``-n logical --dist worksteal`` to any tier for the same speed-up. The
+default command stays serial, because a single test or ``--pdb`` session does not gain
+from collecting the suite once per worker. Use ``logical`` rather than ``auto``, which
+counts physical cores and so starts half the workers on a CPU with two threads per core.
+Use ``worksteal``: ``loadfile`` keeps the docs snippet pages, the longest tests of the
+suite, on one worker, and ``load`` hands out contiguous slices, so they still land
+together on the full run.
+
+``tests/conftest.py`` gives each worker its share of the CPUs: the thread pools of BLAS,
+OpenMP, torch and joblib in a worker start only as many threads as there are CPUs per
+worker, so the workers do not run several times as many threads as there are CPUs.
+
+Every worker is its own process with its own registries, session fixtures and random
+state, and the tests run in no fixed order. So a test must not rely on what an
+earlier test left behind, and seeds every random draw its assertions depend on.
 
 .. _pytest: https://pytest.readthedocs.io/
 

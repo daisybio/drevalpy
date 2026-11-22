@@ -215,6 +215,13 @@ def test_unknown_keys_name_the_keys_the_mapping_accepts(payload, message) -> Non
     assert str(caught.value) == f"Invalid model config: {message}"
 
 
+def test_from_yaml_of_a_missing_file_names_what_was_looked_for(tmp_path: Path) -> None:
+    missing = tmp_path / "missing.yaml"
+
+    with pytest.raises(FileNotFoundError, match=re.escape(f"Model config YAML not found: {missing}")):
+        from_yaml(missing)
+
+
 def test_from_yaml_errors_report_the_path(tmp_path: Path) -> None:
     bad = tmp_path / "bad.yaml"
     bad.write_text("predictor: naiveMean\nunknown_key: true\n", encoding="utf-8")

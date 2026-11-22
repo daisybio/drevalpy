@@ -24,18 +24,8 @@ from drevalpy.visualization.plots.comparison_scatter import (
     _inline_plotly_html,
     _matrices,
 )
-from tests.synthetic import make_experiment_result, make_run_result
-
-N_MODELS = 3
-N_FOLDS = 2
-N_PAIRS = 20
-N_DRUGS = 4
-N_SAMPLES = 5
-
-
-@pytest.fixture(scope="module")
-def experiment() -> ExperimentResult:
-    return make_experiment_result(n_models=N_MODELS, n_folds=N_FOLDS, n_pairs=N_PAIRS)
+from tests.synthetic import make_run_result
+from tests.synthetic.results import DEFAULT_N_DRUGS, DEFAULT_N_MODELS, DEFAULT_N_SAMPLES
 
 
 @pytest.fixture(scope="module")
@@ -138,8 +128,8 @@ class TestMatrices:
         matrices = _matrices(experiment)
 
         assert set(matrices) == {"drug", "sample"}
-        assert matrices["drug"].shape == (N_MODELS, N_DRUGS)
-        assert matrices["sample"].shape == (N_MODELS, N_SAMPLES)
+        assert matrices["drug"].shape == (DEFAULT_N_MODELS, DEFAULT_N_DRUGS)
+        assert matrices["sample"].shape == (DEFAULT_N_MODELS, DEFAULT_N_SAMPLES)
 
     def test_a_concatenated_run_gets_one_column_per_study(self):
         matrices = _matrices(_concatenated_experiment())
@@ -168,7 +158,7 @@ class TestMatrices:
 
 class TestFigure:
     def test_shows_the_first_grouping(self, experiment):
-        assert len(ComparisonScatterPlot().figure(experiment).data[0].x) == N_DRUGS
+        assert len(ComparisonScatterPlot().figure(experiment).data[0].x) == DEFAULT_N_DRUGS
 
     def test_a_single_model_yields_an_empty_figure(self):
         solo = ExperimentResult([make_run_result(model_name="Solo", fold_index=i) for i in range(2)])
@@ -193,8 +183,8 @@ class TestSections:
         assert all(s.plot is None and "Plotly.newPlot" in s.content for s in sections)
         divs = [re.search(r'<div id="([^"]+)"', s.content).group(1) for s in sections]
         assert divs == ["dreval_comp_scatter_drug_div", "dreval_comp_scatter_sample_div"]
-        assert f"{N_MODELS} models" in sections[0].description
-        assert f"{N_DRUGS} drugs" in sections[0].description
+        assert f"{DEFAULT_N_MODELS} models" in sections[0].description
+        assert f"{DEFAULT_N_DRUGS} drugs" in sections[0].description
 
     def test_a_concatenated_run_gets_a_study_section_last(self):
         sections = ComparisonScatterPlot().sections(_concatenated_experiment())
@@ -206,7 +196,7 @@ class TestSections:
     def test_the_payload_is_bounded_by_models_times_groups(self, sections):
         total = sum(len(section.content) for section in sections)
 
-        assert total < 200 * N_MODELS * (N_DRUGS + N_SAMPLES) + 10_000
+        assert total < 200 * DEFAULT_N_MODELS * (DEFAULT_N_DRUGS + DEFAULT_N_SAMPLES) + 10_000
 
 
 class TestRendering:
@@ -222,7 +212,7 @@ class TestRendering:
 
         show(ComparisonScatterPlot(), experiment)
 
-        assert [len(fig.data[0].x) for fig in calls] == [N_DRUGS]
+        assert [len(fig.data[0].x) for fig in calls] == [DEFAULT_N_DRUGS]
 
     def test_keeps_its_registry_name(self):
         assert ComparisonScatterPlot.name == "comparison_scatter"

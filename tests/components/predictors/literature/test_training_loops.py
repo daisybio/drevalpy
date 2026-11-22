@@ -14,8 +14,6 @@ from drevalpy.components.predictors.literature._torch_training import (
 from drevalpy.experiment._tracking import tracking_run
 from tests._fake_wandb import install_fake_wandb
 
-pytestmark = pytest.mark.slow
-
 
 class _CountingModel:
     """A one-parameter torch module that records how it was driven."""
