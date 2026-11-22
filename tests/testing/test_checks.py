@@ -400,6 +400,11 @@ _PREDICTORS_NOT_CHECKED = {
 #: Drug feature widths the predictors need where the synthetic default of the input builder is too narrow.
 _DRUG_FEATURE_WIDTHS = {"pharmaFormer": 128}
 
+#: Predictors that group pairs by category and so read one-hot rows, not the drawn Gaussian features.
+_ONE_HOT_PREDICTORS = frozenset(
+    {"naiveDrugMean", "naiveMeanEffects", "naiveSampleMean", "naiveTissueDrugMean", "naiveTissueMean"}
+)
+
 _BUILTIN_PREDICTORS = [
     name for name in builtin_names(predictor.predictor_registry) if name not in _PREDICTORS_NOT_CHECKED
 ]
@@ -425,7 +430,19 @@ def _predictor_input(cls: type[Predictor], name: str) -> PredictorInput:
         n_drug_features=None if drug_free else _DRUG_FEATURE_WIDTHS.get(name, N_DRUG_FEATURES),
         response_layers=cls.response_layers,
     )
+    if name in _ONE_HOT_PREDICTORS:
+        data = _one_hot_input(data)
     return replace(data, early_stopping=data.pairs[::4]) if cls.requires_early_stopping else data
+
+
+def _one_hot_input(data: PredictorInput) -> PredictorInput:
+    """Replace every feature block of *data* by the one-hot rows of its entities."""
+
+    def one_hot(output: FeaturizerOutput) -> FeaturizerOutput:
+        identity = np.eye(len(output.entity_ids), dtype=np.float32)
+        return FeaturizerOutput(output.entity_ids, {name: FeatureBlock(identity) for name in output.blocks})
+
+    return replace(data, sample=one_hot(data.sample), drug=None if data.drug is None else one_hot(data.drug))
 
 
 def _returns_at_once(check, name: str) -> bool:

@@ -131,6 +131,9 @@ class Predictor(TunableComponent, ABC):
     def _valid_pair_mask(self, data: PredictorInput) -> np.ndarray:
         """Return boolean mask over pairs where features are non-NaN.
 
+        Each entity row is checked once and the result is indexed to the pairs, so no pair-level copy of an
+        entity feature matrix is made.
+
         :param data: Model input.
         :returns: Boolean array of shape ``(len(data),)``.
         """
@@ -142,7 +145,7 @@ class Predictor(TunableComponent, ABC):
                 continue
             for block in table.blocks.values():
                 if block.entity_aligned:
-                    valid &= self._valid_feature_rows(block.values[indices])
+                    valid &= self._valid_feature_rows(block.values)[indices]
         return valid
 
     @staticmethod

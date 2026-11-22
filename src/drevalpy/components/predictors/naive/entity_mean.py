@@ -6,6 +6,7 @@ from typing import ClassVar
 
 from drevalpy.components.predictors.naive._single_entity import SingleEntityNaivePredictor
 from drevalpy.registry.predictor import register
+from drevalpy.types.data.feature_source import Side
 
 
 @register(
@@ -16,7 +17,7 @@ from drevalpy.registry.predictor import register
 class NaiveDrugMeanPredictor(SingleEntityNaivePredictor):
     """Naive drug mean predictor component."""
 
-    _feature_side: ClassVar[str] = "drug"
+    _feature_side: ClassVar[Side] = Side.DRUG
 
 
 @register(
@@ -27,4 +28,4 @@ class NaiveDrugMeanPredictor(SingleEntityNaivePredictor):
 class NaiveSampleMeanPredictor(SingleEntityNaivePredictor):
     """Naive sample mean predictor component."""
 
-    _feature_side: ClassVar[str] = "sample"
+    _feature_side: ClassVar[Side] = Side.SAMPLE
