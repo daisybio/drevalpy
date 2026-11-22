@@ -9,10 +9,10 @@ import pandas as pd
 import pytest
 from upath import UPath
 
-from drevalpy.curation import _plan_curation
-from drevalpy.curation._fit import Source
+from drevalpy.curation._fit import FitOptions, Source
 from drevalpy.curation._plan import (
     assemble,
+    plan,
     read_chunk,
     read_fitted,
     read_plan,
@@ -24,10 +24,9 @@ from drevalpy.curation._plan import (
 from tests.curation.conftest import build_dose_response_df, build_replicated_wells
 
 
-def _plan(**kwargs):
-    return _plan_curation(
-        build_replicated_wells(), replicate_fits=True, metadata=("plate_date",), fit_speed="fast", **kwargs
-    )
+def _plan(max_chunk_size: int = FitOptions.max_chunk_size):
+    options = FitOptions(fit_speed="fast", max_chunk_size=max_chunk_size)
+    return plan(build_replicated_wells(), replicate_fits=True, metadata=("plate_date",), options=options)
 
 
 class TestPlan:
@@ -39,7 +38,7 @@ class TestPlan:
         assert len({chunk.name for chunk in work.chunks}) == len(work.chunks)
 
     def test_without_replicate_fits_there_is_only_the_pooled_fit(self) -> None:
-        work = _plan_curation(build_dose_response_df(), fit_speed="fast")
+        work = plan(build_dose_response_df(), options=FitOptions(fit_speed="fast"))
 
         assert set(work.infos) == {Source.POOLED}
         assert {chunk.fit for chunk in work.chunks} == {Source.POOLED}

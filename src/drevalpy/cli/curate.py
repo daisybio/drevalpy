@@ -17,7 +17,8 @@ from typing import TYPE_CHECKING, Annotated
 
 import typer
 
-from drevalpy.curation import DEFAULT_FIT_SPEED, FIT_SPEEDS
+from drevalpy.curation import DEFAULT_FIT_SPEED, FIT_SPEEDS, FitOptions
+from drevalpy.curation._series import DEFAULT_MIN_DOSES
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -78,9 +79,9 @@ def run_cmd(
     normalize: _Normalize = False,
     fit_speed: _FitSpeedOption = _DEFAULT_FIT_SPEED,
     replicate_fits: _ReplicateFits = False,
-    min_doses: _MinDoses = 4,
+    min_doses: _MinDoses = DEFAULT_MIN_DOSES,
     metadata: _Metadata = None,
-    max_chunk_size: _MaxChunkSize = 2000,
+    max_chunk_size: _MaxChunkSize = FitOptions.max_chunk_size,
 ) -> None:
     """Fit dose-response curves from a CSV/Parquet file and write AnnData to .h5ad."""
     from upath import UPath
@@ -108,24 +109,21 @@ def plan_cmd(
     normalize: _Normalize = False,
     fit_speed: _FitSpeedOption = _DEFAULT_FIT_SPEED,
     replicate_fits: _ReplicateFits = False,
-    min_doses: _MinDoses = 4,
+    min_doses: _MinDoses = DEFAULT_MIN_DOSES,
     metadata: _Metadata = None,
-    max_chunk_size: _MaxChunkSize = 2000,
+    max_chunk_size: _MaxChunkSize = FitOptions.max_chunk_size,
 ) -> None:
     """Split a curation into chunks of curves, written as PLAN_DIR/chunks/<name>.parquet."""
     from upath import UPath
 
-    from drevalpy.curation import _plan_curation
-    from drevalpy.curation._plan import write_plan
+    from drevalpy.curation._plan import plan, write_plan
 
-    work = _plan_curation(
+    work = plan(
         _read_frame(input_path),
         replicate_fits=replicate_fits,
         min_doses=min_doses,
         metadata=tuple(metadata or ()),
-        normalize=normalize,
-        fit_speed=fit_speed.value,
-        max_chunk_size=max_chunk_size,
+        options=FitOptions(normalize=normalize, fit_speed=fit_speed.value, max_chunk_size=max_chunk_size),
     )
     write_plan(work, UPath(plan_dir))
 

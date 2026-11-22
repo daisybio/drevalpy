@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING
 from drevalpy.curation._anndata import build_anndata
 from drevalpy.curation._fit import DEFAULT_FIT_SPEED, FIT_SPEEDS, SUPPORTED_FIT_TYPES, FitOptions, Source, Status
 from drevalpy.curation._replicate_fits import METRICS
-from drevalpy.errors import InvalidInputError
+from drevalpy.curation._series import DEFAULT_MIN_DOSES
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -30,7 +30,6 @@ if TYPE_CHECKING:
     import anndata
     import pandas as pd
 
-    from drevalpy.curation._plan import Plan
 
 __all__ = [
     "DEFAULT_FIT_SPEED",
@@ -48,7 +47,7 @@ def curate(
     df: pd.DataFrame,
     *,
     replicate_fits: bool = False,
-    min_doses: int = 4,
+    min_doses: int = DEFAULT_MIN_DOSES,
     metadata: Sequence[str] = (),
     normalize: bool = False,
     fit_type: str = FitOptions.fit_type,
@@ -97,63 +96,8 @@ def curate(
         ``front_error``/``back_error``. No quality filtering is applied. With
         *replicate_fits*, ``uns["replicate_fits"]`` holds one row per series.
     """
-    from drevalpy.curation._plan import assemble, run_chunks
-
-    work = _plan_curation(
-        df,
-        replicate_fits=replicate_fits,
-        min_doses=min_doses,
-        metadata=metadata,
-        normalize=normalize,
-        fit_type=fit_type,
-        fit_speed=fit_speed,
-        max_chunk_size=max_chunk_size,
-    )
-    return assemble(work, run_chunks(work.chunks, max_workers))
-
-
-def _plan_curation(
-    df: pd.DataFrame,
-    *,
-    replicate_fits: bool = False,
-    min_doses: int = 4,
-    metadata: Sequence[str] = (),
-    normalize: bool = False,
-    fit_type: str = FitOptions.fit_type,
-    fit_speed: str = FitOptions.fit_speed,
-    max_chunk_size: int = FitOptions.max_chunk_size,
-) -> Plan:
-    """Validate a well table and plan its curation: the first of :func:`curate`'s three steps."""
-    from drevalpy.curation._plan import plan
+    from drevalpy.curation._plan import assemble, plan, run_chunks
 
     options = FitOptions(normalize=normalize, fit_type=fit_type, fit_speed=fit_speed, max_chunk_size=max_chunk_size)
-    _validate_columns(df, metadata)
-    return plan(df, replicate_fits=replicate_fits, min_doses=min_doses, metadata=metadata, options=options)
-
-
-def _validate_columns(df: pd.DataFrame, metadata: Sequence[str]) -> None:
-    """Reject a table curate cannot read before any work happens.
-
-    :param df: The well-level input table.
-    :param metadata: The requested metadata columns.
-    :raises InvalidInputError: If a required or metadata column is missing, a column is neither
-        known nor metadata, or two metadata columns would get the same name.
-    """
-    from drevalpy.curation._series import OPTIONAL_COLUMNS, REQUIRED_COLUMNS, SERIES_COLUMNS
-
-    missing = [column for column in [*REQUIRED_COLUMNS, *metadata] if column not in df.columns]
-    if missing:
-        raise InvalidInputError(f"Missing column(s): {missing}")
-    known = {*REQUIRED_COLUMNS, *OPTIONAL_COLUMNS}
-    clashing = [column for column in metadata if column in known or column.lower() in SERIES_COLUMNS]
-    if clashing:
-        raise InvalidInputError(f"Metadata column(s) {clashing} clash with the columns curate reads or writes.")
-    lowered = [column.lower() for column in metadata]
-    if len(set(lowered)) != len(lowered):
-        raise InvalidInputError(f"Metadata columns {list(metadata)} are not distinct once lowercased.")
-    unexpected = [column for column in df.columns if column not in known and column not in metadata]
-    if unexpected:
-        raise InvalidInputError(
-            f"Unexpected column(s) {unexpected}; curate reads {sorted(known)}. Pass the ones to keep per series "
-            "as metadata=..., or drop them."
-        )
+    work = plan(df, replicate_fits=replicate_fits, min_doses=min_doses, metadata=metadata, options=options)
+    return assemble(work, run_chunks(work.chunks, max_workers))

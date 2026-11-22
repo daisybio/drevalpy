@@ -61,6 +61,9 @@ SERIES_COLUMNS = [*SERIES_ID_COLUMNS, "n_doses", "eligible"]
 REQUIRED_COLUMNS = ("sample", "drug", "concentration", "intensity")
 OPTIONAL_COLUMNS = ("experiment", "replicate", "position")
 
+#: Fewest distinct doses a series needs to be fitted, unless the caller asks for another number.
+DEFAULT_MIN_DOSES = 4
+
 #: Separator CurveCurator packs the two labels into its ``Name`` column with.
 LABEL_SEPARATOR = "|"
 
@@ -265,3 +268,29 @@ def _metadata_values(frame: pd.DataFrame, column: str) -> pd.DataFrame:
     values = distinct[_GROUP].iloc[order[starts]].reset_index(drop=True)
     values[column.lower()] = pd.Series(joined, dtype=object)
     return _str_keys(values)
+
+
+def validate_columns(df: pd.DataFrame, metadata: Sequence[str]) -> None:
+    """Reject a table curate cannot read before any work happens.
+
+    :param df: The well-level input table.
+    :param metadata: The requested metadata columns.
+    :raises InvalidInputError: If a required or metadata column is missing, a column is neither
+        known nor metadata, or two metadata columns would get the same name.
+    """
+    missing = [column for column in [*REQUIRED_COLUMNS, *metadata] if column not in df.columns]
+    if missing:
+        raise InvalidInputError(f"Missing column(s): {missing}")
+    known = {*REQUIRED_COLUMNS, *OPTIONAL_COLUMNS}
+    clashing = [column for column in metadata if column in known or column.lower() in SERIES_COLUMNS]
+    if clashing:
+        raise InvalidInputError(f"Metadata column(s) {clashing} clash with the columns curate reads or writes.")
+    lowered = [column.lower() for column in metadata]
+    if len(set(lowered)) != len(lowered):
+        raise InvalidInputError(f"Metadata columns {list(metadata)} are not distinct once lowercased.")
+    unexpected = [column for column in df.columns if column not in known and column not in metadata]
+    if unexpected:
+        raise InvalidInputError(
+            f"Unexpected column(s) {unexpected}; curate reads {sorted(known)}. Pass the ones to keep per series "
+            "as metadata=..., or drop them."
+        )
