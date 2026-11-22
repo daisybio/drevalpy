@@ -73,12 +73,12 @@ class _NaNForBadModel(DRPModel):
 
 
 @pytest.mark.slow
-def test_run_records_a_nan_prediction_error_as_a_failure(synthetic_dataset, monkeypatch) -> None:
+def test_experiment_records_a_nan_prediction_error_as_a_failure(synthetic_dataset, monkeypatch) -> None:
     monkeypatch.setattr(FIT_MODULE, "DRPModel", _NaNForBadModel)
     config = ModelSpec.from_name("NaivePredictor").config
     models = [ModelSpec("Bad", config), ModelSpec("Good", config)]
 
-    result = drevalpy.run(models, synthetic_dataset, "LSO", hyperparameter_tuning=False, n_splits=2)
+    result = drevalpy.experiment(models, synthetic_dataset, "LSO", hyperparameter_tuning=False, n_splits=2)
 
     assert result.model_names == ["Good"]
     assert [(f.identity.model_name, f.error_type) for f in result.failures] == [

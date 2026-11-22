@@ -1,7 +1,7 @@
 """End-to-end contract for the ``response_transformation`` pipeline setting.
 
 Not a module mirror: the behaviour only exists once ``models/response_transformation/``, ``models/drp_model.py``,
-``models/tuning/hpo.py`` and ``_single.py`` agree. Fit the scaler on the training scope only, train on
+``models/tuning/hpo.py`` and ``_run.py`` agree. Fit the scaler on the training scope only, train on
 transformed targets, inverse-transform the predictions, score against untouched ground truth.
 
 ``KNNRegressor`` is affine-equivariant, so a symmetric transform/inverse round trip must be a no-op for it; the

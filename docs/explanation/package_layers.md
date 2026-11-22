@@ -25,12 +25,12 @@ documentation build so the dependency table never drifts out of date.
 ```text
 ┌─────────────────────────────────────────────────────────────────────┐
 │  4. Entry points                                                    │
-│     cli/   _run, _single, _train, _predict   plugin/   testing/     │
+│     cli/   _experiment, _run, _train, _predict   plugin/   testing/ │
 └─────────────────────────────────┬───────────────────────────────────┘
                                   ▼  imports flow downward
 ┌─────────────────────────────────────────────────────────────────────┐
 │  3. Workflows                                                       │
-│     curation/   data/   models/   experiment/   visualization/      │
+│     curation/   data/   models/   execution/   visualization/       │
 └─────────────────────────────────┬───────────────────────────────────┘
                                   ▼
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -46,19 +46,19 @@ documentation build so the dependency table never drifts out of date.
 
 If you are looking for where a particular piece of code lives, start here:
 
-| If you are working on...                                         | Look in                                                     |
-| ---------------------------------------------------------------- | ----------------------------------------------------------- |
-| CLI commands or Python entry points (`run`, `single`, `train`)   | `cli/`, `_run.py`, `_single.py`, `_train.py`, `_predict.py` |
-| Third-party plugin API or plugin conformance tests               | `plugin/`, `testing/`                                       |
-| Fitting dose-response curves from well tables                    | `curation/`                                                 |
-| Loading, splitting, concatenating, or precomputing datasets      | `data/`                                                     |
-| Model recipes, specs, hyperparameter tuning, or the model zoo    | `models/`                                                   |
-| Fold execution, tracking, randomization, or robustness tests     | `experiment/`                                               |
-| Plots or the MultiQC HTML report                                 | `visualization/`                                            |
-| Featurizers or predictors (base classes and built-ins)           | `components/`                                               |
-| Component/dataset registries or plugin discovery                 | `registry/`                                                 |
-| Shared containers (`Dataset`, `Fold`, `PredictorInput`, results) | `types/`                                                    |
-| Evaluation metrics and per-group scoring                         | `evaluation/`                                               |
+| If you are working on...                                           | Look in                                                         |
+| ------------------------------------------------------------------ | --------------------------------------------------------------- |
+| CLI commands or Python entry points (`experiment`, `run`, `train`) | `cli/`, `_experiment.py`, `_run.py`, `_train.py`, `_predict.py` |
+| Third-party plugin API or plugin conformance tests                 | `plugin/`, `testing/`                                           |
+| Fitting dose-response curves from well tables                      | `curation/`                                                     |
+| Loading, splitting, concatenating, or precomputing datasets        | `data/`                                                         |
+| Model recipes, specs, hyperparameter tuning, or the model zoo      | `models/`                                                       |
+| Fold execution, tracking, randomization, or robustness tests       | `execution/`                                                    |
+| Plots or the MultiQC HTML report                                   | `visualization/`                                                |
+| Featurizers or predictors (base classes and built-ins)             | `components/`                                                   |
+| Component/dataset registries or plugin discovery                   | `registry/`                                                     |
+| Shared containers (`Dataset`, `Fold`, `PredictorInput`, results)   | `types/`                                                        |
+| Evaluation metrics and per-group scoring                           | `evaluation/`                                                   |
 
 ## Inside each layer
 
@@ -66,12 +66,12 @@ If you are looking for where a particular piece of code lives, start here:
 
 These modules are the front doors into DrEvalPy:
 
-- **Top-level runners** (`_run.py`, `_single.py`, `_train.py`, `_predict.py`) implement the main
-  Python functions re-exported by `drevalpy`: {py:func}`~drevalpy._run.run`,
-  {py:func}`~drevalpy._single.single`, and {py:func}`~drevalpy._train.train`. They wire together
-  `data`, `models`, `experiment`, `evaluation`, and `visualization`.
+- **Top-level runners** (`_experiment.py`, `_run.py`, `_train.py`, `_predict.py`) implement the main
+  Python functions re-exported by `drevalpy`: {py:func}`~drevalpy._experiment.experiment`,
+  {py:func}`~drevalpy._run.run`, and {py:func}`~drevalpy._train.train`. They wire together
+  `data`, `models`, `execution`, `evaluation`, and `visualization`.
 - **`cli/`** wraps those runners in a Typer CLI (`cli.app`, `cli.cli_main`), with one module per
-  command group (`cli/run.py`, `cli/train.py`, and so on).
+  command group (`cli/experiment.py`, `cli/train.py`, and so on).
 - **`plugin/`** is a single-module barrel re-exporting the stable API for third-party plugins
   (`from drevalpy.plugin import Featurizer, register_featurizer, ...`). Internal module paths may
   move, while names exported here are the compatibility promise.
@@ -98,10 +98,10 @@ reporting:
   response transformations (`models/response_transformation/`), hyperparameter tuning
   (`models/tuning/`), and the built-in zoo presets (`models/zoo/`). See {doc}`model_assembly` and
   {doc}`/how-to/train_save_load`.
-- **`experiment/`** drives fold execution, progress tracking, and stress tests:
-  {py:func}`~drevalpy.experiment._randomization.randomization` and
-  {py:func}`~drevalpy.experiment._robustness.robustness`. PyTorch training helpers in `components/`
-  also read `experiment._tracking.active_run` to log training progress.
+- **`execution/`** drives fold execution, progress tracking, and stress tests:
+  {py:func}`~drevalpy.execution._randomization.randomization` and
+  {py:func}`~drevalpy.execution._robustness.robustness`. PyTorch training helpers in `components/`
+  also read `execution._tracking.active_run` to log training progress.
 - **`visualization/`** builds plots and the MultiQC HTML report:
   {py:class}`~drevalpy.visualization.base.Plot`,
   {py:class}`~drevalpy.visualization.requirements.PlotRequirement`,
@@ -169,8 +169,8 @@ Two package pairs genuinely import each other at runtime:
   decorators imported from `registry`. If `components.featurizers.shared.concat` happens to be
   imported mid-initialization of `models.config`, `register_builtins` retries once so startup still
   succeeds.
-- **`models` ↔ `experiment`**: hyperparameter tuning in `models/tuning/hpo.py` uses
-  `experiment._tracking` and `experiment._execution` to run and track trials, while `experiment`
+- **`models` ↔ `execution`**: hyperparameter tuning in `models/tuning/hpo.py` uses
+  `execution._tracking` and `execution._execution` to run and track trials, while `execution`
   imports `models` to train the final model.
 
 One other pair shows up when imports are aggregated at the top-level package boundary, even though

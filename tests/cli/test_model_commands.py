@@ -1,4 +1,4 @@
-"""Tests for the ``train``, ``single`` and ``predict`` commands; workers are patched except in the round trip."""
+"""Tests for the ``train``, ``run`` and ``predict`` commands; workers are patched except in the round trip."""
 
 from __future__ import annotations
 
@@ -169,7 +169,7 @@ def dataset() -> FakeDataset:
 
 
 @pytest.fixture()
-def single_worker(monkeypatch: pytest.MonkeyPatch, dataset: FakeDataset) -> Recorder:
+def run_worker(monkeypatch: pytest.MonkeyPatch, dataset: FakeDataset) -> Recorder:
     recorder = Recorder(return_value=StubRunResult())
     monkeypatch.setattr("drevalpy.models.ModelSpec.from_name", lambda name: type(f"Stub{name}", (), {}))
     monkeypatch.setattr("drevalpy.data.load", lambda path: dataset)
@@ -177,23 +177,23 @@ def single_worker(monkeypatch: pytest.MonkeyPatch, dataset: FakeDataset) -> Reco
     return recorder
 
 
-def _invoke_single(fold_file: UPath, tmp_path: UPath, *extra: str):
+def _invoke_run(fold_file: UPath, tmp_path: UPath, *extra: str):
     out = tmp_path / "out" / "result.npz"
     return runner.invoke(app, ["run", "ElasticNet", str(tmp_path / "ds.h5mu"), str(fold_file), str(out), *extra])
 
 
-class TestSingleForwarding:
+class TestRunForwarding:
     def test_passes_model_dataset_and_fold_and_forwards_the_defaults(
-        self, single_worker: Recorder, fold_file: UPath, tmp_path: UPath, dataset: FakeDataset
+        self, run_worker: Recorder, fold_file: UPath, tmp_path: UPath, dataset: FakeDataset
     ) -> None:
-        result = _invoke_single(fold_file, tmp_path)
+        result = _invoke_run(fold_file, tmp_path)
 
         assert result.exit_code == 0, result.output
-        model_class, passed_dataset, fold = single_worker.args
+        model_class, passed_dataset, fold = run_worker.args
         assert model_class.__name__ == "StubElasticNet"
         assert passed_dataset is dataset
         assert isinstance(fold, Fold)
-        forwarded = dict(single_worker.kwargs)
+        forwarded = dict(run_worker.kwargs)
         assert forwarded.pop("response_transformation") is None
         assert forwarded == {
             "hyperparameter_tuning": True,
@@ -206,14 +206,14 @@ class TestSingleForwarding:
             "n_jobs": 1,
         }
 
-    def test_forwards_overridden_options(self, single_worker: Recorder, fold_file: UPath, tmp_path: UPath) -> None:
-        _invoke_single(
+    def test_forwards_overridden_options(self, run_worker: Recorder, fold_file: UPath, tmp_path: UPath) -> None:
+        _invoke_run(
             fold_file, tmp_path, "--no-hpo", "--hpo-metric", "Pearson", "--hpo-trials", "2", "--hpo-random-state", "9",
             "--seed", "3", "--n-jobs", "2", "--wandb-project", "my-project", "--split-mode", "LSO",
             "--measure", "AUC",
         )  # fmt: skip
 
-        assert single_worker.kwargs == {
+        assert run_worker.kwargs == {
             "hyperparameter_tuning": False,
             "hpo_metric": "Pearson",
             "hpo_num_trials": 2,
@@ -226,16 +226,16 @@ class TestSingleForwarding:
         }
 
     def test_a_response_transformation_is_forwarded_unfitted_and_unknown_ones_rejected(
-        self, single_worker: Recorder, fold_file: UPath, tmp_path: UPath
+        self, run_worker: Recorder, fold_file: UPath, tmp_path: UPath
     ) -> None:
-        _invoke_single(fold_file, tmp_path, "--response-transformation", "standard")
-        rejected = _invoke_single(fold_file, tmp_path, "--response-transformation", "logarithmic")
+        _invoke_run(fold_file, tmp_path, "--response-transformation", "standard")
+        rejected = _invoke_run(fold_file, tmp_path, "--response-transformation", "logarithmic")
 
-        transformer = single_worker.kwargs["response_transformation"]
+        transformer = run_worker.kwargs["response_transformation"]
         assert isinstance(transformer, StandardScaler)
         assert not hasattr(transformer, "mean_")
         assert rejected.exit_code == 2
-        assert single_worker.call_count == 1
+        assert run_worker.call_count == 1
 
 
 class TestSplitModeInjection:
@@ -252,37 +252,35 @@ class TestSplitModeInjection:
         ],
     )
     def test_the_split_mode_in_the_metadata(
-        self, single_worker: Recorder, tmp_path: UPath, flags: list[str], stored: str | None, expected: str
+        self, run_worker: Recorder, tmp_path: UPath, flags: list[str], stored: str | None, expected: str
     ) -> None:
         fold_file = tmp_path / "fold.npz"
         _write_fold(fold_file, metadata={"fold_index": 3, **({"split_mode": stored} if stored else {})})
 
-        _invoke_single(fold_file, tmp_path, *flags)
+        _invoke_run(fold_file, tmp_path, *flags)
 
-        assert single_worker.args[2].metadata["split_mode"] == expected
-        assert single_worker.args[2].metadata["fold_index"] == 3
+        assert run_worker.args[2].metadata["split_mode"] == expected
+        assert run_worker.args[2].metadata["fold_index"] == 3
 
 
-class TestSingleOutput:
+class TestRunOutput:
     def test_creates_the_parent_saves_and_echoes_a_summary(
-        self, single_worker: Recorder, fold_file: UPath, tmp_path: UPath
+        self, run_worker: Recorder, fold_file: UPath, tmp_path: UPath
     ) -> None:
-        result = _invoke_single(fold_file, tmp_path)
+        result = _invoke_run(fold_file, tmp_path)
 
         destination = tmp_path / "out" / "result.npz"
         assert (tmp_path / "out").is_dir()
-        assert single_worker.return_value.saved == [str(destination)]
+        assert run_worker.return_value.saved == [str(destination)]
         assert f"Result: StubElasticNet on StubDataset (fold 3) -> {destination}" in plain(result.output)
 
-    def test_a_missing_fold_file_is_reported_before_anything_runs(
-        self, single_worker: Recorder, tmp_path: UPath
-    ) -> None:
-        result = _invoke_single(tmp_path / "absent.npz", tmp_path)
+    def test_a_missing_fold_file_is_reported_before_anything_runs(self, run_worker: Recorder, tmp_path: UPath) -> None:
+        result = _invoke_run(tmp_path / "absent.npz", tmp_path)
 
         assert result.exit_code == 1
         assert plain(result.output).startswith("Error: ")
         assert "Traceback" not in result.output
-        assert single_worker.call_count == 0
+        assert run_worker.call_count == 0
         assert not (tmp_path / "out").exists()
 
 

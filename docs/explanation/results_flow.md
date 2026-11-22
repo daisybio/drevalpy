@@ -23,16 +23,16 @@ derived, see {doc}`reproducibility`.
 ## The trajectory at a glance
 
 ```text
-drevalpy.run / drevalpy.single / drevalpy.train
-  │  RunStore.open writes <out>/metadata.json (run and single)
+drevalpy.experiment / drevalpy.run / drevalpy.train
+  │  RunStore.open writes <out>/metadata.json (experiment and run)
   │  split → robustness() / randomization() variants (run)
   ▼
-Per model, fold, and dataset variant (_single._fit_fold)
+Per model, fold, and dataset variant (_run._fit_fold)
   │  build_execution → ExecutionSpec(Fold, RunIdentity, hpo, seed, metadata)
   │    Fold: train (A), optional stopping (E), val (V), test
   │          train_val (A ∪ V) is derived from train and val
   ▼
-experiment._fit.fit  ← shared by every entry point
+execution._fit.fit  ← shared by every entry point
   │  seed_everything(fit_seed(...))
   │  hpam_tune → best hyperparameters + TrialResult list
   │  DRPModel(spec, best).train(final_training, early_stopping=E)
@@ -56,7 +56,7 @@ visualization.report.create_report
 ## Step 1: Freezing fold decisions in `ExecutionSpec`
 
 Before tuning or training starts, `build_execution` constructs an immutable
-{py:class}`~drevalpy.experiment._execution.ExecutionSpec` that captures every decision about the
+{py:class}`~drevalpy.execution._execution.ExecutionSpec` that captures every decision about the
 fold: its {py:class}`~drevalpy.types.data.fold.Fold`, its
 {py:class}`~drevalpy.types.results._identity.RunIdentity`, and its tuning settings.
 
@@ -90,7 +90,7 @@ warnings.filterwarnings("ignore")
 
 import drevalpy
 from drevalpy.data.splitters._folds import early_stopping_split
-from drevalpy.experiment._execution import build_execution
+from drevalpy.execution._execution import build_execution
 from drevalpy.models.spec import ModelSpec
 from drevalpy.registry.splitter import canonical
 
@@ -128,8 +128,8 @@ print(f"  V (remaining):  {len(remaining_val)} pairs")
 
 ## Step 2: One shared training path (`fit`)
 
-Every entry point that trains a model — `drevalpy.run`, `drevalpy.single`, `drevalpy.train`, and
-even the golden-test recorder — funnels through {func}`~drevalpy.experiment._fit.fit`. Keeping one
+Every entry point that trains a model — `drevalpy.experiment`, `drevalpy.run`, `drevalpy.train`, and
+even the golden-test recorder — funnels through {func}`~drevalpy.execution._fit.fit`. Keeping one
 shared path guarantees that a run produces the exact same `RunResult` no matter which command
 launched it.
 
@@ -147,9 +147,9 @@ Inside `fit`, six steps run in order:
 6. Return the fitted model alongside its {py:class}`~drevalpy.types.results.run.RunResult`.
 
 ```{code-cell} ipython3
-from drevalpy import single
+from drevalpy import run
 
-result = single(
+result = run(
     model_spec,
     dataset,
     fold,
@@ -198,13 +198,13 @@ print(f"run_id (JSON):  {result.run_id[:60]}...")
 
 ## Step 4: Atomic saves and resuming interrupted experiments
 
-When `drevalpy.run` opens an output directory, `RunStore` immediately writes `metadata.json` with
+When `drevalpy.experiment` opens an output directory, `RunStore` immediately writes `metadata.json` with
 the experiment settings. Each run is then saved as soon as it finishes: `RunStore.save` writes to a
 temporary `.partial` file and atomically replaces the final `.npz`, so a killed process never
 leaves a corrupt run file behind. Inside the `.npz` are the prediction and ground-truth arrays,
 `sample_ids`, `drug_ids`, optional `trial_<i>_predictions`, and a JSON `_metadata` payload.
 
-Saving one file per run is what makes resuming work: if you re-run `drevalpy.run` with the same
+Saving one file per run is what makes resuming work: if you re-run `drevalpy.experiment` with the same
 settings and output directory, any run already on disk is loaded instead of refitted.
 
 Stress-test runs (randomization and robustness repeats) skip hyperparameter tuning altogether.
@@ -268,7 +268,7 @@ baseline. Error metrics such as RMSE stay unchanged, because subtracting the sam
 from both `y_pred` and `y_true` leaves their difference untouched (see {doc}`metrics`).
 
 To keep the baseline consistent, the reference model always trains **without a response
-transformation** — `drevalpy.run` and `drevalpy.single` enforce this automatically so the
+transformation** — `drevalpy.experiment` and `drevalpy.run` enforce this automatically so the
 transformation cannot shift the ruler.
 
 `normalize()` returns a new `ExperimentResult` without discarding the original numbers:
@@ -282,7 +282,7 @@ transformation cannot shift the ruler.
 ```{code-cell} ipython3
 with tempfile.TemporaryDirectory() as tmpdir:
     out_dir = UPath(tmpdir) / "results"
-    exp = drevalpy.run(
+    exp = drevalpy.experiment(
         models=[
             ModelSpec.from_name("NaiveMeanEffectsPredictor"),
             ModelSpec.from_name("NaiveDrugMeanPredictor"),

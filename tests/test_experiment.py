@@ -340,7 +340,7 @@ class TestNormalizationReference:
 
 
 class TestForwardedArguments:
-    def test_hpo_settings_reach_single(self, recorder, dataset, monkeypatch) -> None:
+    def test_hpo_settings_reach_run(self, recorder, dataset, monkeypatch) -> None:
         _set_folds(monkeypatch, 1)
 
         _run("A", dataset, hyperparameter_tuning=True, hpo_metric="MSE", hpo_num_trials=4, hpo_random_state=7)
@@ -806,7 +806,7 @@ class TestResume:
             RUN_MODULE, "_fit_fold", lambda *args, **kwargs: fits.append(args) or real_fit(*args, **kwargs)
         )
 
-        def experiment() -> ExperimentResult:
+        def run_experiment() -> ExperimentResult:
             return experiment(
                 [ModelSpec.from_name("Ridge")],
                 synthetic_dataset,
@@ -818,9 +818,9 @@ class TestResume:
                 output_dir=str(tmp_path),
             )
 
-        first = experiment()
+        first = run_experiment()
         n_fits = len(fits)
-        second = experiment()
+        second = run_experiment()
 
         assert n_fits == len(first.models[0].runs) == 8
         assert len(fits) == n_fits

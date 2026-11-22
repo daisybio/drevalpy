@@ -242,7 +242,7 @@ tables into a {py:class}`~drevalpy.types.data.predictor_input.PredictorInput`:
   present in `sample` and `drug`) and `training_context` (checkpoint directory and `n_jobs`).
 
 Note: This example passes the full `val_table` as `early_stopping` for simplicity. In a real
-`drevalpy.run`, the early-stopping scope `E` is a seeded 25% of the validation set, cut by
+`drevalpy.experiment`, the early-stopping scope `E` is a seeded 25% of the validation set, cut by
 {func}`~drevalpy.data.splitters._folds.early_stopping_split` as described in {doc}`training_lifecycle`.
 
 Keeping entity tables separate from pair indices is the key memory trade-off in DrEvalPy. A
