@@ -5,15 +5,17 @@ imports it: the name starts with an underscore, so neither the built-in componen
 discovery in :mod:`drevalpy.registry._builtins` nor the recursive API docs pick it up.
 It exists so the origin of every shipped gene list stays reproducible.
 
-Only registered datasets are intersected (see
-``drevalpy/data/datasets/available_datasets.json``).
+The shipped intersections were computed over the datasets in :data:`OMIC_DATASETS`, from the
+per-dataset CSV downloads of drevalpy 1.x, not from the published v2 ``.h5mu`` files. The two
+differ: the v2 CTRPv2 and GDSC2 files hold no ``methylation`` view, and they do hold
+``proteomics``.
 
-``CCLE`` was the sole proteomics source, and it is currently **not registered**: the
-CurveCurator-refit generation of the screens has no ``CCLE.h5mu`` yet. The shipped
-``proteomics``-derived Parquet files were generated while it still was, and they are kept
-as they are. :data:`OMIC_DATASETS` therefore lists no dataset for ``proteomics``, which makes
-re-running this script raise rather than silently write an empty intersection - see
-:func:`gene_intersection`. Put ``CCLE`` back in both places once the file is uploaded.
+``CCLE`` was the sole proteomics source, and it was not registered when this script was last
+run. The shipped ``proteomics``-derived Parquet files were generated from it earlier and are
+kept as they are. :data:`OMIC_DATASETS` therefore lists no dataset for ``proteomics``, which
+makes re-running this script raise rather than silently write an empty intersection - see
+:func:`gene_intersection`. Add ``CCLE`` to :data:`ALL_DATASETS` and to the ``proteomics`` entry
+to recompute them.
 
 Inputs
 ------
@@ -59,7 +61,7 @@ from collections.abc import Iterable
 import pandas as pd
 from upath import UPath
 
-#: Every registered dataset.
+#: The datasets the shipped intersections were computed over.
 ALL_DATASETS: tuple[str, ...] = ("BeatAML2", "CTRPv1", "CTRPv2", "GDSC1", "GDSC2", "PDX_Bruna")
 
 #: Datasets that carry each omic. Only these are intersected for that omic, because a
@@ -69,7 +71,7 @@ OMIC_DATASETS: dict[str, tuple[str, ...]] = {
     "gene_expression": ALL_DATASETS,
     "methylation": ("CTRPv1", "CTRPv2", "GDSC1", "GDSC2"),
     "mutations": ("CTRPv1", "CTRPv2", "GDSC1", "GDSC2"),
-    # Proteomics was CCLE-only, and CCLE is not registered right now (see the module
+    # Proteomics was CCLE-only, and CCLE is not in ALL_DATASETS (see the module
     # docstring). Left empty on purpose so a re-run fails loudly instead of writing an
     # empty intersection over the shipped Parquet file.
     "proteomics": (),
