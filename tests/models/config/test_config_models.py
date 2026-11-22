@@ -314,7 +314,8 @@ def test_a_shared_zoo_config_is_deeply_frozen() -> None:
 
 def test_mapping_fields_are_deeply_frozen_views() -> None:
     featurizer = FeaturizerConfig.parse(
-        {"name": "tissue", "options": {"allow_missing": True, "nested": {"inner": [1, {"deep": 2}]}}}, "sample"
+        {"name": "landmarkGenesReduced", "options": {"allow_missing": True, "nested": {"inner": [1, {"deep": 2}]}}},
+        "sample",
     )
     predictor = PredictorConfig.model_validate(
         {"name": "randomForest", "hyperparameter_space": {"n_estimators": {"default": 5, "options": [1, 2]}}}
@@ -338,7 +339,7 @@ def test_mapping_fields_are_deeply_frozen_views() -> None:
 
 def test_frozen_mappings_dump_plain_containers() -> None:
     featurizer = FeaturizerConfig.parse(
-        {"name": "tissue", "options": {"nested": {"inner": [1, {"deep": 2}]}}}, "sample"
+        {"name": "landmarkGenesReduced", "options": {"nested": {"inner": [1, {"deep": 2}]}}}, "sample"
     )
 
     dumped = featurizer.model_dump(mode="python")
@@ -511,7 +512,7 @@ def test_id_only_featurizers_resolve_to_empty_views(name: str) -> None:
             ["mutations"],
         ),
         (FeaturizerConfig.parse("tissue", "sample"), []),
-        (FeaturizerConfig(name="scaledGeneExpression", side="sample", options={"view": "proteomics"}), ["proteomics"]),
+        (FeaturizerConfig(name="view", side="sample", view="proteomics"), ["proteomics"]),
     ],
     ids=[
         "brackets",
@@ -533,9 +534,7 @@ def test_drug_views() -> None:
     config = _model_config()
     assert config.featurizers()["drug"].views() == ["morgan_fingerprint"]
 
-    view = _model_config(
-        drug_featurizer=FeaturizerConfig(name="view", side="drug", options={"view": "drug_chemberta_embeddings"})
-    )
+    view = _model_config(drug_featurizer=FeaturizerConfig(name="view", side="drug", view="drug_chemberta_embeddings"))
     assert view.featurizers()["drug"].views() == ["drug_chemberta_embeddings"]
 
 

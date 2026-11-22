@@ -82,6 +82,11 @@ cannot work is rejected when its configuration is built:
    view. Override it when your blocks are named otherwise or are not numeric. Config validation
    compares these blocks with what the predictor reads.
 
+A featurizer whose ``view`` parameter has a named default, such as ``view: str = "gene_expression"``,
+reads one of its ``input_views``: a config naming another view is rejected with the valid ones. A
+config may name a view only when ``__init__`` has a ``view`` parameter, and set only options and
+search-space keys that are parameters of ``__init__``; a constructor with ``**kwargs`` takes any key.
+
 A featurizer that takes the view from the config declares no ``input_views`` and gives
 ``__init__`` a ``view`` parameter without a default; the config must then name the view, as in
 ``myFeaturizer[methylation]``. Such a featurizer overrides ``valid_mask`` to return

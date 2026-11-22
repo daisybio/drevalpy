@@ -9,7 +9,7 @@ from typing import Any
 from _generated_io import list_table, registry_description, write_text_if_changed
 
 from drevalpy.components.predictors.inputs import Inputs, predictor_inputs
-from drevalpy.models.config.featurizer import requires_explicit_view
+from drevalpy.models.config._constructor import requires_explicit_view
 from drevalpy.plugin import PrecomputableFeaturizer
 from drevalpy.registry._builtins import builtin_names, get_skipped_builtin_modules, register_builtins
 from drevalpy.registry._component import component_license
@@ -32,15 +32,14 @@ EXPECTED_PREDICTOR_INPUT_COUNTS = {"none": 1, "matrix": 15, "blocks": 15}
 _PLACEHOLDER_VIEW = "gene_expression"
 
 
-def _featurizer_config(name: str, cls: type[Any]) -> dict[str, Any]:
+def _featurizer_config(cls: type[Any]) -> dict[str, Any]:
     """Return the construction kwargs of a built-in featurizer with its defaults.
 
-    :param name: Registry name.
     :param cls: Featurizer class.
     :returns: Hyperparameter defaults, plus a placeholder view when the featurizer needs one.
     """
     config: dict[str, Any] = dict(cls.default_hyperparameters())
-    if requires_explicit_view(name, cls.side):
+    if requires_explicit_view(cls):
         config["view"] = _PLACEHOLDER_VIEW
     return config
 
@@ -68,7 +67,7 @@ def _render_featurizers(side: Side, rows: list[tuple[str, type[Any]]]) -> str:
         (
             (
                 f"``{name}``",
-                _output_formats(cls, _featurizer_config(name, cls)),
+                _output_formats(cls, _featurizer_config(cls)),
                 chr(0x2705) if issubclass(cls, PrecomputableFeaturizer) else chr(0x274C),
                 _accelerator_cell(cls),
                 _license_cell(cls),

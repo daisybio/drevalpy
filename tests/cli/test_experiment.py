@@ -382,3 +382,26 @@ class TestFailures:
 
         assert result.exit_code == 1
         assert "Error: 1 run(s) failed:\n  ElasticNet fold 1: RuntimeError: boom" in plain(result.output)
+
+
+@pytest.mark.parametrize(
+    ("model", "message"),
+    [
+        (
+            "scaledGeneExpression[mutations]:fingerprints:randomForest",
+            "sample featurizer 'scaledGeneExpression' cannot read the view 'mutations'; valid views: gene_expression",
+        ),
+        ("oneHot[foo]:fingerprints:randomForest", "sample featurizer 'oneHot' takes no view, but 'foo' was given"),
+    ],
+)
+def test_a_view_the_featurizer_cannot_read_stops_the_run_before_it_starts(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: UPath, model: str, message: str
+) -> None:
+    recorder = Recorder(return_value=StubExperiment())
+    patch_worker(monkeypatch, "drevalpy._experiment", "experiment", recorder)
+
+    result = runner.invoke(app, ["experiment", model, "--dataset", "TOYv1", "--output-dir", str(tmp_path / "results")])
+
+    assert result.exit_code == 1
+    assert message in plain(result.output).replace("\n", " ")
+    assert not recorder.calls

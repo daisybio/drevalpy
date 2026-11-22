@@ -48,7 +48,7 @@ def _construct_global_model_spec(whole_name: str, model_name: str) -> ModelSpec:
             drug_featurizer=FeaturizerConfig(
                 name="view",
                 side="drug",
-                options={"view": "chemberta"},
+                view="chemberta",
             ),
         )
         return ModelSpec(model_name, config)

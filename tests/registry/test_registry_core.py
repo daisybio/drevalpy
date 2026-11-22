@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from drevalpy.models.config.featurizer import requires_explicit_view
+from drevalpy.models.config._constructor import requires_explicit_view
 from drevalpy.registry._all import all_registries, restore_all, snapshot_all
 from drevalpy.registry._builtins import BUILTIN_MODULES, builtin_names, get_skipped_builtin_modules, register_builtins
 from drevalpy.registry._component import featurizer_component_metadata
@@ -85,7 +85,7 @@ def test_builtin_featurizers_report_their_side_and_default_blocks() -> None:
         for name, cls in registry.items():
             meta = featurizer_component_metadata("featurizer", name, cls)
             assert meta["side"] == cls.side == side, name
-            if not requires_explicit_view(name, side):
+            if not requires_explicit_view(cls):
                 assert all(isinstance(block.format, FeatureFormat) for block in cls.output_blocks({})), name
 
 

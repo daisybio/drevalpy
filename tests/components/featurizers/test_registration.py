@@ -6,7 +6,8 @@ import pytest
 from pydantic import ValidationError
 
 from drevalpy.models.config import FeaturizerConfig, ModelConfig, PredictorConfig, from_recipe
-from drevalpy.models.config.featurizer import requires_explicit_view
+from drevalpy.models.config._constructor import requires_explicit_view
+from drevalpy.registry.featurizer import get_featurizer
 from drevalpy.types.data.feature_source import Side
 
 
@@ -18,8 +19,9 @@ def test_selector_uses_view_brackets() -> None:
 
 
 def test_explicit_view_requirement() -> None:
-    assert requires_explicit_view("view", Side.SAMPLE) and requires_explicit_view("pca", Side.SAMPLE)
-    assert not requires_explicit_view("landmarkGenes", Side.SAMPLE)
+    assert requires_explicit_view(get_featurizer("view", Side.SAMPLE))
+    assert requires_explicit_view(get_featurizer("pca", Side.SAMPLE))
+    assert not requires_explicit_view(get_featurizer("landmarkGenes", Side.SAMPLE))
 
 
 def test_unique_selectors_allow_same_name_different_views() -> None:
@@ -96,13 +98,8 @@ def test_leaf_kwargs_fill_hyperparameter_defaults_from_the_registry(model_config
             "n_components",
             3,
         ),
-        (
-            FeaturizerConfig(name="view", side="sample", view="gene_expression", options={"view": "mutations"}),
-            "view",
-            "mutations",
-        ),
     ],
-    ids=["defaults-over-registry", "declared-space-over-registry", "explicit-view-option"],
+    ids=["defaults-over-registry", "declared-space-over-registry"],
 )
 def test_leaf_kwargs_precedence(leaf, key, expected) -> None:
     assert leaf.leaf_kwargs()[key] == expected
