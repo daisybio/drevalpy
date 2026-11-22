@@ -20,7 +20,7 @@ from __future__ import annotations
 import difflib
 import threading
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Collection, Mapping
+from collections.abc import Collection, Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Generic, TypeVar
@@ -31,8 +31,6 @@ if TYPE_CHECKING:
     import pandas as pd
 
 T = TypeVar("T")
-
-_EMPTY: Mapping[str, Any] = MappingProxyType({})
 
 
 class TableReprMixin(ABC):
@@ -55,35 +53,11 @@ class TableReprMixin(ABC):
 
 
 @dataclass(frozen=True)
-class _Entry(Generic[T]):
-    obj: T
-    metadata: Mapping[str, Any]
-
-
-@dataclass(frozen=True)
 class Snapshot(Generic[T]):
     """The entries of one registry at one moment, for :meth:`Registry.restore`."""
 
     kind: str
     entries: tuple[tuple[str, T, Mapping[str, Any]], ...]
-
-
-def _frozen_metadata(kind: str, name: str, metadata: Mapping[str, Any] | None) -> Mapping[str, Any]:
-    """Return *metadata* as a read-only copy after checking its keys.
-
-    :param kind: Registry kind, named in the error message.
-    :param name: Entry name, named in the error message.
-    :param metadata: Metadata given at registration, or ``None``.
-    :returns: Read-only mapping, empty when *metadata* is ``None``.
-    :raises TypeError: If a metadata key is not a string.
-    """
-    if not metadata:
-        return _EMPTY
-    bad = [key for key in metadata if not isinstance(key, str)]
-    if bad:
-        msg = f"{kind} {name!r} metadata keys must be strings, got {bad!r}"
-        raise TypeError(msg)
-    return MappingProxyType(dict(metadata))
 
 
 def _suggestion(name: str, names: Collection[str]) -> str:
@@ -126,7 +100,7 @@ class Registry(TableReprMixin, Generic[T]):
         :param kind: What the entries are, such as ``"predictor"``; used in error messages.
         """
         self.kind = kind
-        self._entries: dict[str, _Entry[T]] = {}
+        self._entries: dict[str, tuple[T, Mapping[str, Any]]] = {}
         self._lock = threading.Lock()
 
     def register(
@@ -149,26 +123,13 @@ class Registry(TableReprMixin, Generic[T]):
         if not isinstance(name, str) or not name.strip():
             msg = f"{self.kind} name must be a non-empty string, got {name!r}"
             raise ValueError(msg)
-        entry = _Entry(obj, _frozen_metadata(self.kind, name, metadata))
+        entry = (obj, MappingProxyType(dict(metadata or {})))
         with self._lock:
             if name in self._entries and not replace:
                 msg = f"{self.kind} {name!r} already registered"
                 raise ValueError(msg)
             self._entries[name] = entry
         return obj
-
-    def decorator(self, name: str, **metadata: Any) -> Callable[[T], T]:
-        r"""Return a decorator that registers its target under *name*.
-
-        :param name: Unique entry name.
-        :param \**metadata: Metadata stored with the entry.
-        :returns: Decorator that registers and returns the decorated object.
-        """
-
-        def decorate(obj: T) -> T:
-            return self.register(name, obj, metadata=metadata)
-
-        return decorate
 
     def get(self, name: str) -> T:
         """Return the entry registered under *name*.
@@ -178,13 +139,13 @@ class Registry(TableReprMixin, Generic[T]):
         :param name: Entry name.
         :returns: The registered object.
         """
-        return self._entry(name).obj
+        return self._entry(name)[0]
 
-    def _entry(self, name: str) -> _Entry[T]:
+    def _entry(self, name: str) -> tuple[T, Mapping[str, Any]]:
         """Return the stored entry for *name*.
 
         :param name: Entry name.
-        :returns: The object and its metadata.
+        :returns: The ``(object, metadata)`` pair.
         :raises UnknownNameError: If *name* is not registered.
         """
         with self._lock:
@@ -211,7 +172,7 @@ class Registry(TableReprMixin, Generic[T]):
         :param name: Entry name.
         :returns: Read-only metadata mapping, empty when none was given.
         """
-        return self._entry(name).metadata
+        return self._entry(name)[1]
 
     def items(self) -> tuple[tuple[str, T], ...]:
         """Return every entry with its name.
@@ -219,7 +180,7 @@ class Registry(TableReprMixin, Generic[T]):
         :returns: ``(name, obj)`` pairs in registration order.
         """
         with self._lock:
-            return tuple((name, entry.obj) for name, entry in self._entries.items())
+            return tuple((name, obj) for name, (obj, _) in self._entries.items())
 
     def __contains__(self, name: object) -> bool:
         """Return whether *name* is registered.
@@ -244,7 +205,7 @@ class Registry(TableReprMixin, Generic[T]):
         :returns: Snapshot that :meth:`restore` puts back.
         """
         with self._lock:
-            entries = tuple((name, entry.obj, entry.metadata) for name, entry in self._entries.items())
+            entries = tuple((name, obj, metadata) for name, (obj, metadata) in self._entries.items())
         return Snapshot(self.kind, entries)
 
     def restore(self, snapshot: Snapshot[T]) -> None:
@@ -257,7 +218,7 @@ class Registry(TableReprMixin, Generic[T]):
             msg = f"cannot restore a {snapshot.kind} snapshot into the {self.kind} registry"
             raise ValueError(msg)
         with self._lock:
-            self._entries = {name: _Entry(obj, metadata) for name, obj, metadata in snapshot.entries}
+            self._entries = {name: (obj, metadata) for name, obj, metadata in snapshot.entries}
 
     def to_dataframe(self) -> pd.DataFrame:
         """Return the entries as a table.
@@ -270,8 +231,8 @@ class Registry(TableReprMixin, Generic[T]):
             rows = [
                 {
                     "Name": name,
-                    **{key.replace("_", " ").capitalize(): _cell(value) for key, value in entry.metadata.items()},
+                    **{key.replace("_", " ").capitalize(): _cell(value) for key, value in metadata.items()},
                 }
-                for name, entry in self._entries.items()
+                for name, (_, metadata) in self._entries.items()
             ]
         return pd.DataFrame(rows, columns=None if rows else ["Name"])

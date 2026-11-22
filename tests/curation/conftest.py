@@ -8,6 +8,7 @@ import pandas as pd
 import pytest
 
 from drevalpy.curation import curate
+from drevalpy.curation._fit import FitOptions, collect, fit_chunk, fit_config, split
 
 
 def sigmoid(x: np.ndarray, top: float, bottom: float, ec50: float, slope: float) -> np.ndarray:
@@ -39,6 +40,18 @@ def build_dose_response_df() -> pd.DataFrame:
                 rows.append({"drug": drug, "sample": cl, "concentration": conc, "intensity": intens})
 
     return pd.DataFrame(rows)
+
+
+def fit_table(viability: pd.DataFrame, options: FitOptions) -> pd.DataFrame:
+    """Split, fit and collect a viability table in this process.
+
+    :param viability: As :func:`drevalpy.curation._fit.split`.
+    :param options: How the curves are fitted.
+    :returns: As :func:`drevalpy.curation._fit.collect`.
+    """
+    chunks, infos = split(viability, options)
+    fitted = [fit_chunk(frame, fit_config(infos[group], options, normalize=False)) for frame, group in chunks]
+    return collect(chunks, fitted, infos, options)
 
 
 @pytest.fixture()

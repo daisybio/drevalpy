@@ -1,15 +1,26 @@
 """Utility functions for the SuperFELTR model."""
 
-from typing import cast
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, cast
 
 import pytorch_lightning as pl
 import torch
 from torch import nn
-from upath import UPath as Path
 
 from drevalpy.components.predictors._lightning_training import LossSteps
-from drevalpy.components.predictors.literature._omics_loaders import OmicsSplit, fit_omics_model
 from drevalpy.components.predictors.literature.molir.utils import OmicsRegressionModule, generate_triplets_indices
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+#: The encoder omic types in the order of a batch's three omic views, each with the hyperparameter holding
+#: its encoder's output width.
+ENCODER_DIM_KEYS = {
+    "expression": "out_dim_expr_encoder",
+    "mutation": "out_dim_mutation_encoder",
+    "copy_number_variation_gistic": "out_dim_cnv_encoder",
+}
 
 
 class SuperFELTEncoder(LossSteps, pl.LightningModule):
@@ -27,7 +38,7 @@ class SuperFELTEncoder(LossSteps, pl.LightningModule):
 
         :param input_size: determined by the variance threshold feature selection
         :param hpams: hyperparameters for the model
-        :param omic_type: gene expression, mutation, or copy number variation
+        :param omic_type: one of the keys of ``ENCODER_DIM_KEYS`` (a ``KeyError`` for any other)
         :param ranges: positive and negative ranges for the triplet loss
 
         :raises ValueError: if the hyperparameters are not of the correct type
@@ -42,8 +53,11 @@ class SuperFELTEncoder(LossSteps, pl.LightningModule):
         ):
             raise ValueError("dropout_rate, margin, learning_rate, and weight_decay must be floats!")
 
+        if not all(isinstance(hpams[key], int) for key in ENCODER_DIM_KEYS.values()):
+            raise ValueError("out_dim_expr_encoder, out_dim_mutation_encoder, and out_dim_cnv_encoder must be ints!")
+
         self.omic_type = omic_type
-        output_size = self._get_output_size(hpams)
+        output_size = hpams[ENCODER_DIM_KEYS[omic_type]]
 
         # only change vs MOLIEncoder: BatchNorm1d before ReLU
         self.encode = nn.Sequential(
@@ -74,51 +88,6 @@ class SuperFELTEncoder(LossSteps, pl.LightningModule):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr, weight_decay=self.weight_decay)
         return optimizer
 
-    def _get_output_size(self, hpams: dict[str, int | float | dict]) -> int:
-        """Get the output size of the encoder based on the omic type from the hyperparameters.
-
-        :param hpams: hyperparameters for the model
-
-        :returns: output size of the encoder
-
-        :raises ValueError: if the output sizes are not of the correct type
-        """
-        if (
-            not isinstance(hpams["out_dim_expr_encoder"], int)
-            or not isinstance(hpams["out_dim_mutation_encoder"], int)
-            or not isinstance(hpams["out_dim_cnv_encoder"], int)
-        ):
-            raise ValueError("out_dim_expr_encoder, out_dim_mutation_encoder, and out_dim_cnv_encoder must be ints!")
-
-        output_sizes = {
-            "expression": hpams["out_dim_expr_encoder"],
-            "mutation": hpams["out_dim_mutation_encoder"],
-            "copy_number_variation_gistic": hpams["out_dim_cnv_encoder"],
-        }
-        output_size = output_sizes[self.omic_type]
-        return output_size
-
-    def _get_omic_data(self, data_expr: torch.Tensor, data_mut: torch.Tensor, data_cnv: torch.Tensor) -> torch.Tensor:
-        """Get the omic data based on the omic type.
-
-        :param data_expr: Gene expression features of the batch.
-        :param data_mut: Mutation features of the batch.
-        :param data_cnv: Copy number variation features of the batch.
-
-        :returns: The one of the three inputs that matches the encoder's omic type.
-
-        :raises ValueError: if the omic type is not recognized
-        """
-        if self.omic_type == "expression":
-            data = data_expr
-        elif self.omic_type == "mutation":
-            data = data_mut
-        elif self.omic_type == "copy_number_variation_gistic":
-            data = data_cnv
-        else:
-            raise ValueError(f"omic_type {self.omic_type} not recognized.")
-        return data
-
     def _compute_loss(self, encoded: torch.Tensor, response: torch.Tensor) -> torch.Tensor:
         """Compute the triplet loss.
 
@@ -133,7 +102,7 @@ class SuperFELTEncoder(LossSteps, pl.LightningModule):
         triplet_loss = self.triplet_loss(encoded, encoded[positive_indices], encoded[negative_indices])
         return triplet_loss
 
-    def _loss_and_log(self, batch: list[torch.Tensor], key: str) -> torch.Tensor:
+    def _loss_and_log(self, batch: Sequence[torch.Tensor], key: str) -> torch.Tensor:
         """Compute and log the triplet loss of one batch on this encoder's omic view.
 
         :param batch: batch containing the omic data and response
@@ -141,10 +110,9 @@ class SuperFELTEncoder(LossSteps, pl.LightningModule):
 
         :returns: triplet loss
         """
-        data_expr, data_mut, data_cnv, response = batch
-        response = response.squeeze(-1)
-        data = self._get_omic_data(data_expr, data_mut, data_cnv)
-        encoded = self.encode(data)
+        *views, response = batch
+        response = response.reshape(-1)
+        encoded = self.encode(views[list(ENCODER_DIM_KEYS).index(self.omic_type)])
         triplet_loss = self._compute_loss(encoded, response)
         self.log(key, triplet_loss, on_step=False, on_epoch=True, prog_bar=True)
         return triplet_loss
@@ -194,7 +162,7 @@ class SuperFELTRegressor(LossSteps, OmicsRegressionModule):
             encoder.requires_grad_(False)
         self.regression_loss = nn.MSELoss()
 
-    def train(self, mode: bool = True) -> "SuperFELTRegressor":
+    def train(self, mode: bool = True) -> SuperFELTRegressor:
         """Set training mode on the regressor while keeping the encoders in eval mode.
 
         Lightning calls ``train()`` when the fit loop starts, which would otherwise
@@ -226,7 +194,7 @@ class SuperFELTRegressor(LossSteps, OmicsRegressionModule):
         """
         return torch.optim.Adagrad(self.regressor.parameters(), lr=self.lr, weight_decay=self.weight_decay)
 
-    def _encoder(self, index: int) -> "SuperFELTEncoder":
+    def _encoder(self, index: int) -> SuperFELTEncoder:
         """Return the registered encoder at ``index`` with its concrete type.
 
         ``nn.ModuleList.__getitem__`` is typed as ``Tensor | Module``, so the cast
@@ -253,7 +221,7 @@ class SuperFELTRegressor(LossSteps, OmicsRegressionModule):
         encoded_cnv = self._encoder(2).encode(copy_number)
         return torch.cat((encoded_expr, encoded_mut, encoded_cnv), dim=1)
 
-    def _loss_and_log(self, batch: list[torch.Tensor], key: str) -> torch.Tensor:
+    def _loss_and_log(self, batch: Sequence[torch.Tensor], key: str) -> torch.Tensor:
         """Compute and log the regression loss of one batch.
 
         :param batch: batch containing the omic data and response
@@ -262,45 +230,9 @@ class SuperFELTRegressor(LossSteps, OmicsRegressionModule):
         :returns: regression loss
         """
         data_expr, data_mut, data_cnv, response = batch
-        response = response.squeeze(-1)
+        response = response.reshape(-1)
         encoded = self._encode_and_concatenate(data_expr, data_mut, data_cnv)
         pred = self.regressor(encoded)
         loss = self.regression_loss(pred.squeeze(), response)
         self.log(key, loss, on_step=False, on_epoch=True, prog_bar=True)
         return loss
-
-
-def train_superfeltr_model(
-    model: SuperFELTEncoder | SuperFELTRegressor,
-    hpams: dict[str, int | float | dict],
-    train: OmicsSplit,
-    val: OmicsSplit | None = None,
-    patience: int = 5,
-    *,
-    model_checkpoint_dir: str | Path,
-) -> pl.callbacks.ModelCheckpoint:
-    """Train one encoder or the regressor using lazy pair-level lookup.
-
-    :param model: either one of the encoders or the regressor
-    :param hpams: hyperparameters for the model
-    :param train: training split of the three omic views
-    :param val: validation split for early stopping, or None to monitor the training loss
-    :param patience: for early stopping, defaults to 5
-    :param model_checkpoint_dir: directory to save the model checkpoints
-
-    :returns: checkpoint callback with the best model
-
-    :raises ValueError: if the epochs and mini_batch are not integers
-    """
-    if not isinstance(hpams["epochs"], int) or not isinstance(hpams["mini_batch"], int):
-        raise ValueError("epochs and mini_batch must be integers!")
-
-    return fit_omics_model(
-        model,
-        train,
-        val,
-        batch_size=hpams["mini_batch"],
-        epochs=hpams["epochs"],
-        patience=patience,
-        checkpoint_dir=model_checkpoint_dir,
-    )

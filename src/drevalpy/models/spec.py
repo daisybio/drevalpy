@@ -14,7 +14,7 @@ from drevalpy.models import hyperparameters as hp
 from drevalpy.models.config import ModelConfig
 from drevalpy.models.config.immutable import freeze_value, thaw_value
 from drevalpy.models.tuning.search_space import space
-from drevalpy.types.enums.accelerator import Accelerator
+from drevalpy.types.enums import Accelerator
 
 
 class UnknownModelError(UnknownNameError):
@@ -114,11 +114,6 @@ class ModelSpec:
         """The qualified search space of all components, computed once per spec; treat it as read-only."""
         return space(self.config)
 
-    @property
-    def model_id(self) -> str | None:
-        """The recipe naming the components, as :attr:`ModelConfig.model_id`."""
-        return self.config.model_id
-
     def dump(self) -> dict[str, Any]:
         """Return the spec as plain data, the inverse of :meth:`load`.
 
@@ -142,14 +137,7 @@ class ModelSpec:
     @property
     def requires_early_stopping(self) -> bool:
         """Whether any configured component requires a stopping holdout."""
-        from drevalpy.registry.predictor import get as get_predictor
-
-        if get_predictor(self.config.predictor.name).requires_early_stopping:
-            return True
-        for root in (self.config.sample_featurizer, self.config.drug_featurizer):
-            if root is not None and any(leaf.featurizer_class.requires_early_stopping for leaf in root.leaves()):
-                return True
-        return False
+        return any(cls.requires_early_stopping for cls in self._component_classes())
 
     @property
     def supports_early_stopping(self) -> bool:
@@ -163,9 +151,8 @@ class ModelSpec:
         from drevalpy.registry.predictor import get as get_predictor
 
         classes: list[type[Any]] = [get_predictor(self.config.predictor.name)]
-        for root in (self.config.sample_featurizer, self.config.drug_featurizer):
-            if root is not None:
-                classes.extend(leaf.featurizer_class for leaf in root.leaves())
+        for root in self.config.featurizers().values():
+            classes.extend(leaf.featurizer_class for leaf in root.leaves())
         return classes
 
     @property

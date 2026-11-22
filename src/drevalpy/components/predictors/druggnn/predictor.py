@@ -9,19 +9,19 @@ mean squared error, stops early on the validation loss and restores the weights 
 from __future__ import annotations
 
 import tempfile
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 import numpy as np
 
 from drevalpy._utils.accelerator import lightning_accelerator
 from drevalpy.components.contracts.feature_format import BlockSpec, FeatureFormat
 from drevalpy.components.predictors._lightning_training import LightningRun, reload_best_weights, run_lightning_fit
+from drevalpy.components.predictors._pair_loader import require_drug_pair_idx
 from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.components.predictors.inputs import Inputs
-from drevalpy.components.predictors.literature._pair_predict import require_drug_pair_idx
 from drevalpy.registry.predictor import register
 from drevalpy.types.data.predictor_input import PredictorInput
-from drevalpy.types.enums.accelerator import Accelerator
+from drevalpy.types.enums import Accelerator
 
 # torch, pytorch_lightning and torch_geometric are imported inside the methods
 # that need them, not at module scope: this module is imported eagerly by
@@ -30,61 +30,9 @@ from drevalpy.types.enums.accelerator import Accelerator
 # tests/test_import_cost_policy.py.
 if TYPE_CHECKING:
     import torch
-    from torch_geometric.loader import DataLoader
+    from torch.utils.data import DataLoader
 
     from drevalpy.components.predictors.druggnn.algorithm import DrugGNNModule
-
-
-class _DrugGNNDataset:
-    """Map-style dataset that yields (drug_graph, cell_features, response) tuples.
-
-    Accepts pre-built index arrays mapping each pair to entity-level features.
-
-    Deliberately not a ``torch.utils.data.Dataset`` subclass: that base class
-    contributes only ``__add__``, which nothing here uses, and inheriting from it
-    would require ``torch`` at class-definition time.
-    """
-
-    def __init__(
-        self,
-        sample_pair_idx: np.ndarray,
-        drug_pair_idx: np.ndarray,
-        sample_matrix: np.ndarray,
-        drug_graphs: np.ndarray,
-        response: np.ndarray,
-    ) -> None:
-        """Initialize the DrugGNN dataset.
-
-        :param sample_pair_idx: Pair-level indices into the sample matrix.
-        :param drug_pair_idx: Pair-level indices into the drug graphs array.
-        :param sample_matrix: Sample feature matrix.
-        :param drug_graphs: Array of PyG Data objects for drugs.
-        :param response: Response values for each pair.
-        """
-        import torch
-
-        self._cl_pair_idx = sample_pair_idx
-        self._drug_pair_idx = drug_pair_idx
-        self._cl_tensors = torch.as_tensor(sample_matrix, dtype=torch.float32)
-        self._drug_graphs = drug_graphs
-        self._response = torch.as_tensor(response, dtype=torch.float32)
-
-    def __len__(self) -> int:
-        """Return the number of pairs.
-
-        :returns: Dataset length.
-        """
-        return len(self._response)
-
-    def __getitem__(self, idx: int) -> tuple[Any, torch.Tensor, torch.Tensor]:
-        """Return (drug_graph, cell_features, response) for the given index.
-
-        :param idx: Pair index.
-        :returns: Tuple of drug graph, cell tensor, and response scalar.
-        """
-        cl_idx = self._cl_pair_idx[idx]
-        drug_idx = self._drug_pair_idx[idx]
-        return self._drug_graphs[drug_idx], self._cl_tensors[cl_idx], self._response[idx]
 
 
 @register(
@@ -136,16 +84,8 @@ class DrugGNNPredictor(Predictor):
         drug_graphs = data.drug.blocks["drug_graph"].values
 
         self._model = self._build_model(sample_matrix, drug_graphs)
-        train_loader = self._graph_loader(
-            data.sample_pair_idx,
-            require_drug_pair_idx(data.drug_pair_idx),
-            sample_matrix,
-            drug_graphs,
-            data.response,
-            batch_size=int(self._hyperparameters["batch_size"]),
-            shuffle=True,
-        )
-        val_loader = self._build_val_loader(data, sample_matrix, drug_graphs)
+        train_loader = self._graph_loader(data, batch_size=int(self._hyperparameters["batch_size"]), shuffle=True)
+        val_loader = self._build_val_loader(data)
         self._run_training(train_loader, val_loader)
 
     def _build_model(self, sample_matrix: np.ndarray, drug_graphs: np.ndarray) -> DrugGNNModule:
@@ -189,67 +129,49 @@ class DrugGNNPredictor(Predictor):
             reload_best_weights(self._model, checkpoint)
 
     @staticmethod
-    def _graph_loader(
-        sample_pair_idx: np.ndarray,
-        drug_pair_idx: np.ndarray,
-        sample_matrix: np.ndarray,
-        drug_graphs: np.ndarray,
-        response: np.ndarray,
-        *,
-        batch_size: int,
-        shuffle: bool = False,
-    ) -> DataLoader:
-        """Build one graph loader over the given pairs.
+    def _graph_loader(data: PredictorInput, *, batch_size: int, shuffle: bool = False) -> DataLoader:
+        """Build the loader over the pairs of *data*, batching each pair's drug graph in the collate function.
 
-        :param sample_pair_idx: Sample row per pair.
-        :param drug_pair_idx: Drug row per pair.
-        :param sample_matrix: Sample feature matrix.
-        :param drug_graphs: Array of drug graph objects.
-        :param response: Pair-level response values.
+        The loader yields ``(drug graph batch, sample features, response)``; the response is ``NaN`` where unknown.
+
+        :param data: Pairs to iterate, with the gene_expression and drug_graph blocks.
         :param batch_size: Mini-batch size.
-        :param shuffle: Whether to shuffle each epoch.
-        :returns: A ``torch_geometric`` loader.
+        :param shuffle: Whether to shuffle the pairs each epoch.
+        :returns: A ``DataLoader`` over the pairs of *data*.
         """
-        from torch_geometric.loader import DataLoader
+        import torch
+        from torch.utils.data import DataLoader
+        from torch_geometric.data import Batch
 
-        dataset = _DrugGNNDataset(
-            sample_pair_idx=sample_pair_idx,
-            drug_pair_idx=drug_pair_idx,
-            sample_matrix=sample_matrix,
-            drug_graphs=drug_graphs,
-            response=response,
+        sample_matrix = torch.as_tensor(data.sample.blocks["gene_expression"].values, dtype=torch.float32)
+        drug_graphs = data.drug.blocks["drug_graph"].values
+        drug_idx = require_drug_pair_idx(data.drug_pair_idx)
+        response = torch.as_tensor(data.response, dtype=torch.float32)
+
+        def gather(batch: list[int]) -> tuple[Any, torch.Tensor, torch.Tensor]:
+            rows = torch.as_tensor(batch, dtype=torch.long)
+            graphs = Batch.from_data_list(list(drug_graphs[drug_idx[batch]]))
+            return graphs, sample_matrix[data.sample_pair_idx[batch]], response[rows]
+
+        return DataLoader(
+            cast("Any", range(len(data))),
+            batch_size=batch_size,
+            shuffle=shuffle,
+            num_workers=0,
+            pin_memory=True,
+            collate_fn=gather,
         )
-        return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=0, pin_memory=True)
 
-    def _build_val_loader(
-        self,
-        data: PredictorInput,
-        sample_matrix: np.ndarray,
-        drug_graphs: np.ndarray,
-    ) -> DataLoader | None:
-        """Build a validation DataLoader from the early-stopping response if available.
+    def _build_val_loader(self, data: PredictorInput) -> DataLoader | None:
+        """Build a validation DataLoader over the early-stopping pairs, if there are any.
 
-        :param data: Full training batch (for entity ID lookups).
-        :param sample_matrix: Sample feature matrix.
-        :param drug_graphs: Array of drug graph objects.
+        :param data: Training batch.
         :returns: Validation DataLoader or None if no early-stopping data.
-        :raises ValueError: If the batch has early-stopping pairs but no drug features.
         """
-        es = data.early_stopping
-        if es is None or len(es) == 0:
+        stopping = data.stopping
+        if stopping is None or len(stopping) == 0:
             return None
-
-        if data.drug is None:
-            raise ValueError("DrugGNN requires drug features for early stopping")
-
-        return self._graph_loader(
-            data.sample.rows_for(es.sample_ids),
-            data.drug.rows_for(es.drug_ids),
-            sample_matrix,
-            drug_graphs,
-            es.response,
-            batch_size=int(self._hyperparameters["batch_size"]),
-        )
+        return self._graph_loader(stopping, batch_size=int(self._hyperparameters["batch_size"]))
 
     # ------------------------------------------------------------------
     # Predict
@@ -270,14 +192,7 @@ class DrugGNNPredictor(Predictor):
         if len(data) == 0:
             return np.array([])
 
-        predict_loader = self._graph_loader(
-            data.sample_pair_idx,
-            require_drug_pair_idx(data.drug_pair_idx),
-            data.sample.blocks["gene_expression"].values,
-            data.drug.blocks["drug_graph"].values,
-            np.zeros(len(data), dtype=np.float32),
-            batch_size=int(self._hyperparameters["batch_size"]),
-        )
+        predict_loader = self._graph_loader(data, batch_size=int(self._hyperparameters["batch_size"]))
 
         trainer = pl.Trainer(
             accelerator=lightning_accelerator(), devices="auto", enable_progress_bar=False, logger=False

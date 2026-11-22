@@ -18,8 +18,7 @@ from drevalpy.log import get_logger
 from drevalpy.models.config import ModelConfig
 from drevalpy.models.config.io import from_dict, from_yaml, read_yaml_mapping
 from drevalpy.registry._registry import Registry, Snapshot
-from drevalpy.types.enums.model_scope import ModelScope
-from drevalpy.types.enums.prediction_mode import PredictionMode
+from drevalpy.types.enums import ModelScope, PredictionMode
 
 _BUILTIN_ZOO_DIR = Path(__file__).resolve().parent
 logger = get_logger(__name__)

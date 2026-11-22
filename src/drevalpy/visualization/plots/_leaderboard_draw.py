@@ -1,4 +1,4 @@
-"""Drawing helpers of the leaderboard: theme, ranked bar panels, title, subtitle and legend.
+"""Drawing helpers of the leaderboard: theme, ranked bar panels, title and legend.
 
 ``matplotlib`` is imported inside the drawing helpers rather than at module scope:
 ``drevalpy.registry`` imports every builtin visualization on ``import drevalpy``, so a
@@ -8,6 +8,7 @@ invocation. See ``tests/test_import_cost_policy.py``.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -16,7 +17,6 @@ if TYPE_CHECKING:
     import pandas as pd
     from matplotlib.axes import Axes
     from matplotlib.figure import Figure
-    from matplotlib.patches import FancyBboxPatch
 
 # --- Theme ---
 DARK_THEME = {
@@ -28,36 +28,32 @@ DARK_THEME = {
 }
 
 COMPETITOR_COLOR = "#6A5ACD"
+BASELINE_COLOR = "#5a5a5a"
+#: Bar colors of the first three ranks: gold, silver, bronze.
+MEDAL_COLORS = ("#F4D03F", "#BDC3C7", "#E67E22")
+
+#: Height of a bar in data units, where the ranks are one unit apart.
+_BAR_HEIGHT = 0.65
+
+
+@dataclass(frozen=True)
+class Panel:
+    """One ranked bar panel: the table column it ranks and how it is labelled."""
+
+    column: str
+    ascending: bool
+    xlabel: str
+    title: str
+    title_color: str
 
 
 def get_bar_color(rank: int, is_baseline: bool) -> dict[str, Any]:
     """Return the bar color and opacity: grey for baselines, medals for the top three, purple otherwise."""
     if is_baseline:
-        return {"color": "#5a5a5a", "alpha": 1.0}
-    medal_colors = ["#F4D03F", "#BDC3C7", "#E67E22"]
-    if rank < len(medal_colors):
-        return {"color": medal_colors[rank], "alpha": 1.0}
+        return {"color": BASELINE_COLOR, "alpha": 1.0}
+    if rank < len(MEDAL_COLORS):
+        return {"color": MEDAL_COLORS[rank], "alpha": 1.0}
     return {"color": COMPETITOR_COLOR, "alpha": 0.85}
-
-
-def draw_bar(
-    ax: Axes, x: float, y: float, width: float, height: float, color: str, alpha: float = 1.0
-) -> FancyBboxPatch:
-    """Add one rounded bar centred on ``y`` to ``ax`` and return it."""
-    from matplotlib.patches import FancyBboxPatch
-
-    bar = FancyBboxPatch(
-        (x, y - height / 2),
-        width,
-        height,
-        boxstyle="round,pad=0.01,rounding_size=0.015",
-        facecolor=color,
-        alpha=alpha,
-        edgecolor="none",
-        zorder=3,
-    )
-    ax.add_patch(bar)
-    return bar
 
 
 def axis_bounds(values: np.ndarray, stds: np.ndarray) -> tuple[float, float]:
@@ -88,29 +84,39 @@ def axis_bounds(values: np.ndarray, stds: np.ndarray) -> tuple[float, float]:
     return low - span * 0.06, high + span * 0.18
 
 
-def draw_ranked_metric_axis(
-    ax: Axes,
-    df: pd.DataFrame,
-    *,
-    metric_col: str,
-    std_col: str,
-    bar_height: float,
-    font_adder: int,
-    colors: dict[str, str],
-    ascending: bool,
-    xlabel: str,
-    title: str,
-    title_color: str,
-) -> None:
-    ax.set_facecolor(colors["background"])
-    df_metric = df.dropna(subset=[metric_col]).sort_values(metric_col, ascending=ascending).reset_index(drop=True)
+def draw_ranked_metric_axis(ax: Axes, df: pd.DataFrame, panel: Panel, font_adder: int) -> None:
+    """Draw the models ranked on ``panel.column`` as horizontal bars, with their values and medals.
+
+    :param ax: Axes to draw on.
+    :param df: The leaderboard table; models without a value in the panel's column are left out.
+    :param panel: The column to rank and how the panel is labelled.
+    :param font_adder: Points added to the base font sizes.
+    """
+    from matplotlib.patches import FancyBboxPatch
+
+    colors = DARK_THEME
+    metric_col = panel.column
+    df_metric = df.dropna(subset=[metric_col]).sort_values(metric_col, ascending=panel.ascending).reset_index(drop=True)
     y_positions = np.arange(len(df_metric) - 1, -1, -1)
-    left, right = axis_bounds(df_metric[metric_col].to_numpy(dtype=float), df_metric[std_col].to_numpy(dtype=float))
+    left, right = axis_bounds(
+        df_metric[metric_col].to_numpy(dtype=float), df_metric[f"{metric_col}_std"].to_numpy(dtype=float)
+    )
     span = right - left
 
     for i, (_, row) in enumerate(df_metric.iterrows()):
         style = get_bar_color(i, row["is_baseline"])
-        draw_bar(ax, 0, y_positions[i], row[metric_col], bar_height, style["color"], style["alpha"])
+        ax.add_patch(
+            FancyBboxPatch(
+                (0, y_positions[i] - _BAR_HEIGHT / 2),
+                row[metric_col],
+                _BAR_HEIGHT,
+                boxstyle="round,pad=0.01,rounding_size=0.015",
+                facecolor=style["color"],
+                alpha=style["alpha"],
+                edgecolor="none",
+                zorder=3,
+            )
+        )
         label_color = style["color"] if not row["is_baseline"] else colors["text_secondary"]
         ax.text(
             row[metric_col] + span * 0.02,
@@ -153,11 +159,11 @@ def draw_ranked_metric_axis(
         else:
             label.set_color(colors["text"])
 
-    ax.set_xlabel(xlabel, fontsize=12 + font_adder, fontweight="bold", labelpad=10)
+    ax.set_xlabel(panel.xlabel, fontsize=12 + font_adder, fontweight="bold", labelpad=10)
     ax.xaxis.grid(True, linestyle="--", alpha=0.3, color=colors["grid"])
     ax.set_axisbelow(True)
     ax.tick_params(axis="x", colors=colors["text_secondary"])
-    ax.set_title(title, fontsize=14 + font_adder, fontweight="bold", color=title_color, pad=15)
+    ax.set_title(panel.title, fontsize=14 + font_adder, fontweight="bold", color=panel.title_color, pad=15)
 
 
 def gradient_char_colors(title_text: str) -> list[str]:
@@ -196,29 +202,19 @@ def draw_gradient_title(fig: Figure, title_text: str, font_adder: int, y: float 
         )
 
 
-def draw_subtitle(
-    fig: Figure, dataset: str, measure: str, test_mode_label: str, font_adder: int, colors: dict, y: float = 0.92
-) -> None:
-    fig.text(
-        0.5,
-        y,
-        f"{dataset} Dataset  \u2022  {measure}  \u2022  {test_mode_label}",
-        ha="center",
-        fontsize=12 + font_adder,
-        color=colors["text_secondary"],
-    )
-
-
-def draw_legend(fig: Figure, font_adder: int, colors: dict, y: float = 0.02) -> None:
+def draw_legend(fig: Figure, font_adder: int, y: float = 0.02) -> None:
     """Add the medal, competitor and baseline legend at the bottom of the figure."""
     import matplotlib.patches as mpatches
 
+    colors = DARK_THEME
+    medal_labels = ("#1 Champion", "#2 Runner-up", "#3 Third Place")
     legend_elements = [
-        mpatches.Patch(facecolor="#F4D03F", label="#1 Champion", edgecolor="none"),
-        mpatches.Patch(facecolor="#BDC3C7", label="#2 Runner-up", edgecolor="none"),
-        mpatches.Patch(facecolor="#E67E22", label="#3 Third Place", edgecolor="none"),
+        *(
+            mpatches.Patch(facecolor=color, label=label, edgecolor="none")
+            for color, label in zip(MEDAL_COLORS, medal_labels, strict=True)
+        ),
         mpatches.Patch(facecolor=COMPETITOR_COLOR, alpha=0.85, label="Competitor", edgecolor="none"),
-        mpatches.Patch(facecolor="#5a5a5a", alpha=1, label="Baseline", edgecolor="none"),
+        mpatches.Patch(facecolor=BASELINE_COLOR, alpha=1, label="Baseline", edgecolor="none"),
     ]
     legend = fig.legend(
         handles=legend_elements,

@@ -95,7 +95,7 @@ def _table(title: str, columns: Iterable[str], caption: str | None = None) -> Ta
     return table
 
 
-def render_empty(hint: str) -> None:
+def _render_empty(hint: str) -> None:
     """Print the stand-in shown when there is nothing to list.
 
     :param hint: Sentence explaining what was empty and, ideally, why.
@@ -122,9 +122,10 @@ def render_rows(
     :param show_count: Add a row-count caption below the table.
     """
     if not rows:
-        render_empty(empty_hint)
+        _render_empty(empty_hint)
         return
-    table = _table(title, columns, caption=_count_caption(len(rows)) if show_count else None)
+    caption = f"{len(rows)} {'entry' if len(rows) == 1 else 'entries'}" if show_count else None
+    table = _table(title, columns, caption=caption)
     for row in rows:
         table.add_row(*(_text(cell) for cell in row))
     console().print(table)
@@ -138,7 +139,7 @@ def render_frame(frame: pd.DataFrame, *, title: str, empty_hint: str) -> None:
     :param empty_hint: Printed instead of the table when the frame has no rows.
     """
     if frame.empty:
-        render_empty(empty_hint)
+        _render_empty(empty_hint)
         return
     rows = [[format_value(value) for value in row] for row in frame.itertuples(index=False)]
     render_rows(rows, columns=[str(column) for column in frame.columns], title=title, empty_hint=empty_hint)
@@ -158,12 +159,3 @@ def render_mapping(data: Mapping[str, Any], *, title: str) -> None:
         empty_hint=f"No metadata recorded for {title}.",
         show_count=False,
     )
-
-
-def _count_caption(count: int) -> str:
-    """Return the row-count caption for a table.
-
-    :param count: Number of rows rendered.
-    :returns: Caption text with the count correctly pluralised.
-    """
-    return f"{count} entry" if count == 1 else f"{count} entries"

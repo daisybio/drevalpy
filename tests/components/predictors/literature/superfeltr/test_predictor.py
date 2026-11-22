@@ -1,4 +1,4 @@
-"""Tests for the SuperFELTR predictor, encoders, regressor and training entry point."""
+"""Tests for the SuperFELTR predictor, encoders, regressor and per-module fit."""
 
 from __future__ import annotations
 
@@ -8,14 +8,14 @@ import pytorch_lightning as pl
 import torch
 from torch import nn
 
-from drevalpy.components.predictors.literature._omics_loaders import OmicsSplit
+from drevalpy.components.contracts.training_context import TrainingContext
+from drevalpy.components.predictors.literature.superfeltr import predictor as superfeltr_predictor
 from drevalpy.components.predictors.literature.superfeltr.predictor import SuperFELTRPredictor
-from drevalpy.components.predictors.literature.superfeltr.utils import (
-    SuperFELTEncoder,
-    SuperFELTRegressor,
-    train_superfeltr_model,
-)
+from drevalpy.components.predictors.literature.superfeltr.utils import SuperFELTEncoder, SuperFELTRegressor
 from drevalpy.registry.predictor import get as get_predictor
+from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
+from drevalpy.types.data.predictor_input import PredictorInput
+from drevalpy.types.data.response_table import ResponseTable
 from tests.components.predictors.literature._helpers import (
     assert_frozen_reference,
     assert_pickle_round_trip,
@@ -38,14 +38,12 @@ class TestTinySuperFELTRFit:
     def test_fits_triplet_batches_and_round_trips_through_pickle_without_feature_names(
         self, seed: int, tmp_path, monkeypatch
     ) -> None:
-        from drevalpy.components.predictors.literature.superfeltr import utils
-
         checkpoints: list = []
-        train = utils.train_superfeltr_model
+        fit = superfeltr_predictor.fit_omics_model
         monkeypatch.setattr(
-            utils,
-            "train_superfeltr_model",
-            lambda *args, **kwargs: checkpoints.append(train(*args, **kwargs)) or checkpoints[-1],
+            superfeltr_predictor,
+            "fit_omics_model",
+            lambda *args, **kwargs: checkpoints.append(fit(*args, **kwargs)) or checkpoints[-1],
         )
         seed_literature(seed)
         batch = single_drug_omics_batch(tmp_path)
@@ -121,21 +119,28 @@ def _omics() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     )
 
 
-def _pairs() -> tuple[np.ndarray, np.ndarray]:
-    response = np.linspace(0.0, 1.0, N_PAIRS, dtype=np.float32)
-    pair_idx = np.arange(N_PAIRS, dtype=np.int64) % N_ENTITIES
-    return response, pair_idx
-
-
-def _split(response: np.ndarray | None = None) -> OmicsSplit:
+def _omics_batch(tmp_path, *, with_val: bool = False) -> PredictorInput:
     expr, mut, cnv = _omics()
-    default_response, pair_idx = _pairs()
-    return OmicsSplit(
-        gene_expression=expr,
-        mutations=mut,
-        copy_number=cnv,
-        response=default_response if response is None else response,
-        pair_idx=pair_idx,
+    entity_ids = np.array([f"s{i}" for i in range(N_ENTITIES)])
+    pair_ids = entity_ids[np.arange(N_PAIRS) % N_ENTITIES]
+    pairs = ResponseTable(
+        response=np.linspace(0.0, 1.0, N_PAIRS, dtype=np.float32),
+        sample_ids=pair_ids,
+        drug_ids=np.repeat("d1", N_PAIRS),
+    )
+    sample = FeaturizerOutput(
+        entity_ids=entity_ids,
+        blocks={
+            "gene_expression": FeatureBlock(expr),
+            "mutations": FeatureBlock(mut),
+            "copy_number_variation_gistic": FeatureBlock(cnv),
+        },
+    )
+    return PredictorInput(
+        pairs=pairs,
+        sample=sample,
+        early_stopping=pairs if with_val else None,
+        training_context=TrainingContext(checkpoint_dir=tmp_path),
     )
 
 
@@ -165,24 +170,24 @@ def test_encoder_rejects_non_integer_output_sizes(hyperparameter: str) -> None:
 
 
 @pytest.mark.parametrize(
-    ("omic_type", "out_size", "index"),
-    [("expression", OUT_EXPR, 0), ("mutation", OUT_MUT, 1), ("copy_number_variation_gistic", OUT_CNV, 2)],
+    ("omic_type", "width", "out_size"),
+    [
+        ("expression", EXPR_DIM, OUT_EXPR),
+        ("mutation", MUT_DIM, OUT_MUT),
+        ("copy_number_variation_gistic", CNV_DIM, OUT_CNV),
+    ],
 )
-def test_encoder_branches_on_the_omic_type(omic_type: str, out_size: int, index: int) -> None:
-    encoder = _encoder(omic_type, EXPR_DIM)
-    tensors = (torch.zeros(2, 1), torch.ones(2, 1), torch.full((2, 1), 2.0))
+def test_encoder_reads_its_own_view_and_output_width(omic_type: str, width: int, out_size: int) -> None:
+    encoder = _encoder(omic_type, width)
+    views = [torch.randn(3, EXPR_DIM), torch.randn(3, MUT_DIM), torch.randn(3, CNV_DIM)]
 
     assert encoder.encode[0].out_features == out_size
-    torch.testing.assert_close(encoder._get_omic_data(*tensors), tensors[index])
+    assert encoder.training_step([*views, torch.randn(3, 1)], 0).ndim == 0
 
 
 def test_encoder_rejects_an_unknown_omic_type() -> None:
     with pytest.raises(KeyError):
         _encoder("proteomics", EXPR_DIM)
-    encoder = _encoder()
-    encoder.omic_type = "proteomics"
-    with pytest.raises(ValueError, match="not recognized"):
-        encoder._get_omic_data(torch.zeros(1, 1), torch.zeros(1, 1), torch.zeros(1, 1))
 
 
 def test_encoder_structure_forward_and_optimizer() -> None:
@@ -255,24 +260,20 @@ def test_regressor_steps_return_a_scalar_loss(step: str) -> None:
     assert getattr(_regressor(), step)(batch, 0).ndim == 0
 
 
+def _fit_module(module, tmp_path, *, with_val: bool = False, **overrides):
+    predictor = SuperFELTRPredictor(hyperparameters={**_hpams(), **overrides})
+    return predictor._fit_module(module, _omics_batch(tmp_path, with_val=with_val))
+
+
 @pytest.mark.parametrize("hyperparameter", ["epochs", "mini_batch"])
-def test_train_rejects_non_integer_epochs_and_mini_batch(hyperparameter: str, tmp_path) -> None:
+def test_fit_rejects_non_integer_epochs_and_mini_batch(hyperparameter: str, tmp_path) -> None:
     with pytest.raises(ValueError, match="must be integers"):
-        train_superfeltr_model(
-            model=_encoder(), hpams=_hpams(**{hyperparameter: 1.0}), train=_split(), model_checkpoint_dir=tmp_path
-        )
+        _fit_module(_encoder(), tmp_path, **{hyperparameter: 1.0})
 
 
 @pytest.mark.parametrize(("with_val", "monitor"), [(False, "train_loss"), (True, "val_loss")])
-def test_train_encoder_monitors_the_available_loss_and_writes_a_checkpoint(with_val, monitor, tmp_path) -> None:
-    checkpoint = train_superfeltr_model(
-        model=_encoder(),
-        hpams=_hpams(),
-        train=_split(),
-        val=_split() if with_val else None,
-        patience=1,
-        model_checkpoint_dir=tmp_path,
-    )
+def test_fit_encoder_monitors_the_available_loss_and_writes_a_checkpoint(with_val, monitor, tmp_path) -> None:
+    checkpoint = _fit_module(_encoder(), tmp_path, with_val=with_val)
 
     assert isinstance(checkpoint, pl.callbacks.ModelCheckpoint)
     assert checkpoint.monitor == monitor
@@ -284,21 +285,13 @@ def test_train_encoder_monitors_the_available_loss_and_writes_a_checkpoint(with_
     assert restored.encode[0].out_features == OUT_EXPR
 
 
-def test_train_regressor_accepts_a_two_dimensional_response(tmp_path) -> None:
-    response, _ = _pairs()
-
-    checkpoint = train_superfeltr_model(
-        model=_regressor(),
-        hpams=_hpams(),
-        train=_split(response=response.reshape(-1, 1)),
-        patience=1,
-        model_checkpoint_dir=tmp_path,
-    )
+def test_fit_regressor_writes_a_checkpoint(tmp_path) -> None:
+    checkpoint = _fit_module(_regressor(), tmp_path)
 
     assert checkpoint.best_model_path
 
 
-def test_train_runs_on_the_cpu_without_a_default_logger(tmp_path, monkeypatch) -> None:
+def test_fit_runs_on_the_cpu_without_a_default_logger(tmp_path, monkeypatch) -> None:
     real_trainer = pl.Trainer
     seen: list[dict[str, object]] = []
 
@@ -308,9 +301,7 @@ def test_train_runs_on_the_cpu_without_a_default_logger(tmp_path, monkeypatch) -
 
     monkeypatch.setattr(pl, "Trainer", spy)
 
-    train_superfeltr_model(
-        model=_encoder(), hpams=_hpams(), train=_split(), patience=1, model_checkpoint_dir=tmp_path / "ckpt"
-    )
+    _fit_module(_encoder(), tmp_path / "ckpt")
 
     (kwargs,) = seen
     assert kwargs["accelerator"] == "cpu"

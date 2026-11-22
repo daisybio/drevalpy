@@ -7,20 +7,16 @@ from typing import Any
 import numpy as np
 import pytest
 
-from drevalpy.components.predictors.literature._omic_helpers import (
+from drevalpy.components.predictors.literature._omics import (
     OMIC_BLOCK_NAMES,
-    OmicFeatureNames,
-    OmicMatrices,
+    SingleDrugOmicsPredictor,
     aligned_pair_matrices,
+    make_omics_loaders,
     omic_feature_names,
-    omic_matrices,
-    validation_split,
 )
-from drevalpy.components.predictors.literature._omics_loaders import OmicsSplit, make_omics_loaders
-from drevalpy.components.predictors.literature._single_drug_omics import SingleDrugOmicsPredictor
 from drevalpy.components.predictors.literature.molir.predictor import MOLIRPredictor
 from drevalpy.components.predictors.literature.superfeltr.predictor import SuperFELTRPredictor
-from drevalpy.types.data.feature_block import FeatureBlock
+from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
 from drevalpy.types.data.predictor_input import PredictorInput
 from drevalpy.types.data.response_table import ResponseTable
 from tests.components.predictors.literature._helpers import two_by_two_batch
@@ -61,60 +57,13 @@ def _batch(
     )
 
 
-def _matrices() -> OmicMatrices:
-    return OmicMatrices(gene_expression=EXPRESSION, mutations=MUTATIONS, copy_number_variation=CNV)
+def _trained_names() -> dict[str, tuple[str, ...] | None]:
+    return dict(zip(OMIC_BLOCK_NAMES, (EXPRESSION_FEATURES, MUTATION_FEATURES, CNV_FEATURES), strict=True))
 
 
-def _trained_names() -> OmicFeatureNames:
-    return OmicFeatureNames(
-        gene_expression=EXPRESSION_FEATURES, mutations=MUTATION_FEATURES, copy_number_variation=CNV_FEATURES
-    )
-
-
-def _validation(sample_ids: list[str], values: list[float]) -> ResponseTable:
-    return ResponseTable(
-        response=np.array(values), sample_ids=np.array(sample_ids), drug_ids=np.repeat("d1", len(values))
-    )
-
-
-def test_matrices_are_read_from_the_batch_and_split_by_pair() -> None:
+def test_feature_names_are_recorded_by_block_name() -> None:
     assert OMIC_BLOCK_NAMES == ("gene_expression", "mutations", "copy_number_variation_gistic")
-    matrices = omic_matrices(_batch())
-    assert matrices.gene_expression.dtype == np.float32
-    np.testing.assert_allclose(matrices.gene_expression, EXPRESSION)
-    np.testing.assert_allclose(matrices.mutations, MUTATIONS)
-    np.testing.assert_allclose(matrices.copy_number_variation, CNV)
-    assert _matrices().widths() == (3, 2, 1)
-
-    pair_idx = np.array([0, 1, 1])
-    response = np.array([1.0, 2.0, 3.0], dtype=np.float32)
-    split = _matrices().split(pair_idx, response)
-    assert split.gene_expression is EXPRESSION
-    assert split.copy_number is CNV
-    np.testing.assert_array_equal(split.pair_idx, pair_idx)
-    np.testing.assert_allclose(split.response, response)
-
-
-def test_feature_names_are_recorded_and_frozen() -> None:
-    assert omic_feature_names(_batch()).as_tuple() == (EXPRESSION_FEATURES, MUTATION_FEATURES, CNV_FEATURES)
-    with pytest.raises(AttributeError):
-        _trained_names().gene_expression = ("other",)  # type: ignore[misc]
-
-
-def test_early_stopping_needs_at_least_two_validation_pairs() -> None:
-    assert validation_split(_matrices(), _batch()) is None
-    assert validation_split(_matrices(), _batch(early_stopping=_validation(["cl1"], [1.0]))) is None
-
-
-def test_validation_samples_map_onto_entity_rows_and_share_matrices() -> None:
-    batch = _batch(early_stopping=_validation(["cl2", "cl1"], [7.0, 8.0]))
-    matrices = _matrices()
-    split = validation_split(matrices, batch)
-    assert split is not None
-    assert split.gene_expression is matrices.gene_expression
-    np.testing.assert_array_equal(split.pair_idx, [1, 0])
-    np.testing.assert_allclose(split.response, [7.0, 8.0])
-    assert split.response.dtype == np.float32
+    assert omic_feature_names(_batch()) == _trained_names()
 
 
 def test_matching_features_are_expanded_to_pair_level_unchanged() -> None:
@@ -123,7 +72,7 @@ def test_matching_features_are_expanded_to_pair_level_unchanged() -> None:
     for matrix, source in zip(matrices, (EXPRESSION, MUTATIONS, CNV), strict=True):
         assert matrix.dtype == np.float32
         np.testing.assert_allclose(matrix, source[[0, 0, 1, 1]])
-    unknown, _, _ = aligned_pair_matrices(_batch(), OmicFeatureNames(None, None, None))
+    unknown, _, _ = aligned_pair_matrices(_batch(), {})
     np.testing.assert_allclose(unknown, EXPRESSION[[0, 0, 1, 1]])
 
 
@@ -165,7 +114,7 @@ def test_feature_names_are_recorded_once_and_drugs_without_a_model_are_skipped()
     predictor.fit(_batch())
 
     assert list(predictor._models) == ["d1"]
-    assert predictor._feature_names.as_tuple() == (EXPRESSION_FEATURES, MUTATION_FEATURES, CNV_FEATURES)
+    assert predictor._feature_names == _trained_names()
 
 
 def test_a_drug_batch_keeps_its_early_stopping_pairs_and_their_samples() -> None:
@@ -175,10 +124,12 @@ def test_a_drug_batch_keeps_its_early_stopping_pairs_and_their_samples() -> None
     predictor.fit(_batch(early_stopping=stopping))
 
     drug_batch = predictor._models["d1"]
-    split = validation_split(omic_matrices(drug_batch), drug_batch)
-    assert split is not None
-    np.testing.assert_allclose(split.response, [7.0, 8.0])
-    np.testing.assert_allclose(split.gene_expression[split.pair_idx], EXPRESSION[[1, 0]])
+    assert drug_batch.stopping is not None
+    np.testing.assert_allclose(drug_batch.stopping.response, [7.0, 8.0])
+    np.testing.assert_allclose(
+        drug_batch.stopping.sample.blocks["gene_expression"].values[drug_batch.stopping.sample_pair_idx],
+        EXPRESSION[[1, 0]],
+    )
 
 
 class _ExpressionSum:
@@ -206,23 +157,40 @@ LOADER_MUT_DIM = 2
 LOADER_CNV_DIM = 1
 
 
-def _loader_split(n_pairs: int = 5, *, two_dimensional_response: bool = False) -> OmicsSplit:
-    response = np.linspace(0.0, 1.0, n_pairs, dtype=np.float32)
-    return OmicsSplit(
-        gene_expression=np.arange(LOADER_ENTITIES * LOADER_EXPR_DIM, dtype=np.float32).reshape(
-            LOADER_ENTITIES, LOADER_EXPR_DIM
-        ),
-        mutations=np.ones((LOADER_ENTITIES, LOADER_MUT_DIM), dtype=np.float32),
-        copy_number=np.zeros((LOADER_ENTITIES, LOADER_CNV_DIM), dtype=np.float32),
-        response=response.reshape(-1, 1) if two_dimensional_response else response,
-        pair_idx=np.arange(n_pairs, dtype=np.int64) % LOADER_ENTITIES,
+def _loader_batch(n_pairs: int = 5, *, val_pairs: int | None = None) -> PredictorInput:
+    entity_ids = np.array([f"s{i}" for i in range(LOADER_ENTITIES)])
+    expression = np.arange(LOADER_ENTITIES * LOADER_EXPR_DIM, dtype=np.float32).reshape(
+        LOADER_ENTITIES, LOADER_EXPR_DIM
     )
+    sample = FeaturizerOutput(
+        entity_ids=entity_ids,
+        blocks={
+            "gene_expression": FeatureBlock(expression),
+            "mutations": FeatureBlock(np.ones((LOADER_ENTITIES, LOADER_MUT_DIM), dtype=np.float32)),
+            "copy_number_variation_gistic": FeatureBlock(np.zeros((LOADER_ENTITIES, LOADER_CNV_DIM), dtype=np.float32)),
+        },
+    )
+    pairs = ResponseTable(
+        response=np.linspace(0.0, 1.0, n_pairs, dtype=np.float32),
+        sample_ids=entity_ids[np.arange(n_pairs) % LOADER_ENTITIES],
+        drug_ids=np.repeat("d1", n_pairs),
+    )
+    early_stopping = (
+        None
+        if val_pairs is None
+        else ResponseTable(
+            response=np.linspace(1.0, 2.0, val_pairs, dtype=np.float32),
+            sample_ids=entity_ids[np.arange(val_pairs) % LOADER_ENTITIES],
+            drug_ids=np.repeat("d1", val_pairs),
+        )
+    )
+    return PredictorInput(pairs=pairs, sample=sample, early_stopping=early_stopping)
 
 
 @pytest.mark.slow
-def test_each_batch_carries_the_three_views_and_a_response_column() -> None:
-    split = _loader_split(n_pairs=4)
-    train_loader, val_loader = make_omics_loaders(split, None, batch_size=4)
+def test_each_batch_carries_the_three_views_and_response() -> None:
+    batch = _loader_batch(n_pairs=4)
+    train_loader, val_loader = make_omics_loaders(batch, batch_size=4)
 
     assert val_loader is None
     expression, mutations, copy_number, response = next(iter(train_loader))
@@ -231,13 +199,22 @@ def test_each_batch_carries_the_three_views_and_a_response_column() -> None:
         (4, LOADER_MUT_DIM),
         (4, LOADER_CNV_DIM),
     )
-    assert response.shape == (4, 1)
-    np.testing.assert_allclose(expression.numpy(), split.gene_expression[split.pair_idx])
+    assert response.shape == (4,)
+    np.testing.assert_allclose(expression.numpy(), batch.sample.blocks["gene_expression"].values[batch.sample_pair_idx])
+
+
+@pytest.mark.slow
+def test_early_stopping_needs_at_least_two_validation_pairs() -> None:
+    _, without = make_omics_loaders(_loader_batch(n_pairs=4), batch_size=2)
+    _, single = make_omics_loaders(_loader_batch(n_pairs=4, val_pairs=1), batch_size=2)
+
+    assert without is None
+    assert single is None
 
 
 @pytest.mark.slow
 def test_training_drops_the_trailing_incomplete_batch_but_validation_keeps_it() -> None:
-    train_loader, val_loader = make_omics_loaders(_loader_split(n_pairs=5), _loader_split(n_pairs=5), batch_size=2)
+    train_loader, val_loader = make_omics_loaders(_loader_batch(n_pairs=5, val_pairs=5), batch_size=2)
 
     assert sum(batch[0].shape[0] for batch in train_loader) == 4
     assert val_loader is not None
@@ -245,17 +222,11 @@ def test_training_drops_the_trailing_incomplete_batch_but_validation_keeps_it() 
 
 
 @pytest.mark.slow
-def test_an_already_two_dimensional_response_is_passed_through() -> None:
-    train_loader, _ = make_omics_loaders(_loader_split(two_dimensional_response=True), None, batch_size=2)
+def test_neither_loader_shuffles() -> None:
+    batch = _loader_batch(n_pairs=4, val_pairs=3)
+    train_loader, val_loader = make_omics_loaders(batch, batch_size=1)
 
-    assert next(iter(train_loader))[3].shape == (2, 1)
-
-
-@pytest.mark.slow
-def test_neither_loader_shuffles_and_the_split_is_frozen() -> None:
-    split = _loader_split(n_pairs=4)
-    train_loader, _ = make_omics_loaders(split, None, batch_size=1)
-
-    assert [float(batch[3].item()) for batch in train_loader] == pytest.approx(split.response.tolist())
-    with pytest.raises(AttributeError):
-        split.pair_idx = np.zeros(1, dtype=np.int64)  # type: ignore[misc]
+    assert [float(item[3].item()) for item in train_loader] == pytest.approx(batch.response.tolist())
+    assert val_loader is not None
+    assert batch.stopping is not None
+    assert [float(item[3].item()) for item in val_loader] == pytest.approx(batch.stopping.response.tolist())

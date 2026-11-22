@@ -14,6 +14,7 @@ from rich.text import Text
 from drevalpy.cli.catalog import _render, list_app
 from drevalpy.cli.catalog import plugins as plugins_module
 from drevalpy.cli.catalog import registries as registries_module
+from drevalpy.cli.catalog.plugins import PluginStatus
 from drevalpy.cli.main import app
 from tests.cli._helpers import HELP_ENV, GroupSurface, make_runner, plain
 
@@ -36,9 +37,10 @@ def invoke(*argv: str) -> str:
 
 def _registry_of(attribute: str):
     from drevalpy import registry
+    from drevalpy.registry.featurizer import featurizer_registry
 
     if attribute in ("sample", "drug"):
-        return registries_module._featurizers_for_side(attribute)
+        return featurizer_registry(attribute)
     return getattr(getattr(registry, attribute), f"{attribute}_registry")
 
 
@@ -237,7 +239,7 @@ def test_a_loaded_plugin_is_listed_with_its_target(declared: list[StubEntryPoint
     printed = text()
 
     assert "my_plugin" in printed
-    assert plugins_module.STATUS_LOADED in printed
+    assert PluginStatus.LOADED in printed
     assert "my_plugin.register:setup" in printed
     assert "failed to load" not in printed
     assert invoke_plugins("--strict").exit_code == 0
@@ -249,7 +251,7 @@ def test_a_failed_plugin_is_named_with_its_reason(declared: list[StubEntryPoint]
 
     printed = text()
 
-    assert plugins_module.STATUS_FAILED in printed
+    assert PluginStatus.FAILED in printed
     assert "1 plugin(s) failed to load" in printed
     assert "RuntimeError: boom" in printed
     assert "Traceback (most recent call last)" not in printed
@@ -275,7 +277,7 @@ def test_a_declared_plugin_in_neither_ledger_is_not_loaded_and_not_a_failure(
 ) -> None:
     declared.append(StubEntryPoint("unseen", "unseen:setup"))
 
-    assert plugins_module.STATUS_NOT_LOADED in text()
+    assert PluginStatus.NOT_LOADED in text()
     assert "failed to load" not in text()
     assert invoke_plugins("--strict").exit_code == 0
 
@@ -446,8 +448,8 @@ def test_render_mapping_prints_pairs_without_a_count_and_hints_when_empty(capsys
     assert "No metadata recorded for alpha." in output(capsys)
 
 
-def test_render_empty_and_console(capsys: pytest.CaptureFixture[str]) -> None:
-    _render.render_empty("Nothing at all.")
+def test_empty_rows_print_the_hint_and_console_is_fresh(capsys: pytest.CaptureFixture[str]) -> None:
+    _render.render_rows([], columns=["Name"], title="Things", empty_hint="Nothing at all.")
 
     assert "Nothing at all." in output(capsys)
     assert _render.console() is not _render.console()

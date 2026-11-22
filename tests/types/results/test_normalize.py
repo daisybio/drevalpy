@@ -9,8 +9,7 @@ from drevalpy.evaluation import Metric
 from drevalpy.evaluation._scoring import run_per_group_score
 from drevalpy.types.results._normalize import normalize_run, reference_summary
 from drevalpy.types.results.experiment import ExperimentResult
-from drevalpy.types.results.run import _intern_ids
-from drevalpy.types.results.trial import TrialResult
+from drevalpy.types.results.run import TrialResult, _intern_ids
 from tests.synthetic import REFERENCE_MODEL, make_experiment_result, make_run_result
 
 
@@ -175,8 +174,8 @@ class TestNormalize:
         first = ExperimentResult([runs[k] for k in keys]).normalize()
         second = ExperimentResult([runs[k] for k in reversed(keys)]).normalize()
 
-        assert {run.fold_key: run.run_id for run in first.models[0].runs} == {
-            run.fold_key: run.run_id for run in second.models[0].runs
+        assert {run.identity.fold_key: run.run_id for run in first.models[0].runs} == {
+            run.identity.fold_key: run.run_id for run in second.models[0].runs
         }
 
     def test_rejects_duplicate_ordinary_reference_runs_for_one_fold(self) -> None:

@@ -15,14 +15,13 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import numpy as np
 
 from drevalpy.components.contracts.feature_format import BlockSpec
-from drevalpy.components.contracts.hyperparameter_space import fixed_entries
 from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.components.predictors.inputs import Inputs
-from drevalpy.components.predictors.literature._metadata import ENSEMBLEMF_REFERENCE
-from drevalpy.components.predictors.literature._torch_utils import DevicePicklingMixin
+from drevalpy.components.predictors.literature._torch_training import DevicePicklingMixin
+from drevalpy.registry._component import LiteratureReference
 from drevalpy.registry.predictor import register
 from drevalpy.types.data.predictor_input import PredictorInput
-from drevalpy.types.enums.accelerator import Accelerator
+from drevalpy.types.enums import Accelerator
 
 if TYPE_CHECKING:
     import torch
@@ -30,11 +29,27 @@ if TYPE_CHECKING:
     from .network import MFNet
     from .training import PairTensors
 
+_REFERENCE = LiteratureReference(
+    repo_url="https://github.com/daisybio/drevalpy",
+    citation_doi="10.1038/s41467-026-72903-w",
+    citation_text=(
+        "EnsembleMF was contributed to DrEvalPy 1.6.1 (pull request 458) and has no publication of its own; "
+        "the DOI above is the DrEval paper (Bernett et al., Nature Communications 2026) that describes the "
+        "framework."
+    ),
+    deviations=(
+        "Port of the DrEvalPy 1.6.1 model with the same network and ensemble training. Features are float32 "
+        "from the dataset featurizers, ids without a feature row are not scored here but get NaN like every "
+        "predictor, and the 10% early-stopping fallback split uses a generator seeded from the seed "
+        "hyperparameter."
+    ),
+)
+
 
 @register(
     "ensembleMF",
     description="EnsembleMF: ensembled two-tower matrix factorization over expression and fingerprints.",
-    reference=ENSEMBLEMF_REFERENCE,
+    reference=_REFERENCE,
     license="MIT",
     accelerator=Accelerator.OPTIONAL,
 )
@@ -45,6 +60,23 @@ class EnsembleMFPredictor(DevicePicklingMixin, Predictor):
     sample_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("gene_expression"))
     drug_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("fingerprints"))
     supports_early_stopping: ClassVar[bool] = True
+
+    fixed_hyperparameters = {
+        "hidden_dim": 256,
+        "emb_dim": 128,
+        "n_layers": 1,
+        "dropout": 0.2,
+        "use_mlp_head": True,
+        "mlp_hidden": 256,
+        "use_drug_id_embedding": True,
+        "n_ensemble": 20,
+        "learning_rate": 3e-4,
+        "weight_decay": 1e-5,
+        "batch_size": 2048,
+        "max_epochs": 300,
+        "patience": 25,
+        "seed": 0,
+    }
 
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
         """Initialize the EnsembleMF predictor.
@@ -57,44 +89,19 @@ class EnsembleMFPredictor(DevicePicklingMixin, Predictor):
         self._drug_seen = np.empty(0, dtype=bool)
         self._input_dims = (0, 0)
 
-    @classmethod
-    def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
-        """Return the hyperparameter space; EnsembleMF tunes nothing.
-
-        :returns: Fixed specs for every EnsembleMF hyperparameter.
-        """
-        return fixed_entries(
-            {
-                "hidden_dim": 256,
-                "emb_dim": 128,
-                "n_layers": 1,
-                "dropout": 0.2,
-                "use_mlp_head": True,
-                "mlp_hidden": 256,
-                "use_drug_id_embedding": True,
-                "n_ensemble": 20,
-                "learning_rate": 3e-4,
-                "weight_decay": 1e-5,
-                "batch_size": 2048,
-                "max_epochs": 300,
-                "patience": 25,
-                "seed": 0,
-            }
-        )
-
     def _build_net(self, n_drugs: int) -> MFNet:
         """Construct one ensemble member on the target device.
 
         :param n_drugs: Number of rows of the drug id-embedding table.
         :returns: Freshly initialized network.
         """
-        from .network import MFNet, MFNetConfig
+        from .network import MFNet
 
         hp = self._hyperparameters
-        config = MFNetConfig(
-            sample_in_dim=self._input_dims[0],
-            drug_in_dim=self._input_dims[1],
-            n_drugs=n_drugs,
+        return MFNet(
+            self._input_dims[0],
+            self._input_dims[1],
+            n_drugs,
             hidden_dim=int(hp["hidden_dim"]),
             emb_dim=int(hp["emb_dim"]),
             n_layers=int(hp["n_layers"]),
@@ -102,8 +109,7 @@ class EnsembleMFPredictor(DevicePicklingMixin, Predictor):
             use_drug_id_embedding=bool(hp["use_drug_id_embedding"]),
             use_mlp_head=bool(hp["use_mlp_head"]),
             mlp_hidden=int(hp["mlp_hidden"]),
-        )
-        return MFNet(config).to(self._device)
+        ).to(self._device)
 
     def _pairs(self, sample_idx: np.ndarray, drug_idx: np.ndarray, response: np.ndarray) -> PairTensors:
         """Move pair indices and responses to the target device.
@@ -131,7 +137,7 @@ class EnsembleMFPredictor(DevicePicklingMixin, Predictor):
         import torch
 
         from .data import drug_table, sorted_entities, split_pairs
-        from .training import MemberData, MemberSettings, train_member
+        from .training import MemberData, train_member
 
         hp = self._hyperparameters
         _, x_sample, sample_pos = sorted_entities(data.sample, "gene_expression")
@@ -140,11 +146,10 @@ class EnsembleMFPredictor(DevicePicklingMixin, Predictor):
             sample_pos[data.sample_pair_idx], drug_pos[np.asarray(data.drug_pair_idx)], np.asarray(data.response)
         )
         validation = None
-        if data.early_stopping is not None:
-            stop = data.early_stopping
-            stop_sample, stop_drug = data.early_stopping_sample_idx, data.early_stopping_drug_idx
+        stop = data.stopping
+        if stop is not None:
             validation = self._pairs(
-                sample_pos[stop_sample], drug_pos[np.asarray(stop_drug)], np.asarray(stop.response)
+                sample_pos[stop.sample_pair_idx], drug_pos[np.asarray(stop.drug_pair_idx)], np.asarray(stop.response)
             )
         train, validation = split_pairs(train, validation, int(hp["seed"]))
 
@@ -159,13 +164,6 @@ class EnsembleMFPredictor(DevicePicklingMixin, Predictor):
             train,
             validation,
         )
-        settings = MemberSettings(
-            learning_rate=float(hp["learning_rate"]),
-            weight_decay=float(hp["weight_decay"]),
-            batch_size=int(hp["batch_size"]),
-            max_epochs=int(hp["max_epochs"]),
-            patience=int(hp["patience"]),
-        )
         seed = int(hp["seed"])
         on_cpu = self._device.type == "cpu"
         fork: dict[str, Any] = (
@@ -177,7 +175,15 @@ class EnsembleMFPredictor(DevicePicklingMixin, Predictor):
                 if seed >= 0:
                     torch.manual_seed(seed + member)
                 net = self._build_net(len(drug_ids))
-                train_member(net, member_data, settings)
+                train_member(
+                    net,
+                    member_data,
+                    learning_rate=float(hp["learning_rate"]),
+                    weight_decay=float(hp["weight_decay"]),
+                    batch_size=int(hp["batch_size"]),
+                    max_epochs=int(hp["max_epochs"]),
+                    patience=int(hp["patience"]),
+                )
             self._nets.append(net)
 
     def _embedding_rows(self, net: MFNet, drug_ids: np.ndarray) -> torch.Tensor:

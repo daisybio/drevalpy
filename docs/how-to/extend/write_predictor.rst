@@ -123,9 +123,12 @@ Override the class method ``get_hyperparameter_space`` to declare the hyperparam
 entry needs a ``default``: that value is used when nothing is tuned, and registration rejects a
 space without one. A float entry also takes ``low``, ``high`` and ``log``, as in both examples
 above. A setting that HPO must not draw is a ``{"type": "fixed", "default": value}`` entry, like
-``fit_intercept`` of ``toyRidge``. The space is the only place defaults are declared:
-``default_hyperparameters()`` reads them from it. The values in effect are available as
-``self._hyperparameters``. The entry types are listed in :doc:`/reference/hyperparameters`.
+``fit_intercept`` of ``toyRidge``. A predictor that tunes nothing sets the class attribute
+``fixed_hyperparameters = {"epochs": 10, "dropout": 0.1}`` instead of overriding the method: the
+default ``get_hyperparameter_space`` turns each item into a fixed entry. The space is the only
+place defaults are declared: ``default_hyperparameters()`` reads them from it. The values in
+effect are available as ``self._hyperparameters``. The entry types are listed in
+:doc:`/reference/hyperparameters`.
 
 Keep the fitted state in attributes
 -----------------------------------

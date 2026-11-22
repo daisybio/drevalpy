@@ -16,9 +16,10 @@ from drevalpy.types.data.response_table import ResponseTable
 class PredictorInput:
     """Response pairs indexed into canonical per-side featurizer results.
 
-    ``sample_pair_idx`` and ``drug_pair_idx`` (and, for the early-stopping pairs,
-    ``early_stopping_sample_idx`` and ``early_stopping_drug_idx``) are derived from ``sample``
-    and ``drug`` on construction. ``pairs.layers`` holds the training-time response layers a predictor declares
+    ``sample_pair_idx`` and ``drug_pair_idx`` are derived from ``sample`` and ``drug`` on
+    construction, and so is ``stopping``: the ``early_stopping`` pairs as a ``PredictorInput`` over
+    the same entity tables (``None`` without them), whose pair indices a predictor reads the same way
+    as the training ones. ``pairs.layers`` holds the training-time response layers a predictor declares
     in ``Predictor.response_layers``, one value per pair; it is empty at prediction, where
     ``pairs.response`` is ``NaN``.
     """
@@ -30,23 +31,17 @@ class PredictorInput:
     training_context: TrainingContext = field(default_factory=TrainingContext)
     sample_pair_idx: np.ndarray = field(init=False)
     drug_pair_idx: np.ndarray | None = field(init=False)
-    early_stopping_sample_idx: np.ndarray | None = field(init=False)
-    early_stopping_drug_idx: np.ndarray | None = field(init=False)
+    stopping: PredictorInput | None = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
-        """Derive the entity row of every pair and of every early-stopping pair."""
-        stopping = self.early_stopping
+        """Derive the entity row of every pair, and the early-stopping pairs as an input of their own."""
         object.__setattr__(self, "sample_pair_idx", self.sample.rows_for(self.pairs.sample_ids))
         object.__setattr__(
             self, "drug_pair_idx", None if self.drug is None else self.drug.rows_for(self.pairs.drug_ids)
         )
+        stopping = self.early_stopping
         object.__setattr__(
-            self, "early_stopping_sample_idx", None if stopping is None else self.sample.rows_for(stopping.sample_ids)
-        )
-        object.__setattr__(
-            self,
-            "early_stopping_drug_idx",
-            None if stopping is None or self.drug is None else self.drug.rows_for(stopping.drug_ids),
+            self, "stopping", None if stopping is None else replace(self, pairs=stopping, early_stopping=None)
         )
 
     @property

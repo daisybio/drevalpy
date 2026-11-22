@@ -25,20 +25,17 @@ if TYPE_CHECKING:
     from drevalpy.types import Dataset
     from drevalpy.types.results import RunResult
 
-#: The groupings that need no dataset, in report order.
-GROUPINGS: Final[tuple[str, ...]] = ("drug", "sample", "study")
-
 #: A grouping of pairs: ``"drug"``, ``"sample"``, ``"study"``, or a sample/drug annotation column.
 GroupBy = str
 
 #: Grouping name -> the ``RunResult`` attribute holding that grouping's labels.
 _ID_ATTRIBUTE: Final[dict[str, str]] = {"drug": "drug_ids", "sample": "sample_ids", "study": "sample_ids"}
 
+#: The groupings that need no dataset, in report order.
+GROUPINGS: Final[tuple[str, ...]] = tuple(_ID_ATTRIBUTE)
+
 #: Prefixes that select the axis of an annotation grouping, such as ``"sample:tissue"``.
 _AXES: Final[tuple[str, ...]] = ("sample", "drug")
-
-#: The label a dataset writes for an annotation it could not resolve.
-UNKNOWN_LABEL: Final[str] = "unknown"
 
 
 def group_labeller(grouping: GroupBy, dataset: Dataset | None = None) -> Callable[[RunResult], np.ndarray]:
@@ -121,7 +118,7 @@ def _clean_annotation(column: pd.Series) -> pd.Series:
     values = column.astype(object)
     text = values.astype(str)
     stripped = text.str.strip().str.lower()
-    undefined = values.isna() | stripped.eq("") | stripped.eq(UNKNOWN_LABEL)
+    undefined = values.isna() | stripped.eq("") | stripped.eq("unknown")
     labels = text.to_numpy(dtype=object)
     labels[undefined.to_numpy()] = np.nan
     return pd.Series(labels, index=column.index.astype(str), dtype=object)

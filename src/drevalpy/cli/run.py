@@ -8,7 +8,8 @@ import typer
 from upath import UPath
 
 from drevalpy.evaluation import Metric
-from drevalpy.types.enums.randomization import RandomizationType
+from drevalpy.models.response_transformation import ResponseTransformation, get_response_transformation
+from drevalpy.types.enums import RandomizationMode, RandomizationType
 
 from ._options import (
     DrugFeaturizerOption,
@@ -25,15 +26,12 @@ from ._options import (
     NoQualityFilter,
     NSplits,
     PredictorOption,
-    RandomizationMode,
-    ResponseTransformation,
     ResponseTransformationOption,
     SampleFeaturizerOption,
     ValidationRatio,
     WandbProject,
     quality_from_cli,
     resolve_model_specs,
-    resolve_response_transformation,
 )
 from ._summary import format_grouped_summary, resolve_group_by_dataset
 
@@ -105,7 +103,7 @@ def run_cmd(
     from drevalpy._run import run
     from drevalpy.types.results.failure import ExperimentFailedError
 
-    transformer = resolve_response_transformation(response_transformation)
+    transformer = get_response_transformation(response_transformation.value)
     model_specs = resolve_model_specs(models or [], sample_featurizer or [], drug_featurizer or [], predictor or [])
     group_dataset = resolve_group_by_dataset(group_by, dataset)
 

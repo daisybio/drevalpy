@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 from typing import TYPE_CHECKING, Literal
 
 from drevalpy.errors import InvalidInputError
@@ -83,29 +83,18 @@ def _stack_obs(datasets: Sequence[Dataset], names: Sequence[str]) -> pd.DataFram
     return obs
 
 
-def _groups(
-    datasets: Sequence[Dataset], wanted: Callable[[str], bool]
-) -> dict[str, tuple[str, list[ad.AnnData | None]]]:
-    """Group modalities across inputs by public name: ``name -> (key to store under, one per input)``."""
+def _groups(datasets: Sequence[Dataset]) -> list[tuple[str, list[ad.AnnData | None]]]:
+    """Group the other modalities across inputs by public name: ``(key to store under, one per input)`` each.
+
+    The sample views come first, then the extra response-shaped modalities (``response_*``).
+    """
     groups: dict[str, tuple[str, list[ad.AnnData | None]]] = {}
     for position, dataset in enumerate(datasets):
         for key, adata in dataset.mdata.mod.items():
-            if wanted(key):
+            if key != "response":
                 _, slots = groups.setdefault(public_view_name(key), (key, [None] * len(datasets)))
                 slots[position] = adata
-    return groups
-
-
-def _is_view(key: str) -> bool:
-    return key != "response" and not key.startswith("response_")
-
-
-def _is_extra_response(key: str) -> bool:
-    return key.startswith("response_")
-
-
-def _missing_in(slots: Sequence[ad.AnnData | None], names: Sequence[str]) -> list[str]:
-    return [name for name, adata in zip(names, slots, strict=True) if adata is None]
+    return sorted(groups.values(), key=lambda group: group[0].startswith("response_"))
 
 
 def _stack_all_views(
@@ -113,22 +102,19 @@ def _stack_all_views(
 ) -> dict[str, ad.AnnData]:
     """Stack the sample views and the extra response-shaped modalities that every input has."""
     stacked: dict[str, ad.AnnData] = {}
-    for key, slots in _groups(datasets, _is_view).values():
-        lacking = _missing_in(slots, names)
-        if lacking and join == "exact":
+    for key, slots in _groups(datasets):
+        extra = key.startswith("response_")
+        lacking = [name for name, adata in zip(names, slots, strict=True) if adata is None]
+        if lacking and join == "exact" and not extra:
             raise InvalidInputError(
                 f"View '{key}' is missing in {lacking}; pass join='inner' to drop views that not every dataset has"
             )
         if lacking:
-            logger.warning("concat dropped view '%s', missing in %s", key, lacking)
+            logger.warning("concat dropped %s '%s', missing in %s", "modality" if extra else "view", key, lacking)
+        elif extra:
+            stacked[key] = stack_response(slots, names, where=key, strict_uns=lambda uns_key: uns_key == "x_column")
         else:
             stacked[key] = stack_view(key, slots, names, join)
-    for key, slots in _groups(datasets, _is_extra_response).values():
-        lacking = _missing_in(slots, names)
-        if lacking:
-            logger.warning("concat dropped modality '%s', missing in %s", key, lacking)
-        else:
-            stacked[key] = stack_response(slots, names, where=key, strict_uns=lambda uns_key: uns_key == "x_column")
     return stacked
 
 

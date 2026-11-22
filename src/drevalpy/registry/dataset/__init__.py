@@ -2,23 +2,9 @@
 
 from __future__ import annotations
 
-from ._io import config_lock, get_config_path, load_config, save_config
-from ._models import DatasetEntry, DrevalConfig, SourceEntry
-from ._registry import DatasetRegistry, dataset_registry
+from ._registry import dataset_registry
 
-__all__ = [
-    "DatasetEntry",
-    "DatasetRegistry",
-    "DrevalConfig",
-    "SourceEntry",
-    "config_lock",
-    "dataset_registry",
-    "get_config_path",
-    "load_config",
-    "register_dataset",
-    "register_source",
-    "save_config",
-]
+__all__ = ["dataset_registry", "register_dataset", "register_source"]
 
 
 def register_source(name: str, base_url: str, storage_options: dict | None = None, *, replace: bool = False) -> None:

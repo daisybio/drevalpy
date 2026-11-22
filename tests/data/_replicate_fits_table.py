@@ -23,7 +23,7 @@ def fits_table(samples: Sequence[str], drugs: Sequence[str], *, extra: str | Non
     table = pd.DataFrame(
         {
             _replicate_fits.SAMPLE_COLUMN: pd.Categorical([sample for sample, _ in pairs]),
-            _replicate_fits.DRUG_COLUMN: pd.Categorical([drug for _, drug in pairs]),
+            "pubchem_id": pd.Categorical([drug for _, drug in pairs]),
             "replicate": np.tile(np.array([1, 2], dtype=np.int32), n_rows // 2),
             "n_doses": np.full(n_rows, 9, dtype=np.int16),
             "status": pd.Categorical(["fitted"] * n_rows, categories=["fitted", "fit_failed", "too_few_doses"]),

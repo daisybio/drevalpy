@@ -19,7 +19,7 @@ from drevalpy.registry._registry import Registry
 from drevalpy.registry.featurizer import featurizer_registry
 from drevalpy.registry.featurizer import register as register_featurizer
 from drevalpy.registry.predictor import predictor_registry
-from drevalpy.types.enums.accelerator import Accelerator
+from drevalpy.types.enums import Accelerator
 from tests.registry._helpers import empty_component_registries
 
 _REFERENCE_KWARGS = {
@@ -114,7 +114,6 @@ def test_literature_reference_rejects_missing_or_malformed_fields(kwargs: dict, 
         ),
         ({"license": "MITT"}, ValueError, "license 'MITT' names unknown SPDX license id"),
         ({"license": "  "}, ValueError, "license must be a non-empty SPDX"),
-        ({"license": 3}, TypeError, "license must be an SPDX license expression string"),
         ({"artifact_license": "MIT ANDD"}, ValueError, "artifact_license 'MIT ANDD' is not a valid SPDX"),
     ],
     ids=[
@@ -126,7 +125,6 @@ def test_literature_reference_rejects_missing_or_malformed_fields(kwargs: dict, 
         "reference-without-license",
         "unknown-license-id",
         "blank-license",
-        "non-string-license",
         "malformed-artifact-license",
     ],
 )

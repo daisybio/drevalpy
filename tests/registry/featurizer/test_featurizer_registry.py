@@ -9,7 +9,7 @@ from drevalpy.components.contracts.feature_format import BlockSpec, FeatureForma
 from drevalpy.components.featurizers.featurizer import Featurizer
 from drevalpy.errors import UnknownNameError
 from drevalpy.registry._component import featurizer_component_metadata
-from drevalpy.registry.featurizer import featurizer_registry, get_featurizer, names_for_side, register
+from drevalpy.registry.featurizer import featurizer_registry, get_featurizer, register
 from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
 from drevalpy.types.data.feature_source import Side
 from tests.registry._helpers import empty_component_registries
@@ -99,12 +99,12 @@ def test_an_unknown_side_is_rejected() -> None:
         register("bad", side="protein", description="bad")  # type: ignore[arg-type]
 
 
-def test_names_for_side_lists_that_sides_registry() -> None:
+def test_each_side_has_a_registry_of_its_own() -> None:
     register("onlySample", side=Side.SAMPLE, description="s")(_subclass("OnlySample"))
     register("onlyDrug", side=Side.DRUG, description="d")(_subclass("OnlyDrug"))
 
-    assert names_for_side("sample") == ("onlySample",)
-    assert names_for_side("drug") == ("onlyDrug",)
+    assert featurizer_registry("sample").names() == ("onlySample",)
+    assert featurizer_registry("drug").names() == ("onlyDrug",)
 
 
 def test_a_non_featurizer_class_is_rejected() -> None:

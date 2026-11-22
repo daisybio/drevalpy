@@ -9,7 +9,7 @@ from upath import UPath
 from drevalpy.errors import InvalidInputError
 from drevalpy.types.results._store import run_filename
 from drevalpy.types.results.model import ModelResult
-from drevalpy.types.results.trial import TrialResult
+from drevalpy.types.results.run import TrialResult
 from tests.synthetic import make_model_result, make_run_result
 
 

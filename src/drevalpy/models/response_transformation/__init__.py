@@ -8,13 +8,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from ._names import get_response_transformation
+from ._names import ResponseTransformation, get_response_transformation
 from ._protocol import ResponseTransformer
 
 if TYPE_CHECKING:
     from ._group_mean import GroupMeanCenterer
 
-__all__ = ["GroupMeanCenterer", "ResponseTransformer", "get_response_transformation"]
+__all__ = ["GroupMeanCenterer", "ResponseTransformation", "ResponseTransformer", "get_response_transformation"]
 
 
 def __getattr__(name: str) -> Any:

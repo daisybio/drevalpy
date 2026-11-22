@@ -34,31 +34,15 @@ class ElasticNetPredictor(SklearnTabularPredictor):
     def _make_estimator(self) -> Any:
         from sklearn.linear_model import ElasticNet, Lasso, Ridge
 
-        l1_ratio = float(self._hyperparameters["l1_ratio"])
-        alpha = float(self._hyperparameters["alpha"])
-        max_iter = int(self._hyperparameters["max_iter"])
-        tol = float(self._hyperparameters["tol"])
-        random_state = self._hyperparameters["random_state"]
+        params = self._estimator_params()
+        l1_ratio = params["l1_ratio"]
         if l1_ratio == 0.0:
             # Ridge is not coordinate descent: it takes none of the solver settings.
-            return Ridge(alpha=alpha)
-        selection = str(self._hyperparameters["selection"])
+            return Ridge(alpha=params["alpha"])
         if l1_ratio == 1.0:
-            return Lasso(
-                alpha=alpha,
-                max_iter=max_iter,
-                tol=tol,
-                selection=selection,
-                random_state=random_state,
-            )
-        return ElasticNet(
-            alpha=alpha,
-            l1_ratio=l1_ratio,
-            max_iter=max_iter,
-            tol=tol,
-            selection=selection,
-            random_state=random_state,
-        )
+            del params["l1_ratio"]
+            return Lasso(**params)
+        return ElasticNet(**params)
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
@@ -100,13 +84,7 @@ class LassoPredictor(SklearnTabularPredictor):
     def _make_estimator(self) -> Any:
         from sklearn.linear_model import Lasso
 
-        return Lasso(
-            alpha=float(self._hyperparameters["alpha"]),
-            max_iter=int(self._hyperparameters["max_iter"]),
-            tol=float(self._hyperparameters["tol"]),
-            selection=str(self._hyperparameters["selection"]),
-            random_state=self._hyperparameters["random_state"],
-        )
+        return Lasso(**self._estimator_params())
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
@@ -133,7 +111,7 @@ class RidgePredictor(SklearnTabularPredictor):
     def _make_estimator(self) -> Any:
         from sklearn.linear_model import Ridge
 
-        return Ridge(alpha=float(self._hyperparameters["alpha"]))
+        return Ridge(**self._estimator_params())
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
@@ -156,16 +134,7 @@ class RandomForestPredictor(SklearnTabularPredictor):
     def _make_estimator(self) -> Any:
         from sklearn.ensemble import RandomForestRegressor
 
-        max_depth_raw = self._hyperparameters["max_depth"]
-        max_depth = None if max_depth_raw is None else int(max_depth_raw)
-        return RandomForestRegressor(
-            n_estimators=int(self._hyperparameters["n_estimators"]),
-            criterion=str(self._hyperparameters["criterion"]),
-            max_samples=float(self._hyperparameters["max_samples"]),
-            max_depth=max_depth,
-            n_jobs=int(self._hyperparameters["n_jobs"]),
-            random_state=self._hyperparameters["random_state"],
-        )
+        return RandomForestRegressor(**self._estimator_params())
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
@@ -201,12 +170,7 @@ class SVRPredictor(SklearnTabularPredictor):
     def _make_estimator(self) -> Any:
         from sklearn.svm import SVR
 
-        return SVR(
-            C=float(self._hyperparameters["C"]),
-            epsilon=float(self._hyperparameters["epsilon"]),
-            kernel=str(self._hyperparameters["kernel"]),
-            max_iter=int(self._hyperparameters["max_iter"]),
-        )
+        return SVR(**self._estimator_params())
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
@@ -237,14 +201,7 @@ class GradientBoostingPredictor(SklearnTabularPredictor):
     def _make_estimator(self) -> Any:
         from sklearn.ensemble import HistGradientBoostingRegressor
 
-        return HistGradientBoostingRegressor(
-            max_depth=int(self._hyperparameters["max_depth"]),
-            learning_rate=float(self._hyperparameters["learning_rate"]),
-            max_iter=int(self._hyperparameters["max_iter"]),
-            validation_fraction=float(self._hyperparameters["validation_fraction"]),
-            n_iter_no_change=int(self._hyperparameters["n_iter_no_change"]),
-            random_state=int(self._hyperparameters["random_state"]),
-        )
+        return HistGradientBoostingRegressor(**self._estimator_params())
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
@@ -273,15 +230,13 @@ class AdaBoostPredictor(SklearnTabularPredictor):
         from sklearn.ensemble import AdaBoostRegressor
         from sklearn.tree import DecisionTreeRegressor
 
-        return AdaBoostRegressor(
-            estimator=DecisionTreeRegressor(
-                max_depth=int(self._hyperparameters["max_depth"]),
-                min_samples_split=int(self._hyperparameters["min_samples_split"]),
-                min_samples_leaf=int(self._hyperparameters["min_samples_leaf"]),
-            ),
-            n_estimators=int(self._hyperparameters["n_estimators"]),
-            learning_rate=float(self._hyperparameters["learning_rate"]),
+        params = self._estimator_params()
+        tree = DecisionTreeRegressor(
+            max_depth=params.pop("max_depth"),
+            min_samples_split=params.pop("min_samples_split"),
+            min_samples_leaf=params.pop("min_samples_leaf"),
         )
+        return AdaBoostRegressor(estimator=tree, **params)
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
@@ -308,10 +263,7 @@ class KNNPredictor(SklearnTabularPredictor):
     def _make_estimator(self) -> Any:
         from sklearn.neighbors import KNeighborsRegressor
 
-        return KNeighborsRegressor(
-            n_neighbors=int(self._hyperparameters["n_neighbors"]),
-            weights=str(self._hyperparameters["weights"]),
-        )
+        return KNeighborsRegressor(**self._estimator_params())
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
@@ -344,11 +296,10 @@ class SingleDrugKNNPredictor(SingleDrugSklearnPredictor, KNNPredictor):
 
         from drevalpy.components.predictors._mrmr import MRMRSelector, NeighborCappedKNN
 
-        mrmr_k = self._hyperparameters["mrmr_k"]
-        selector = MRMRSelector(k=int(mrmr_k)) if mrmr_k else "passthrough"
-        knn = NeighborCappedKNN(
-            n_neighbors=int(self._hyperparameters["n_neighbors"]), weights=str(self._hyperparameters["weights"])
-        )
+        params = self._estimator_params()
+        mrmr_k = params.pop("mrmr_k")
+        selector = MRMRSelector(k=mrmr_k) if mrmr_k else "passthrough"
+        knn = NeighborCappedKNN(**params)
         return Pipeline([("scale", StandardScaler()), ("mrmr", selector), ("knn", knn)])
 
     @classmethod

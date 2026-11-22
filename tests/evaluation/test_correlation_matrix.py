@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 from scipy.stats import pearsonr
 
-from drevalpy.evaluation._correlation_matrix import GroupCorrelationMatrix, model_group_correlations
+from drevalpy.evaluation._correlation_matrix import model_group_correlations
 from drevalpy.evaluation._grouping import group_labeller
 from drevalpy.evaluation._scoring import evaluate_per_group
 from drevalpy.types.results.experiment import ExperimentResult
@@ -28,13 +28,12 @@ class TestModelGroupCorrelations:
     def test_shape_dtype_and_ordering(self, experiment):
         matrix = model_group_correlations(experiment, "drug")
 
-        assert matrix.values.shape == (N_MODELS, N_DRUGS)
-        assert matrix.values.dtype == np.float32
-        assert list(matrix.model_names) == experiment.model_names
-        assert list(matrix.group_names) == sorted(matrix.group_names)
-        assert all(isinstance(name, str) for name in matrix.group_names)
-        assert matrix.grouping == "drug"
-        assert model_group_correlations(experiment, "sample").n_groups == N_SAMPLES
+        assert matrix.shape == (N_MODELS, N_DRUGS)
+        assert (matrix.dtypes == np.float32).all()
+        assert list(matrix.index) == experiment.model_names
+        assert list(matrix.columns) == sorted(matrix.columns)
+        assert all(isinstance(name, str) for name in matrix.columns)
+        assert model_group_correlations(experiment, "sample").shape[1] == N_SAMPLES
 
     def test_group_axis_is_the_union_across_models_and_unseen_groups_are_nan(self):
         result = ExperimentResult(
@@ -46,17 +45,17 @@ class TestModelGroupCorrelations:
 
         matrix = model_group_correlations(result, "drug")
 
-        assert matrix.n_groups == 4
-        assert np.isnan(matrix.values[matrix.model_names.index("A")][2:]).all()
+        assert matrix.shape[1] == 4
+        assert matrix.loc["A"].iloc[2:].isna().all()
 
     def test_values_match_a_direct_per_group_pearson(self):
         run = make_run_result(model_name="A", n_pairs=20, n_drugs=4)
         matrix = model_group_correlations(ExperimentResult([run]), "drug")
 
-        for index, name in enumerate(matrix.group_names):
+        for name, value in matrix.loc["A"].items():
             mask = np.asarray(run.drug_ids) == name
             expected = pearsonr(run.predictions[mask], run.ground_truth[mask])[0]
-            assert matrix.values[0, index] == pytest.approx(expected, abs=1e-6)
+            assert value == pytest.approx(expected, abs=1e-6)
 
     def test_folds_are_pooled_rather_than_averaged(self):
         pooled = model_group_correlations(
@@ -64,7 +63,7 @@ class TestModelGroupCorrelations:
         )
         single = model_group_correlations(ExperimentResult([make_run_result(fold_index=0, n_pairs=20)]), "drug")
 
-        assert not np.allclose(pooled.values, single.values, equal_nan=True)
+        assert not np.allclose(pooled.to_numpy(), single.to_numpy(), equal_nan=True)
 
     def test_randomized_runs_and_models_are_excluded(self):
         randomization = ("gene_expression", "permutation")
@@ -79,19 +78,17 @@ class TestModelGroupCorrelations:
 
         matrix = model_group_correlations(mixed, "drug")
 
-        assert matrix.model_names == ("A",)
-        np.testing.assert_allclose(matrix.values, model_group_correlations(plain, "drug").values)
+        assert list(matrix.index) == ["A"]
+        np.testing.assert_allclose(matrix.to_numpy(), model_group_correlations(plain, "drug").to_numpy())
 
     def test_an_all_randomized_experiment_is_empty(self):
         result = ExperimentResult([make_run_result(randomization=("gene_expression", "permutation"))])
 
         matrix = model_group_correlations(result, "drug")
 
-        assert matrix.is_empty
-        assert matrix.values.shape == (0, 0)
+        assert matrix.shape == (0, 0)
 
-    def test_min_count_is_forwarded_and_unknown_groupings_are_rejected(self, experiment):
-        assert np.isnan(model_group_correlations(experiment, "drug", min_count=1000).values).all()
+    def test_unknown_groupings_are_rejected(self, experiment):
         with pytest.raises(ValueError, match="Unknown grouping"):
             model_group_correlations(experiment, "tissue")
 
@@ -108,8 +105,8 @@ class TestModelGroupCorrelations:
                 labels=np.concatenate([group_labeller(grouping)(run) for run in runs]),
             )
 
-            assert matrix.group_names == tuple(str(group) for group in scores.groups)
-            np.testing.assert_allclose(matrix.values[0], scores.values["Pearson"], atol=1e-6)
+            assert list(matrix.columns) == [str(group) for group in scores.groups]
+            np.testing.assert_allclose(matrix.iloc[0], scores.values["Pearson"], atol=1e-6)
 
     def test_a_per_drug_constant_baseline_scores_zero_in_every_drug(self):
         baseline = make_run_result(model_name="Baseline", n_pairs=20, n_drugs=4)
@@ -120,8 +117,8 @@ class TestModelGroupCorrelations:
 
         matrix = model_group_correlations(ExperimentResult([baseline, other]), "drug")
 
-        np.testing.assert_array_equal(matrix.values[matrix.model_names.index("Baseline")], np.zeros(4))
-        assert np.isfinite(matrix.values[matrix.model_names.index("Other")]).all()
+        np.testing.assert_array_equal(matrix.loc["Baseline"], np.zeros(4))
+        assert np.isfinite(matrix.loc["Other"]).all()
 
     def test_groups_with_a_constant_response_are_nan_for_every_model(self):
         runs = []
@@ -132,45 +129,16 @@ class TestModelGroupCorrelations:
 
         matrix = model_group_correlations(ExperimentResult(runs), "drug")
 
-        column = list(matrix.group_names).index(str(runs[0].drug_ids[0]))
-        assert np.isnan(matrix.values[:, column]).all()
-        assert np.isfinite(np.delete(matrix.values, column, axis=1)).all()
+        constant = str(runs[0].drug_ids[0])
+        assert matrix[constant].isna().all()
+        assert np.isfinite(matrix.drop(columns=constant).to_numpy()).all()
 
-    def test_min_count_masks_small_groups_only(self):
-        result = ExperimentResult([make_run_result(model_name="A", n_pairs=20, n_drugs=4)])
-        counts = np.unique(result.models[0].select_runs()[0].drug_ids, return_counts=True)[1]
+    def test_a_model_with_no_defined_correlation_is_left_out(self):
+        undefined = make_run_result(model_name="Undefined", n_pairs=20, n_drugs=4)
+        undefined.ground_truth[:] = 1.0
+        good = make_run_result(model_name="Good", n_pairs=20, n_drugs=4)
 
-        matrix = model_group_correlations(result, "drug", min_count=int(counts.max()))
+        matrix = model_group_correlations(ExperimentResult([undefined, good]), "drug")
 
-        np.testing.assert_array_equal(np.isfinite(matrix.values[0]), counts >= counts.max())
-
-
-class TestGroupCorrelationMatrix:
-    def test_dimensions(self, experiment):
-        matrix = model_group_correlations(experiment, "drug")
-
-        assert (matrix.n_models, matrix.n_groups) == (N_MODELS, N_DRUGS)
-        assert matrix.is_empty is False
-
-    def test_a_matrix_with_no_groups_is_empty(self):
-        assert GroupCorrelationMatrix("drug", ("A",), (), np.empty((1, 0), dtype=np.float32)).is_empty
-
-    def test_drop_all_nan_models_removes_only_fully_undefined_models(self):
-        matrix = GroupCorrelationMatrix(
-            "drug",
-            ("Good", "Partial", "Undefined"),
-            ("D_0", "D_1"),
-            np.array([[0.5, 0.4], [np.nan, 0.4], [np.nan, np.nan]], dtype=np.float32),
-        )
-
-        filtered = matrix.drop_all_nan_models()
-
-        assert filtered.model_names == ("Good", "Partial")
-        assert filtered.values.shape == (2, 2)
-
-    def test_drop_all_nan_models_returns_self_when_nothing_is_dropped(self):
-        full = GroupCorrelationMatrix("drug", ("A",), ("D_0",), np.array([[0.3]], dtype=np.float32))
-        empty = GroupCorrelationMatrix("drug", (), (), np.empty((0, 0), dtype=np.float32))
-
-        assert full.drop_all_nan_models() is full
-        assert empty.drop_all_nan_models() is empty
+        assert list(matrix.index) == ["Good"]
+        assert matrix.shape == (1, 4)

@@ -1,23 +1,20 @@
 from __future__ import annotations
 
-import warnings
-
 import numpy as np
 import pandas as pd
 
-_REQUIRED_COLUMNS = ["drug", "sample", "concentration", "intensity"]
+from drevalpy.curation._series import LABEL_SEPARATOR
 
 
 def preprocess(df: pd.DataFrame) -> list[tuple[pd.DataFrame, dict]]:
-    """Validate, group by dose range, pivot to wide-form, and return (df, group_info) tuples.
+    """Group by dose range, pivot to wide-form, and return (df, group_info) tuples.
 
     :param df: Long-form DataFrame with columns: drug, sample, concentration,
-        intensity, and optionally replicate.
+        intensity, and optionally replicate; one intensity per dose and replicate.
 
     :returns: List of (wide_df, group_info) tuples where group_info contains
         n_experiments, doses, n_replicates for building the config later.
     """
-    _validate_columns(df)
     df = df.copy()
 
     has_replicate = "replicate" in df.columns
@@ -48,12 +45,6 @@ def preprocess(df: pd.DataFrame) -> list[tuple[pd.DataFrame, dict]]:
     return results
 
 
-def _validate_columns(df: pd.DataFrame) -> None:
-    missing = [c for c in _REQUIRED_COLUMNS if c not in df.columns]
-    if missing:
-        raise ValueError(f"Missing required columns: {missing}")
-
-
 def _prepare_wide(
     curve_df: pd.DataFrame,
     has_replicate: bool,
@@ -65,15 +56,6 @@ def _prepare_wide(
     else:
         n_replicates = 1
         pivot_columns = ["concentration"]
-
-    dup_subset = ["sample", "drug"] + pivot_columns
-    if curve_df.duplicated(subset=dup_subset).any():
-        warnings.warn(
-            f"Duplicate entries found for {tuple(dup_subset)} combinations. Aggregating using mean of 'intensity'.",
-            UserWarning,
-            stacklevel=2,
-        )
-        curve_df = curve_df.groupby(dup_subset, as_index=False)["intensity"].mean()
 
     wide = curve_df.pivot(index=["sample", "drug"], columns=pivot_columns, values="intensity")
 
@@ -93,7 +75,7 @@ def _prepare_wide(
 
     n_experiments = wide.shape[1]
     experiments = np.arange(n_experiments)
-    wide.insert(0, "Name", ["|".join(map(str, idx)) for idx in wide.index.tolist()])
+    wide.insert(0, "Name", [LABEL_SEPARATOR.join(map(str, idx)) for idx in wide.index.tolist()])
 
     wide.columns = ["Name"] + [f"Raw {i}" for i in experiments]
     wide = wide.reset_index(drop=True)

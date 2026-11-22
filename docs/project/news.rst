@@ -129,7 +129,7 @@ These affect only code, configurations and datasets written for an unreleased 2.
 - **drevalpy curate is a command group.** ``drevalpy curate INPUT OUTPUT`` is now
   ``drevalpy curate run INPUT OUTPUT``.
 - **A saved model records its response measure.** The model archive is format version 3, so
-  models saved by an earlier 2.0 build must be retrained. ``RunResult.fold_key`` includes the
+  models saved by an earlier 2.0 build must be retrained. The fold key of a run's identity includes the
   measure.
 - **Splits of concatenated datasets group by source sample.** Under LSO a fold keeps all rows
   with one ``source_sample_id`` together, and under LPO all pairs of one (source sample, drug), so

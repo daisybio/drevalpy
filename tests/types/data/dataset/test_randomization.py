@@ -9,11 +9,11 @@ from drevalpy.data import synthetic
 from drevalpy.types.data.dataset import Dataset
 from drevalpy.types.data.dataset._randomization import (
     _degree_preserving_rewire,
-    _is_graph_dict,
     _randomize_graph,
     _randomize_matrix,
+    _randomize_uns_view,
 )
-from drevalpy.types.enums.randomization import RandomizationType
+from drevalpy.types.enums import RandomizationType
 
 
 def _degrees(edge_index: np.ndarray, n_nodes: int) -> list[int]:
@@ -104,24 +104,34 @@ class TestRandomizeGraph:
         assert _degrees(result["edge_index"], 8) == _degrees(edge_index, 8)
 
 
-class TestIsGraphDict:
+class TestRandomizeUnsView:
+    def test_a_graph_collection_is_randomized_under_invariant(self):
+        edge_index = np.array([[0, 1, 1, 2], [1, 0, 2, 1]])
+        graphs = {"drug1": {"x": np.ones((3, 2)), "edge_index": edge_index}}
+        new_uns: dict = {}
+
+        _randomize_uns_view(graphs, "drug_graphs", new_uns, np.random.default_rng(0), RandomizationType.INVARIANT)
+
+        assert set(new_uns["drug_graphs"]) == {"drug1"}
+        assert set(new_uns["drug_graphs"]["drug1"]) == {"x", "edge_index"}
+
     @pytest.mark.parametrize(
-        ("data", "expected"),
-        [
-            (
-                {
-                    "drug1": {"x": np.zeros((3, 2)), "edge_index": np.array([[0], [1]])},
-                    "drug2": {"x": np.zeros((2, 2)), "edge_index": np.array([[0], [1]])},
-                },
-                True,
-            ),
-            ({"a": 1, "b": 2, "c": 3}, False),
-            ({"drug1": {"x": np.zeros((3, 2)), "features": np.zeros(5)}}, False),
-        ],
-        ids=["graph-collection", "plain-dict", "nested-without-edge-index"],
+        "data", [{"a": 1, "b": 2, "c": 3}, {"d1": {"x": np.zeros((3, 2))}, "d2": {"x": np.ones(5)}}]
     )
-    def test_detection(self, data, expected):
-        assert _is_graph_dict(data) is expected
+    def test_any_other_dict_gets_its_values_reassigned_to_shuffled_keys(self, data):
+        new_uns: dict = {}
+
+        _randomize_uns_view(data, "aux", new_uns, np.random.default_rng(0), RandomizationType.INVARIANT)
+
+        assert set(new_uns["aux"]) == set(data)
+        assert [id(value) for value in new_uns["aux"].values()] == [id(value) for value in data.values()]
+
+    def test_a_non_dict_is_skipped(self):
+        new_uns: dict = {}
+
+        _randomize_uns_view([1, 2], "aux", new_uns, np.random.default_rng(0), RandomizationType.PERMUTATION)
+
+        assert new_uns == {}
 
 
 class TestWithRandomizedViews:

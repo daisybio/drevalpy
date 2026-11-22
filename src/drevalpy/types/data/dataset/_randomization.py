@@ -9,7 +9,7 @@ import numpy as np
 
 from drevalpy.log import get_logger
 from drevalpy.types.data.views import find_view
-from drevalpy.types.enums.randomization import RandomizationType
+from drevalpy.types.enums import RandomizationType
 
 from ._anndata import to_dense
 
@@ -70,14 +70,6 @@ def _randomize_graph(graph: dict[str, np.ndarray], rng: np.random.Generator) -> 
     return result
 
 
-def _is_graph_dict(data: dict[str, Any]) -> bool:
-    """Check if a dict-of-dicts looks like a collection of graph dicts.
-
-    Heuristic: at least one value is itself a dict containing an "edge_index" key.
-    """
-    return any(isinstance(v, dict) and "edge_index" in v for v in data.values())
-
-
 def _randomize_uns_view(
     data: Any,
     view: str,
@@ -90,7 +82,8 @@ def _randomize_uns_view(
         logger.warning("Cannot randomize uns key '%s' (not a dict). Skipping.", view)
         return
 
-    if randomization_type == RandomizationType.INVARIANT and _is_graph_dict(data):
+    is_graph_collection = any(isinstance(val, dict) and "edge_index" in val for val in data.values())
+    if randomization_type == RandomizationType.INVARIANT and is_graph_collection:
         new_uns[view] = {key: _randomize_graph(val, rng) if isinstance(val, dict) else val for key, val in data.items()}
     else:
         keys = list(data.keys())
@@ -114,18 +107,15 @@ def _randomize_single_view(
     if stored is not None and stored != "response":
         adata = new_mods[stored]
         adata.X = _randomize_matrix(np.asarray(to_dense(adata.X), dtype=np.float32), rng, randomization_type)
-    elif "response" in new_mods and view in (new_mods["response"].varm or {}):
-        resp = new_mods["response"]
-        varm_data = np.asarray(resp.varm[view], dtype=np.float32)
-        resp.varm[view] = _randomize_matrix(varm_data, rng, randomization_type)
-    elif "response" in new_mods and view in (new_mods["response"].obsm or {}):
-        resp = new_mods["response"]
-        obsm_data = np.asarray(resp.obsm[view], dtype=np.float32)
-        resp.obsm[view] = _randomize_matrix(obsm_data, rng, randomization_type)
-    elif view in new_uns:
-        _randomize_uns_view(new_uns[view], view, new_uns, rng, randomization_type)
-    else:
+        return
+    response = new_mods["response"]
+    for axis_data in (response.varm, response.obsm):
+        if view in axis_data:
+            axis_data[view] = _randomize_matrix(np.asarray(axis_data[view], dtype=np.float32), rng, randomization_type)
+            return
+    if view not in new_uns:
         raise KeyError(f"View '{view}' not found in any storage location of the dataset.")
+    _randomize_uns_view(new_uns[view], view, new_uns, rng, randomization_type)
 
 
 def randomized_mdata(

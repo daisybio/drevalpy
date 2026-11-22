@@ -9,18 +9,6 @@ from pathlib import Path
 
 import pytest
 
-from drevalpy.components.predictors.literature._metadata import (
-    DIPK_REFERENCE,
-    ENSEMBLEMF_REFERENCE,
-    MOLIR_REFERENCE,
-    MORGOTH_REFERENCE,
-    PACCMANN_REFERENCE,
-    PHARMAFORMER_REFERENCE,
-    PRECILY_REFERENCE,
-    SPARSEGO_REFERENCE,
-    SRMF_REFERENCE,
-    SUPERFELTR_REFERENCE,
-)
 from drevalpy.models import ModelSpec
 from drevalpy.models.config import ModelConfig, validate
 from drevalpy.registry._component import LiteratureReference
@@ -108,7 +96,7 @@ def _defined_lifecycle_methods(path: Path) -> set[str]:
 
 #: MOLIR and SuperFELTR inherit the lifecycle from the shared per-drug omics shell and its single-drug base;
 #: SingleDrugMorgoth inherits ``_predict`` from the single-drug base.
-SHARED_LIFECYCLE_OWNERS = (LITERATURE_ROOT / "_single_drug_omics.py", PREDICTORS_ROOT / "abstract" / "single_drug.py")
+SHARED_LIFECYCLE_OWNERS = (LITERATURE_ROOT / "_omics.py", PREDICTORS_ROOT / "abstract" / "single_drug.py")
 SHELL_PACKAGES = frozenset({"molir", "superfeltr", "morgoth"})
 
 
@@ -162,30 +150,34 @@ def test_literature_factory_entries_are_native_facades_sharing_the_zoo_name(name
     assert spec.name == name
 
 
+def _reference(name: str) -> LiteratureReference:
+    return get_predictor(name).reference
+
+
 ALL_REFERENCES = (
-    pytest.param(PRECILY_REFERENCE, id="precily"),
-    pytest.param(SRMF_REFERENCE, id="srmf"),
-    pytest.param(MOLIR_REFERENCE, id="molir"),
-    pytest.param(SUPERFELTR_REFERENCE, id="superfeltr"),
-    pytest.param(PHARMAFORMER_REFERENCE, id="pharmaformer"),
-    pytest.param(DIPK_REFERENCE, id="dipk"),
-    pytest.param(SPARSEGO_REFERENCE, id="sparsego"),
-    pytest.param(ENSEMBLEMF_REFERENCE, id="ensemblemf"),
-    pytest.param(PACCMANN_REFERENCE, id="paccmann"),
-    pytest.param(MORGOTH_REFERENCE, id="morgoth"),
+    pytest.param(_reference("precily"), id="precily"),
+    pytest.param(_reference("srmf"), id="srmf"),
+    pytest.param(_reference("molir"), id="molir"),
+    pytest.param(_reference("superfeltr"), id="superfeltr"),
+    pytest.param(_reference("pharmaFormer"), id="pharmaformer"),
+    pytest.param(_reference("dipk"), id="dipk"),
+    pytest.param(_reference("sparsego"), id="sparsego"),
+    pytest.param(_reference("ensembleMF"), id="ensemblemf"),
+    pytest.param(_reference("paccMann"), id="paccmann"),
+    pytest.param(_reference("singleDrugMorgoth"), id="morgoth"),
 )
 
 DOIS = (
-    pytest.param(PRECILY_REFERENCE, "10.1038/s41467-022-33291-z", id="precily"),
-    pytest.param(SRMF_REFERENCE, "10.1186/s12885-017-3500-5", id="srmf"),
-    pytest.param(MOLIR_REFERENCE, "10.1186/s12859-023-05166-7", id="molir"),
-    pytest.param(SUPERFELTR_REFERENCE, "10.1186/s12859-023-05166-7", id="superfeltr"),
-    pytest.param(PHARMAFORMER_REFERENCE, "10.1038/s41698-025-01082-6", id="pharmaformer"),
-    pytest.param(DIPK_REFERENCE, "10.1093/bib/bbae153", id="dipk"),
-    pytest.param(SPARSEGO_REFERENCE, "10.1016/j.ebiom.2023.104767", id="sparsego"),
-    pytest.param(ENSEMBLEMF_REFERENCE, "10.1038/s41467-026-72903-w", id="ensemblemf"),
-    pytest.param(PACCMANN_REFERENCE, "10.1021/acs.molpharmaceut.9b00520", id="paccmann"),
-    pytest.param(MORGOTH_REFERENCE, "10.1039/D5DD00284B", id="morgoth"),
+    pytest.param(_reference("precily"), "10.1038/s41467-022-33291-z", id="precily"),
+    pytest.param(_reference("srmf"), "10.1186/s12885-017-3500-5", id="srmf"),
+    pytest.param(_reference("molir"), "10.1186/s12859-023-05166-7", id="molir"),
+    pytest.param(_reference("superfeltr"), "10.1186/s12859-023-05166-7", id="superfeltr"),
+    pytest.param(_reference("pharmaFormer"), "10.1038/s41698-025-01082-6", id="pharmaformer"),
+    pytest.param(_reference("dipk"), "10.1093/bib/bbae153", id="dipk"),
+    pytest.param(_reference("sparsego"), "10.1016/j.ebiom.2023.104767", id="sparsego"),
+    pytest.param(_reference("ensembleMF"), "10.1038/s41467-026-72903-w", id="ensemblemf"),
+    pytest.param(_reference("paccMann"), "10.1021/acs.molpharmaceut.9b00520", id="paccmann"),
+    pytest.param(_reference("singleDrugMorgoth"), "10.1039/D5DD00284B", id="morgoth"),
 )
 
 
@@ -212,8 +204,8 @@ def test_every_reference_records_its_published_doi(reference: LiteratureReferenc
 @pytest.mark.parametrize(
     ("reference", "cited"),
     [
-        pytest.param(MOLIR_REFERENCE, ("MOLI", "10.1093/bioinformatics/btz318"), id="molir"),
-        pytest.param(SUPERFELTR_REFERENCE, ("Super.FELT", "10.1186/s12859-021-04146-z"), id="superfeltr"),
+        pytest.param(_reference("molir"), ("MOLI", "10.1093/bioinformatics/btz318"), id="molir"),
+        pytest.param(_reference("superfeltr"), ("Super.FELT", "10.1186/s12859-021-04146-z"), id="superfeltr"),
     ],
 )
 def test_benchmark_doi_references_name_the_original_model_in_the_citation(
@@ -227,4 +219,4 @@ def test_repo_urls_are_unique_and_references_immutable() -> None:
 
     assert len(set(urls)) == len(urls)
     with pytest.raises(AttributeError):
-        DIPK_REFERENCE.repo_url = "https://example.invalid"
+        _reference("dipk").repo_url = "https://example.invalid"

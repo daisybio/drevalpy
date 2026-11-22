@@ -11,18 +11,15 @@ import torch
 from torch import nn
 
 from drevalpy.components.contracts.feature_format import FeatureFormat
-from drevalpy.components.predictors.literature.dipk.attention_utils import MultiHeadAttentionLayer
 from drevalpy.components.predictors.literature.dipk.model_utils import (
     AttentionLayer,
     DenseLayers,
+    MultiHeadAttentionLayer,
     Predictor,
     features_dim_bionic,
     features_dim_gene,
 )
-from drevalpy.components.predictors.literature.dipk.predictor import (
-    DIPKPredictor,
-    _CollateFn,
-)
+from drevalpy.components.predictors.literature.dipk.predictor import DIPKPredictor, _collate
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.data.feature_block import FeatureBlock
 from drevalpy.types.data.predictor_input import PredictorInput
@@ -118,15 +115,13 @@ def test_build_pairs_selects_entity_rows_and_adds_the_target_for_a_response() ->
     predictor = DIPKPredictor()
     batch = _dipk_batch()
 
-    pairs = predictor._build_pairs(batch.sample_pair_idx, batch.drug_pair_idx, batch)
+    pairs = predictor._build_pairs(batch)
 
     assert len(pairs) == 4
     assert set(pairs[0]) == {"molgnet_features", "gene_expression", "bionic_features"}
     torch.testing.assert_close(pairs[2]["gene_expression"], torch.tensor([0.3, 0.4]))
     assert pairs[2]["molgnet_features"].shape == (3, 2)
-    with_target = predictor._build_pairs(
-        batch.sample_pair_idx, batch.drug_pair_idx, batch, response=np.array([1.0, 2.0, 3.0, 4.0], dtype=np.float32)
-    )
+    with_target = predictor._build_pairs(batch, response=True)
     assert with_target[3]["ic50"].tolist() == [4.0]
 
 
@@ -146,8 +141,8 @@ def test_collate_pads_ragged_atoms_masks_them_and_adds_targets_only_in_training(
         },
     ]
 
-    predict = _CollateFn(train=False)(pairs)
-    train = _CollateFn(train=True)(pairs)
+    train = _collate(pairs)
+    predict = _collate([{key: value for key, value in pair.items() if key != "ic50"} for pair in pairs])
 
     assert predict["molgnet_features"].shape == (2, 3, 2)
     assert predict["molgnet_features"][1, 1:].abs().sum().item() == 0.0

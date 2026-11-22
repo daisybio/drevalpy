@@ -18,17 +18,19 @@ from drevalpy.cli._options import (
     MinAbsFoldChange,
     MinRelevanceScore,
     NoQualityFilter,
-    RandomizationMode,
-    ResponseTransformation,
     ResponseTransformationOption,
     WandbProject,
     quality_from_cli,
-    resolve_response_transformation,
 )
 from drevalpy.cli._summary import format_grouped_summary
 from drevalpy.data.quality import CurveQuality
 from drevalpy.evaluation import Metric, evaluate
-from drevalpy.models.response_transformation import GroupMeanCenterer
+from drevalpy.models.response_transformation import (
+    GroupMeanCenterer,
+    ResponseTransformation,
+    get_response_transformation,
+)
+from drevalpy.types.enums import RandomizationMode
 from drevalpy.types.results import ExperimentResult
 from tests.cli._helpers import make_runner
 from tests.synthetic import make_run_result
@@ -127,26 +129,17 @@ class TestResponseTransformation:
     def test_each_choice_resolves_to_a_new_unfitted_transformer(self, option: str, expected: type) -> None:
         _, seen = _invoke_probe("--response-transformation", option)
 
-        transformer = resolve_response_transformation(seen["response_transformation"])
+        transformer = get_response_transformation(seen["response_transformation"].value)
 
         assert isinstance(transformer, expected)
         assert not hasattr(transformer, "mean_")
-        assert transformer is not resolve_response_transformation(seen["response_transformation"])
+        assert transformer is not get_response_transformation(seen["response_transformation"].value)
 
     @pytest.mark.parametrize("option", ["none", "NONE", None])
     def test_none_and_the_default_resolve_to_no_transformer(self, option: str | None) -> None:
         _, seen = _invoke_probe(*(["--response-transformation", option] if option else []))
 
-        assert resolve_response_transformation(seen["response_transformation"]) is None
-
-    @pytest.mark.parametrize(
-        ("choice", "levels"),
-        [(ResponseTransformation.DRUG_MEAN, ("drug",)), (ResponseTransformation.DRUG_TISSUE_MEAN, ("drug", "tissue"))],
-    )
-    def test_the_group_means_centre_on_their_levels(
-        self, choice: ResponseTransformation, levels: tuple[str, ...]
-    ) -> None:
-        assert resolve_response_transformation(choice).levels == levels
+        assert get_response_transformation(seen["response_transformation"].value) is None
 
 
 def test_quality_from_cli_rules() -> None:

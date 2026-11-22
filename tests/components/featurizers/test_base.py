@@ -7,7 +7,7 @@ import pytest
 from drevalpy.components.contracts.feature_format import FeatureFormat
 from drevalpy.components.featurizers.featurizer import Featurizer
 from drevalpy.models.config.featurizer import requires_explicit_view
-from drevalpy.registry.featurizer import featurizer_registries, get_featurizer, names_for_side
+from drevalpy.registry.featurizer import featurizer_registries, featurizer_registry, get_featurizer
 from drevalpy.types.data.dataset import Dataset
 from drevalpy.types.data.feature_source import FeatureSource, Side
 
@@ -39,7 +39,7 @@ def test_every_featurizer_is_on_the_interface_and_registered_on_its_side() -> No
 
 
 def test_shared_names_exist_on_both_sides_as_separate_classes() -> None:
-    sample, drug = set(names_for_side("sample")), set(names_for_side("drug"))
+    sample, drug = set(featurizer_registry("sample").names()), set(featurizer_registry("drug").names())
     assert sample & drug == {"constant", "oneHot", "concatFeaturizers", "view"}
     for name in sample & drug:
         assert get_featurizer(name, "sample") is not get_featurizer(name, "drug")
@@ -88,7 +88,7 @@ _FORMATS = [
 
 
 def _side(name: str) -> Side:
-    return Side.SAMPLE if name in names_for_side(Side.SAMPLE) else Side.DRUG
+    return Side.SAMPLE if name in featurizer_registry(Side.SAMPLE) else Side.DRUG
 
 
 @pytest.mark.parametrize(("name", "expected_format"), _FORMATS)

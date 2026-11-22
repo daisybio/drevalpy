@@ -14,7 +14,7 @@ from drevalpy.components.contracts.feature_format import BlockSpec, FeatureForma
 from drevalpy.components.predictors.inputs import Inputs, predictor_inputs
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.data.feature_source import Side
-from drevalpy.types.enums.model_scope import ModelScope
+from drevalpy.types.enums import ModelScope
 
 if TYPE_CHECKING:
     from drevalpy.models.config.featurizer import FeaturizerConfig
@@ -89,11 +89,9 @@ def validate(config: ModelConfig) -> ModelConfig:
     except ImportError:
         return config
     _validate_prediction_mode(config, pred_cls)
-    sides: tuple[tuple[Side, FeaturizerConfig | None], ...] = (
-        (Side.SAMPLE, config.sample_featurizer),
-        (Side.DRUG, config.drug_featurizer),
-    )
-    for side, featurizer in sides:
+    featurizers = config.featurizers()
+    for side in Side:
+        featurizer = featurizers.get(side)
         inputs = predictor_inputs(pred_cls, side)
         if inputs.kind == "none":
             if featurizer is not None:

@@ -4,48 +4,25 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from _generated_io import write_text_if_changed
+from _generated_io import list_table, registry_description, write_text_if_changed
 
 from drevalpy.models.zoo import get_zoo_config, list_zoo_names
 from drevalpy.registry._builtins import register_builtins
 from drevalpy.registry.predictor import predictor_registry
-from drevalpy.types.enums.model_scope import ModelScope
+from drevalpy.types.enums import ModelScope
 
 DOCS_DIR = Path(__file__).resolve().parent
 GENERATED_MODEL_ZOO = DOCS_DIR / "reference" / "_generated_model_zoo.rst"
 
 
-def _predictor_description(predictor_name: str) -> str:
-    meta = predictor_registry.metadata(predictor_name)
-    description = (meta.get("description") or "").strip()
-    return description or "No description."
-
-
 def _render_scope_table(scope: ModelScope) -> list[str]:
-    lines = [
-        ".. list-table::",
-        "   :header-rows: 1",
-        "   :widths: 28 42 30",
-        "",
-        "   * - Name",
-        "     - Description",
-        "     - Composition",
-    ]
+    rows = []
     for name in list_zoo_names(include_external=False, scope=scope):
         config = get_zoo_config(name)
-        description = _predictor_description(config.predictor.name)
-        recipe = config.model_id
-        if recipe is None:
+        if config.model_id is None:
             raise RuntimeError(f"Zoo preset {name!r} has no recipe")
-        lines.extend(
-            [
-                f"   * - {name}",
-                f"     - {description}",
-                f"     - ``{recipe}``",
-            ]
-        )
-    lines.append("")
-    return lines
+        rows.append((name, registry_description(predictor_registry, config.predictor.name), f"``{config.model_id}``"))
+    return [*list_table((28, 42, 30), ("Name", "Description", "Composition"), rows), ""]
 
 
 def generate_model_zoo_rst() -> str:

@@ -42,7 +42,6 @@ DEFERRED_TRAINING_SYMBOLS = (
     ("drevalpy.components.predictors.literature.molir.utils", "MOLIModel"),
     ("drevalpy.components.predictors.literature.superfeltr.utils", "SuperFELTEncoder"),
     ("drevalpy.components.predictors.literature.superfeltr.utils", "SuperFELTRegressor"),
-    ("drevalpy.components.predictors.literature.superfeltr.utils", "train_superfeltr_model"),
     ("drevalpy.components.predictors.literature.dipk.model_utils", "Predictor"),
     ("drevalpy.components.predictors.literature.pharmaformer.model_utils", "CombinedModel"),
     ("drevalpy.components.predictors.literature.precily.model_utils", "PrecilyNetwork"),
@@ -59,10 +58,6 @@ DEFERRED_TRAINING_SYMBOLS = (
         "drevalpy.components.predictors.literature.dipk.gene_expression_encoder",
         "train_gene_expession_autoencoder",
     ),
-    (
-        "drevalpy.components.featurizers.sample._proteomics_transformer",
-        "ProteomicsMedianCenterAndImputeTransformer",
-    ),
 )
 
 _CHILD_SCRIPT = textwrap.dedent(f"""
@@ -76,8 +71,8 @@ _CHILD_SCRIPT = textwrap.dedent(f"""
         "leaked": sorted(name for name in {FORBIDDEN_STARTUP_IMPORTS!r} if name in sys.modules),
         "skipped": sorted(get_skipped_builtin_modules()),
         "n_predictors": len(drevalpy.registry.predictor.predictor_registry.names()),
-        "n_sample_featurizers": len(drevalpy.registry.featurizer.names_for_side("sample")),
-        "n_drug_featurizers": len(drevalpy.registry.featurizer.names_for_side("drug")),
+        "n_sample_featurizers": len(drevalpy.registry.featurizer.featurizer_registry("sample").names()),
+        "n_drug_featurizers": len(drevalpy.registry.featurizer.featurizer_registry("drug").names()),
     }}))
     """)
 

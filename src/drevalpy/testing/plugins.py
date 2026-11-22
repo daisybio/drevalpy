@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from drevalpy.registry import get_failed_plugins
-from drevalpy.registry._plugins import ENTRY_POINT_GROUP
+from drevalpy.registry._plugins import ENTRY_POINT_GROUP, declared_entry_points
 from drevalpy.registry._registry import Registry
 from drevalpy.registry.featurizer import featurizer_registries
 from drevalpy.registry.predictor import predictor_registry
@@ -64,7 +64,7 @@ def _declared_entry_point(name: str) -> importlib.metadata.EntryPoint:
     :returns: The declared entry point.
     :raises PluginCheckError: If no installed distribution declares it.
     """
-    declared = {ep.name: ep for ep in importlib.metadata.entry_points(group=ENTRY_POINT_GROUP)}
+    declared = declared_entry_points()
     entry_point = declared.get(name)
     if entry_point is None:
         msg = (
@@ -76,15 +76,6 @@ def _declared_entry_point(name: str) -> importlib.metadata.EntryPoint:
     return entry_point
 
 
-def _recorded_failure(name: str) -> str | None:
-    """Return the traceback the plugin loader recorded for *name*, if any.
-
-    :param name: Entry-point name.
-    :returns: The formatted traceback, or ``None`` when the plugin did not fail.
-    """
-    return get_failed_plugins().get(name)
-
-
 def _load(entry_point: importlib.metadata.EntryPoint) -> str:
     """Import *entry_point* and return the module it resolves to.
 
@@ -92,7 +83,7 @@ def _load(entry_point: importlib.metadata.EntryPoint) -> str:
     :returns: Dotted module name the entry point targets.
     :raises PluginCheckError: If discovery recorded a failure, or the import raises.
     """
-    recorded = _recorded_failure(entry_point.name)
+    recorded = get_failed_plugins().get(entry_point.name)
     if recorded is not None:
         msg = f"Plugin {entry_point.name!r} failed to load during discovery:\n{recorded}"
         raise PluginCheckError(msg)

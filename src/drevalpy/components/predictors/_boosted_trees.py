@@ -1,7 +1,7 @@
 """Shared base for the two third-party gradient-boosting predictors.
 
 ``lightgbm_pred.py`` and ``xgboost_pred.py`` wrap different libraries but read the
-same tree/shrinkage/subsampling knobs out of ``self._hyperparameters`` with the same coercions,
+same tree/shrinkage/subsampling knobs out of ``self._hyperparameters``,
 and tune overlapping slices of one search space. That common part lives here so a
 change to a default or a bound is made once.
 
@@ -17,7 +17,6 @@ from __future__ import annotations
 
 from typing import Any, ClassVar
 
-from drevalpy.components.contracts.hyperparameter_space import is_fixed
 from drevalpy.components.predictors.sklearn_tabular import SklearnTabularPredictor
 
 #: Search-space specs for every knob either predictor takes. A subclass selects
@@ -59,15 +58,4 @@ class BoostedTreesPredictor(SklearnTabularPredictor):
         return {
             name: {**SHARED_SPACE[name], **cls.boosting_space_overrides.get(name, {})}
             for name in cls.estimator_hyperparameters
-        }
-
-    def _estimator_params(self) -> dict[str, Any]:
-        """Resolve every constructor argument this library takes from hyperparameters.
-
-        :returns: Hyperparameter values, tuned ones coerced to the type of their default.
-        """
-        space = self.get_hyperparameter_space()
-        return {
-            name: self._hyperparameters[name] if is_fixed(spec) else type(spec["default"])(self._hyperparameters[name])
-            for name, spec in space.items()
         }

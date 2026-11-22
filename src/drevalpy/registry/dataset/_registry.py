@@ -201,8 +201,8 @@ class DatasetRegistry(TableReprMixin):
 
         Useful after external modifications to the config file.
         """
+        self._custom = None
         self._ensure_loaded()
-        self._custom = load_config()
 
 
 dataset_registry = DatasetRegistry()

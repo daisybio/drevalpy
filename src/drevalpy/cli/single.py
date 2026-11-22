@@ -8,17 +8,17 @@ import typer
 from upath import UPath
 
 from drevalpy.evaluation import Metric
+from drevalpy.models.response_transformation import ResponseTransformation, get_response_transformation
 
 from ._options import (
     Hpo,
     HpoMetric,
     HpoNumTrials,
     HpoRandomState,
+    Measure,
     NJobs,
-    ResponseTransformation,
     ResponseTransformationOption,
     WandbProject,
-    resolve_response_transformation,
 )
 
 
@@ -34,13 +34,7 @@ def single_cmd(
     hpo_random_state: HpoRandomState = None,
     response_transformation: ResponseTransformationOption = ResponseTransformation.NONE,
     split_mode: Annotated[str, typer.Option("--split-mode", help="Split mode fallback (e.g. LPO, LSO, LDO).")] = "LPO",
-    measure: Annotated[
-        str | None,
-        typer.Option(
-            "--measure",
-            help="Response measure to train and score on (default: the one the fold was split on, else pEC50).",
-        ),
-    ] = None,
+    measure: Measure = None,
     wandb_project: WandbProject = None,
     n_jobs: NJobs = 1,
 ) -> None:
@@ -52,7 +46,7 @@ def single_cmd(
     from drevalpy.types import Fold
 
     model_spec = ModelSpec.from_name(model)
-    transformer = resolve_response_transformation(response_transformation)
+    transformer = get_response_transformation(response_transformation.value)
     ds = load(dataset)
     loaded = Fold.load(fold)
     loaded.metadata["split_mode"] = canonical(loaded.metadata.get("split_mode", split_mode))

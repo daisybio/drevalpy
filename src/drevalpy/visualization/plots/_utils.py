@@ -4,40 +4,32 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal
 
-import numpy as np
-from numpy.typing import ArrayLike
-
 if TYPE_CHECKING:
     import pandas as pd
+    from matplotlib.figure import Figure
 
     from drevalpy.types.results import ExperimentResult
 
 
-def compute_ssmd(values_a: ArrayLike, values_b: ArrayLike) -> float:
-    """Compute the Strictly Standardized Mean Difference between two arrays.
+def placeholder_figure(message: str, figsize: tuple[float, float]) -> Figure:
+    """Draw a figure holding only *message*, for a plot with nothing to show.
 
-    SSMD = (mean_a - mean_b) / sqrt(var_a + var_b)
-
-    :param values_a: Metric values for model A (across CV folds).
-    :param values_b: Metric values for model B (across CV folds).
-    :returns: SSMD value, or NaN if either array has fewer than two values or the denominator is zero.
+    :param message: Text centred on the otherwise empty figure.
+    :param figsize: Figure size in inches.
+    :returns: The Matplotlib figure, built directly so it never enters pyplot's registry.
     """
-    a = np.asarray(values_a, dtype=float)
-    b = np.asarray(values_b, dtype=float)
-    if a.size < 2 or b.size < 2:
-        return float("nan")
-    mu_a, mu_b = a.mean(), b.mean()
-    var_a, var_b = a.var(ddof=1), b.var(ddof=1)
-    denom = var_a + var_b
-    if denom <= 0:
-        return float("nan")
-    return float((mu_a - mu_b) / np.sqrt(denom))
+    from matplotlib.figure import Figure
+
+    fig = Figure(figsize=figsize, layout="constrained")
+    ax = fig.add_subplot()
+    ax.text(0.5, 0.5, message, ha="center", va="center")
+    ax.set_axis_off()
+    return fig
 
 
 def runs_frame(
     result: ExperimentResult,
     *,
-    indexed: bool = False,
     randomization: tuple[str, str] | Literal["all"] | None = None,
     robustness: int | Literal["all"] | None = None,
 ) -> pd.DataFrame:
@@ -47,9 +39,6 @@ def runs_frame(
     one per metric the run reports.
 
     :param result: Experiment result to flatten.
-    :param indexed: Label each row ``<model>_<setting>_<mode>_split_<fold>``. The
-        heatmap groups on that label; the violin plot
-        wants the default positional index.
     :param randomization: Exact setting, ``"all"``, or ``None`` for ordinary runs.
     :param robustness: Exact repeat, ``"all"``, or ``None`` for ordinary runs.
     :returns: The per-run frame.
@@ -57,7 +46,6 @@ def runs_frame(
     import pandas as pd
 
     rows: list[dict] = []
-    labels: list[str] = []
     for model in result.models:
         for run in model.select_runs(randomization=randomization, robustness=robustness):
             setting = "_".join(run.randomization) if run.randomization else "predictions"
@@ -69,7 +57,4 @@ def runs_frame(
             }
             row.update(run.metrics)
             rows.append(row)
-            labels.append(f"{run.model_name}_{setting}_{result.split_mode}_split_{run.fold_index}")
-    if indexed:
-        return pd.DataFrame(rows, index=labels)
     return pd.DataFrame(rows)

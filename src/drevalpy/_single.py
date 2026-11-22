@@ -98,10 +98,10 @@ def _fit_fold(
     n_jobs: int,
     hyperparameters: Mapping[str, Any] | None = None,
 ) -> RunResult:
-    """Run :func:`single` without checking *n_jobs*, for callers that checked it once up front.
+    """Fit and predict one fold; the callers have already checked *n_jobs*.
 
     :param model_spec: Named, unfitted model recipe.
-    :param dataset: Full dataset with all features.
+    :param dataset: Dataset on the measure to train and score on.
     :param fold: The fold to train, tune and test on.
     :param hyperparameter_tuning: Whether to run HPO; ignored when *hyperparameters* is given.
     :param response_transformation: Optional unfitted response transformation prototype; the normalization
@@ -126,33 +126,17 @@ def _fit_fold(
         hyperparameter_tuning=hyperparameter_tuning,
         hpo_metric=hpo_metric,
         hpo_num_trials=hpo_num_trials,
-        hpo_random_state=seed if hpo_random_state is None else hpo_random_state,
+        hpo_random_state=hpo_random_state,
         seed=seed,
     )
-    identity = execution.identity
-    final = fit(
+    _, result = fit(
         execution,
         dataset,
         response_transformation=_transformation_for(model_spec, response_transformation),
         wandb_project=wandb_project,
         n_jobs=n_jobs,
     )
-    return RunResult(
-        model_name=identity.model_name,
-        dataset_name=dataset.name,
-        split_mode=identity.split_mode,
-        fold_index=identity.fold_index,
-        fold_id=identity.fold_id,
-        predictions=final.predictions,
-        ground_truth=final.test.response,
-        sample_ids=final.test.sample_ids,
-        drug_ids=final.test.drug_ids,
-        best_hyperparameters=final.best_hyperparameters,
-        metrics=final.metrics,
-        fold_metadata=execution.result_metadata(),
-        trials=final.trials or None,
-        randomization=dataset.randomization,
-    )
+    return result
 
 
 def _transformation_for(

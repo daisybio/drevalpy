@@ -159,7 +159,7 @@ class TestAddSampleViews:
 
         add_sample_views(data, SAMPLE_VIEWS, np.random.default_rng(0))
 
-        assert data.mdata.mod["response"].obsm["pathway_features"].shape == (10, N_PATHWAYS)
+        assert data.response.obsm["pathway_features"].shape == (10, N_PATHWAYS)
 
     def test_an_unknown_view_is_rejected(self):
         with pytest.raises(ValueError, match="sample_views"):
@@ -220,7 +220,7 @@ class TestAddViewsAndPayloads:
 
         add_drug_views(data, DRUG_VIEWS, np.random.default_rng(0))
 
-        varm = data.mdata.mod["response"].varm
+        varm = data.response.varm
         assert {name: varm[name].shape[1] for name in DRUG_VIEWS} == {
             "morgan_fingerprint": FINGERPRINT_BITS,
             "chemberta": CHEMBERTA_DIM,

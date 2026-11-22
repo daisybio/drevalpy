@@ -10,8 +10,7 @@ from drevalpy.models.config.predictor import PredictorConfig
 from drevalpy.models.config.validation import validate
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types.data.feature_source import Side
-from drevalpy.types.enums.model_scope import ModelScope
-from drevalpy.types.enums.prediction_mode import PredictionMode
+from drevalpy.types.enums import ModelScope, PredictionMode
 
 
 class ModelConfig(BaseModel):
@@ -77,16 +76,10 @@ class ModelConfig(BaseModel):
             return None
         return format_model_recipe(sample, drug, self.predictor.name)
 
-    def sample_views(self) -> list[str]:
-        """Return the raw view names required by the sample featurizer tree.
+    def featurizers(self) -> dict[Side, FeaturizerConfig]:
+        """Return the featurizer slots that are set, by side, sample first.
 
-        :returns: View names required by the sample featurizer tree.
+        :returns: Side to its featurizer config; a side without a featurizer is absent.
         """
-        return [] if self.sample_featurizer is None else self.sample_featurizer.views()
-
-    def drug_views(self) -> list[str]:
-        """Return the raw view names required by the drug featurizer tree.
-
-        :returns: View names required by the drug featurizer tree.
-        """
-        return [] if self.drug_featurizer is None else self.drug_featurizer.views()
+        slots = {Side.SAMPLE: self.sample_featurizer, Side.DRUG: self.drug_featurizer}
+        return {side: root for side, root in slots.items() if root is not None}

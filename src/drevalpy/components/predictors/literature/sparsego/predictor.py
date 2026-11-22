@@ -13,22 +13,14 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import numpy as np
 
 from drevalpy.components.contracts.feature_format import BlockSpec
-from drevalpy.components.contracts.hyperparameter_space import fixed_entries
-from drevalpy.components.predictors._pair_loader import make_pair_loader
+from drevalpy.components.predictors._pair_loader import concatenated_forward, pair_loader, predict_pairs
 from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.components.predictors.inputs import Inputs
-from drevalpy.components.predictors.literature._early_stopping import run_epoch
-from drevalpy.components.predictors.literature._metadata import SPARSEGO_REFERENCE
-from drevalpy.components.predictors.literature._pair_predict import (
-    PairEvalSpec,
-    concatenated_forward,
-    predict_pairs,
-    require_drug_pair_idx,
-)
-from drevalpy.components.predictors.literature._torch_utils import DevicePicklingMixin
+from drevalpy.components.predictors.literature._torch_training import DevicePicklingMixin, run_epoch
+from drevalpy.registry._component import LiteratureReference
 from drevalpy.registry.predictor import register
 from drevalpy.types.data.predictor_input import PredictorInput
-from drevalpy.types.enums.accelerator import Accelerator
+from drevalpy.types.enums import Accelerator
 
 if TYPE_CHECKING:
     from torch.utils.data import DataLoader
@@ -52,10 +44,22 @@ def _resolve_active_view(data: PredictorInput) -> str:
     return active[0]
 
 
+_REFERENCE = LiteratureReference(
+    repo_url="https://github.com/KatynaSada/SparseGO_lightning",
+    citation_doi="10.1016/j.ebiom.2023.104767",
+    citation_text="SparseGO visible neural network structured by the Gene Ontology hierarchy.",
+    deviations=(
+        "Preserve ontology-indexed sparse connections. Align named input genes explicitly; train on "
+        "training-fold features. Local fixed-epoch MSE training differs from upstream correlation-based "
+        "checkpoint winners."
+    ),
+)
+
+
 @register(
     "sparsego",
     description="SparseGO GO-structured visible neural network.",
-    reference=SPARSEGO_REFERENCE,
+    reference=_REFERENCE,
     license="NOASSERTION",
     accelerator=Accelerator.OPTIONAL,
 )
@@ -71,6 +75,23 @@ class SparseGOPredictor(DevicePicklingMixin, Predictor):
     drug_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("fingerprints"))
     supports_early_stopping: ClassVar[bool] = False
 
+    fixed_hyperparameters = {
+        "num_neurons_per_GO": 6,
+        "num_neurons_per_final_GO": 30,
+        "num_neurons_drug": [100, 50, 6],
+        "num_neurons_final": 12,
+        "drug_dim": 2048,
+        "learning_rate": 0.1,
+        "momentum": 0.9,
+        "decay_rate": 0.002,
+        "p_drop_genes": 0.15,
+        "p_drop_terms": 0.15,
+        "p_drop_drugs": 0.15,
+        "p_drop_final": 0.0,
+        "epochs": 400,
+        "batch_size": 20000,
+    }
+
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
         """Initialize SparseGOPredictor.
 
@@ -80,31 +101,6 @@ class SparseGOPredictor(DevicePicklingMixin, Predictor):
         self._model: SparseGONetwork | None = None
         self._layer_connections: list | None = None
         self._gene2id_mapping_ont: dict[str, int] | None = None
-
-    @classmethod
-    def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
-        """Return the hyperparameter space; SparseGO tunes nothing.
-
-        :returns: Fixed specs for every SparseGO hyperparameter.
-        """
-        return fixed_entries(
-            {
-                "num_neurons_per_GO": 6,
-                "num_neurons_per_final_GO": 30,
-                "num_neurons_drug": [100, 50, 6],
-                "num_neurons_final": 12,
-                "drug_dim": 2048,
-                "learning_rate": 0.1,
-                "momentum": 0.9,
-                "decay_rate": 0.002,
-                "p_drop_genes": 0.15,
-                "p_drop_terms": 0.15,
-                "p_drop_drugs": 0.15,
-                "p_drop_final": 0.0,
-                "epochs": 400,
-                "batch_size": 20000,
-            }
-        )
 
     def _build_network(self) -> SparseGONetwork:
         """Construct the SparseGONetwork from stored ontology metadata and hyperparameters.
@@ -145,22 +141,6 @@ class SparseGOPredictor(DevicePicklingMixin, Predictor):
             np.asarray(data.drug.blocks["fingerprints"].values, dtype=np.float32),
         )
 
-    def _build_train_loader(self, data: PredictorInput, blocks: tuple[np.ndarray, np.ndarray]) -> DataLoader:
-        """Build the shuffled training loader over the entity matrices in *blocks*.
-
-        :param data: Training batch supplying the pair indices and response.
-        :param blocks: Tuple of ``(sample_matrix, fingerprint_matrix)``.
-        :returns: Training loader yielding sample, drug and response tensors.
-        """
-        cell_entity, drug_entity = blocks
-        return make_pair_loader(
-            (cell_entity, data.sample_pair_idx),
-            (drug_entity, require_drug_pair_idx(data.drug_pair_idx)),
-            response=np.asarray(data.response, dtype=np.float32).reshape(-1, 1),
-            batch_size=self._hyperparameters["batch_size"],
-            shuffle=True,
-        )
-
     def _fit(self, data: PredictorInput) -> None:
         """Train SparseGO on the batch.
 
@@ -176,10 +156,13 @@ class SparseGOPredictor(DevicePicklingMixin, Predictor):
 
         self._layer_connections, self._gene2id_mapping_ont, _ = resolve_ontology_metadata(dict(block.annotations))
 
-        blocks = self._entity_matrices(data, active_view)
-        self._hyperparameters["drug_dim"] = int(blocks[1].shape[1])
+        cell_entity, drug_entity = self._entity_matrices(data, active_view)
+        self._hyperparameters["drug_dim"] = int(drug_entity.shape[1])
         model = self._build_network()
-        self._run_training(model, self._build_train_loader(data, blocks))
+        loader = pair_loader(
+            data, cell_entity, drug=drug_entity, batch_size=self._hyperparameters["batch_size"], shuffle=True
+        )
+        self._run_training(model, loader)
 
     def _run_training(self, model: SparseGONetwork, loader: DataLoader) -> None:
         """Run the SGD training loop with the paper's per-epoch learning-rate decay.
@@ -202,7 +185,7 @@ class SparseGOPredictor(DevicePicklingMixin, Predictor):
         def batch_loss(loader_batch: tuple[torch.Tensor, ...]) -> torch.Tensor:
             cell_feats, drug_feats, batch_labels = loader_batch
             batch_features = torch.cat([cell_feats, drug_feats], dim=1).to(self._device)
-            return criterion(model(batch_features), batch_labels.to(self._device))
+            return criterion(model(batch_features), batch_labels.reshape(-1, 1).to(self._device))
 
         for epoch in range(self._hyperparameters["epochs"]):
             for param_group in optimizer.param_groups:
@@ -223,11 +206,9 @@ class SparseGOPredictor(DevicePicklingMixin, Predictor):
         return predict_pairs(
             self._model,
             data,
-            PairEvalSpec(
-                sample_blocks=(cell_entity,),
-                drug_blocks=(drug_entity,),
-                batch_size=self._hyperparameters["batch_size"],
-                device=self._device,
-            ),
+            cell_entity,
+            drug_entity,
+            batch_size=self._hyperparameters["batch_size"],
+            device=self._device,
             forward=concatenated_forward(self._model),
         )

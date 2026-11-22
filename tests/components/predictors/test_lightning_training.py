@@ -9,19 +9,18 @@ import pytest
 import pytorch_lightning as pl
 from upath import UPath
 
+from drevalpy._utils.accelerator import lightning_accelerator
 from drevalpy.components.predictors._lightning_training import (
     LightningRun,
     _loggers,
     _versioned_name,
     run_lightning_fit,
 )
-from drevalpy.components.predictors.literature._omics_loaders import OmicsSplit, make_omics_loaders
 from drevalpy.experiment._tracking import tracking_run
 from tests._fake_wandb import install_fake_wandb
 
 pytestmark = pytest.mark.slow
 
-N_ENTITIES = 4
 N_PAIRS = 4
 FEATURE_DIM = 2
 
@@ -31,19 +30,17 @@ def _trainer_logs_in_tmp_path(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
 
 
-def _split() -> OmicsSplit:
-    rng = np.random.default_rng(0)
-    return OmicsSplit(
-        gene_expression=rng.normal(size=(N_ENTITIES, FEATURE_DIM)).astype(np.float32),
-        mutations=rng.normal(size=(N_ENTITIES, FEATURE_DIM)).astype(np.float32),
-        copy_number=rng.normal(size=(N_ENTITIES, FEATURE_DIM)).astype(np.float32),
-        response=np.linspace(0.0, 1.0, N_PAIRS, dtype=np.float32),
-        pair_idx=np.arange(N_PAIRS, dtype=np.int64) % N_ENTITIES,
-    )
-
-
 def _loaders(*, with_validation: bool):
-    return make_omics_loaders(_split(), _split() if with_validation else None, batch_size=2)
+    import torch
+    from torch.utils.data import DataLoader, TensorDataset
+
+    rng = np.random.default_rng(0)
+    features = torch.as_tensor(rng.normal(size=(N_PAIRS, FEATURE_DIM)), dtype=torch.float32)
+    response = torch.linspace(0.0, 1.0, N_PAIRS, dtype=torch.float32).unsqueeze(-1)
+    dataset = TensorDataset(features, response)
+    train_loader = DataLoader(dataset, batch_size=2, shuffle=False)
+    val_loader = DataLoader(dataset, batch_size=2, shuffle=False) if with_validation else None
+    return train_loader, val_loader
 
 
 class _TinyModule(pl.LightningModule):
@@ -61,14 +58,14 @@ class _TinyModule(pl.LightningModule):
         return self.layer(x)
 
     def training_step(self, batch, batch_idx):
-        expression, _, _, response = batch
-        loss = self.loss(self.layer(expression), response)
+        features, response = batch
+        loss = self.loss(self.layer(features), response)
         self.log("train_loss", loss, on_step=False, on_epoch=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
-        expression, _, _, response = batch
-        loss = self.loss(self.layer(expression), response)
+        features, response = batch
+        loss = self.loss(self.layer(features), response)
         self.log("val_loss", loss, on_step=False, on_epoch=True)
         self.validated = True
         return loss
@@ -142,14 +139,14 @@ def _spy_trainer(monkeypatch) -> list[dict[str, object]]:
 def test_trainer_settings_follow_the_run(tmp_path, monkeypatch) -> None:
     seen = _spy_trainer(monkeypatch)
     train_loader, val_loader = _loaders(with_validation=True)
-    run = _run(tmp_path, accelerator="cpu", devices=1, precision=32, log_every_n_steps=1, logger=False, patience=7)
+    run = _run(tmp_path, devices=1, precision=32, log_every_n_steps=1, logger=False, patience=7)
 
     run_lightning_fit(_TinyModule(), train_loader, val_loader, run)
     run_lightning_fit(_TinyModule(), train_loader, val_loader, _run(tmp_path, enable_progress_bar=True))
     run_lightning_fit(_TinyModule(), train_loader, val_loader, _run(tmp_path, default_logger=False))
 
     first, progress, no_default_logger = seen
-    assert (first["accelerator"], first["devices"], first["precision"]) == ("cpu", 1, 32)
+    assert (first["accelerator"], first["devices"], first["precision"]) == (lightning_accelerator(), 1, 32)
     assert first["log_every_n_steps"] == 1
     assert first["logger"] is False
     assert first["enable_progress_bar"] is False

@@ -55,47 +55,54 @@ def _show(
     render_mapping(dict((details or registry.metadata)(name)), title=name)
 
 
-def _component_details(display_name: str, registry: Registry[type[Any]]) -> Callable[[str], Mapping[str, Any]]:
+def _component_details(
+    build: Callable[[str, str, type[Any]], dict[str, Any]], display_name: str, registry: Registry[type[Any]]
+) -> Callable[[str], Mapping[str, Any]]:
     """Return the catalog facts of a predictor or featurizer, including its class and reference.
 
+    :param build: ``predictor_component_metadata`` or ``featurizer_component_metadata``.
     :param display_name: Catalog name of the registry, e.g. ``"predictors"``.
     :param registry: Registry holding the component classes.
     :returns: Function from an entry name to its catalog facts.
     """
-    from drevalpy.registry._component import featurizer_component_metadata, predictor_component_metadata
-
-    build = predictor_component_metadata if display_name == "predictors" else featurizer_component_metadata
     return lambda name: build(display_name, name, registry.get(name))
 
 
 def list_predictors(name: EntryName = None) -> None:
     """List registered predictors."""
+    from drevalpy.registry._component import predictor_component_metadata
     from drevalpy.registry.predictor import predictor_registry
 
-    _show(predictor_registry, "Predictors", name, _component_details("predictors", predictor_registry))
-
-
-def _featurizers_for_side(side: str) -> Registry[type[Any]]:
-    """Return the registered featurizers that support *side*, as a registry of their own.
-
-    :param side: ``"sample"`` or ``"drug"``.
-    :returns: Registry holding only those featurizers, with their metadata.
-    """
-    from drevalpy.registry.featurizer import featurizer_registry
-
-    return featurizer_registry(side)
+    details = _component_details(predictor_component_metadata, "predictors", predictor_registry)
+    _show(predictor_registry, "Predictors", name, details)
 
 
 def list_sample_featurizers(name: EntryName = None) -> None:
     """List registered featurizers usable on the sample side."""
-    registry = _featurizers_for_side("sample")
-    _show(registry, "Sample featurizers", name, _component_details("sample_featurizers", registry))
+    from drevalpy.registry._component import featurizer_component_metadata
+    from drevalpy.registry.featurizer import featurizer_registry
+
+    registry = featurizer_registry("sample")
+    _show(
+        registry,
+        "Sample featurizers",
+        name,
+        _component_details(featurizer_component_metadata, "sample_featurizers", registry),
+    )
 
 
 def list_drug_featurizers(name: EntryName = None) -> None:
     """List registered featurizers usable on the drug side."""
-    registry = _featurizers_for_side("drug")
-    _show(registry, "Drug featurizers", name, _component_details("drug_featurizers", registry))
+    from drevalpy.registry._component import featurizer_component_metadata
+    from drevalpy.registry.featurizer import featurizer_registry
+
+    registry = featurizer_registry("drug")
+    _show(
+        registry,
+        "Drug featurizers",
+        name,
+        _component_details(featurizer_component_metadata, "drug_featurizers", registry),
+    )
 
 
 def list_splitters(name: EntryName = None) -> None:

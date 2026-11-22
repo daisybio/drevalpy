@@ -2,12 +2,24 @@
 
 from __future__ import annotations
 
+from enum import StrEnum
 from typing import TYPE_CHECKING
 
 from drevalpy.errors import UnknownNameError
 
 if TYPE_CHECKING:
     from ._protocol import ResponseTransformer
+
+
+class ResponseTransformation(StrEnum):
+    """The names ``get_response_transformation`` accepts, as the CLI option ``--response-transformation`` lists them."""
+
+    NONE = "none"
+    STANDARD = "standard"
+    MINMAX = "minmax"
+    ROBUST = "robust"
+    DRUG_MEAN = "drug_mean"
+    DRUG_TISSUE_MEAN = "drug_tissue_mean"
 
 
 def get_response_transformation(response_transformation: str | None) -> ResponseTransformer | None:

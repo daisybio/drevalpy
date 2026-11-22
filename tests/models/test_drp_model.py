@@ -13,7 +13,7 @@ from drevalpy.models import DRPModel, ModelSpec
 from drevalpy.models.drp_model import ModelState, _build_components, validate_fit_scopes
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types import SelectionMask
-from drevalpy.types.enums.accelerator import Accelerator
+from drevalpy.types.enums import Accelerator
 from tests.models.synthetic_fixtures import (
     lso_fold,
     small_data_spec,

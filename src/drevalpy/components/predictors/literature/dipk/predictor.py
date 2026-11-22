@@ -14,20 +14,19 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import numpy as np
 
 from drevalpy.components.contracts.feature_format import BlockSpec, FeatureFormat
-from drevalpy.components.contracts.hyperparameter_space import fixed_entries
-from drevalpy.components.predictors._pair_loader import collect_predictions
+from drevalpy.components.predictors._pair_loader import collect_predictions, require_drug_pair_idx
 from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.components.predictors.inputs import Inputs
-from drevalpy.components.predictors.literature._early_stopping import (
+from drevalpy.components.predictors.literature._torch_training import (
+    DevicePicklingMixin,
     EarlyStoppingRun,
     run_epoch,
     train_with_early_stopping,
 )
-from drevalpy.components.predictors.literature._metadata import DIPK_REFERENCE
-from drevalpy.components.predictors.literature._torch_utils import DevicePicklingMixin
+from drevalpy.registry._component import LiteratureReference
 from drevalpy.registry.predictor import register
 from drevalpy.types.data.predictor_input import PredictorInput
-from drevalpy.types.enums.accelerator import Accelerator
+from drevalpy.types.enums import Accelerator
 
 if TYPE_CHECKING:
     import torch
@@ -35,11 +34,22 @@ if TYPE_CHECKING:
 
     from .model_utils import Predictor as DIPKNetwork
 
+_REFERENCE = LiteratureReference(
+    repo_url="https://github.com/user15632/DIPK",
+    citation_doi="10.1093/bib/bbae153",
+    citation_text="DIPK deep integration model with BIONIC and MolGNet features.",
+    deviations=(
+        "Preserve the upstream autoencoder architecture, 20% masking and final-epoch encoder return. Add "
+        "disjoint validation stopping to autoencoder/predictor; predictor restores best validation "
+        "weights. Real MolGNet/PPI artifacts are required for raw-input integration."
+    ),
+)
+
 
 @register(
     "dipk",
     description="DIPK BIONIC + MolGNet model.",
-    reference=DIPK_REFERENCE,
+    reference=_REFERENCE,
     license="NOASSERTION",
     accelerator=Accelerator.OPTIONAL,
 )
@@ -54,6 +64,17 @@ class DIPKPredictor(DevicePicklingMixin, Predictor):
     supports_early_stopping: ClassVar[bool] = True
     requires_early_stopping: ClassVar[bool] = True
 
+    fixed_hyperparameters = {
+        "batch_size": 64,
+        "lr": 0.0001,
+        "heads": 2,
+        "fc_layer_num": 3,
+        "fc_layer_dim": [256, 128, 64, 32, 16, 1],
+        "dropout_rate": 0.3,
+        "epochs": 100,
+        "patience": 10,
+    }
+
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
         """Initialize the DIPK predictor.
 
@@ -61,25 +82,6 @@ class DIPKPredictor(DevicePicklingMixin, Predictor):
         """
         super().__init__(hyperparameters)
         self._model: DIPKNetwork | None = None
-
-    @classmethod
-    def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
-        """Return the hyperparameter space; DIPK tunes nothing.
-
-        :returns: Fixed specs for every DIPK hyperparameter.
-        """
-        return fixed_entries(
-            {
-                "batch_size": 64,
-                "lr": 0.0001,
-                "heads": 2,
-                "fc_layer_num": 3,
-                "fc_layer_dim": [256, 128, 64, 32, 16, 1],
-                "dropout_rate": 0.3,
-                "epochs": 100,
-                "patience": 10,
-            }
-        )
 
     def _build_model(self) -> DIPKNetwork:
         """Construct the DIPK network from hyperparameters.
@@ -96,22 +98,18 @@ class DIPKPredictor(DevicePicklingMixin, Predictor):
             dropout_rate=hp["dropout_rate"],
         ).to(self._device)
 
-    def _build_pairs(
-        self,
-        sample_pair_idx: np.ndarray,
-        drug_pair_idx: np.ndarray,
-        data: PredictorInput,
-        response: np.ndarray | None = None,
-    ) -> list[dict[str, torch.Tensor]]:
-        """Construct per-pair dictionaries from batch blocks using pair indices.
+    def _build_pairs(self, data: PredictorInput, *, response: bool = False) -> list[dict[str, torch.Tensor]]:
+        """Construct one dictionary of feature tensors per pair of *data*.
 
-        :param sample_pair_idx: Indices mapping pairs to sample entities.
-        :param drug_pair_idx: Indices mapping pairs to drug entities.
-        :param data: Model input batch with feature blocks.
-        :param response: Optional response values per pair.
+        :param data: Pairs to build, with the feature blocks they index into.
+        :param response: Whether to add each pair's response as its ``ic50`` target.
         :returns: List of pair dictionaries with tensor values.
         """
         import torch
+
+        sample_pair_idx = data.sample_pair_idx
+        drug_pair_idx = require_drug_pair_idx(data.drug_pair_idx)
+        targets = data.response if response else None
 
         gene_block = data.sample.blocks["gene_expression"].values
         bionic_block = data.sample.blocks["bionic_features"].values
@@ -127,8 +125,8 @@ class DIPKPredictor(DevicePicklingMixin, Predictor):
                 "gene_expression": torch.tensor(np.asarray(gene_block[cl_idx], dtype=np.float32)),
                 "bionic_features": torch.tensor(np.asarray(bionic_block[cl_idx], dtype=np.float32)),
             }
-            if response is not None:
-                pair["ic50"] = torch.tensor([response[i]], dtype=torch.float32)
+            if targets is not None:
+                pair["ic50"] = torch.tensor([targets[i]], dtype=torch.float32)
             pairs.append(pair)
         return pairs
 
@@ -142,39 +140,23 @@ class DIPKPredictor(DevicePicklingMixin, Predictor):
         if data.drug_pair_idx is None:
             msg = "DIPK requires drug features"
             raise ValueError(msg)
-        if data.early_stopping is None:
+        stopping = data.stopping
+        if stopping is None:
             msg = "DIPK requires early stopping data"
             raise ValueError(msg)
 
-        train_pairs = self._build_pairs(
-            data.sample_pair_idx,
-            data.drug_pair_idx,
-            data,
-            response=data.response,
-        )
-
-        es_response = data.early_stopping
-        cl_pair_idx_es, drug_pair_idx_es = data.early_stopping_sample_idx, data.early_stopping_drug_idx
-        if drug_pair_idx_es is None:
-            msg = "DIPK requires drug pair indices for early stopping"
-            raise ValueError(msg)
-        es_pairs = self._build_pairs(
-            cl_pair_idx_es,
-            drug_pair_idx_es,
-            data,
-            response=es_response.response,
-        )
+        train_pairs = self._build_pairs(data, response=True)
+        es_pairs = self._build_pairs(stopping, response=True)
 
         return (
-            self._loader(train_pairs, train=True, shuffle=True),
-            self._loader(es_pairs, train=True, shuffle=True),
+            self._loader(train_pairs, shuffle=True),
+            self._loader(es_pairs, shuffle=True),
         )
 
-    def _loader(self, pairs: list[dict[str, torch.Tensor]], *, train: bool, shuffle: bool) -> DataLoader:
+    def _loader(self, pairs: list[dict[str, torch.Tensor]], *, shuffle: bool) -> DataLoader:
         """Wrap *pairs* in a padding-collated DataLoader.
 
         :param pairs: Per-pair dictionaries from :meth:`_build_pairs`.
-        :param train: Whether the collated batches carry target values.
         :param shuffle: Whether to shuffle each epoch.
         :returns: A DataLoader over the pairs.
         """
@@ -184,7 +166,7 @@ class DIPKPredictor(DevicePicklingMixin, Predictor):
             pairs,
             batch_size=self._hyperparameters["batch_size"],
             shuffle=shuffle,
-            collate_fn=_CollateFn(train=train),
+            collate_fn=_collate,
         )
 
     def _fit(self, data: PredictorInput) -> None:
@@ -248,56 +230,29 @@ class DIPKPredictor(DevicePicklingMixin, Predictor):
             msg = "DIPK requires drug features for prediction"
             raise ValueError(msg)
 
-        pairs = self._build_pairs(data.sample_pair_idx, data.drug_pair_idx, data)
-        test_loader = self._loader(pairs, train=False, shuffle=False)
+        pairs = self._build_pairs(data)
+        test_loader = self._loader(pairs, shuffle=False)
 
         model = self._model
         return collect_predictions(model, test_loader, lambda dl_batch: self._forward(model, dl_batch))
 
 
-class _CollateFn:
-    """Collate function for DIPK DataLoader batches."""
+def _collate(batch: list[dict[str, torch.Tensor]]) -> dict[str, torch.Tensor]:
+    """Collate pair dicts from :meth:`DIPKPredictor._build_pairs` into one zero-padded batch.
 
-    def __init__(self, train: bool = True) -> None:
-        """Initialize collation function.
+    :param batch: Per-pair dictionaries; they carry ``ic50`` only when built with ``response=True``.
+    :returns: Batch with the padded atom features, their boolean mask, and ``ic50_values`` when the pairs hold targets.
+    """
+    import torch
+    from torch.nn.utils.rnn import pad_sequence
 
-        :param train: Whether to include target (ic50) values.
-        """
-        self.train = train
-
-    def __call__(self, batch: list[dict[str, torch.Tensor]]) -> dict[str, torch.Tensor]:
-        """Collate a list of pair dicts into padded batch tensors.
-
-        :param batch: List of per-pair dictionaries.
-        :returns: Collated batch dictionary.
-        """
-        import torch
-
-        max_atoms = max(pair["molgnet_features"].size(0) for pair in batch)
-
-        padded_molgnet: list[torch.Tensor] = []
-        masks: list[torch.Tensor] = []
-
-        for pair in batch:
-            num_atoms = pair["molgnet_features"].size(0)
-            padding_size = max_atoms - num_atoms
-            padded = torch.cat(
-                [pair["molgnet_features"], torch.zeros(padding_size, pair["molgnet_features"].size(1))],
-                dim=0,
-            )
-            padded_molgnet.append(padded)
-            mask = torch.cat(
-                [torch.ones(num_atoms, dtype=torch.bool), torch.zeros(padding_size, dtype=torch.bool)],
-                dim=0,
-            )
-            masks.append(mask)
-
-        result: dict[str, torch.Tensor] = {
-            "molgnet_features": torch.stack(padded_molgnet),
-            "molgnet_mask": torch.stack(masks),
-            "gene_features": torch.stack([s["gene_expression"] for s in batch]),
-            "bionic_features": torch.stack([s["bionic_features"] for s in batch]),
-        }
-        if self.train:
-            result["ic50_values"] = torch.stack([s["ic50"] for s in batch])
-        return result
+    atoms = [pair["molgnet_features"] for pair in batch]
+    result: dict[str, torch.Tensor] = {
+        "molgnet_features": pad_sequence(atoms, batch_first=True),
+        "molgnet_mask": pad_sequence([torch.ones(len(a), dtype=torch.bool) for a in atoms], batch_first=True),
+        "gene_features": torch.stack([pair["gene_expression"] for pair in batch]),
+        "bionic_features": torch.stack([pair["bionic_features"] for pair in batch]),
+    }
+    if "ic50" in batch[0]:
+        result["ic50_values"] = torch.stack([pair["ic50"] for pair in batch])
+    return result

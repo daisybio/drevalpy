@@ -13,26 +13,19 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import numpy as np
 
 from drevalpy.components.contracts.feature_format import BlockSpec
-from drevalpy.components.contracts.hyperparameter_space import fixed_entries
-from drevalpy.components.predictors._pair_loader import make_pair_loader
+from drevalpy.components.predictors._pair_loader import declared_blocks, pair_loader, predict_pairs
 from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.components.predictors.inputs import Inputs
-from drevalpy.components.predictors.literature._early_stopping import (
+from drevalpy.components.predictors.literature._torch_training import (
+    DevicePicklingMixin,
     EarlyStoppingRun,
     run_epoch,
     train_with_early_stopping,
 )
-from drevalpy.components.predictors.literature._metadata import PHARMAFORMER_REFERENCE
-from drevalpy.components.predictors.literature._pair_predict import (
-    PairEvalSpec,
-    declared_blocks,
-    predict_pairs,
-    require_drug_pair_idx,
-)
-from drevalpy.components.predictors.literature._torch_utils import DevicePicklingMixin
+from drevalpy.registry._component import LiteratureReference
 from drevalpy.registry.predictor import register
 from drevalpy.types.data.predictor_input import PredictorInput
-from drevalpy.types.enums.accelerator import Accelerator
+from drevalpy.types.enums import Accelerator
 
 if TYPE_CHECKING:
     import torch
@@ -63,10 +56,22 @@ def _build_combined_model(gene_input_size: int, hyperparameters: dict[str, Any],
     ).to(device)
 
 
+_REFERENCE = LiteratureReference(
+    repo_url="https://github.com/zhouyuru1205/PharmaFormer",
+    citation_doi="10.1038/s41698-025-01082-6",
+    citation_text="PharmaFormer integrates gene expression and compound views via a transformer encoder.",
+    deviations=(
+        "Architecture follows upstream pretrain.py, not its extra-dropout finetuning variant. Scale "
+        "dataset-provided expression without an additional log2 transform, learn fold-specific BPE, "
+        "and stop on disjoint validation instead of training loss."
+    ),
+)
+
+
 @register(
     "pharmaFormer",
     description="PharmaFormer landmark genes + BPE PharmaFormer model.",
-    reference=PHARMAFORMER_REFERENCE,
+    reference=_REFERENCE,
     license="Apache-2.0",
     accelerator=Accelerator.OPTIONAL,
 )
@@ -78,6 +83,20 @@ class PharmaFormerPredictor(DevicePicklingMixin, Predictor):
     supports_early_stopping: ClassVar[bool] = True
     requires_early_stopping: ClassVar[bool] = True
 
+    fixed_hyperparameters = {
+        "gene_hidden_size": 8192,
+        "drug_hidden_size": 256,
+        "feature_dim": 128,
+        "nhead": 8,
+        "num_layers": 3,
+        "dim_feedforward": 2048,
+        "dropout": 0.1,
+        "batch_size": 128,
+        "lr": 0.00001,
+        "epochs": 100,
+        "patience": 10,
+    }
+
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
         """Initialize the PharmaFormer predictor.
 
@@ -86,28 +105,6 @@ class PharmaFormerPredictor(DevicePicklingMixin, Predictor):
         super().__init__(hyperparameters)
         self._model: CombinedModel | None = None
 
-    @classmethod
-    def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
-        """Return the hyperparameter space; PharmaFormer tunes nothing.
-
-        :returns: Fixed specs for every PharmaFormer hyperparameter.
-        """
-        return fixed_entries(
-            {
-                "gene_hidden_size": 8192,
-                "drug_hidden_size": 256,
-                "feature_dim": 128,
-                "nhead": 8,
-                "num_layers": 3,
-                "dim_feedforward": 2048,
-                "dropout": 0.1,
-                "batch_size": 128,
-                "lr": 0.00001,
-                "epochs": 100,
-                "patience": 10,
-            }
-        )
-
     def _build_loaders(self, data: PredictorInput) -> tuple[DataLoader, DataLoader]:
         """Build the training and early-stopping loaders.
 
@@ -115,30 +112,16 @@ class PharmaFormerPredictor(DevicePicklingMixin, Predictor):
         :returns: Tuple of ``(train_loader, val_loader)``.
         :raises ValueError: If early stopping data is not provided.
         """
-        if data.early_stopping is None:
+        stopping = data.stopping
+        if stopping is None:
             msg = "PharmaFormer model requires early stopping data."
             raise ValueError(msg)
 
         gene_entity, drug_entity = declared_blocks(self, data)
         batch_size = self._hyperparameters["batch_size"]
 
-        train_loader = make_pair_loader(
-            (gene_entity, data.sample_pair_idx),
-            (drug_entity, require_drug_pair_idx(data.drug_pair_idx)),
-            response=np.asarray(data.response, dtype=np.float32),
-            batch_size=batch_size,
-            shuffle=True,
-        )
-
-        es_response = data.early_stopping
-        es_cell_pair_idx, es_drug_pair_idx = data.early_stopping_sample_idx, data.early_stopping_drug_idx
-        val_loader = make_pair_loader(
-            (gene_entity, es_cell_pair_idx),
-            (drug_entity, require_drug_pair_idx(es_drug_pair_idx)),
-            response=np.asarray(es_response.response, dtype=np.float32),
-            batch_size=batch_size,
-            shuffle=False,
-        )
+        train_loader = pair_loader(data, gene_entity, drug=drug_entity, batch_size=batch_size, shuffle=True)
+        val_loader = pair_loader(stopping, gene_entity, drug=drug_entity, batch_size=batch_size, shuffle=False)
         return train_loader, val_loader
 
     def _fit(self, data: PredictorInput) -> None:
@@ -191,10 +174,8 @@ class PharmaFormerPredictor(DevicePicklingMixin, Predictor):
         return predict_pairs(
             self._model,
             data,
-            PairEvalSpec(
-                sample_blocks=(gene_entity,),
-                drug_blocks=(drug_entity,),
-                batch_size=self._hyperparameters["batch_size"],
-                device=self._device,
-            ),
+            gene_entity,
+            drug_entity,
+            batch_size=self._hyperparameters["batch_size"],
+            device=self._device,
         )

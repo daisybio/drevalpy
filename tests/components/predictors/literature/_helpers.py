@@ -229,7 +229,7 @@ def _current_reference_sequence(seed: int) -> dict[str, Any]:
     from torch_geometric.data import Data
 
     from drevalpy.components.predictors.druggnn.algorithm import DrugGraphNet
-    from drevalpy.components.predictors.literature._omic_helpers import _realign_omic_matrix
+    from drevalpy.components.predictors.literature._omics import _realign_omic_matrix
     from drevalpy.components.predictors.literature.dipk.model_utils import Predictor as DIPKNetwork
     from drevalpy.components.predictors.literature.molir.utils import generate_triplets_indices
     from drevalpy.components.predictors.literature.pharmaformer.model_utils import CombinedModel

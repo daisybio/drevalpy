@@ -43,7 +43,7 @@ from drevalpy.testing.plugins import (
 )
 from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
 from drevalpy.types.data.feature_source import FeatureSource, Side
-from drevalpy.types.enums.model_scope import ModelScope
+from drevalpy.types.enums import ModelScope
 
 BLOCK = "probe"
 

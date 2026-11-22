@@ -17,12 +17,21 @@ from __future__ import annotations
 import json
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import asdict, dataclass
-from enum import StrEnum
 from typing import TYPE_CHECKING
 
 import pandas as pd
 
-from drevalpy.curation._fit import STATUS_COLUMN, FitOptions, GroupInfo, Status, chunk_config, collect, fit_chunk, split
+from drevalpy.curation._fit import (
+    STATUS_COLUMN,
+    FitOptions,
+    GroupInfo,
+    Source,
+    Status,
+    collect,
+    fit_chunk,
+    fit_config,
+    split,
+)
 from drevalpy.log import get_logger
 
 if TYPE_CHECKING:
@@ -42,13 +51,6 @@ _CHUNK_DIR = "chunks"
 FORMAT_VERSION = 1
 
 
-class Fit(StrEnum):
-    """Which fit a chunk belongs to."""
-
-    POOLED = "pooled"
-    REPLICATE = "replicate"
-
-
 @dataclass(frozen=True)
 class Chunk:
     """One unit of fitting work: up to ``max_chunk_size`` curves of one dose-range group.
@@ -62,7 +64,7 @@ class Chunk:
     """
 
     name: str
-    fit: Fit
+    fit: Source
     group: int
     info: GroupInfo
     options: FitOptions
@@ -73,7 +75,7 @@ class Chunk:
 
         :returns: The fitted curves, empty if CurveCurator dropped every curve.
         """
-        return fit_chunk((self.frame, chunk_config(self.info, self.options)))
+        return fit_chunk(self.frame, fit_config(self.info, self.options, normalize=False))
 
 
 @dataclass(frozen=True)
@@ -90,7 +92,7 @@ class Plan:
     options: FitOptions
     replicate_fits: bool
     series: pd.DataFrame
-    infos: dict[Fit, list[GroupInfo]]
+    infos: dict[Source, list[GroupInfo]]
     chunks: list[Chunk]
 
 
@@ -109,20 +111,20 @@ def plan(
     from drevalpy.curation._replicate_fits import tag_replicates
     from drevalpy.curation._series import number_series
 
-    numbered = number_series(df, metadata=metadata, min_doses=min_doses)
-    tables = {Fit.POOLED: numbered.viability}
+    viability, series = number_series(df, metadata=metadata, min_doses=min_doses)
+    tables = {Source.POOLED: viability}
     if replicate_fits:
-        tables[Fit.REPLICATE] = tag_replicates(numbered.viability)
-    infos: dict[Fit, list[GroupInfo]] = {}
+        tables[Source.REPLICATE] = tag_replicates(viability)
+    infos: dict[Source, list[GroupInfo]] = {}
     chunks: list[Chunk] = []
-    for fit, viability in tables.items():
-        frames, infos[fit] = split(viability, options)
+    for fit, table in tables.items():
+        frames, infos[fit] = split(table, options)
         chunks.extend(
             Chunk(f"{fit.value}-{i:05d}", fit, group, infos[fit][group], options, frame)
             for i, (frame, group) in enumerate(frames)
         )
-    logger.info("Planned %d chunks for %d series", len(chunks), len(numbered.series))
-    return Plan(options, replicate_fits, numbered.series, infos, chunks)
+    logger.info("Planned %d chunks for %d series", len(chunks), len(series))
+    return Plan(options, replicate_fits, series, infos, chunks)
 
 
 def run_chunks(chunks: Sequence[Chunk], max_workers: int) -> dict[str, pd.DataFrame]:
@@ -154,18 +156,18 @@ def assemble(plan: Plan, fitted: Mapping[str, pd.DataFrame]) -> anndata.AnnData:
     if missing:
         raise KeyError(f"{len(missing)} chunk(s) have no fit: {missing[:5]}")
     results = {fit: _collect(plan, fit, fitted) for fit in plan.infos}
-    pooled = results[Fit.POOLED]
+    pooled = results[Source.POOLED]
     fitted_pooled = pooled[pooled[STATUS_COLUMN] == Status.FITTED.value].drop(columns=STATUS_COLUMN)
     adata = build_anndata(fitted_pooled) if not fitted_pooled.empty else anndata.AnnData()
     if plan.replicate_fits:
         from drevalpy.curation._replicate_fits import replicate_table, untag_replicates
         from drevalpy.data._replicate_fits import KEY
 
-        adata.uns[KEY] = replicate_table(untag_replicates(results[Fit.REPLICATE]), pooled, plan.series)
+        adata.uns[KEY] = replicate_table(untag_replicates(results[Source.REPLICATE]), pooled, plan.series)
     return adata
 
 
-def _collect(plan: Plan, fit: Fit, fitted: Mapping[str, pd.DataFrame]) -> pd.DataFrame:
+def _collect(plan: Plan, fit: Source, fitted: Mapping[str, pd.DataFrame]) -> pd.DataFrame:
     """Collect the chunks of one fit."""
     chunks = [chunk for chunk in plan.chunks if chunk.fit == fit]
     return collect(
@@ -209,7 +211,7 @@ def read_plan(directory: UPath) -> Plan:
         options=FitOptions(**description["options"]),
         replicate_fits=bool(description["replicate_fits"]),
         series=pd.read_parquet(directory / _SERIES_FILE),
-        infos={Fit(fit): infos for fit, infos in description["infos"].items()},
+        infos={Source(fit): infos for fit, infos in description["infos"].items()},
         chunks=chunks,
     )
 
@@ -255,7 +257,7 @@ def read_chunk(path: UPath) -> Chunk:
     _check_format(description, path)
     return Chunk(
         name=description["name"],
-        fit=Fit(description["fit"]),
+        fit=Source(description["fit"]),
         group=int(description["group"]),
         info=description["info"],
         options=FitOptions(**description["options"]),

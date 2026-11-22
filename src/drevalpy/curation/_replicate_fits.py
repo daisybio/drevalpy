@@ -22,51 +22,19 @@ axes. :mod:`drevalpy.data._replicate_fits` is the reader of this format.
 
 from __future__ import annotations
 
-from enum import StrEnum
-
 import numpy as np
 import pandas as pd
 
-from drevalpy.curation._anndata import _REGULATION_ENCODING
-from drevalpy.curation._fit import STATUS_COLUMN, Status
+from drevalpy.curation._anndata import _LAYER_METRICS, REGULATION_ENCODING, X_MEASURE
+from drevalpy.curation._fit import STATUS_COLUMN, Source, Status
+from drevalpy.curation._series import SERIES_COLUMNS, SERIES_ID_COLUMNS
 from drevalpy.errors import InvalidInputError
 from drevalpy.log import get_logger
 
 logger = get_logger(__name__)
 
 #: pEC50 followed by the layer metrics of :func:`drevalpy.curation.build_anndata`.
-METRICS = [
-    "pEC50",
-    "EC50",
-    "IC50",
-    "LN_IC50",
-    "AUC",
-    "fold_change",
-    "slope",
-    "front",
-    "back",
-    "R2",
-    "RMSE",
-    "p_value",
-    "log_p_value",
-    "f_value",
-    "f_value_sam",
-    "relevance_score",
-    "signal_quality",
-    "regulation",
-    "pec50_error",
-    "slope_error",
-    "front_error",
-    "back_error",
-]
-
-
-class Source(StrEnum):
-    """Which fit a row's metrics come from."""
-
-    REPLICATE = "replicate"
-    POOLED = "pooled"
-
+METRICS = [X_MEASURE, *_LAYER_METRICS]
 
 #: Leading columns, in order; the metadata columns follow the metrics.
 ID_COLUMNS = [
@@ -87,15 +55,6 @@ ID_COLUMNS = [
 #: Separator tagging a sample label with its replicate during the replicate fits.
 REPLICATE_TAG = "__rep_"
 
-_SERIES_ID_COLUMNS = [
-    "native_sample",
-    "native_drug",
-    "replicate",
-    "series_key",
-    "experiment",
-    "biological_replicate",
-    "technical_replicate",
-]
 _INTEGER_COLUMNS = {"replicate": "int32", "biological_replicate": "int32", "technical_replicate": "int32"}
 _NATIVE_PAIR = ["native_sample", "native_drug"]
 
@@ -190,8 +149,8 @@ def build(own: pd.DataFrame, pooled: pd.DataFrame, series: pd.DataFrame) -> pd.D
     metrics.loc[single] = fitted_pooled
     status.loc[single] = np.where(np.isfinite(fitted_pooled[:, 0]), Status.FITTED.value, Status.FIT_FAILED.value)
 
-    meta_columns = [column for column in series.columns if column not in {*_SERIES_ID_COLUMNS, "n_doses", "eligible"}]
-    table = series[[*_SERIES_ID_COLUMNS, "n_doses"]].copy()
+    meta_columns = [column for column in series.columns if column not in SERIES_COLUMNS]
+    table = series[[*SERIES_ID_COLUMNS, "n_doses"]].copy()
     table["source"] = np.where(single, Source.POOLED.value, Source.REPLICATE.value)
     table["status"] = status.to_numpy()
     table[METRICS] = metrics.to_numpy()
@@ -212,7 +171,7 @@ def _aligned(keys: pd.DataFrame, fits: pd.DataFrame) -> pd.DataFrame:
     for column in METRICS:
         if column not in fits.columns:
             fits[column] = np.nan
-    fits["regulation"] = fits["regulation"].map(_REGULATION_ENCODING).astype(float)
+    fits["regulation"] = fits["regulation"].map(REGULATION_ENCODING).astype(float)
     on = list(keys.columns)
     merged = keys.merge(fits[[*on, STATUS_COLUMN, *METRICS]], on=on, how="left")
     merged[STATUS_COLUMN] = merged[STATUS_COLUMN].fillna(Status.FIT_FAILED.value)

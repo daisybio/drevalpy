@@ -5,17 +5,23 @@ Code adapted from: Hauptmann et al. (2023, 10.1186/s12859-023-05166-7),
 https://github.com/kramerlab/Multi-Omics_analysis
 """
 
+from __future__ import annotations
+
 from abc import abstractmethod
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pytorch_lightning as pl
 import torch
 from torch import nn
-from upath import UPath as Path
 
-from drevalpy._utils.torch_io import load_state_dict
-from drevalpy.components.predictors._lightning_training import LossSteps
-from drevalpy.components.predictors.literature._omics_loaders import OmicsSplit, fit_omics_model
+from drevalpy.components.predictors._lightning_training import LossSteps, reload_best_weights
+from drevalpy.components.predictors.literature._omics import fit_omics_model
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from drevalpy.types.data.predictor_input import PredictorInput
 
 
 def generate_triplets_indices(
@@ -234,41 +240,30 @@ class MOLIModel(LossSteps, OmicsRegressionModule):
         self.cna_encoder = MOLIEncoder(input_dim_cnv, self.h_dim3, self.dropout_rate)
         self.regressor = MOLIRegressor(self.h_dim1 + self.h_dim2 + self.h_dim3, self.dropout_rate)
 
-    def fit(
-        self,
-        train: OmicsSplit,
-        val: OmicsSplit | None = None,
-        patience: int = 5,
-        *,
-        model_checkpoint_dir: str | Path,
-    ) -> None:
+    def fit(self, data: PredictorInput, patience: int = 5) -> None:
         """Train the MOLIR model.
 
         First, the ranges for the triplet loss are determined using the standard deviation of the training responses.
         Then, the training and validation data loaders are created. The model is trained using the Lightning Trainer
         with an early stopping callback.
 
-        :param train: training split of the three omic views
-        :param val: validation split for early stopping, or None to monitor the training loss
-        :param patience: for early stopping
-        :param model_checkpoint_dir: directory to save the model checkpoints
+        :param data: Training batch carrying all three omic views and optional early-stopping pairs.
+        :param patience: For early stopping.
         """
-        std = float(np.std(train.response))
+        std = float(np.std(np.asarray(data.response, dtype=np.float32)))
         self.positive_range = std * 0.1
         self.negative_range = std
 
         self.checkpoint_callback = fit_omics_model(
             self,
-            train,
-            val,
+            data,
             batch_size=self.mini_batch,
             epochs=self.epochs,
             patience=patience,
-            checkpoint_dir=model_checkpoint_dir,
             save_weights_only=True,
             enable_model_summary=False,
         )
-        self.load_state_dict(load_state_dict(self.checkpoint_callback.best_model_path)["state_dict"])
+        reload_best_weights(self, self.checkpoint_callback)
 
     def _encode_and_concatenate(
         self, gene_expression: torch.Tensor, mutations: torch.Tensor, copy_number: torch.Tensor
@@ -319,7 +314,7 @@ class MOLIModel(LossSteps, OmicsRegressionModule):
         regression_loss = self.regression_loss(preds.squeeze(), y)
         return self.gamma * triplet_loss + regression_loss
 
-    def _loss_and_log(self, batch: list[torch.Tensor], key: str) -> torch.Tensor:
+    def _loss_and_log(self, batch: Sequence[torch.Tensor], key: str) -> torch.Tensor:
         """Compute and log the combined loss of one batch.
 
         :param batch: batch of gene expression, mutations, copy number variation, and response
@@ -328,7 +323,7 @@ class MOLIModel(LossSteps, OmicsRegressionModule):
         :returns: combined loss
         """
         gene_expression, mutations, copy_number, response = batch
-        response = response.squeeze(-1)
+        response = response.reshape(-1)
         z = self._encode_and_concatenate(gene_expression, mutations, copy_number)
         preds = self.regressor(z)
         loss = self._compute_loss(z, preds, response)

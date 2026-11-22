@@ -17,7 +17,7 @@ from typing import Any, TypeVar
 from drevalpy.components.predictors.inputs import predictor_inputs
 from drevalpy.registry._license import distribution_license, spdx
 from drevalpy.registry._registry import Registry
-from drevalpy.types.enums.accelerator import Accelerator
+from drevalpy.types.enums import Accelerator
 
 C = TypeVar("C", bound=type[Any])
 
@@ -190,8 +190,6 @@ def _component_metadata(registry: Registry[type[Any]], registry_name: str, name:
     """
     entry = registry.metadata(name)
     reference = getattr(cls, "reference", None)
-    if not isinstance(reference, LiteratureReference):
-        reference = None
     return {
         "registry": registry_name,
         "name": name,

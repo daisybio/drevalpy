@@ -19,17 +19,11 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from drevalpy.components.contracts.hyperparameter_space import admits
 
-if TYPE_CHECKING:
-    from drevalpy.types.data.feature_source import Side
-
 PREDICTOR_SLOT = "predictor"
-
-#: The featurizer slot of each side, in the order a model declares them.
-FEATURIZER_SLOTS: dict[Side, str] = {"sample": "sample_featurizer", "drug": "drug_featurizer"}
 
 
 def key(slot: str, selector: str, param: str) -> str:
@@ -67,7 +61,7 @@ def qualify(known: Mapping[str, Any], values: Mapping[str, Any], *, check_values
 
     :param known: The model's search space, whose keys are the qualified keys it owns.
     :param values: Hyperparameter values keyed by short or qualified names.
-    :param check_values: Whether each value must lie in its search-space entry (see :func:`check_value`).
+    :param check_values: Whether each value must lie in its search-space entry (``fixed`` entries take any value).
     :returns: The same values keyed by qualified names, in input order.
     :raises ValueError: If a key is unknown or ambiguous, two keys name the same hyperparameter, or
         *check_values* is set and a value lies outside its search-space entry.
@@ -84,8 +78,12 @@ def qualify(known: Mapping[str, Any], values: Mapping[str, Any], *, check_values
                 f"Duplicate hyperparameter assignment for {qualified!r} from {given[qualified]!r} and {name!r}."
             )
         given[qualified] = name
-        if check_values:
-            check_value(qualified, value, known)
+        if check_values and not admits(known[qualified], value):
+            raise ValueError(
+                f"Hyperparameter {qualified!r} = {value!r} is outside its search space "
+                f"({_describe(known[qualified])}). Widen the space with hyperparameter_space in the model "
+                "config, or pass check_values=False to with_hyperparameters or DRPModel to use it anyway."
+            )
         result[qualified] = value
     return result
 
@@ -122,23 +120,6 @@ def validate(known: Mapping[str, Any], values: Mapping[str, Any]) -> None:
     for name in values:
         if name not in known:
             raise ValueError(_unknown(name, known))
-
-
-def check_value(qualified: str, value: Any, known: Mapping[str, Any]) -> None:
-    """Require *value* to be one tuning could draw for *qualified*; ``fixed`` entries take any value.
-
-    :param qualified: A qualified key of *known*.
-    :param value: The value given for it.
-    :param known: The model's search space.
-    :raises ValueError: If *value* lies outside the entry's range or choices.
-    """
-    spec = known[qualified]
-    if not admits(spec, value):
-        raise ValueError(
-            f"Hyperparameter {qualified!r} = {value!r} is outside its search space ({_describe(spec)}). Widen "
-            "the space with hyperparameter_space in the model config, or pass check_values=False to "
-            "with_hyperparameters or DRPModel to use it anyway."
-        )
 
 
 def _describe(spec: Mapping[str, Any]) -> str:

@@ -7,12 +7,12 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import numpy as np
 
 from drevalpy.components.predictors._lightning_training import LightningRun, reload_best_weights, run_lightning_fit
-from drevalpy.components.predictors._pair_loader import collect_predictions, make_pair_loader
+from drevalpy.components.predictors._pair_loader import collect_predictions, pair_loader
 from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.registry.predictor import register
 from drevalpy.types.data.predictor_input import PredictorInput
-from drevalpy.types.enums.accelerator import Accelerator
+from drevalpy.types.enums import Accelerator
 
 # torch, pytorch_lightning and .network (which imports lightning) are imported
 # inside the methods that need them. This module is imported eagerly by
@@ -55,7 +55,6 @@ class NeuralNetworkPredictor(Predictor):
         """
         super().__init__(hyperparameters)
         self._model: FeedForwardNetwork | None = None
-        self._is_fitted = False
 
     @classmethod
     def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
@@ -81,18 +80,18 @@ class NeuralNetworkPredictor(Predictor):
         """
         from drevalpy.components.predictors.neural_network.network import FeedForwardNetwork
 
-        self._model = FeedForwardNetwork(
+        self._model = None
+        if len(data) == 0:
+            return
+        model = FeedForwardNetwork(
             hyperparameters={
                 "units_per_layer": self._hyperparameters["units_per_layer"],
                 "dropout_prob": self._hyperparameters["dropout_prob"],
             },
             input_dim=self._compute_input_dim(data),
         )
-        self._is_fitted = False
-        if len(data) == 0:
-            return
-        self._train_with_optional_early_stopping(data, self._model)
-        self._is_fitted = True
+        self._train_with_optional_early_stopping(data, model)
+        self._model = model
 
     @staticmethod
     def _compute_input_dim(data: PredictorInput) -> int:
@@ -109,58 +108,33 @@ class NeuralNetworkPredictor(Predictor):
         return dim
 
     def _build_pair_loader(
-        self,
-        data: PredictorInput,
-        cell_pair_idx: np.ndarray,
-        drug_pair_idx: np.ndarray | None,
-        response: np.ndarray | None,
-        *,
-        shuffle: bool,
-        drop_last: bool,
+        self, data: PredictorInput, *, shuffle: bool, drop_last: bool = False, response: bool = True
     ) -> DataLoader:
-        """Build a lazy pair loader from entity matrices and pair indices.
+        """Build a lazy pair loader over the sample and drug matrices of *data*, leaving out empty ones.
 
-        :param data: Batch providing entity-level feature matrices.
-        :param cell_pair_idx: Sample row index per pair.
-        :param drug_pair_idx: Drug pair indices (or None).
-        :param response: Optional response array.
+        :param data: Pairs to iterate: the training pairs, their ``stopping`` pairs, or pairs to score.
         :param shuffle: Whether to shuffle.
-        :param drop_last: Whether to drop last incomplete batch.
+        :param drop_last: Whether to drop the last incomplete batch.
+        :param response: Whether the batches carry the response.
         :returns: DataLoader.
         """
-        batch_size = min(int(self._hyperparameters["batch_size"]), len(cell_pair_idx))
-        if batch_size < 1:
-            batch_size = 1
-
-        specs: list[tuple[np.ndarray, np.ndarray]] = []
-        if data.sample.matrix.size > 0:
-            specs.append((data.sample.matrix, cell_pair_idx))
-        if data.drug is not None and data.drug.matrix.size > 0 and drug_pair_idx is not None:
-            specs.append((data.drug.matrix, drug_pair_idx))
-
-        return make_pair_loader(
-            *specs,
-            response=response,
-            batch_size=batch_size,
-            shuffle=shuffle,
-            drop_last=drop_last,
+        batch_size = max(1, min(int(self._hyperparameters["batch_size"]), len(data)))
+        samples = (data.sample.matrix,) if data.sample.matrix.size > 0 else ()
+        drug = data.drug.matrix if data.drug is not None and data.drug.matrix.size > 0 else None
+        return pair_loader(
+            data, *samples, drug=drug, batch_size=batch_size, shuffle=shuffle, drop_last=drop_last, response=response
         )
 
     def _validation_loader(self, data: PredictorInput) -> DataLoader | None:
         """Build the early-stopping loader, if the batch carries usable validation pairs.
 
         :param data: Training batch.
-        :returns: A validation loader, or ``None`` when there are no early-stopping responses.
+        :returns: A validation loader, or ``None`` when there are no early-stopping pairs.
         """
-        es_resp = data.early_stopping
-        if es_resp is None or len(es_resp) == 0 or es_resp.response is None:
+        stopping = data.stopping
+        if stopping is None or len(stopping) == 0:
             return None
-        y_val = np.asarray(es_resp.response, dtype=np.float32).reshape(-1)
-        if len(y_val) == 0:
-            return None
-        return self._build_pair_loader(
-            data, data.early_stopping_sample_idx, data.early_stopping_drug_idx, y_val, shuffle=False, drop_last=False
-        )
+        return self._build_pair_loader(stopping, shuffle=False)
 
     def _train_with_optional_early_stopping(self, data: PredictorInput, model: FeedForwardNetwork) -> None:
         """Train *model*, early-stopping on validation loss when validation pairs exist.
@@ -168,16 +142,8 @@ class NeuralNetworkPredictor(Predictor):
         :param data: Training batch.
         :param model: The freshly initialised network.
         """
-        y = np.asarray(data.response, dtype=np.float32).reshape(-1)
         batch_size = min(int(self._hyperparameters["batch_size"]), len(data))
-        train_loader = self._build_pair_loader(
-            data,
-            data.sample_pair_idx,
-            data.drug_pair_idx,
-            y,
-            shuffle=True,
-            drop_last=batch_size < len(data),
-        )
+        train_loader = self._build_pair_loader(data, shuffle=True, drop_last=batch_size < len(data))
         checkpoint = run_lightning_fit(
             model,
             train_loader,
@@ -200,17 +166,10 @@ class NeuralNetworkPredictor(Predictor):
         """
         import torch
 
-        if not self._is_fitted or self._model is None or len(data) == 0:
+        if self._model is None or len(data) == 0:
             return np.full(len(data), np.nan, dtype=np.float64)
 
-        loader = self._build_pair_loader(
-            data,
-            data.sample_pair_idx,
-            data.drug_pair_idx,
-            response=None,
-            shuffle=False,
-            drop_last=False,
-        )
+        loader = self._build_pair_loader(data, shuffle=False, response=False)
 
         model = self._model
         return collect_predictions(model, loader, lambda tensors: model(torch.cat(tensors, dim=1)))

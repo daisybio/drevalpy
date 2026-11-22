@@ -6,11 +6,7 @@ import numpy as np
 import pytest
 from upath import UPath
 
-from drevalpy.cli.data import data_app
-from drevalpy.cli.data.concat import concat_datasets
-from drevalpy.cli.data.load import load_dataset
-from drevalpy.cli.data.split import split_dataset
-from drevalpy.cli.data.synthetic import synthetic_dataset
+from drevalpy.cli.data import concat_datasets, data_app, load_dataset, split_dataset, synthetic_dataset
 from drevalpy.cli.main import app
 from drevalpy.data._synthetic import MAX_SYNTHETIC_DRUGS, N_DRUGS, N_SAMPLES
 from drevalpy.errors import UnknownNameError

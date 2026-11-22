@@ -17,7 +17,7 @@ windows. A view is therefore at least as wide as the union of its lists, whateve
 
 from __future__ import annotations
 
-from collections.abc import Collection, Mapping, Sequence
+from collections.abc import Callable, Collection, Mapping, Sequence
 from typing import TYPE_CHECKING, Final
 
 import numpy as np
@@ -34,15 +34,6 @@ if TYPE_CHECKING:
 SAMPLE_VIEWS: Final = ("pathway_features",)
 N_PATHWAYS: Final = 2
 
-#: Which axis each omics view is measured over, keyed by public omics name.
-_VAR_AXIS: Final[Mapping[str, str]] = {
-    "gene_expression": "gene",
-    "proteomics": "gene",
-    "mutations": "gene",
-    "methylation": "cpg",
-    "copy_number_variation_gistic": "gene",
-}
-
 #: Prefix of the names that pad a view wider than its shipped gene lists.
 _PLACEHOLDER_GENE: Final = "SYNTHGENE"
 
@@ -52,6 +43,13 @@ _OMICS_NOISE_SD: Final = 0.5
 _PROTEOMICS_FLOOR: Final = 0.5
 #: Standard-normal quantile above which a sample counts as mutated (about 25%).
 _MUTATION_CUTOFF: Final = 0.674
+
+#: How each view that is not left continuous maps a standardized signal onto its value range.
+_STANDARDIZED_SHAPES: Final[Mapping[str, Callable[[np.ndarray], np.ndarray]]] = {
+    "mutations": lambda standard: (standard > _MUTATION_CUTOFF).astype(np.float32),
+    "methylation": lambda standard: 1.0 / (1.0 + np.exp(-standard)),
+    "copy_number_variation_gistic": lambda standard: np.clip(np.rint(standard), -2, 2),
+}
 
 
 def check_choices(label: str, requested: Collection[str], allowed: Collection[str]) -> None:
@@ -114,31 +112,22 @@ def view_feature_names(
 
     :param public_name: Public omics name of the view.
     :param feature_names: One list for every view, a per-view mapping, or ``None``
-        for real gene symbols or methylation sites.
-    :param n_features: How many names to generate when none are given.
+        for the genes of the shipped lists of the view (or methylation sites), widened to at least
+        *n_features* with placeholder names.
+    :param n_features: Minimum width when no names are given.
     :returns: The column names.
     """
     if isinstance(feature_names, Mapping) and public_name in feature_names:
         return list(feature_names[public_name])
     if feature_names is not None and not isinstance(feature_names, Mapping):
         return list(feature_names)
-    return shipped_feature_names(public_name, n_features)
-
-
-def shipped_feature_names(public_name: str, n_features: int) -> list[str]:
-    """Return the genes the shipped lists of a view name, widened to at least *n_features*.
-
-    :param public_name: Public omics name of the view.
-    :param n_features: Minimum width; placeholder names pad the genes when the lists are narrower.
-    :returns: The union of the view's shipped gene lists, then placeholders.
-    """
     from drevalpy.components.featurizers.sample.gene_lists import view_gene_union
 
     names = list(view_gene_union(public_name))
     missing = n_features - len(names)
     if missing <= 0:
         return names
-    if _VAR_AXIS.get(public_name) == "cpg":
+    if public_name == "methylation":
         taken = set(names)
         return names + [site for site in cpg_ids(n_features + len(names)) if site not in taken][:missing]
     return names + [f"{_PLACEHOLDER_GENE}{index}" for index in range(missing)]
@@ -148,15 +137,11 @@ def _shape_values(public_name: str, signal: np.ndarray) -> np.ndarray:
     """Map the shared continuous signal onto the value range of *public_name*."""
     if public_name == "proteomics":
         return np.maximum(signal, _PROTEOMICS_FLOOR)
-    if public_name not in {"mutations", "methylation", "copy_number_variation_gistic"}:
+    shape = _STANDARDIZED_SHAPES.get(public_name)
+    if shape is None:
         return signal
     spread = signal.std(axis=0)
-    standard = (signal - signal.mean(axis=0)) / np.where(spread > 0, spread, 1.0)
-    if public_name == "mutations":
-        return (standard > _MUTATION_CUTOFF).astype(np.float32)
-    if public_name == "methylation":
-        return 1.0 / (1.0 + np.exp(-standard))
-    return np.clip(np.rint(standard), -2, 2)
+    return shape((signal - signal.mean(axis=0)) / np.where(spread > 0, spread, 1.0))
 
 
 def omics_anndata(
@@ -202,7 +187,7 @@ def payload_genes(modalities: Mapping[str, ad.AnnData], n_features: int) -> list
     :returns: The first *n_features* var names of the first gene-axis view, else landmark gene symbols.
     """
     for public_name, modality in modalities.items():
-        if _VAR_AXIS.get(public_name, "gene") == "gene":
+        if public_name != "methylation":
             return list(modality.var_names[:n_features])
     return gene_symbols(n_features)
 
@@ -217,6 +202,6 @@ def add_sample_views(dataset: Dataset, views: Sequence[str], rng: np.random.Gene
     :param rng: Source of the noise.
     """
     check_choices("sample_views", views, SAMPLE_VIEWS)
-    response = dataset.mdata.mod["response"]
+    response = dataset.response
     for view in views:
         response.obsm[view] = rng.normal(size=(response.n_obs, N_PATHWAYS)).astype(np.float32)

@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Generator
-from contextlib import contextmanager
 
 from filelock import FileLock
 from upath import UPath as Path
@@ -24,23 +22,18 @@ def get_config_path() -> Path:
     return get_config_dir() / "datasets.json"
 
 
-def _lock_path() -> Path:
-    """Return the lock file path (sibling of the config file)."""
-    return get_config_path().with_suffix(".lock")
+def config_lock() -> FileLock:
+    """Return the exclusive file lock for config read-modify-write operations.
 
-
-@contextmanager
-def config_lock() -> Generator[None, None, None]:
-    """Acquire an exclusive file lock for config read-modify-write operations.
-
+    Use it as a context manager. The lock file is a sibling of the config file.
     ``is_singleton=True`` makes the lock reentrant: nesting two ``config_lock()``
     blocks in the same process reuses one underlying lock and its recursion
     counter, instead of deadlocking a second independent ``FileLock`` until the
-    timeout expires. The lock is held for the duration of the context.
+    timeout expires.
+
+    :returns: The lock, held for the duration of a ``with`` block.
     """
-    lock = FileLock(_lock_path(), timeout=_LOCK_TIMEOUT, is_singleton=True)
-    with lock:
-        yield
+    return FileLock(get_config_path().with_suffix(".lock"), timeout=_LOCK_TIMEOUT, is_singleton=True)
 
 
 def load_config() -> DrevalConfig:

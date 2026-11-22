@@ -19,14 +19,14 @@ from drevalpy.curation import (
 )
 from drevalpy.errors import InvalidInputError
 from tests._barrel_surface import DeclaredSurface
-from tests.curation.conftest import build_dose_response_df, build_replicated_wells
+from tests.curation.conftest import build_dose_response_df, build_replicated_wells, fit_table
 
 
 class TestCurationSurface(DeclaredSurface):
     barrel = curation
     origins = {
         "METRICS": "drevalpy.curation._replicate_fits",
-        "Source": "drevalpy.curation._replicate_fits",
+        "Source": "drevalpy.curation._fit",
         "Status": "drevalpy.curation._fit",
         "build_anndata": "drevalpy.curation._anndata",
     }
@@ -89,10 +89,10 @@ class TestCurate:
     def test_curate_is_exactly_series_fit_and_build(
         self, curated_adata: anndata.AnnData, dose_response_df: pd.DataFrame
     ) -> None:
-        from drevalpy.curation._fit import FitOptions, fit_table
+        from drevalpy.curation._fit import FitOptions
         from drevalpy.curation._series import number_series
 
-        viability = number_series(dose_response_df, min_doses=4).viability
+        viability = number_series(dose_response_df, min_doses=4)[0]
         fits = fit_table(viability, FitOptions(fit_speed="fast"))
         composed = build_anndata(fits.drop(columns="status"))
 

@@ -14,7 +14,6 @@ invocation. See ``tests/test_import_cost_policy.py``.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -24,13 +23,14 @@ from drevalpy.registry.visualization import register
 from drevalpy.visualization.base import Plot
 from drevalpy.visualization.plots._leaderboard_draw import (
     DARK_THEME,
+    Panel,
     draw_gradient_title,
     draw_legend,
     draw_ranked_metric_axis,
-    draw_subtitle,
     get_test_mode_name,
 )
 from drevalpy.visualization.plots._leaderboard_table import build_leaderboard_df
+from drevalpy.visualization.plots._utils import placeholder_figure
 from drevalpy.visualization.requirements import PlotRequirement
 
 if TYPE_CHECKING:
@@ -42,18 +42,7 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-@dataclass(frozen=True)
-class _Panel:
-    """One ranked bar panel: the table column it ranks and how it is labelled."""
-
-    column: str
-    ascending: bool
-    xlabel: str
-    title: str
-    title_color: str
-
-
-def _figure_geometry(n_models: int) -> tuple[float, int, float]:
+def _figure_geometry(n_models: int) -> tuple[float, int]:
     """Size the figure so every model keeps a legible tick label.
 
     The panels carry one tick label per model, so a fixed 12-inch canvas turns
@@ -62,14 +51,14 @@ def _figure_geometry(n_models: int) -> tuple[float, int, float]:
     and the font shrinks back towards its base size as the list gets long.
 
     :param n_models: Number of models being ranked.
-    :returns: ``(height_inches_per_row_of_panels, font_size_offset, bar_height)``.
+    :returns: ``(height_inches_per_row_of_panels, font_size_offset)``.
     """
     height = min(max(12.0, 1.4 + 0.34 * n_models), 60.0)
     font_adder = 6 if n_models <= 20 else (3 if n_models <= 50 else 1)
-    return height, font_adder, 0.65
+    return height, font_adder
 
 
-def _panels(df: pd.DataFrame, normalized: bool) -> list[_Panel]:
+def _panels(df: pd.DataFrame, normalized: bool) -> list[Panel]:
     """Choose the panels to draw, in reading order.
 
     :param df: The leaderboard table.
@@ -78,20 +67,20 @@ def _panels(df: pd.DataFrame, normalized: bool) -> list[_Panel]:
         and has raw values, then per-drug Pearson if any model has one.
     """
     panels = [
-        _Panel(
+        Panel(
             "PCC",
             False,
             "Normalized PCC" if normalized else "PCC",
             f"{'Normalized ' if normalized else ''}Pearson  \u2191  higher is better",
             "#29ABCA",
         ),
-        _Panel("RMSE", True, "Root Mean Square Error", "RMSE  \u2193  lower is better", "#FF6B9D"),
+        Panel("RMSE", True, "Root Mean Square Error", "RMSE  \u2193  lower is better", "#FF6B9D"),
     ]
     if normalized and df["Pearson"].notna().any():
-        panels.append(_Panel("Pearson", False, "Raw PCC", "Raw PCC  \u2191  higher is better", "#14B8A6"))
+        panels.append(Panel("Pearson", False, "Raw PCC", "Raw PCC  \u2191  higher is better", "#14B8A6"))
     if df["Pearson_per_drug"].notna().any():
         panels.append(
-            _Panel(
+            Panel(
                 "Pearson_per_drug",
                 False,
                 "Per-drug Pearson",
@@ -122,13 +111,9 @@ class LeaderboardPlot(Plot):
         colors = DARK_THEME
 
         df = build_leaderboard_df(result)
-        metric_columns = df[["PCC", "RMSE"]].to_numpy(dtype=float) if not df.empty else np.empty((0, 2))
-        if not np.isfinite(metric_columns).any():
+        if not np.isfinite(df[["PCC", "RMSE"]].to_numpy(dtype=float)).any():
             logger.warning("leaderboard: no finite Pearson/RMSE values to rank; emitting a placeholder panel")
-            fig = Figure(figsize=(10, 4))
-            ax = fig.add_subplot()
-            ax.text(0.5, 0.5, "No data available for leaderboard", ha="center", va="center")
-            return fig
+            return placeholder_figure("No data available for leaderboard", (10, 4))
 
         normalized = result.normalized_by is not None
         panels = _panels(df, normalized)
@@ -136,7 +121,7 @@ class LeaderboardPlot(Plot):
         n_ranked = int(df[[panel.column for panel in panels]].notna().any(axis=1).sum())
         # One tick label per model, so a 96-model experiment needs ~4x the height a
         # 12-model one does or the names overlap into an unreadable smear.
-        row_height, font_adder, bar_height = _figure_geometry(n_ranked)
+        row_height, font_adder = _figure_geometry(n_ranked)
         fig_height = row_height * n_rows
 
         matplotlib.rcParams.update(
@@ -162,35 +147,23 @@ class LeaderboardPlot(Plot):
         for ax in axes[len(panels) :]:
             ax.axis("off")
         for ax, panel in zip(axes, panels, strict=False):
-            draw_ranked_metric_axis(
-                ax,
-                df,
-                metric_col=panel.column,
-                std_col=f"{panel.column}_std",
-                bar_height=bar_height,
-                font_adder=font_adder,
-                colors=colors,
-                ascending=panel.ascending,
-                xlabel=panel.xlabel,
-                title=panel.title,
-                title_color=panel.title_color,
-            )
+            draw_ranked_metric_axis(ax, df, panel, font_adder)
 
         # Header and footer are placed in figure fractions but should occupy a constant
         # number of inches, or a 96-model figure reserves a third of its canvas for them.
         header = 1.8 / fig_height
         footer = 0.9 / fig_height
         draw_gradient_title(fig, "DrEval Challenge Leaderboard", font_adder, y=1 - header * 0.28)
-        draw_subtitle(
-            fig,
-            result.dataset_name,
-            result.measure,
-            get_test_mode_name(result.split_mode, result.max_folds),
-            font_adder,
-            colors,
-            y=1 - header * 0.75,
+        test_mode = get_test_mode_name(result.split_mode, result.max_folds)
+        fig.text(
+            0.5,
+            1 - header * 0.75,
+            f"{result.dataset_name} Dataset  \u2022  {result.measure}  \u2022  {test_mode}",
+            ha="center",
+            fontsize=12 + font_adder,
+            color=colors["text_secondary"],
         )
-        draw_legend(fig, font_adder, colors, y=footer * 0.25)
+        draw_legend(fig, font_adder, y=footer * 0.25)
 
         fig.tight_layout(rect=(0, footer, 1, 1 - header))
 

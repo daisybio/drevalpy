@@ -9,6 +9,7 @@ import numpy as np
 import pytest
 import torch
 from torch.optim import Adam
+from torch.utils.data import DataLoader
 from torch_geometric.data import Data
 
 from drevalpy.cli.describe import describe_row
@@ -80,6 +81,43 @@ def test_registry_zoo_and_describe_cite_no_literature_reference() -> None:
     assert not any(meta[key] for key in ("repo_url", "citation", "citation_doi", "citation_text", "deviations"))
     assert row["predictor"] == "drugGNN"
     assert "GraphDRP" not in str(meta) + str(row)
+
+
+def test_graph_loader_batches_graphs_features_and_response_of_each_pair() -> None:
+    batch = _druggnn_batch()
+    assert batch.drug is not None
+    assert batch.drug_pair_idx is not None
+    loader = DrugGNNPredictor._graph_loader(batch, batch_size=3)
+
+    graphs, cells, response = next(iter(loader))
+    expected_graphs = batch.drug.blocks["drug_graph"].values[batch.drug_pair_idx[:3]]
+    expected_cells = batch.sample.blocks["gene_expression"].values[batch.sample_pair_idx[:3]]
+    assert graphs.num_graphs == 3
+    assert torch.equal(graphs.x, torch.cat([graph.x for graph in expected_graphs]))
+    assert torch.allclose(cells, torch.as_tensor(expected_cells, dtype=torch.float32))
+    assert torch.allclose(response, torch.as_tensor(batch.response[:3], dtype=torch.float32))
+    assert [len(items[2]) for items in loader] == [3, 1]
+
+
+def test_graph_loader_shuffle_draws_the_order_of_a_plain_index_loader() -> None:
+    batch = _druggnn_batch()
+    loader = DrugGNNPredictor._graph_loader(batch, batch_size=1, shuffle=True)
+
+    torch.manual_seed(0)
+    drawn = torch.cat([items[2] for items in loader])
+    torch.manual_seed(0)
+    order = torch.cat([rows for rows in DataLoader(list(range(len(batch))), batch_size=1, shuffle=True)])
+    assert torch.equal(drawn, torch.as_tensor(batch.response, dtype=torch.float32)[order])
+
+
+def test_val_loader_covers_the_early_stopping_pairs_only() -> None:
+    predictor = DrugGNNPredictor(hyperparameters=TINY)
+    assert predictor._build_val_loader(_druggnn_batch()) is None
+
+    loader = predictor._build_val_loader(_druggnn_batch(with_early_stopping=True))
+    assert loader is not None
+    ((_, _, response),) = list(loader)
+    assert torch.allclose(response, torch.tensor([1.5, 2.5]))
 
 
 def test_fit_round_trips_through_pickle_and_records_the_widths() -> None:
@@ -157,16 +195,8 @@ class TestTinyDrugGNNFit:
         cell_matrix = batch.sample.blocks["gene_expression"].values
         drug_graphs = batch.drug.blocks["drug_graph"].values
         final_epoch._model = final_epoch._build_model(cell_matrix, drug_graphs)
-        train_loader = final_epoch._graph_loader(
-            batch.sample_pair_idx,
-            batch.drug_pair_idx,
-            cell_matrix,
-            drug_graphs,
-            batch.response,
-            batch_size=2,
-            shuffle=True,
-        )
-        val_loader = final_epoch._build_val_loader(batch, cell_matrix, drug_graphs)
+        train_loader = final_epoch._graph_loader(batch, batch_size=2, shuffle=True)
+        val_loader = final_epoch._build_val_loader(batch)
         assert val_loader is not None
         history = ValidationHistory()
         trainer = pl.Trainer(

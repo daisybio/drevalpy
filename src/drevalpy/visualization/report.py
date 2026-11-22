@@ -9,18 +9,18 @@ from itertools import groupby
 from operator import itemgetter
 from typing import TYPE_CHECKING
 
-from upath import UPath as Path
+from upath import UPath
 
 from drevalpy._utils._progress import log_stage, rss_gb
 from drevalpy._utils.filenames import safe_filename
 from drevalpy.log import get_logger
-from drevalpy.types.enums.randomization import randomization_label
+from drevalpy.types.enums import randomization_label
+from drevalpy.types.results import ExperimentResult, ModelResult, RunResult
 from drevalpy.visualization.base import Plot, Section, is_matplotlib_figure, plotly_png_supported, write_png
 
 if TYPE_CHECKING:
     from collections.abc import Iterator, Sequence
 
-    from drevalpy.types.results import ExperimentResult, ModelResult, RunResult
     from drevalpy.types.results.failure import RunFailure
 
 logger = get_logger(__name__)
@@ -86,8 +86,6 @@ def _ensure_experiment(result: ExperimentResult | ModelResult | RunResult) -> Ex
     :param result: Experiment, model, or run result.
     :returns: *result* itself if it already is an experiment, otherwise an experiment holding its runs.
     """
-    from drevalpy.types.results import ExperimentResult, ModelResult, RunResult
-
     if isinstance(result, RunResult):
         return ExperimentResult([result])
     if isinstance(result, ModelResult):
@@ -106,7 +104,6 @@ def _applicable_results(
     """
     import drevalpy.visualization.plots  # noqa: F401
     from drevalpy.registry.visualization import applicable
-    from drevalpy.types.results import ModelResult
 
     for plot_cls in applicable(experiment):
         if plot_cls.result_type is ModelResult:
@@ -116,7 +113,7 @@ def _applicable_results(
             yield plot_cls, experiment
 
 
-def _add_plot(plot: Plot, target: ExperimentResult | ModelResult, experiment: ExperimentResult) -> None:
+def _add_plot(plot: Plot, target: ExperimentResult | ModelResult) -> None:
     """Draw one plot of one result and append its MultiQC module.
 
     The per-target timing and memory lines are logged at DEBUG; :func:`create_report` logs the
@@ -124,12 +121,11 @@ def _add_plot(plot: Plot, target: ExperimentResult | ModelResult, experiment: Ex
 
     :param plot: Plot to draw.
     :param target: The experiment, or one model of it.
-    :param experiment: The experiment being reported, to tell an experiment-level target from a model.
     """
-    if target is experiment:
-        label = anchor = plot.name
-    else:
+    if isinstance(target, ModelResult):
         label, anchor = f"{plot.name} ({target.model_name})", f"{plot.name}_{target.model_name}"
+    else:
+        label = anchor = plot.name
     started = time.monotonic()
     rss_before = rss_gb()
     log_stage(logger, f"plot {label}: computing", level=logging.DEBUG)
@@ -141,7 +137,7 @@ def _add_plot(plot: Plot, target: ExperimentResult | ModelResult, experiment: Ex
 
 def create_report(
     result: ExperimentResult | ModelResult | RunResult,
-    output_dir: str | Path,
+    output_dir: str | UPath,
     *,
     title: str = "Drug Response Evaluation",
     reference_model: str | None = None,
@@ -177,17 +173,17 @@ def create_report(
     for plot_cls, pairs in groupby(_applicable_results(experiment), key=itemgetter(0)):
         plot_started = time.monotonic()
         plot = plot_cls()
-        n_targets = 0
-        for _, target in pairs:
-            _add_plot(plot, target, experiment)
-            n_targets += 1
-        scope = "" if n_targets == 1 and target is experiment else f"{n_targets} model{'s' * (n_targets != 1)} "
+        targets = [target for _, target in pairs]
+        for target in targets:
+            _add_plot(plot, target)
+        n_models = len(targets)
+        scope = f"{n_models} model{'s' * (n_models != 1)} " if plot_cls.result_type is ModelResult else ""
         logger.info("plot %s: %sdone in %.1fs", plot.name, scope, time.monotonic() - plot_started)
 
     if experiment.failures:
         _add_failures_module(experiment.failures)
 
-    out = Path(output_dir)
+    out = UPath(output_dir)
     out.mkdir(parents=True, exist_ok=True)
     log_stage(
         logger,
@@ -200,7 +196,7 @@ def create_report(
 
 def save_all_png(
     result: ExperimentResult | ModelResult | RunResult,
-    output_dir: str | Path,
+    output_dir: str | UPath,
     *,
     reference_model: str | None = None,
 ) -> None:
@@ -219,7 +215,7 @@ def save_all_png(
         # As in create_report: only the normalized copy is plotted from here on.
         del result
 
-    out = Path(output_dir)
+    out = UPath(output_dir)
     out.mkdir(parents=True, exist_ok=True)
 
     skipped: list[str] = []
@@ -229,7 +225,7 @@ def save_all_png(
         if not is_matplotlib_figure(figure) and not plotly_png_supported():
             skipped.append(plot.name)
             continue
-        stem = plot.name if target is experiment else f"{plot.name}_{safe_filename(target.model_name)}"
+        stem = f"{plot.name}_{safe_filename(target.model_name)}" if isinstance(target, ModelResult) else plot.name
         write_png(figure, out / f"{stem}.png")
     if skipped:
         logger.warning(

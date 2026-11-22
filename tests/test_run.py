@@ -673,7 +673,7 @@ class TestResume:
         second = self._stress_run(dataset, tmp_path, n_jobs=4, wandb_project="other", on_error="raise")
 
         assert recorder.calls == []
-        assert [r.run_key for r in second.models[0].runs] == [r.run_key for r in first.models[0].runs]
+        assert [r.identity.run_key for r in second.models[0].runs] == [r.identity.run_key for r in first.models[0].runs]
         assert [r.best_hyperparameters for r in second.models[0].runs] == [
             r.best_hyperparameters for r in first.models[0].runs
         ]

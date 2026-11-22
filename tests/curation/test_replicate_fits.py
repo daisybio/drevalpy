@@ -7,12 +7,11 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from drevalpy.curation._fit import FitOptions, Status, fit_table
+from drevalpy.curation._fit import FitOptions, Source, Status
 from drevalpy.curation._replicate_fits import (
     ID_COLUMNS,
     METRICS,
     REPLICATE_TAG,
-    Source,
     build,
     tag_replicates,
     to_schema,
@@ -20,6 +19,7 @@ from drevalpy.curation._replicate_fits import (
 )
 from drevalpy.curation._series import SERIES_COLUMNS
 from drevalpy.errors import InvalidInputError
+from tests.curation.conftest import fit_table
 
 
 def _series(rows: list[tuple]) -> pd.DataFrame:
@@ -83,11 +83,11 @@ class TestBuild:
         assert table["status"].tolist() == [Status.FIT_FAILED]
 
     def test_regulation_is_encoded_like_the_response_layer(self) -> None:
-        from drevalpy.curation._anndata import _REGULATION_ENCODING
+        from drevalpy.curation._anndata import REGULATION_ENCODING
 
         series = _series([("c", "d", 0, True), ("c", "d", 1, True)])
         table = build(_own([("c", "d", 0, 5.0), ("c", "d", 1, 6.0)]), _pooled({}), series)
-        assert table["regulation"].tolist() == [_REGULATION_ENCODING["down"]] * 2
+        assert table["regulation"].tolist() == [REGULATION_ENCODING["down"]] * 2
 
     def test_metadata_columns_follow_the_metrics(self) -> None:
         table = build(_own([]), _pooled({("c", "d"): 1.0}), _series([("c", "d", 0, True)]))

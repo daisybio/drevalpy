@@ -5,6 +5,8 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from drevalpy.curation._series import LABEL_SEPARATOR
+
 _COLUMN_RENAME = {
     "pEC50": "pEC50",
     "Curve Slope": "slope",
@@ -47,14 +49,13 @@ def _compute_ic50(front: np.ndarray, back: np.ndarray, slope: np.ndarray, pec50:
         return np.power(10, (np.log10((front - 0.5) / (0.5 - back)) - slope * pec50_um) / slope)
 
 
-def postprocess(groups: list[tuple[pd.DataFrame, dict]]) -> pd.DataFrame:
+def postprocess(groups: list[pd.DataFrame]) -> pd.DataFrame:
     """Extract/rename metrics from curve_curator output and compute derived metrics.
 
     Raises ``KeyError`` if a fitted frame is missing a metric curve_curator is expected to emit.
     Silently dropping one is what lost the per-curve errors for a year.
 
-    :param groups: Fitted DataFrames from curve_curator (one per dose-range group),
-        each paired with its config dict.
+    :param groups: Fitted DataFrames from curve_curator, one per dose-range group.
 
     :returns: Single DataFrame with columns: sample, drug, plus all metric columns.
         All curves are preserved (no filtering). The label columns hold whatever
@@ -64,11 +65,11 @@ def postprocess(groups: list[tuple[pd.DataFrame, dict]]) -> pd.DataFrame:
     """
     frames: list[pd.DataFrame] = []
 
-    for fitted_df, _config in groups:
+    for fitted_df in groups:
         _require_metric_columns(fitted_df)
         df = fitted_df.copy()
 
-        df[_LABEL_COLUMNS] = df["Name"].str.split("|", expand=True)
+        df[_LABEL_COLUMNS] = df["Name"].str.split(LABEL_SEPARATOR, expand=True)
 
         df = df.rename(columns=_COLUMN_RENAME)
 

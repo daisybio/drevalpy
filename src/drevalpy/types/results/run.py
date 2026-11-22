@@ -1,52 +1,44 @@
-"""Run result dataclass."""
+"""Run and HPO trial result dataclasses."""
 
 from __future__ import annotations
 
 import json
-from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, fields
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from upath import UPath as Path
 
 from drevalpy.log import get_logger
-from drevalpy.types.enums.randomization import randomization_label
+from drevalpy.types.enums import randomization_label
 
 from ._identity import RunIdentity
-from .trial import TrialResult
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Mapping
 
 logger = get_logger(__name__)
 
 
-def _indented_items(
-    items: Mapping[str, Any],
-    format_value: Callable[[Any], str] = str,
-) -> list[str]:
-    """Render *items* as the ``__repr__``'s inner-level ``key: value`` lines.
+@dataclass
+class TrialResult:
+    """Output of a single HPO trial."""
 
-    :param items: Mapping to render, in iteration order.
-    :param format_value: Applied to each value; defaults to ``str``.
-    :returns: One line per entry, indented to the nested level.
-    """
-    return [f"        {key}: {format_value(value)}" for key, value in items.items()]
+    hyperparameters: dict[str, Any]
+    metrics: dict[str, float]
+    optimization_metric: str
+    predictions: np.ndarray
 
-
-def _section(
-    heading: str,
-    items: Mapping[str, Any],
-    format_value: Callable[[Any], str] = str,
-) -> list[str]:
-    """Render a headed block of ``key: value`` lines, or nothing when *items* is empty.
-
-    :param heading: Section heading, already indented.
-    :param items: Mapping to render under the heading.
-    :param format_value: Applied to each value; defaults to ``str``.
-    :returns: The heading followed by its entries, or an empty list.
-    """
-    if not items:
-        return []
-    return [heading, *_indented_items(items, format_value)]
+    def __repr__(self) -> str:
+        """Return a formatted summary."""
+        lines = ["TrialResult", "    Hyperparameters:"]
+        for k, v in self.hyperparameters.items():
+            lines.append(f"        {k}: {v}")
+        lines.append("    Metrics:")
+        for k, v in self.metrics.items():
+            marker = " *" if k == self.optimization_metric else ""
+            lines.append(f"        {k}: {v:.4f}{marker}")
+        return "\n".join(lines)
 
 
 @dataclass
@@ -106,35 +98,31 @@ class RunResult:
         )
 
     @property
-    def fold_key(self) -> tuple[str, str, str, str, str | int]:
-        """Dataset/measure/split/fold identity shared by ordinary and stress-test runs."""
-        return self.identity.fold_key
-
-    @property
-    def run_key(self) -> tuple:
-        """Identity including stress-test settings and recorded provenance."""
-        return self.identity.run_key
-
-    @property
     def run_id(self) -> str:
         """Unambiguous serialized run identity for report data keys."""
-        return json.dumps(self.run_key, separators=(",", ":"))
+        return json.dumps(self.identity.run_key, separators=(",", ":"))
 
     def __repr__(self) -> str:
         """Return a formatted summary."""
+
+        def entries(items: Mapping[str, Any], format_value: Callable[[Any], str] = str) -> list[str]:
+            return [f"        {key}: {format_value(value)}" for key, value in items.items()]
+
         lines = [
             "RunResult",
             f"    Model: {self.model_name}",
             f"    Dataset: {self.dataset_name}",
             f"        Randomization: {randomization_label(self.randomization) if self.randomization else None}",
             f"    Fold: {self.fold_index}",
-            *_indented_items(self._unique_fold_metadata()),
+            *entries(self._unique_fold_metadata()),
             f"    Predictions: {len(self.predictions)} pairs",
             f"    Ground truth: {int(np.sum(~np.isnan(self.ground_truth)))} non-NaN values",
             f"    Scored: {self.n_scored} pairs",
-            *_section("    Hyperparameters:", self.best_hyperparameters),
-            *_section("    Metrics:", self.metrics, format_value="{:.4f}".format),
         ]
+        if self.best_hyperparameters:
+            lines += ["    Hyperparameters:", *entries(self.best_hyperparameters)]
+        if self.metrics:
+            lines += ["    Metrics:", *entries(self.metrics, "{:.4f}".format)]
         if self.trials:
             lines.append(f"    HPO Trials: {len(self.trials)}")
         return "\n".join(lines)
@@ -211,13 +199,9 @@ _TRIAL_META_FIELDS = tuple(f.name for f in fields(TrialResult) if f.name != "pre
 
 
 def _intern_ids(ids: np.ndarray) -> np.ndarray:
-    """Re-express a fixed-width unicode id array as an object array of shared strings.
+    """Re-express a fixed-width unicode ID array as an object array of shared strings.
 
-    NumPy stores ``<U40`` at 160 bytes per element regardless of the actual id length, and
-    since the ids repeat heavily across a fold this dominates the on-heap size of a loaded
-    experiment. An object array of deduplicated Python ``str`` costs one pointer per element
-    plus one string per distinct id. Indexing still yields a ``str``, and ``save()``
-    normalises with ``dtype=str``, so the round-trip is unchanged.
+    IDs repeat heavily across a fold, and ``<U40`` costs 160 bytes per element whatever the ID length.
 
     :param ids: Array of entity ids, typically ``<U*`` as read from an npz.
     :returns: Object-dtype array of the same shape holding shared ``str`` objects.

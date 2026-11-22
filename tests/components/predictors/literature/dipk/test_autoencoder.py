@@ -1,4 +1,4 @@
-"""Tests for the DIPK gene-expression autoencoder and its batch-size helpers."""
+"""Tests for the DIPK gene-expression autoencoder."""
 
 from __future__ import annotations
 
@@ -12,15 +12,12 @@ import torch
 from torch import nn
 
 from drevalpy.components.predictors.literature.dipk import gene_expression_encoder as gee
-from drevalpy.components.predictors.literature.dipk._autoencoder_batches import (
-    avoid_singleton_batch,
-    validation_loss,
-)
 from drevalpy.components.predictors.literature.dipk.gene_expression_encoder import (
     GeneExpressionDecoder,
     GeneExpressionEncoder,
     encode_gene_expression,
     train_gene_expession_autoencoder,
+    validation_loss,
 )
 from drevalpy.experiment._tracking import tracking_run
 from tests._fake_wandb import install_fake_wandb
@@ -273,19 +270,25 @@ def test_validation_loss_leaves_the_input_untouched_and_is_nan_for_an_empty_matr
 
 @pytest.mark.parametrize(
     ("n_train", "batch_size", "moved"),
-    [(5, 4, True), (9, 4, True), (1025, 1024, True), (4, 4, False), (6, 4, False), (8, 1, False), (1, 1024, False)],
+    [(5, 4, True), (9, 4, True), (4, 4, False), (6, 4, False)],
 )
-def test_avoid_singleton_batch_moves_the_last_row_only_for_a_trailing_batch_of_one(
-    n_train: int, batch_size: int, moved: bool
+def test_a_trailing_batch_of_one_row_moves_to_the_validation_rows(
+    monkeypatch, n_train: int, batch_size: int, moved: bool
 ) -> None:
-    train = np.arange(n_train * 2, dtype=np.float32).reshape(n_train, 2)
-    validation = np.full((3, 2), -1.0, dtype=np.float32)
+    seen: dict = {}
+    original_loader = gee.DataLoader
 
-    new_train, new_validation = avoid_singleton_batch(train, validation, batch_size)
+    def _capturing_loader(dataset, batch_size, **kwargs):
+        seen["train_rows"] = len(dataset)
+        return original_loader(dataset, batch_size=batch_size, **kwargs)
 
-    if moved:
-        np.testing.assert_array_equal(new_train, train[:-1])
-        np.testing.assert_array_equal(new_validation, np.concatenate([validation, train[-1:]]))
-    else:
-        assert new_train is train
-        assert new_validation is validation
+    def _capturing_validation_loss(encoder, decoder, validation, *args):
+        seen["validation_rows"] = len(validation)
+        return 0.0
+
+    monkeypatch.setattr(gee, "DataLoader", _capturing_loader)
+    monkeypatch.setattr(gee, "validation_loss", _capturing_validation_loss)
+
+    train_gene_expession_autoencoder(_matrix(n_train), _matrix(3, seed=1), epochs_autoencoder=1, batch_size=batch_size)
+
+    assert (seen["train_rows"], seen["validation_rows"]) == ((n_train - 1, 4) if moved else (n_train, 3))

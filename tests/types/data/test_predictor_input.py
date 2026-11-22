@@ -93,19 +93,22 @@ class TestConstruction:
             data.early_stopping = None  # type: ignore[misc]
 
 
-class TestEarlyStoppingRows:
+class TestStopping:
     def test_stopping_pairs_are_indexed_into_the_same_entity_tables(self) -> None:
         stopping = ResponseTable(np.array([0.5, 0.6]), np.array(["cl2", "cl1"]), np.array(["d3", "d1"]))
         data = _model_input(stopping=stopping)
-        assert data.early_stopping_sample_idx is not None and data.early_stopping_sample_idx.tolist() == [1, 0]
-        assert data.early_stopping_drug_idx is not None and data.early_stopping_drug_idx.tolist() == [2, 0]
+        assert data.stopping is not None
+        assert data.stopping.sample is data.sample and data.stopping.drug is data.drug
+        assert data.stopping.pairs is stopping and data.stopping.stopping is None
+        assert data.stopping.sample_pair_idx.tolist() == [1, 0]
+        assert data.stopping.drug_pair_idx is not None and data.stopping.drug_pair_idx.tolist() == [2, 0]
+        assert data.stopping.training_context is data.training_context
 
     def test_there_are_no_stopping_rows_without_stopping_pairs_or_drug_features(self) -> None:
-        data = _model_input()
-        assert data.early_stopping_sample_idx is None and data.early_stopping_drug_idx is None
+        assert _model_input().stopping is None
         stopping = ResponseTable(np.array([0.5]), np.array(["cl1"]), np.array(["d1"]))
         featureless = _model_input(drug=False, stopping=stopping)
-        assert featureless.early_stopping_sample_idx is not None and featureless.early_stopping_drug_idx is None
+        assert featureless.stopping is not None and featureless.stopping.drug_pair_idx is None
 
     def test_a_stopping_entity_missing_from_the_tables_is_rejected(self) -> None:
         stopping = ResponseTable(np.array([0.5]), np.array(["cl1"]), np.array(["missing"]))

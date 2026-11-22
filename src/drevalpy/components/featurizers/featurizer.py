@@ -25,7 +25,7 @@ from drevalpy.components.contracts.feature_format import BlockSpec
 from drevalpy.components.contracts.hyperparameter_space import TunableComponent
 from drevalpy.types.data.feature_block import FeaturizerOutput
 from drevalpy.types.data.feature_source import FeatureSource, Side
-from drevalpy.types.enums.accelerator import Accelerator
+from drevalpy.types.enums import Accelerator
 
 #: Registry name of the featurizer that concatenates its children; a ``+`` recipe stands for it.
 CONCAT = "concatFeaturizers"

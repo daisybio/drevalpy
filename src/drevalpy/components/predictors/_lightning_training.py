@@ -4,7 +4,7 @@ Each of them assembled the same trainer by hand: monitor the validation loss whe
 is a validation loader and the training loss otherwise, early-stop on it, checkpoint the
 best epoch into a freshly randomised subdirectory, and choose how loud the run is. The
 few things that differ between them (``save_weights_only``, pinned devices, precision,
-the accelerator, the progress bar, the logger, whether to checkpoint at all) are
+the progress bar, the logger, whether to checkpoint at all) are
 fields of :class:`LightningRun` rather than forks.
 
 Their Lightning modules compute one loss per batch, the same way in training and validation;
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import secrets
 from abc import abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from upath import UPath
@@ -77,9 +77,6 @@ class LightningRun:
     :param devices: Device count or spec, pinned by MOLIR and SuperFELTR and left to Lightning's auto-detection
         when ``None``.
     :param enable_model_summary: Print Lightning's model summary.
-    :param accelerator: Lightning accelerator; by default ``"auto"`` when torch finds an accelerator and
-        ``DREVALPY_FORCE_CPU`` is unset, else ``"cpu"``
-        (see :func:`~drevalpy._utils.accelerator.lightning_accelerator`).
     :param precision: Numerical precision passed to the trainer.
     :param log_every_n_steps: Logging interval in training steps.
     :param logger: Attach the logger from :func:`_loggers`; ``False`` disables logging.
@@ -96,7 +93,6 @@ class LightningRun:
     save_weights_only: bool = False
     devices: int | str | None = None
     enable_model_summary: bool = True
-    accelerator: str = field(default_factory=lightning_accelerator)
     precision: int | str = 32
     log_every_n_steps: int = 50
     logger: bool = True
@@ -142,7 +138,7 @@ def run_lightning_fit(
 
     trainer = pl.Trainer(
         max_epochs=run.max_epochs,
-        accelerator=run.accelerator,
+        accelerator=lightning_accelerator(),
         precision=run.precision,
         log_every_n_steps=run.log_every_n_steps,
         default_root_dir=str(run.checkpoint_dir),

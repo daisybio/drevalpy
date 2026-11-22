@@ -5,7 +5,7 @@ from __future__ import annotations
 from drevalpy.registry import visualization
 from tests._barrel_surface import DeclaredSurface
 
-FUNCTIONS = ("applicable", "get", "register")
+FUNCTIONS = ("applicable", "register")
 
 
 class TestVisualizationSurface(DeclaredSurface):

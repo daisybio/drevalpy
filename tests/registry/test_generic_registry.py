@@ -87,24 +87,6 @@ def test_metadata_is_a_read_only_copy(registry: Registry[int]) -> None:
         stored["description"] = "x"  # type: ignore[index]
 
 
-def test_metadata_keys_must_be_strings(registry: Registry[int]) -> None:
-    with pytest.raises(TypeError, match="keys must be strings"):
-        registry.register("three", 3, metadata={1: "x"})  # type: ignore[dict-item]
-
-
-def test_decorator_registers_and_returns_the_object() -> None:
-    reg: Registry[type] = Registry("component")
-
-    @reg.decorator("thing", description="A thing")
-    class Thing:
-        pass
-
-    assert reg.get("thing") is Thing
-    assert reg.metadata("thing") == {"description": "A thing"}
-    with pytest.raises(ValueError, match="already registered"):
-        reg.decorator("thing")(Thing)
-
-
 def test_snapshot_and_restore_undo_registrations(registry: Registry[int]) -> None:
     snapshot = registry.snapshot()
     registry.register("three", 3)

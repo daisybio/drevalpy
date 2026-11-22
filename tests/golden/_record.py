@@ -182,8 +182,8 @@ def train_and_predict(
         hpo_random_state=hpo_random_state,
         seed=seed,
     )
-    final = fit(execution, dataset)
-    return GoldenRun(np.asarray(final.predictions), dict(final.metrics), final.model.hyperparameters, final.model)
+    model, result = fit(execution, dataset)
+    return GoldenRun(np.asarray(result.predictions), dict(result.metrics), model.hyperparameters, model)
 
 
 def round_trip_predict(run: GoldenRun, dataset, fold) -> np.ndarray:

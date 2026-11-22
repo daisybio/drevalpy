@@ -2,40 +2,48 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import numpy as np
 
-from drevalpy.components.contracts.hyperparameter_space import fixed_entries
-from drevalpy.components.predictors.literature._metadata import SUPERFELTR_REFERENCE
-from drevalpy.components.predictors.literature._omic_helpers import (
-    omic_matrices,
-    validation_split,
+from drevalpy.components.predictors.literature._omics import (
+    OMIC_BLOCK_NAMES,
+    SingleDrugOmicsPredictor,
+    fit_omics_model,
 )
-from drevalpy.components.predictors.literature._single_drug_omics import SingleDrugOmicsPredictor
+from drevalpy.registry._component import LiteratureReference
 from drevalpy.registry.predictor import register
 from drevalpy.types.data.predictor_input import PredictorInput
-from drevalpy.types.enums.accelerator import Accelerator
+from drevalpy.types.enums import Accelerator
 
 # .utils imports pytorch_lightning at module scope, and this module is imported
 # eagerly by register_builtins(), so the encoder/regressor imports are
 # deferred to the methods that construct them. Guarded by
 # tests/test_import_cost_policy.py.
 if TYPE_CHECKING:
-    from drevalpy.components.predictors.literature._omics_loaders import OmicsSplit
+    import pytorch_lightning as pl
 
     from .utils import SuperFELTEncoder, SuperFELTRegressor
 
-#: Encoder omic types, in the order the regressor concatenates their outputs. Paired
-#: with the ``out_dim_*`` hyperparameter naming each one's width.
-_ENCODER_OMIC_TYPES = ("expression", "mutation", "copy_number_variation_gistic")
-_ENCODER_DIM_KEYS = ("out_dim_expr_encoder", "out_dim_mutation_encoder", "out_dim_cnv_encoder")
+_REFERENCE = LiteratureReference(
+    repo_url="https://github.com/DMCB-GIST/Super.FELT",
+    citation_doi="10.1186/s12859-023-05166-7",
+    citation_text=(
+        "SuperFELTR is a regression adaptation of Super.FELT (Park et al., BMC Bioinformatics 2021, "
+        "doi:10.1186/s12859-021-04146-z); the DOI above is the Hauptmann and Kramer benchmark that "
+        "compares MOLI and Super.FELT."
+    ),
+    deviations=(
+        "Regression adaptation: preserve supervised omics encoders and triplet training; use continuous "
+        "response triplets and MSE regression without the binary classifier sigmoid/BCE."
+    ),
+)
 
 
 @register(
     "superfeltr",
     description="SuperFELTR single-drug multi-omics model.",
-    reference=SUPERFELTR_REFERENCE,
+    reference=_REFERENCE,
     license="NOASSERTION",
     accelerator=Accelerator.OPTIONAL,
 )
@@ -44,6 +52,18 @@ class SuperFELTRPredictor(SingleDrugOmicsPredictor):
 
     _models: dict[str, SuperFELTRegressor]
 
+    fixed_hyperparameters = {
+        "mini_batch": 55,
+        "dropout_rate": 0.5,
+        "weight_decay": 0.01,
+        "out_dim_expr_encoder": 256,
+        "out_dim_mutation_encoder": 32,
+        "out_dim_cnv_encoder": 64,
+        "epochs": 30,
+        "margin": 1.0,
+        "learning_rate": 0.01,
+    }
+
     def _fit_drug(self, drug_id: str, data: PredictorInput) -> SuperFELTRegressor:
         """Fit a single-drug SuperFELTR model including encoders and regressor.
 
@@ -51,28 +71,23 @@ class SuperFELTRPredictor(SingleDrugOmicsPredictor):
         :param data: Subset batch for this drug.
         :returns: The fitted regressor, which holds the fitted encoders.
         """
-        matrices = omic_matrices(data)
         response = np.asarray(data.response, dtype=np.float32)
         std = float(np.std(response))
         ranges = (std * 0.1, std)
 
-        train = matrices.split(data.sample_pair_idx, response)
-        val = validation_split(matrices, data)
-        checkpoint_dir = str(data.training_context.checkpoint_dir)
         #: Below one mini-batch the training loader's ``drop_last`` empties it, so the
         #: encoders and regressor stay randomly initialized rather than being fitted.
         trainable = len(data) >= self._hyperparameters["mini_batch"]
 
-        encoders = self._fit_encoders(matrices.widths(), ranges, train, val, checkpoint_dir, trainable)
-        return self._fit_regressor(encoders, train, val, checkpoint_dir, trainable)
+        widths = tuple(data.sample.blocks[name].values.shape[1] for name in OMIC_BLOCK_NAMES)
+        encoders = self._fit_encoders(widths, ranges, data, trainable)
+        return self._fit_regressor(encoders, data, trainable)
 
     def _fit_encoders(
         self,
-        widths: tuple[int, int, int],
+        widths: tuple[int, ...],
         ranges: tuple[float, float],
-        train: OmicsSplit,
-        val: OmicsSplit | None,
-        checkpoint_dir: str,
+        data: PredictorInput,
         trainable: bool,
     ) -> tuple[SuperFELTEncoder, SuperFELTEncoder, SuperFELTEncoder]:
         """Train one independent encoder per omic view.
@@ -82,16 +97,14 @@ class SuperFELTRPredictor(SingleDrugOmicsPredictor):
 
         :param widths: Input width of each omic view.
         :param ranges: Positive and negative triplet-loss ranges.
-        :param train: Training split.
-        :param val: Validation split, or None.
-        :param checkpoint_dir: Directory the fits checkpoint into.
+        :param data: Training batch carrying all three omic views and optional early-stopping pairs.
         :param trainable: Whether there are enough pairs to fit at all.
-        :returns: The three encoders, in ``_ENCODER_OMIC_TYPES`` order.
+        :returns: The three encoders, in ``ENCODER_DIM_KEYS`` order.
         """
-        from .utils import SuperFELTEncoder, train_superfeltr_model
+        from .utils import ENCODER_DIM_KEYS, SuperFELTEncoder
 
         encoders = []
-        for omic_type, width in zip(_ENCODER_OMIC_TYPES, widths, strict=True):
+        for omic_type, width in zip(ENCODER_DIM_KEYS, widths, strict=True):
             encoder = SuperFELTEncoder(
                 input_size=width,
                 hpams=dict(self._hyperparameters),
@@ -99,14 +112,7 @@ class SuperFELTRPredictor(SingleDrugOmicsPredictor):
                 ranges=ranges,
             )
             if trainable:
-                best_ckpt = train_superfeltr_model(
-                    model=encoder,
-                    hpams=dict(self._hyperparameters),
-                    train=train,
-                    val=val,
-                    patience=5,
-                    model_checkpoint_dir=checkpoint_dir,
-                )
+                best_ckpt = self._fit_module(encoder, data)
                 encoder = SuperFELTEncoder.load_from_checkpoint(best_ckpt.best_model_path)
             encoders.append(encoder)
         return encoders[0], encoders[1], encoders[2]
@@ -114,23 +120,19 @@ class SuperFELTRPredictor(SingleDrugOmicsPredictor):
     def _fit_regressor(
         self,
         encoders: tuple[SuperFELTEncoder, SuperFELTEncoder, SuperFELTEncoder],
-        train: OmicsSplit,
-        val: OmicsSplit | None,
-        checkpoint_dir: str,
+        data: PredictorInput,
         trainable: bool,
     ) -> SuperFELTRegressor:
         """Train the regression head on top of the frozen encoders.
 
         :param encoders: The fitted encoders.
-        :param train: Training split.
-        :param val: Validation split, or None.
-        :param checkpoint_dir: Directory the fit checkpoints into.
+        :param data: Training batch carrying all three omic views and optional early-stopping pairs.
         :param trainable: Whether there are enough pairs to fit at all.
         :returns: The regressor, loaded from its best checkpoint when it was fitted.
         """
-        from .utils import SuperFELTRegressor, train_superfeltr_model
+        from .utils import ENCODER_DIM_KEYS, SuperFELTRegressor
 
-        input_size = sum(int(self._hyperparameters[key]) for key in _ENCODER_DIM_KEYS)
+        input_size = sum(int(self._hyperparameters[key]) for key in ENCODER_DIM_KEYS.values())
         regressor = SuperFELTRegressor(
             input_size=input_size,
             hpams=dict(self._hyperparameters),
@@ -139,14 +141,7 @@ class SuperFELTRPredictor(SingleDrugOmicsPredictor):
         if not trainable:
             return regressor
 
-        best_checkpoint = train_superfeltr_model(
-            model=regressor,
-            hpams=dict(self._hyperparameters),
-            train=train,
-            val=val,
-            patience=5,
-            model_checkpoint_dir=checkpoint_dir,
-        )
+        best_checkpoint = self._fit_module(regressor, data)
         return SuperFELTRegressor.load_from_checkpoint(
             best_checkpoint.best_model_path,
             input_size=input_size,
@@ -154,22 +149,15 @@ class SuperFELTRPredictor(SingleDrugOmicsPredictor):
             encoders=encoders,
         )
 
-    @classmethod
-    def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
-        """Return the hyperparameter space; SuperFELTR tunes nothing.
+    def _fit_module(self, model: pl.LightningModule, data: PredictorInput) -> pl.callbacks.ModelCheckpoint:
+        """Fit one encoder or the regressor on the CPU with early stopping.
 
-        :returns: Fixed specs for every SuperFELTR hyperparameter.
+        :param model: Encoder or regressor to fit.
+        :param data: Training batch carrying all three omic views and optional early-stopping pairs.
+        :returns: The checkpoint callback holding the best epoch.
+        :raises ValueError: If ``epochs`` or ``mini_batch`` is not an integer.
         """
-        return fixed_entries(
-            {
-                "mini_batch": 55,
-                "dropout_rate": 0.5,
-                "weight_decay": 0.01,
-                "out_dim_expr_encoder": 256,
-                "out_dim_mutation_encoder": 32,
-                "out_dim_cnv_encoder": 64,
-                "epochs": 30,
-                "margin": 1.0,
-                "learning_rate": 0.01,
-            }
-        )
+        epochs, mini_batch = self._hyperparameters["epochs"], self._hyperparameters["mini_batch"]
+        if not isinstance(epochs, int) or not isinstance(mini_batch, int):
+            raise ValueError("epochs and mini_batch must be integers!")
+        return fit_omics_model(model, data, batch_size=mini_batch, epochs=epochs, patience=5)

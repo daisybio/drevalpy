@@ -17,7 +17,7 @@ from tests._trusted_subprocess import run_trusted_python
 REPO_ROOT = UPath(__file__).resolve().parents[2]
 
 EXPECTED_ORIGINS: dict[str, str] = {
-    "Accelerator": "drevalpy.types.enums.accelerator",
+    "Accelerator": "drevalpy.types.enums",
     "BlockSpec": "drevalpy.components.contracts.feature_format",
     "CurveQuality": "drevalpy.data.quality",
     "Dataset": "drevalpy.types.data.dataset._dataset",
@@ -37,10 +37,10 @@ EXPECTED_ORIGINS: dict[str, str] = {
     "MatrixPredictor": "drevalpy.components.predictors.abstract.matrix",
     "PredictorInput": "drevalpy.types.data.predictor_input",
     "ModelResult": "drevalpy.types.results.model",
-    "ModelScope": "drevalpy.types.enums.model_scope",
+    "ModelScope": "drevalpy.types.enums",
     "Plot": "drevalpy.visualization.base",
     "PlotRequirement": "drevalpy.visualization.requirements",
-    "PredictionMode": "drevalpy.types.enums.prediction_mode",
+    "PredictionMode": "drevalpy.types.enums",
     "Predictor": "drevalpy.components.predictors.abstract.base",
     "Section": "drevalpy.visualization.base",
     "Side": "drevalpy.types.data.feature_source",
@@ -62,9 +62,9 @@ EXPECTED_ORIGINS: dict[str, str] = {
 
 RENAMED_ORIGINS: dict[str, tuple[str, str]] = {
     "register_featurizer": ("drevalpy.registry.featurizer._base", "register"),
-    "register_predictor": ("drevalpy.registry.predictor", "register"),
+    "register_predictor": ("drevalpy.registry.predictor._registry", "register"),
     "register_splitter": ("drevalpy.registry.splitter._registry", "register"),
-    "register_visualization": ("drevalpy.registry.visualization", "register"),
+    "register_visualization": ("drevalpy.registry.visualization._registry", "register"),
 }
 
 
@@ -163,8 +163,8 @@ class TestFacadeIsSelfContained:
                 def transform(self, source, ids):
                     return dense_result(ids, "probe", np.zeros((len(ids), 1)), None)
 
-            from drevalpy.registry.featurizer import names_for_side
-            print("facadeProbe" in names_for_side("sample"))
+            from drevalpy.registry.featurizer import featurizer_registry
+            print("facadeProbe" in featurizer_registry("sample").names())
             """
         )
 

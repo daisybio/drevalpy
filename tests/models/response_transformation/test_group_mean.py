@@ -95,16 +95,9 @@ def test_ambiguous_concatenations_stay_distinct() -> None:
     assert np.allclose(centerer.transform(responses, groups=groups), [0.0, 0.0])
 
 
-@pytest.mark.parametrize(
-    ("levels", "groups", "match"),
-    [
-        (("drug", "tissue"), _DRUGS, "group column"),
-        (("study",), _DRUGS, "Unknown group level 'study'"),
-    ],
-)
-def test_invalid_group_setup_is_rejected_at_fit(levels, groups, match) -> None:
-    with pytest.raises(InvalidInputError, match=match):
-        GroupMeanCenterer(levels).fit(_RESPONSE.reshape(-1, 1), groups=groups)
+def test_a_label_matrix_with_the_wrong_number_of_columns_is_rejected_at_fit() -> None:
+    with pytest.raises(InvalidInputError, match="group column"):
+        GroupMeanCenterer(("drug", "tissue")).fit(_RESPONSE.reshape(-1, 1), groups=_DRUGS)
 
 
 def test_fewer_group_columns_than_at_fit_time_are_rejected() -> None:

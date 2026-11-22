@@ -283,7 +283,7 @@ def _three_omics_dataset():
 def _spy_on_best_epoch_reload(monkeypatch: pytest.MonkeyPatch, model_name: str) -> list[object]:
     reloaded: list[object] = []
     if model_name == "MOLIR":
-        from drevalpy.components.predictors.literature.molir import utils
+        from drevalpy.components.predictors import _lightning_training as utils
 
         original = utils.load_state_dict
 

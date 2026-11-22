@@ -16,7 +16,7 @@ case-sensitive and ``R^2`` (``Metric.R2``) is written with a caret. Each metric 
 undefined, and a ``.direction``, ``"min"`` for an error and ``"max"`` otherwise.
 
 Each metric is computed by the scipy or scikit-learn function in the last column
-(``metric.function.path``), called on the pairs of each group; a pooled score is the metric over
+(``metric.function``), called on the pairs of each group; a pooled score is the metric over
 a single group. DrEvalPy decides
 only which groups are scored (see `Missing and degenerate input`_), so the function never sees a
 degenerate group.

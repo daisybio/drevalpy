@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import warnings
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -26,7 +25,7 @@ from drevalpy.models.spec import ModelSpec
 from drevalpy.models.tuning.search_space import draw
 from drevalpy.types.data.dataset import Dataset
 from drevalpy.types.data.response_table import ResponseTable
-from drevalpy.types.results.trial import TrialResult
+from drevalpy.types.results.run import TrialResult
 
 if TYPE_CHECKING:
     import optuna
@@ -44,23 +43,6 @@ class HPOTrialsFailedError(DrEvalError, RuntimeError):
     nothing was tuned, and bury the real cause - a missing native library, a bad
     search space, a bug in the model - behind a later, unrelated traceback.
     """
-
-
-@dataclass
-class _TrialFailures:
-    """Count of trials that raised, plus the first exception, for reporting."""
-
-    count: int = 0
-    first: BaseException | None = None
-
-    def record(self, exc: BaseException) -> None:
-        """Record a raising trial, keeping the first exception as the cause.
-
-        :param exc: Exception raised by the trial.
-        """
-        self.count += 1
-        if self.first is None:
-            self.first = exc
 
 
 def hpam_tune(
@@ -95,7 +77,7 @@ def hpam_tune(
     metric, scopes, fold_index = execution.hpo_metric, execution.scopes, execution.identity.fold_index
     ground_truth = ResponseTable.from_dataset(dataset, scopes.validation).response
     trials: list[TrialResult] = []
-    failures = _TrialFailures()
+    failures: list[Exception] = []
 
     def objective(trial: optuna.Trial) -> float:
         from drevalpy.models.drp_model import DRPModel
@@ -119,7 +101,7 @@ def hpam_tune(
             # Returning NaN rather than re-raising keeps the study running, so a
             # search space with a few invalid corners still tunes. Whether the
             # whole run was a fault is decided once, in _report_trial_failures.
-            failures.record(exc)
+            failures.append(exc)
             logger.exception("Optuna trial %d failed", trial.number)
             return float("nan")
 
@@ -149,29 +131,29 @@ def _run_study(objective: Callable[[optuna.Trial], float], execution: ExecutionS
     return study
 
 
-def _report_trial_failures(study: optuna.Study, failures: _TrialFailures) -> None:
+def _report_trial_failures(study: optuna.Study, failures: list[Exception]) -> None:
     """Raise when no trial survived; warn when only some did.
 
     :param study: Completed Optuna study, used for the number of trials actually run.
-    :param failures: Recorded trial failures.
+    :param failures: Exceptions raised by the failed trials, in order.
     :raises HPOTrialsFailedError: Raised when every trial raised, chaining the first
         exception so the original cause heads the traceback.
     """
-    if failures.count == 0:
+    if not failures:
         return
 
     total = len(study.trials)
-    if failures.count < total:
+    if len(failures) < total:
         logger.warning(
             "%d of %d hyperparameter trials failed; tuning used the %d that survived",
-            failures.count,
+            len(failures),
             total,
-            total - failures.count,
+            total - len(failures),
         )
         return
 
-    msg = f"All {total} hyperparameter trials failed with {type(failures.first).__name__}: {failures.first}"
-    raise HPOTrialsFailedError(msg) from failures.first
+    msg = f"All {total} hyperparameter trials failed with {type(failures[0]).__name__}: {failures[0]}"
+    raise HPOTrialsFailedError(msg) from failures[0]
 
 
 def _best_params(study: optuna.Study, spec: ModelSpec) -> dict[str, Any]:

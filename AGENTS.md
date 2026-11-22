@@ -113,7 +113,7 @@ function-local import cannot fix:
 
 - A **base class** from a forbidden library has to exist when the `class` statement runs.
   Drop the base where it earns nothing, or move the class into its own private module, as
-  `components/featurizers/sample/_proteomics_transformer.py` does, and import it inside the
+  `models/response_transformation/_group_mean.py` does, and import it inside the
   functions that use it.
 - A module-scope **side effect** that must run before the library is imported anywhere
   stays eager: `xgboost_pred.py` calls `_set_xgboost_thread_defaults()` at module scope to

@@ -8,8 +8,7 @@ import numpy as np
 import pytest
 from upath import UPath
 
-from drevalpy.types.results.run import RunResult, _intern_ids
-from drevalpy.types.results.trial import TrialResult
+from drevalpy.types.results.run import RunResult, TrialResult, _intern_ids
 from tests.synthetic import make_metrics, make_run_result
 
 
@@ -251,3 +250,25 @@ class TestInternIds:
         assert once.drug_ids.dtype == object
         np.testing.assert_array_equal(once.sample_ids, run.sample_ids)
         np.testing.assert_array_equal(twice.drug_ids, run.drug_ids)
+
+
+class TestTrialResultRepr:
+    def test_repr_lists_every_hyperparameter(self) -> None:
+        trial = _trial(1)
+        trial.hyperparameters = {"alpha": 0.5, "l1_ratio": 0.1}
+
+        text = repr(trial)
+
+        assert "alpha: 0.5" in text
+        assert "l1_ratio: 0.1" in text
+
+    def test_repr_marks_only_the_optimization_metric(self) -> None:
+        trial = TrialResult({"alpha": 0.5}, {"MSE": 0.25, "Pearson": 0.75}, "MSE", np.zeros(3))
+
+        lines = repr(trial).splitlines()
+
+        assert "        MSE: 0.2500 *" in lines
+        assert "        Pearson: 0.7500" in lines
+
+    def test_repr_starts_with_the_type_name(self) -> None:
+        assert repr(_trial(1)).startswith("TrialResult")

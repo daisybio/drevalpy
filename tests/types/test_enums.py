@@ -6,8 +6,7 @@ from enum import StrEnum
 
 import pytest
 
-from drevalpy.types.enums.model_scope import ModelScope
-from drevalpy.types.enums.prediction_mode import PredictionMode
+from drevalpy.types.enums import ModelScope, PredictionMode
 
 
 class TestMembers:

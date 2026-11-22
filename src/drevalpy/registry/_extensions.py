@@ -22,6 +22,8 @@ import importlib
 import importlib.util
 import os
 import sys
+from collections.abc import Iterator
+from contextlib import contextmanager
 
 from upath import UPath as Path
 
@@ -58,26 +60,42 @@ def _is_still_registered(added: dict[str, frozenset[str]]) -> bool:
     return all(names <= now[kind] for kind, names in added.items())
 
 
+@contextmanager
+def _rollback_on_error(failure: str | None = None, *, module_name: str | None = None) -> Iterator[None]:
+    """Restore every registry, and drop *module_name* from ``sys.modules``, if the body raises.
+
+    :param failure: When given, an exception that is not an ``ImportError`` is re-raised as an
+        ``ImportError`` with this message, chained to the original; otherwise it propagates as it is.
+    :param module_name: Module to remove from ``sys.modules`` on failure.
+    :yields: Nothing; the body is the load.
+    :raises ImportError: If the body raised and *failure* is given and the exception was not an ``ImportError``.
+    """  # noqa: DOC503
+    snapshot = snapshot_all()
+    try:
+        yield
+    except Exception as exc:
+        if module_name is not None:
+            sys.modules.pop(module_name, None)
+        restore_all(snapshot)
+        if failure is None or isinstance(exc, ImportError):
+            raise
+        raise ImportError(failure) from exc
+
+
 def load_extension_module(module_name: str) -> None:
     """Import a Python module so its registration decorators run.
 
+    An import that fails, or a registration that fails mid-load, raises ``ImportError`` and leaves
+    the registries as they were.
+
     :param module_name: Dotted import path of an installed or ``PYTHONPATH`` module.
     :raises InvalidInputError: If *module_name* is empty.
-    :raises ImportError: If the module cannot be imported or registration fails mid-load.
     """
     if not module_name:
         msg = "module_name must be a non-empty string"
         raise InvalidInputError(msg)
-    snapshot = snapshot_all()
-    try:
+    with _rollback_on_error(f"Failed to import extension module '{module_name}'"):
         importlib.import_module(module_name)
-    except ImportError:
-        restore_all(snapshot)
-        raise
-    except Exception as exc:
-        restore_all(snapshot)
-        msg = f"Failed to import extension module '{module_name}'"
-        raise ImportError(msg) from exc
 
 
 def load_extension_file(path: Path | str) -> None:
@@ -104,20 +122,10 @@ def load_extension_file(path: Path | str) -> None:
         raise ImportError(msg)
     module = importlib.util.module_from_spec(spec)
     sys.modules[module_name] = module
-    snapshot = snapshot_all()
     before = _names()
-    try:
+    with _rollback_on_error(f"Failed to import extension file '{file_path}'", module_name=module_name):
         spec.loader.exec_module(module)
         _LOADED_FILES[module_name] = _added_since(before)
-    except ImportError:
-        sys.modules.pop(module_name, None)
-        restore_all(snapshot)
-        raise
-    except Exception as exc:
-        sys.modules.pop(module_name, None)
-        restore_all(snapshot)
-        msg = f"Failed to import extension file '{file_path}'"
-        raise ImportError(msg) from exc
 
 
 def _load_yaml_extension(path: Path) -> None:
@@ -129,27 +137,19 @@ def _load_yaml_extension(path: Path) -> None:
         return
 
     if "sources" in data or "datasets" in data:
-        _register_datasets_from_yaml(data)
+        from drevalpy.registry.dataset._models import DrevalConfig
+        from drevalpy.registry.dataset._registry import dataset_registry
+
+        # Read as DrevalConfig.from_raw reads the config file: a source is a plain URL or a mapping.
+        config = DrevalConfig.from_raw({kind: data.get(kind) or {} for kind in ("sources", "datasets")})
+        for name, source in config.sources.items():
+            dataset_registry.register_source(name, source.url, source.storage_options)
+        for name, dataset in config.datasets.items():
+            dataset_registry.register(name, dataset.source, dataset.file)
     else:
         from drevalpy.models.zoo import load_external_zoo_file
 
         load_external_zoo_file(path)
-
-
-def _register_datasets_from_yaml(data: dict) -> None:
-    """Register sources and datasets from a parsed YAML dict.
-
-    The entries are read as :meth:`DrevalConfig.from_raw` reads the config file, so a source
-    may be a plain URL or a ``{url, storage_options}`` mapping in both.
-    """
-    from drevalpy.registry.dataset._models import DrevalConfig
-    from drevalpy.registry.dataset._registry import dataset_registry
-
-    config = DrevalConfig.from_raw({kind: data.get(kind) or {} for kind in ("sources", "datasets")})
-    for name, source in config.sources.items():
-        dataset_registry.register_source(name, source.url, source.storage_options)
-    for name, dataset in config.datasets.items():
-        dataset_registry.register(name, dataset.source, dataset.file)
 
 
 def load_extension_dir(path: Path | str) -> None:
@@ -168,22 +168,12 @@ def load_extension_dir(path: Path | str) -> None:
         msg = f"Extension directory not found: {dir_path}"
         raise InputNotFoundError(msg)
 
-    snapshot = snapshot_all()
-    try:
-        py_files = sorted(
-            file_path
-            for file_path in dir_path.glob("*.py")
-            if file_path.name != "__init__.py" and "__pycache__" not in file_path.parts
-        )
-        for file_path in py_files:
-            load_extension_file(file_path)
-
-        yaml_files = sorted(dir_path.glob("*.yaml"))
-        for yaml_file in yaml_files:
+    with _rollback_on_error():
+        for file_path in sorted(dir_path.glob("*.py")):
+            if file_path.name != "__init__.py":
+                load_extension_file(file_path)
+        for yaml_file in sorted(dir_path.glob("*.yaml")):
             _load_yaml_extension(yaml_file)
-    except Exception:
-        restore_all(snapshot)
-        raise
 
 
 def extension_dirs_from_env() -> list[str]:

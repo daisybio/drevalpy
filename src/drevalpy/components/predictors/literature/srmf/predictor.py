@@ -13,22 +13,33 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import numpy as np
 
 from drevalpy.components.contracts.feature_format import BlockSpec
-from drevalpy.components.contracts.hyperparameter_space import fixed_entries
+from drevalpy.components.predictors._pair_loader import require_drug_pair_idx
 from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.components.predictors.inputs import Inputs
-from drevalpy.components.predictors.literature._metadata import SRMF_REFERENCE
-from drevalpy.components.predictors.literature._pair_predict import require_drug_pair_idx
+from drevalpy.registry._component import LiteratureReference
 from drevalpy.registry.predictor import register
 from drevalpy.types.data.predictor_input import PredictorInput
 
 if TYPE_CHECKING:
     import pandas as pd
 
+_REFERENCE = LiteratureReference(
+    repo_url="https://github.com/linwang1982/SRMF",
+    citation_doi="10.1186/s12885-017-3500-5",
+    citation_text="Similarity-regularized matrix factorization for drug response prediction.",
+    deviations=(
+        "Alternating updates and best-objective factor selection match the MATLAB reference with shared "
+        "initial factors. Retain the regression wrapper's response units and configured feature "
+        "similarities instead of the MATLAB demonstration's max-abs scaling and fixed matrices. "
+        "NumPy/MATLAB RNG streams differ; unseen entities use a mean-response fallback absent upstream."
+    ),
+)
+
 
 @register(
     "srmf",
     description="SRMF matrix factorization model.",
-    reference=SRMF_REFERENCE,
+    reference=_REFERENCE,
     license="NOASSERTION",
 )
 class SRMFPredictor(Predictor):
@@ -37,6 +48,15 @@ class SRMFPredictor(Predictor):
     sample_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("gene_expression"))
     drug_inputs: ClassVar[Inputs] = Inputs.blocks(BlockSpec("fingerprints"))
     supports_early_stopping: ClassVar[bool] = False
+
+    fixed_hyperparameters = {
+        "K": 45,
+        "lambda_l": 0.01,
+        "lambda_d": 0.0,
+        "lambda_c": 0.01,
+        "max_iter": 50,
+        "seed": 1,
+    }
 
     def __init__(self, hyperparameters: dict[str, Any] | None = None) -> None:
         """Initialize SRMF predictor.
@@ -49,23 +69,6 @@ class SRMFPredictor(Predictor):
         self._best_u: pd.DataFrame = pd.DataFrame()
         self._best_v: pd.DataFrame = pd.DataFrame()
         self._training_mean: float = 0.0
-
-    @classmethod
-    def get_hyperparameter_space(cls) -> dict[str, dict[str, Any]]:
-        """Return the hyperparameter space; SRMF tunes nothing.
-
-        :returns: Fixed specs for every SRMF hyperparameter.
-        """
-        return fixed_entries(
-            {
-                "K": 45,
-                "lambda_l": 0.01,
-                "lambda_d": 0.0,
-                "lambda_c": 0.01,
-                "max_iter": 50,
-                "seed": 1,
-            }
-        )
 
     # ------------------------------------------------------------------
     # Fit

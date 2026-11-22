@@ -117,7 +117,7 @@ class TestRunAndSingle:
             )
         ]
 
-        assert runs[0].fold_key != runs[1].fold_key
+        assert runs[0].identity.fold_key != runs[1].identity.fold_key
         with pytest.raises(InvalidInputError, match="same response measure"):
             ExperimentResult(runs)
 
