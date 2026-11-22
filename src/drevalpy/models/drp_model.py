@@ -177,7 +177,6 @@ class DRPModel:
         self.state = ModelState.UNTRAINED
         self._measure = None
         self._fitted_response_transformation = None
-        self._sample_featurizer = self._drug_featurizer = self._predictor = None
         self._sample_featurizer, self._drug_featurizer, self._predictor = _build_components(self.spec)
 
     def train(
