@@ -150,7 +150,7 @@ def list_zoo_presets(name: EntryName = None) -> None:
             rows.append(
                 [
                     preset,
-                    format_value(config.model_id),
+                    format_value(config.recipe),
                     config.scope.value,
                     config.prediction_mode.value,
                     "built-in" if preset in builtin else "external",
@@ -168,7 +168,7 @@ def list_zoo_presets(name: EntryName = None) -> None:
     config = get_zoo_config(name)
     render_mapping(
         {
-            "Recipe": config.model_id,
+            "Recipe": config.recipe,
             "Scope": config.scope.value,
             "Prediction mode": config.prediction_mode.value,
             "Sample featurizer": format_featurizer_recipe(config.sample_featurizer)

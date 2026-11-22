@@ -16,7 +16,7 @@ from drevalpy.registry._extensions import load_extensions
 
 def test_single_drug_recipes_infer_scope_without_a_drug_featurizer() -> None:
     config = from_recipe("scaledGeneExpression:singleDrugElasticNet")
-    assert config.model_id == "scaledGeneExpression:singleDrugElasticNet"
+    assert config.recipe == "scaledGeneExpression:singleDrugElasticNet"
     assert config.scope.value == "single_drug"
     assert config.drug_featurizer is None
 
@@ -37,7 +37,7 @@ def test_recipe_with_plus_concat_and_bracket_views() -> None:
     assert sample_children is not None and drug_children is not None
     assert [(child.name, child.view) for child in sample_children] == [("view", "expression"), ("view", "mutations")]
     assert [child.name for child in drug_children] == ["fingerprints", "oneHot"]
-    assert config.model_id == "view[expression]+view[mutations]:fingerprints+oneHot:randomForest"
+    assert config.recipe == "view[expression]+view[mutations]:fingerprints+oneHot:randomForest"
 
 
 @pytest.mark.parametrize(
@@ -131,7 +131,7 @@ def test_from_recipe_forms() -> None:
     assert (baseline.predictor.name, baseline.sample_featurizer, baseline.drug_featurizer) == ("naiveMean", None, None)
 
     triple = from_recipe("scaledGeneExpression:fingerprints:elasticNet")
-    assert triple.model_id == "scaledGeneExpression:fingerprints:elasticNet"
+    assert triple.recipe == "scaledGeneExpression:fingerprints:elasticNet"
 
 
 def test_from_dict_sections_and_recipe_strings() -> None:

@@ -2,7 +2,7 @@ Recipe syntax
 =============
 
 A recipe is a string that names a model by its parts. The same notation is used for
-``ModelConfig.model_id`` and for featurizer values in YAML files.
+``ModelConfig.recipe`` and for featurizer values in YAML files.
 
 Grammar
 -------
@@ -132,8 +132,8 @@ A recipe needs no registration. To give it a short name, register it as a zoo pr
 Model identifier
 ----------------
 
-``ModelConfig.model_id`` writes the recipe of a configuration, keeping the views and the
-concatenation children, so ``from_recipe(config.model_id)`` builds the same components. For
+``ModelConfig.recipe`` writes the recipe of a configuration, keeping the views and the
+concatenation children, so ``from_recipe(config.recipe)`` builds the same components. For
 example, ``pca[gene_expression]:fingerprints:elasticNet`` has that string as its identifier, and
 the zoo preset ``MultiViewNeuralNetwork`` has the identifier
 ``scaledGeneExpression+view[mutations]:fingerprints:neuralNetwork``. Fixed options, defaults and

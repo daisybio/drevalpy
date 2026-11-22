@@ -133,7 +133,7 @@ under.
 
    config = from_recipe("toySample:fingerprints:toyRidge")
    toy_ridge = ModelSpec("ToyRidge", config)
-   print(config.model_id)
+   print(config.recipe)
 
 The output:
 

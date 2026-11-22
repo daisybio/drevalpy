@@ -87,11 +87,11 @@ def test_check_values_false_takes_values_outside_the_space_but_not_unknown_keys(
     assert ModelSpec.load(small.dump()) == small
 
 
-def test_model_id_is_the_recipe_of_the_components() -> None:
-    assert ModelSpec.from_name("pca[gene_expression]:fingerprints:elasticNet").config.model_id == (
+def test_config_recipe_names_the_components() -> None:
+    assert ModelSpec.from_name("pca[gene_expression]:fingerprints:elasticNet").config.recipe == (
         "pca[gene_expression]:fingerprints:elasticNet"
     )
-    assert ModelSpec.from_name("NaivePredictor").config.model_id == "naiveMean"
+    assert ModelSpec.from_name("NaivePredictor").config.recipe == "naiveMean"
 
 
 def test_spec_shares_its_deep_frozen_model_config() -> None:

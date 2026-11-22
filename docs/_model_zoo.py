@@ -19,9 +19,9 @@ def _render_scope_table(scope: ModelScope) -> list[str]:
     rows = []
     for name in list_zoo_names(include_external=False, scope=scope):
         config = get_zoo_config(name)
-        if config.model_id is None:
+        if config.recipe is None:
             raise RuntimeError(f"Zoo preset {name!r} has no recipe")
-        rows.append((name, registry_description(predictor_registry, config.predictor.name), f"``{config.model_id}``"))
+        rows.append((name, registry_description(predictor_registry, config.predictor.name), f"``{config.recipe}``"))
     return [*list_table((28, 42, 30), ("Name", "Description", "Composition"), rows), ""]
 
 

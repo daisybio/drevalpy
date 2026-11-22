@@ -41,7 +41,7 @@ Description
    The description of the predictor.
 
 Composition
-   The recipe of the zoo preset, its ``model_id``. Passing it to
+   The recipe of the zoo preset, its ``ModelConfig.recipe``. Passing it to
    ``drevalpy.models.config.from_recipe`` gives the same components, but without the preset's
    fixed options, defaults and hyperparameter spaces, which a recipe cannot express. See
    :doc:`recipes`.

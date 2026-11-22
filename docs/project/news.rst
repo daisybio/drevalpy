@@ -57,7 +57,7 @@ These affect only code, configurations and datasets written for an unreleased 2.
   ``ValueError`` that shows the form to write instead. The new ``defaults`` field sets the default
   of a tunable hyperparameter; ``options`` holds fixed values and may no longer name a tunable one.
   See :ref:`reference/recipes:Featurizer forms in YAML`.
-- ``ModelConfig.model_id`` is the full recipe with views and concatenation children, such as
+- ``ModelConfig.recipe`` is the full recipe with views and concatenation children, such as
   ``scaledGeneExpression+view[mutations]:fingerprints:neuralNetwork``, and ``drevalpy list
   zoo-presets`` shows it. Result directories are still named after the model.
 - **Precomputed features are views.** ``precompute(dataset, featurizer_name, side)`` stores one
