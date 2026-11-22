@@ -104,20 +104,19 @@ class TestFeaturizerCreateInstance:
 
         assert config.create_instance({"view": "gene_expression"})._view == "gene_expression"
 
-    def test_a_concat_builds_one_child_per_config(self) -> None:
+    def test_a_concat_takes_the_children_the_caller_built(self) -> None:
+        config = FeaturizerConfig.parse("scaledGeneExpression+pca[methylation]", "sample")
+        children = [leaf.create_instance() for leaf in config.leaves()]
+
+        instance = config.create_instance({"featurizers": children})
+
+        assert instance._children == children
+
+    def test_a_concat_does_not_build_its_children_itself(self) -> None:
         config = FeaturizerConfig.parse("scaledGeneExpression+pca[methylation]", "sample")
 
-        instance = config.create_instance()
-
-        assert [type(child) for child in instance._children] == [leaf.featurizer_class for leaf in config.leaves()]
-
-    def test_the_caller_may_supply_the_children_itself(self) -> None:
-        config = FeaturizerConfig.parse("scaledGeneExpression+pca[methylation]", "sample")
-        only_pca = [{"name": "pca", "view": "methylation"}]
-
-        instance = config.create_instance({"featurizers": only_pca})
-
-        assert [type(child).__name__ for child in instance._children] == ["PCASampleFeaturizer"]
+        with pytest.raises(ValueError, match="non-empty list"):
+            config.create_instance()
 
 
 def test_featurizer_config_has_no_registry_field() -> None:

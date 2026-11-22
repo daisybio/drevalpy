@@ -258,12 +258,10 @@ class FeaturizerConfig(BaseModel):
         Turns this declarative template into a live object: resolves ``name`` in the
         featurizer registry, then merges constructor arguments so that
         *hyperparameters* (typically a tuning trial's picks) override the config's own
-        ``options``. ``view`` and ``featurizers`` are filled in only when the
-        caller has not already supplied them.
+        ``options``. ``view`` is filled in only when the caller has not supplied it.
 
-        :param hyperparameters: Concrete constructor values for this node. Nested
-            concat children should already be resolved by the caller into instances
-            or config payloads under the ``featurizers`` key.
+        :param hyperparameters: Concrete constructor values for this node. A concat node takes its
+            built children under the ``featurizers`` key.
         :returns: Featurizer instance for this config.
         """
         cls = self.featurizer_class
@@ -271,8 +269,6 @@ class FeaturizerConfig(BaseModel):
         hp.update(thaw_value(dict(hyperparameters or {})))
         if self.view is not None:
             hp.setdefault("view", self.view)
-        if self.featurizers is not None and "featurizers" not in hp:
-            hp["featurizers"] = [child.model_dump(mode="python") for child in self.featurizers]
         return cls(**hp)
 
 

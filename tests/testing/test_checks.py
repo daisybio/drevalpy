@@ -334,7 +334,7 @@ _FEATURIZERS_NOT_CHECKED = {
 def _featurizer_kwargs(side: str, name: str) -> dict[str, object]:
     """Return the constructor arguments *name* needs to be built at all; the other featurizers take none."""
     if name == "concatFeaturizers":
-        return {"featurizers": [{"name": "constant"}]}
+        return {"featurizers": [get_featurizer("constant", side)()]}
     return {"view": "gene_expression"} if requires_explicit_view(name, Side(side)) else {}
 
 
