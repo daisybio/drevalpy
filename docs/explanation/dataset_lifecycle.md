@@ -145,8 +145,8 @@ Fitting tens of thousands of curves on a large screen can take hours. To make th
 parallelize on a cluster with Snakemake or Nextflow, {py:mod}`drevalpy.curation._plan` breaks
 curation into three stages:
 
-1. **Plan** ({py:func}`~drevalpy.curation._plan.plan`): numbers dose series, groups wells by dose
-   range, runs any group-wide normalization once (so results never depend on chunk size), and
+1. **Plan** ({py:func}`~drevalpy.curation._plan.plan`): checks the columns of the well table,
+   numbers dose series, groups wells by dose range, runs any group-wide normalization once (so results never depend on chunk size), and
    splits each group into chunks of at most `max_chunk_size` curves. Each
    {py:class}`~drevalpy.curation._plan.Chunk` is self-contained — identical curves and fit options
    produce identical chunk files, so content-addressed workflow caches only refit chunks that
@@ -172,7 +172,7 @@ separately with `drevalpy curate plan`, `drevalpy curate fit-chunk`, and `dreval
 from drevalpy.curation._fit import FitOptions
 from drevalpy.curation._plan import plan
 
-work = plan(wells, replicate_fits=False, min_doses=4, metadata=(), options=FitOptions(fit_speed="fast"))
+work = plan(wells, options=FitOptions(fit_speed="fast"))
 print(f"Planned {len(work.chunks)} chunks for {len(work.series)} series")
 print(f"Chunk 0: {len(work.chunks[0].frame)} curves, group {work.chunks[0].group}")
 print(f"Group info: {work.infos[work.chunks[0].fit][work.chunks[0].group]}")
@@ -254,7 +254,7 @@ To load a dataset by a short name like `"GDSC1"` instead of a file path, it need
 DrEvalPy checks two registries:
 
 - **Built-in datasets**:
-  {py:data}`available_datasets.json <drevalpy.data.datasets._builtin.BUILTIN_PATH>` ships ten
+  `available_datasets.json`, shipped in {py:mod}`drevalpy.data.datasets`, lists ten
   datasets (`GDSC1`, `GDSC2`, `CTRPv1`, `CTRPv2`, `CCLE`, `PRISM_19Q4`, `PRISM_20Q2`, `BeatAML2`,
   `PDX_Bruna`, `TOYv1`) with their filenames, SHA-256 checksums, and remote source names.
 - **User datasets**:
@@ -307,20 +307,17 @@ config and cache directories so your local setup stays untouched:
 :tags: [remove-stderr]
 
 import hashlib
-import shutil
+from unittest import mock
 
 import drevalpy
 from drevalpy.data._paths import get_default_data_dir
 from drevalpy.registry.dataset import register_dataset, register_source
 
-orig_config = os.environ.get("DREVALPY_CONFIG_DIR")
-orig_cache = os.environ.get("DREVALPY_CACHE_DIR")
-temp_config = tempfile.mkdtemp()
-temp_cache = tempfile.mkdtemp()
-os.environ["DREVALPY_CONFIG_DIR"] = temp_config
-os.environ["DREVALPY_CACHE_DIR"] = temp_cache
-
-try:
+with (
+    tempfile.TemporaryDirectory() as temp_config,
+    tempfile.TemporaryDirectory() as temp_cache,
+    mock.patch.dict(os.environ, {"DREVALPY_CONFIG_DIR": temp_config, "DREVALPY_CACHE_DIR": temp_cache}),
+):
     sha256 = hashlib.sha256(path.read_bytes()).hexdigest()
     print(f"File sha256: {sha256[:16]}...")
 
@@ -331,17 +328,6 @@ try:
     loaded_by_name = drevalpy.load("toy_demo")
     print(f"Loaded by name: {loaded_by_name.name}, shape {loaded_by_name.response_matrix.shape}")
     print(f"Cached files: {[p.name for p in UPath(get_default_data_dir()).glob('*.h5mu')]}")
-finally:
-    if orig_config is None:
-        os.environ.pop("DREVALPY_CONFIG_DIR", None)
-    else:
-        os.environ["DREVALPY_CONFIG_DIR"] = orig_config
-    if orig_cache is None:
-        os.environ.pop("DREVALPY_CACHE_DIR", None)
-    else:
-        os.environ["DREVALPY_CACHE_DIR"] = orig_cache
-    shutil.rmtree(temp_config, ignore_errors=True)
-    shutil.rmtree(temp_cache, ignore_errors=True)
 ```
 
 ## Step 7: Filtering curve quality at split time
