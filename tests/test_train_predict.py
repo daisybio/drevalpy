@@ -164,8 +164,9 @@ class TestInputs:
 
     def test_fewer_than_two_usable_pairs_are_rejected(self) -> None:
         dataset = synthetic(n_samples=2, n_drugs=1, missing_fraction=0.0)
-        dataset.mdata["response"].layers["LN_IC50"][:] = np.nan
-        dataset.mdata["response"].layers["LN_IC50"][0, 0] = 1.0
+        ln_ic50 = np.full(dataset.response.shape, np.nan, dtype=np.float32)
+        ln_ic50[0, 0] = 1.0
+        dataset.response.layers["LN_IC50"] = ln_ic50
 
         with pytest.raises(InvalidInputError, match="at least 2"):
             drevalpy.train("NaivePredictor", dataset, hyperparameter_tuning=False, quality=CurveQuality.off())
