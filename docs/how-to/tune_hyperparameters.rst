@@ -17,9 +17,11 @@ Set the number of trials
 
 A **trial** is one configuration drawn from the search space and scored on the validation pairs.
 Tuning is on by default, with 16 trials per fold. Every trial is a model fit, so the number of trials
-sets the cost of the experiment: 4 trials on 5 folds fit the model 5 × 4 times for tuning, plus
+sets the cost of the experiment: 3 trials on 2 folds fit the model 2 × 3 times for tuning, plus
 one final fit per fold. Use a small number to try something out and the default or more for a
-result you report.
+result you report. The examples on this page use 2 folds instead of the default 5
+(``--n-splits 2``, ``n_splits=2`` in Python) to keep every run short; this gives a rough estimate,
+not a result to report.
 
 .. tab-set::
    :sync-group: interface
@@ -30,7 +32,7 @@ result you report.
       .. code-block:: bash
 
          drevalpy data synthetic --output toy.h5mu
-         drevalpy run ElasticNet --dataset toy.h5mu --split-mode LPO --hpo-trials 4
+         drevalpy run ElasticNet --dataset toy.h5mu --split-mode LPO --n-splits 2 --hpo-trials 3
 
       The command logs one line per trial and fold, and ends with:
 
@@ -41,7 +43,7 @@ result you report.
              Split mode: LPO
              Normalized by: None
              Models: 1
-                 ElasticNet (5 folds): MSE=0.5524, RMSE=0.7428, MAE=0.5827, R^2=0.7925, Pearson=0.8927, Spearman=0.8974, Kendall=0.7195
+                 ElasticNet (2 folds): MSE=0.6861, RMSE=0.8283, MAE=0.6534, R^2=0.7442, Pearson=0.8684, Spearman=0.8771, Kendall=0.6888
 
    .. tab-item:: Python
       :sync: python
@@ -53,7 +55,7 @@ result you report.
 
          dataset = drevalpy.synthetic()
          elastic_net = ModelSpec.from_name("ElasticNet")
-         results = drevalpy.run([elastic_net], dataset, "LPO", hpo_num_trials=4)
+         results = drevalpy.run([elastic_net], dataset, "LPO", n_splits=2, hpo_num_trials=3)
          print(results)
 
       The call logs one line per trial and fold, and the ``print`` shows:
@@ -65,7 +67,7 @@ result you report.
              Split mode: LPO
              Normalized by: None
              Models: 1
-                 ElasticNet (5 folds): MSE=0.5524, RMSE=0.7428, MAE=0.5827, R^2=0.7925, Pearson=0.8927, Spearman=0.8974, Kendall=0.7195
+                 ElasticNet (2 folds): MSE=0.6861, RMSE=0.8283, MAE=0.6534, R^2=0.7442, Pearson=0.8684, Spearman=0.8771, Kendall=0.6888
 
 ``--robustness-repeats`` and ``--randomization-mode`` add final fits but no tuning: the runs of
 a stress test reuse the best hyperparameters of the original run on the same fold; see
@@ -88,7 +90,7 @@ scale of the response.
 
       .. code-block:: bash
 
-         drevalpy run ElasticNet --dataset toy.h5mu --split-mode LPO --hpo-trials 4 \
+         drevalpy run ElasticNet --dataset toy.h5mu --split-mode LPO --n-splits 2 --hpo-trials 3 \
              --hpo-metric Pearson --output-dir results_pearson
 
    .. tab-item:: Python
@@ -96,7 +98,9 @@ scale of the response.
 
       .. code-block:: python
 
-         by_pearson = drevalpy.run([elastic_net], dataset, "LPO", hpo_num_trials=4, hpo_metric="Pearson")
+         by_pearson = drevalpy.run(
+             [elastic_net], dataset, "LPO", n_splits=2, hpo_num_trials=3, hpo_metric="Pearson"
+         )
 
 The metric only guides the search. The report and the summary always list all seven metrics.
 
@@ -109,7 +113,7 @@ its trials where they count. A ``hyperparameter_space`` on a component **replace
 space of that component, so list every parameter of that component you still want to tune. The
 entry types, keys and the exact rules are in :doc:`/reference/hyperparameters`.
 
-This example restricts the penalty strength ``alpha`` of the predictor to 0.01 to 1 on a
+This example restricts the penalty strength ``alpha`` of the predictor to 0.1 to 10 on a
 logarithmic scale.
 
 .. tab-set::
@@ -128,7 +132,7 @@ logarithmic scale.
          predictor:
            name: elasticNet
            hyperparameter_space:
-             alpha: {type: float, low: 0.01, high: 1.0, log: true, default: 0.1}
+             alpha: {type: float, low: 0.1, high: 10.0, log: true, default: 1.0}
              l1_ratio: {type: float, low: 0.0, high: 1.0, default: 0.5}
 
       Load the directory with the global ``-e`` option and use the name like any other:
@@ -138,7 +142,7 @@ logarithmic scale.
       .. code-block:: bash
 
          drevalpy -e my_models run NarrowElasticNet \
-             --dataset toy.h5mu --split-mode LPO --hpo-trials 4
+             --dataset toy.h5mu --split-mode LPO --n-splits 2 --hpo-trials 3
 
       See :doc:`/how-to/extend/load_extensions` for extension directories.
 
@@ -152,7 +156,7 @@ logarithmic scale.
          from drevalpy.models.config import from_dict
 
          space = {
-             "alpha": {"type": "float", "low": 0.01, "high": 1.0, "log": True, "default": 0.1},
+             "alpha": {"type": "float", "low": 0.1, "high": 10.0, "log": True, "default": 1.0},
              "l1_ratio": {"type": "float", "low": 0.0, "high": 1.0, "default": 0.5},
          }
          config = from_dict(
@@ -163,7 +167,7 @@ logarithmic scale.
              }
          )
          narrow = ModelSpec("NarrowElasticNet", config)
-         narrowed = drevalpy.run([narrow], dataset, "LPO", hpo_num_trials=4)
+         narrowed = drevalpy.run([narrow], dataset, "LPO", n_splits=2, hpo_num_trials=3)
          print(narrowed)
 
       .. code-block:: text
@@ -173,7 +177,7 @@ logarithmic scale.
              Split mode: LPO
              Normalized by: None
              Models: 1
-                 NarrowElasticNet (5 folds): MSE=0.5629, RMSE=0.7495, MAE=0.5868, R^2=0.7888, Pearson=0.8908, Spearman=0.8960, Kendall=0.7206
+                 NarrowElasticNet (2 folds): MSE=0.6165, RMSE=0.7850, MAE=0.6181, R^2=0.7709, Pearson=0.8857, Spearman=0.8956, Kendall=0.7159
 
 The qualified key of a hyperparameter in a composed model, such as ``predictor.elasticNet.alpha``,
 is also in ``narrow.hyperparameter_space``.
@@ -183,7 +187,7 @@ Set the values yourself
 
 To skip the search, fit with fixed values. With tuning off, every fold uses the **defaults** of
 the model. Set a default under ``defaults`` in the mapping form of the predictor, here
-``alpha`` = 0.01. This does not change the range of the space, so it matters when tuning is
+``alpha`` = 0.1. This does not change the range of the space, so it matters when tuning is
 off. For a single fit with values of your choice, without any experiment, see
 :doc:`/how-to/train_save_load`.
 
@@ -202,7 +206,7 @@ off. For a single fit with values of your choice, without any experiment, see
          predictor:
            name: elasticNet
            defaults:
-             alpha: 0.01
+             alpha: 0.1
 
       Then run it with tuning off:
 
@@ -211,7 +215,7 @@ off. For a single fit with values of your choice, without any experiment, see
       .. code-block:: bash
 
          drevalpy -e my_models run FixedElasticNet \
-             --dataset toy.h5mu --split-mode LPO --no-hpo
+             --dataset toy.h5mu --split-mode LPO --n-splits 2 --no-hpo
 
    .. tab-item:: Python
       :sync: python
@@ -222,11 +226,11 @@ off. For a single fit with values of your choice, without any experiment, see
              {
                  "sample_featurizer": "scaledGeneExpression",
                  "drug_featurizer": "fingerprints",
-                 "predictor": {"name": "elasticNet", "defaults": {"alpha": 0.01}},
+                 "predictor": {"name": "elasticNet", "defaults": {"alpha": 0.1}},
              }
          )
          fixed = ModelSpec("FixedElasticNet", fixed_config)
-         fixed_results = drevalpy.run([fixed], dataset, "LPO", hyperparameter_tuning=False)
+         fixed_results = drevalpy.run([fixed], dataset, "LPO", n_splits=2, hyperparameter_tuning=False)
          print(fixed_results)
 
       .. code-block:: text
@@ -236,7 +240,7 @@ off. For a single fit with values of your choice, without any experiment, see
              Split mode: LPO
              Normalized by: None
              Models: 1
-                 FixedElasticNet (5 folds): MSE=1.7647, RMSE=1.1240, MAE=0.8812, R^2=0.3550, Pearson=0.7424, Spearman=0.7373, Kendall=0.5860
+                 FixedElasticNet (2 folds): MSE=0.7052, RMSE=0.8398, MAE=0.6617, R^2=0.7371, Pearson=0.8650, Spearman=0.8736, Kendall=0.6847
 
 Reproduce a search
 ------------------
@@ -253,7 +257,7 @@ the sampler alone, to vary the search while the folds stay the same.
 
       .. code-block:: bash
 
-         drevalpy run ElasticNet --dataset toy.h5mu --split-mode LPO --hpo-trials 4 \
+         drevalpy run ElasticNet --dataset toy.h5mu --split-mode LPO --n-splits 2 --hpo-trials 3 \
              --hpo-random-state 7 --output-dir results_hpo_seed7
 
    .. tab-item:: Python
@@ -261,7 +265,7 @@ the sampler alone, to vary the search while the folds stay the same.
 
       .. code-block:: python
 
-         other_search = drevalpy.run([elastic_net], dataset, "LPO", hpo_num_trials=4, hpo_random_state=7)
+         other_search = drevalpy.run([elastic_net], dataset, "LPO", n_splits=2, hpo_num_trials=3, hpo_random_state=7)
 
 Read what the search chose
 --------------------------
@@ -291,8 +295,8 @@ tuned ``ElasticNet``:
 
       .. code-block:: text
 
-         4 trials, scored by RMSE
-         {'alpha': 0.1091, 'l1_ratio': 0.1705}
+         3 trials, scored by RMSE
+         {'alpha': 0.0029, 'l1_ratio': 0.3664}
 
 ``best_hyperparameters`` holds every hyperparameter of the model under its qualified key, such as
 ``predictor.elasticNet.alpha``; see :doc:`/reference/hyperparameters`.
