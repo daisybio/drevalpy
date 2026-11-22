@@ -23,7 +23,7 @@ from drevalpy.types.data.feature_block import FeatureBlock, FeaturizerOutput
 from drevalpy.types.data.predictor_input import PredictorInput
 from drevalpy.types.data.response_table import ResponseTable
 from tests.components.predictors._helpers import pickle_round_trip
-from tests.components.predictors.literature._helpers import entity_pair_batch
+from tests.components.predictors.literature._helpers import entity_pair_batch, seed_literature
 
 TINY = {
     "epochs": 3,
@@ -92,6 +92,8 @@ def test_registry_name_and_published_defaults() -> None:
 
 @pytest.mark.slow
 def test_fit_predict_reads_the_plain_tokens_not_the_variants(tmp_path) -> None:
+    # Unseeded, some torch RNG states leave the tiny network dead and its output constant.
+    seed_literature()
     predictor = PaccMannPredictor(TINY)
     predictor.fit(_batch(tmp_path))
     query = _query(["s0", "v0", "s3"], ["d0", "d1", "d2"])
