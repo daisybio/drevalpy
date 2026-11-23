@@ -104,14 +104,14 @@ def test_fingerprints_report_a_missing_rdkit(monkeypatch: pytest.MonkeyPatch, sm
     block_imports(monkeypatch, "rdkit")
 
     with pytest.raises(ImportError, match="rdkit is required"):
-        _fit_transform(FingerprintsFeaturizer(n_bits=16), smiles_only, smiles_only.identifiers[:1])
+        _fit_transform(FingerprintsFeaturizer(n_bits=16), smiles_only, smiles_only.entity_ids()[:1])
 
 
 def test_unusable_smiles_produce_nan_fingerprint_rows() -> None:
     source = DrugSource(
         smiles={"ok": "CCO", "missing": None, "empty": "", "nan": float("nan"), "bad": "not a molecule"}
     )
-    ids = source.identifiers
+    ids = source.entity_ids()
 
     matrix = _fit_transform(FingerprintsFeaturizer(n_bits=16), source, ids).matrix
 
@@ -122,7 +122,7 @@ def test_unusable_smiles_produce_nan_fingerprint_rows() -> None:
 
 def test_binary_and_count_fingerprints() -> None:
     source = DrugSource(smiles={"d1": "CCCCCCCCCC"})
-    ids = source.identifiers
+    ids = source.entity_ids()
 
     binary = _fit_transform(FingerprintsFeaturizer(n_bits=8), source, ids).matrix
     counts = _fit_transform(FingerprintsFeaturizer(n_bits=8, use_counts=True), source, ids).matrix
@@ -144,7 +144,7 @@ def test_fingerprints_are_computed_from_the_smiles_in_one_rdkit_pass_per_fit_and
         return original(**kwargs)
 
     monkeypatch.setattr(rdFingerprintGenerator, "GetMorganGenerator", counting_generator)
-    ids = smiles_only.identifiers[:3]
+    ids = smiles_only.entity_ids()[:3]
 
     featurizer = FingerprintsFeaturizer(n_bits=32, use_counts=True).fit(smiles_only, ids)
     assert passes == []
@@ -230,7 +230,7 @@ def _smiles_lengths(source: FeatureSource, ids: np.ndarray) -> list[int]:
 def test_chemberta_embeds_each_drug_with_the_configured_pooling_and_falls_back_to_mean(
     tiny_chemberta, smiles_only: DrugSource, pooling, expected
 ) -> None:
-    ids = smiles_only.identifiers[:2]
+    ids = smiles_only.entity_ids()[:2]
 
     matrix = _fit_transform(ChemBertaFeaturizer(pooling=pooling, max_length=256), smiles_only, ids).matrix
 
@@ -243,7 +243,7 @@ def test_chemberta_truncates_to_max_length_and_fills_unknown_drugs_with_nan(
     tiny_chemberta, smiles_only: DrugSource
 ) -> None:
     tokenizer, _ = tiny_chemberta
-    ids = np.array([smiles_only.identifiers[0], "not-a-drug"])
+    ids = np.array([smiles_only.entity_ids()[0], "not-a-drug"])
 
     matrix = _fit_transform(ChemBertaFeaturizer(pooling="max", max_length=3), smiles_only, ids).matrix
 
@@ -334,7 +334,7 @@ def test_load_chemberta_reports_missing_transformers(monkeypatch: pytest.MonkeyP
 
 @pytest.mark.network
 def test_chemberta_embeds_dataset_smiles(smiles_only: DrugSource) -> None:
-    ids = smiles_only.identifiers[:2]
+    ids = smiles_only.entity_ids()[:2]
 
     matrix = _fit_transform(ChemBertaFeaturizer(max_length=64), smiles_only, ids).matrix
 
@@ -364,14 +364,14 @@ def test_smilesvec_averages_the_kmer_vectors_of_each_drug(word2vec_file) -> None
 def test_smilesvec_embeds_a_smiles_shorter_than_k_as_one_word(word2vec_file) -> None:
     source = DrugSource(smiles={"d1": "AB"})
 
-    matrix = _fit_transform(SmilesVecDrugFeaturizer(k=8), source, source.identifiers).matrix
+    matrix = _fit_transform(SmilesVecDrugFeaturizer(k=8), source, source.entity_ids()).matrix
 
     np.testing.assert_allclose(matrix, [[1.0, 3.0]])
 
 
 @pytest.mark.network
 def test_smilesvec_embeds_dataset_smiles(smiles_only: DrugSource) -> None:
-    ids = smiles_only.identifiers[:2]
+    ids = smiles_only.entity_ids()[:2]
 
     matrix = _fit_transform(SmilesVecDrugFeaturizer(), smiles_only, ids).matrix
 

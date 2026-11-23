@@ -24,7 +24,7 @@ _MODES: dict[str, tuple[Side, str]] = {
 
 
 def _planned_tests(model_spec: ModelSpec, modes: list[str]) -> dict[tuple[str, str], list[str]]:
-    """Return the views each ``(mode, view)`` randomization test replaces; unknown mode codes are ignored.
+    """Return the views each ``(mode, view)`` randomization test randomizes; unknown mode codes are ignored.
 
     :param model_spec: Model whose featurizers define the available views.
     :param modes: Mode codes.
@@ -51,17 +51,16 @@ def randomization(
 ) -> list[Dataset]:
     """Generate randomized datasets for feature importance testing.
 
-    For each randomization test (determined by model views and mode), produces
-    a copy of the dataset with the relevant views shuffled. Each returned
-    dataset has its ``randomization`` field set to ``(mode, view)``. A test that
-    would randomize nothing, because the dataset lacks the view or the model has
-    no other view to randomize, is skipped with a warning, so no returned dataset
-    carries a randomization label it did not earn.
+    For each randomization test (determined by model views and mode), produces a copy of the
+    dataset on which the model randomizes the featurizer output of the relevant views (see
+    :meth:`Dataset.with_randomized_views`). Each returned dataset has its ``randomization`` field set
+    to ``(mode, view)``. A complement test of a model with no other view would randomize nothing, so it
+    is skipped with a warning, and no returned dataset carries a randomization label it did not earn.
 
     :param model_spec: Model class whose config defines available views.
     :param dataset: Original dataset to randomize.
     :param randomization_mode: List of mode codes (e.g. ["SVRC", "SVRD"]).
-    :param randomization_type: How to replace the view.
+    :param randomization_type: How to randomize the featurizer output.
     :param random_state: Seed for reproducibility.
     :returns: List of randomized datasets.
     """
@@ -75,18 +74,9 @@ def randomization(
         views = sorted(views)
         identity = json.dumps([random_state, randomization_type, mode, view, views], separators=(",", ":"))
         seed = int.from_bytes(hashlib.sha256(identity.encode()).digest()[:4], "big")
-        try:
-            ds = dataset.with_randomized_views(
-                views, randomization_type=randomization_type, random_state=seed, randomization=(mode, view)
-            )
-        except KeyError as error:
-            logger.warning("Skipping the %s randomization test of '%s': %s", mode, view, error.args[0])
-            continue
-        ds.randomization_provenance = {
-            "root_seed": random_state,
-            "effective_seed": seed,
-            "type": RandomizationType(randomization_type).value,
-            "views": views,
-        }
+        ds = dataset.with_randomized_views(
+            views, randomization_type=randomization_type, random_state=seed, randomization=(mode, view)
+        )
+        ds.randomization_provenance = {"root_seed": random_state, **(ds.randomization_provenance or {})}
         results.append(ds)
     return results

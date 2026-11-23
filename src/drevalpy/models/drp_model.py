@@ -7,6 +7,8 @@
 * ``_feature_preparation.py``: featurizing the entities and dropping the pairs a component's
   missing-input policy rejects;
 * ``response_transformation/``: the optional response transformation;
+* ``components/featurizers/_randomized.py``: the wrapper that randomizes a featurizer's output on a
+  randomized dataset;
 * ``_archive.py``: the versioned single-ZIP checkpoint;
 * ``drevalpy/experiment/_tracking.py``: Weights & Biases tracking, outside ``DRPModel``.
 """
@@ -24,6 +26,7 @@ from upath import UPath
 
 from drevalpy._utils.accelerator import ensure_available
 from drevalpy._utils.n_jobs import check_n_jobs
+from drevalpy.components.featurizers._randomized import RandomizedFeaturizer
 from drevalpy.components.featurizers.featurizer import CONCAT
 from drevalpy.models._feature_preparation import prepare_features, unique_entity_ids, usable_pairs
 from drevalpy.models.config.immutable import thaw_value
@@ -49,6 +52,7 @@ if TYPE_CHECKING:
     from drevalpy.components.predictors.abstract.base import Predictor
     from drevalpy.models.config import FeaturizerConfig
     from drevalpy.models.response_transformation import ResponseTransformer
+    from drevalpy.types.data.dataset._randomization import ViewRandomization
 
 
 def validate_fit_scopes(dataset: Dataset, scope: SelectionMask, stopping: SelectionMask | None) -> None:
@@ -79,23 +83,34 @@ class ModelState(Enum):
     FITTED = "fitted"
 
 
-def _build_featurizer(config: FeaturizerConfig, slot: str, values: Mapping[str, Any]) -> Featurizer:
+def _build_featurizer(
+    config: FeaturizerConfig, slot: str, values: Mapping[str, Any], randomization: ViewRandomization | None
+) -> Featurizer:
     if config.name == CONCAT:
-        children = [_build_featurizer(child, slot, values) for child in (config.featurizers or ())]
+        children = [_build_featurizer(child, slot, values, randomization) for child in (config.featurizers or ())]
         return config.create_instance({"featurizers": children})
-    return config.create_instance(component_values(values, slot, config.selector))
+    kwargs = component_values(values, slot, config.selector)
+    featurizer = config.create_instance(kwargs)
+    views = config.featurizer_class.views({**config.leaf_kwargs(), **kwargs})
+    if randomization is None or randomization.views.isdisjoint(views):
+        return featurizer
+    return RandomizedFeaturizer(featurizer, randomization, views)
 
 
-def _build_components(spec: ModelSpec) -> tuple[Featurizer | None, Featurizer | None, Predictor]:
+def _build_components(
+    spec: ModelSpec, randomization: ViewRandomization | None = None
+) -> tuple[Featurizer | None, Featurizer | None, Predictor]:
     """Instantiate fresh featurizers and predictor with the spec's hyperparameters.
 
     :param spec: Model specification.
+    :param randomization: The randomization of the dataset the model is trained on; each leaf
+        featurizer that reads a randomized view is wrapped in a ``RandomizedFeaturizer``.
     :returns: Sample featurizer, optional drug featurizer and predictor.
     """
     config, values = spec.config, spec.hyperparameters
     roots = config.featurizers()
     sample, drug = (
-        _build_featurizer(roots[side], f"{side}_featurizer", values) if side in roots else None
+        _build_featurizer(roots[side], f"{side}_featurizer", values, randomization) if side in roots else None
         for side in (Side.SAMPLE, Side.DRUG)
     )
     # A plain string: networks pass their hyperparameters to Lightning's ``save_hyperparameters``, and a checkpoint
@@ -173,11 +188,11 @@ class DRPModel:
         """The response measure the model was trained on, such as ``LN_IC50``; ``None`` before training."""
         return self._measure
 
-    def _reset(self) -> None:
+    def _reset(self, randomization: ViewRandomization | None) -> None:
         self.state = ModelState.UNTRAINED
         self._measure = None
         self._fitted_response_transformation = None
-        self._sample_featurizer, self._drug_featurizer, self._predictor = _build_components(self.spec)
+        self._sample_featurizer, self._drug_featurizer, self._predictor = _build_components(self.spec, randomization)
 
     def train(
         self,
@@ -192,7 +207,9 @@ class DRPModel:
 
         A model that requires an accelerator raises ``DrEvalError`` when torch finds none.
 
-        :param dataset: Response matrix and raw features.
+        :param dataset: Response matrix and raw features. On a dataset with a
+            :attr:`~drevalpy.types.data.dataset.Dataset.view_randomization`, the model randomizes the output of
+            each featurizer that reads a randomized view, in this fit and in every prediction after it.
         :param scope: Training response positions.
         :param early_stopping_scope: Disjoint positions used only for stopping.
         :param model_checkpoint_dir: Directory for component training checkpoints. When omitted, a temporary
@@ -202,7 +219,7 @@ class DRPModel:
         """
         check_n_jobs(n_jobs)
         ensure_available(self.spec.accelerator, self.name)
-        self._reset()
+        self._reset(dataset.view_randomization)
         directory = (
             tempfile.TemporaryDirectory(prefix="drevalpy-checkpoints-")
             if model_checkpoint_dir is None

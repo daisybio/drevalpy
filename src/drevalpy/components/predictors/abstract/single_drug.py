@@ -32,7 +32,7 @@ from typing import Any, ClassVar
 import numpy as np
 from upath import UPath
 
-from drevalpy._utils.seed import drug_seed, seed_everything
+from drevalpy._utils.seed import keyed_seed, seed_everything
 from drevalpy.components.predictors.abstract.base import Predictor
 from drevalpy.components.predictors.inputs import Inputs
 from drevalpy.types.data.feature_block import FeaturizerOutput
@@ -204,13 +204,13 @@ def _run_per_drug(
 
     root_seed = random.getrandbits(32)
     if n_jobs == 1:
-        results = [_fit_seeded(fit_one, drug_seed(root_seed, drug_id), drug_id, task) for drug_id, task in tasks]
+        results = [_fit_seeded(fit_one, keyed_seed(root_seed, drug_id), drug_id, task) for drug_id, task in tasks]
     else:
         import joblib
 
         with joblib.parallel_config(backend="loky", inner_max_num_threads=1):
             results = joblib.Parallel(n_jobs=n_jobs)(
-                joblib.delayed(_fit_in_worker)(fit_one, drug_seed(root_seed, drug_id), drug_id, task)
+                joblib.delayed(_fit_in_worker)(fit_one, keyed_seed(root_seed, drug_id), drug_id, task)
                 for drug_id, task in tasks
             )
     seed_everything(root_seed)

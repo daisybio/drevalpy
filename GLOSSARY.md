@@ -221,8 +221,12 @@ on it: a randomization test or a robustness test.
 _Avoid_: diagnostic
 
 **Randomization test**:
-A stress test that permutes or replaces one view before training, to measure
-how much the model relies on it.
+A stress test that permutes or replaces what the featurizers of one view output,
+in training and prediction, to measure how much the model relies on that view.
+
+**Donor**:
+In a permutation randomization test, the entity whose featurizer output another
+entity gets.
 
 **Robustness test**:
 A stress test that repeats training on the same split, each repeat with its own

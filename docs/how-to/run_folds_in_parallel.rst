@@ -296,10 +296,11 @@ averages only the ordinary runs.
 Run the randomization test as separate jobs
 -------------------------------------------
 
-The randomization test trains the model on datasets whose views are shuffled, so the unit of
-work is a shuffled dataset and a fold. ``drevalpy data randomization`` and
-``drevalpy.randomization`` build the shuffled datasets for a model and a mode, and ``run``
-trains on each. The run records the randomization it belongs to, and the record survives
+The randomization test trains the model with some of its views shuffled, so the unit of
+work is a randomized dataset and a fold. ``drevalpy data randomization`` and
+``drevalpy.randomization`` build the randomized datasets for a model and a mode: each holds
+the original data and the views to shuffle, and ``run`` trains on each, shuffling what the
+featurizers of those views output. The run records the randomization it belongs to, and the record survives
 ``save`` and ``load``. ``aggregate`` keeps these runs apart from the ordinary ones, so the
 summary still averages only the ordinary runs.
 
@@ -314,7 +315,7 @@ skipped with a warning and gives no dataset; see :doc:`/how-to/run_stress_tests`
       :sync: cli
 
       ``data randomization`` takes the model, the dataset (a registered name or a file)
-      and a directory. It writes one file per shuffled dataset, named ``<MODE>__<view>.h5mu``.
+      and a directory. It writes one file per randomized dataset, named ``<MODE>__<view>.h5mu``.
       The default mode is ``SVRC``, and ``--mode`` chooses others:
 
       .. code-block:: bash
@@ -327,7 +328,7 @@ skipped with a warning and gives no dataset; see :doc:`/how-to/run_stress_tests`
 
          Wrote 1 randomized datasets to rand
 
-      Train on the shuffled file with ``run``, once per fold, next to the ordinary runs of
+      Train on the randomized file with ``run``, once per fold, next to the ordinary runs of
       the same model, then pass all the run files to ``aggregate``:
 
       .. code-block:: bash
@@ -343,15 +344,15 @@ skipped with a warning and gives no dataset; see :doc:`/how-to/run_stress_tests`
       :sync: python
 
       ``NaiveMeanEffectsPredictor`` reads no views, so the list is empty. ``Ridge`` reads
-      ``gene_expression``, so ``SVRC`` gives one shuffled dataset:
+      ``gene_expression``, so ``SVRC`` gives one randomized dataset:
 
       .. code-block:: python
 
          print(len(drevalpy.randomization(spec, dataset, ["SVRC"])))
          ridge = ModelSpec.from_name("Ridge")
-         shuffled = drevalpy.randomization(ridge, dataset, ["SVRC"])
-         print(len(shuffled))
-         stress_run = drevalpy.run(ridge, shuffled[0], folds[0], hyperparameter_tuning=False)
+         randomized = drevalpy.randomization(ridge, dataset, ["SVRC"])
+         print(len(randomized))
+         stress_run = drevalpy.run(ridge, randomized[0], folds[0], hyperparameter_tuning=False)
          print(stress_run.randomization)
 
       .. code-block:: text
@@ -360,5 +361,5 @@ skipped with a warning and gives no dataset; see :doc:`/how-to/run_stress_tests`
          1
          ('SVRC', 'gene_expression')
 
-      Add the shuffled run to the list of runs before ``ExperimentResult(runs)``, and train it
+      Add the randomized run to the list of runs before ``ExperimentResult(runs)``, and train it
       for every fold. A saved experiment keeps the randomization of each run.

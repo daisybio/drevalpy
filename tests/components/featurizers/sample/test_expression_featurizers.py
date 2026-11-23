@@ -221,8 +221,8 @@ def test_landmark_reduced_uses_the_reduced_list(small_lists: tuple[str, ...]) ->
 def test_landmark_reduced_works_on_the_shipped_list() -> None:
     symbols = resolve_gene_list("landmark_genes_reduced")
     source = mock_source(random_views({"gene_expression": symbols}, n_samples=3))
-    featurizer = LandmarkGenesReducedFeaturizer().fit(source, source.identifiers)
-    assert featurizer.transform(source, source.identifiers).matrix.shape == (3, len(symbols))
+    featurizer = LandmarkGenesReducedFeaturizer().fit(source, source.entity_ids())
+    assert featurizer.transform(source, source.entity_ids()).matrix.shape == (3, len(symbols))
 
 
 def test_landmark_fit_errors(small_lists: tuple[str, ...], tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -276,12 +276,12 @@ def test_landmark_reads_genes_by_name_and_does_not_need_the_others(small_lists: 
     fit_views = random_views({"gene_expression": [*small_lists, "NOT_A_GENE"]})
     assert_reads_by_name(LandmarkGenesFeaturizer, fit_views, drop_view="gene_expression")
     fit_source = mock_source(fit_views)
-    featurizer = LandmarkGenesFeaturizer(standardize=False).fit(fit_source, fit_source.identifiers)
+    featurizer = LandmarkGenesFeaturizer(standardize=False).fit(fit_source, fit_source.entity_ids())
     without_extra = mock_source({"gene_expression": (fit_views["gene_expression"][0][:, :4], small_lists)})
 
     np.testing.assert_allclose(
-        featurizer.transform(without_extra, without_extra.identifiers).matrix,
-        featurizer.transform(fit_source, fit_source.identifiers).matrix,
+        featurizer.transform(without_extra, without_extra.entity_ids()).matrix,
+        featurizer.transform(fit_source, fit_source.entity_ids()).matrix,
     )
 
 

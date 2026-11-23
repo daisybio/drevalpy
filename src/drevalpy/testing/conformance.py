@@ -76,10 +76,6 @@ def feature_source_for(cls: type[Featurizer], dataset: Dataset) -> FeatureSource
     return FeatureSource(dataset, side)
 
 
-def _entity_ids(cls: type[Featurizer], dataset: Dataset) -> np.ndarray:
-    return np.asarray(dataset.drug_ids if _side(cls) == "drug" else dataset.sample_ids)
-
-
 def _features(featurizer: Featurizer, source: FeatureSource, ids: np.ndarray, *, fit: bool) -> FeaturizerOutput:
     from drevalpy.models._feature_preparation import prepare_features
 
@@ -137,7 +133,7 @@ def check_featurizer_fit_transform(
     dataset = dataset if dataset is not None else synthetic()
     instance = check_featurizer_instantiates(cls, **kwargs)
     source = feature_source_for(cls, dataset)
-    entity_ids = _entity_ids(cls, dataset)
+    entity_ids = source.entity_ids()
 
     result = _features(instance, source, entity_ids, fit=True)
     blocks = result.blocks
@@ -183,7 +179,7 @@ def check_featurizer_pickle_round_trip(
 
     dataset = dataset if dataset is not None else synthetic()
     source = feature_source_for(cls, dataset)
-    entity_ids = _entity_ids(cls, dataset)
+    entity_ids = source.entity_ids()
 
     fitted = check_featurizer_instantiates(cls, **kwargs)
     expected = _features(fitted, source, entity_ids, fit=True)

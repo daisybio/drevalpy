@@ -115,15 +115,15 @@ views it uses. The mode decides which views are shuffled in each randomized data
 
 Use ``SVRC`` to ask whether the model needs a view, and ``SVCC`` to ask what a view achieves on
 its own. A test that would change nothing is skipped with a warning and produces no run: ``SVCC``
-and ``SVCD`` on a model with a single view, which leaves no other view to shuffle, and ``SVRD``
-and ``SVCD`` on a dataset that does not store the drug view. A model without views, such as
+and ``SVCD`` on a model with a single view, which leaves no other view to shuffle. A model without views, such as
 ``NaiveMeanEffectsPredictor``, gets no randomized datasets either. :doc:`/reference/split_modes`
 has the exact rules.
 
-``--randomization-type`` chooses how a view is shuffled. ``permutation`` (the default) permutes the
-rows across samples or drugs. ``invariant`` replaces each row with a draw from a Gaussian with the
-mean and standard deviation of that row, so the shuffled view keeps the scale of each row but
-loses the values. ``--randomization-random-state`` fixes the shuffle; it
+The model shuffles what the featurizer of a view outputs, not the stored view, so a tuned
+featurizer is shuffled at its tuned settings. ``--randomization-type`` chooses how.
+``permutation`` (the default) gives each sample or drug the output of another. ``invariant``
+replaces each row of the output with a draw from a Gaussian with the mean and standard
+deviation of that row, so the shuffled output keeps the scale of each row but loses the values. ``--randomization-random-state`` fixes the shuffle; it
 defaults to ``--seed``.
 
 .. tab-set::

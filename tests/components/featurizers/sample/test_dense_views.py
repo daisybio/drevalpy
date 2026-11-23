@@ -195,11 +195,11 @@ def test_pca_no_longer_zero_fills_missing_features() -> None:
     training = random_views({"methylation": ["a", "b", "c"]}, n_samples=3)
     featurizer = PCASampleFeaturizer(view="methylation", n_components=2)
     source = mock_source(training)
-    featurizer.fit(source, source.identifiers)
+    featurizer.fit(source, source.entity_ids())
     cross_study = mock_source(random_views({"methylation": ["b", "c", "d"]}, n_samples=1))
 
     with pytest.raises(FeatureMismatchError, match=r"view 'methylation' is missing 1 of the 3 features.*'a'"):
-        featurizer.transform(cross_study, cross_study.identifiers)
+        featurizer.transform(cross_study, cross_study.entity_ids())
 
 
 def _proteomics_features() -> MockFeatureSource:

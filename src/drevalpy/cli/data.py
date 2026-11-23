@@ -153,14 +153,14 @@ def randomization_dataset(
     ] = None,
     randomization_type: Annotated[
         RandomizationType,
-        typer.Option("--randomization-type", "-t", case_sensitive=False, help="How to replace the view."),
+        typer.Option("--randomization-type", "-t", case_sensitive=False, help="How to randomize the view."),
     ] = RandomizationType.PERMUTATION,
     seed: Annotated[int, typer.Option("--seed", help="Random seed.")] = 42,
 ) -> None:
     """Generate randomized datasets for feature importance testing.
 
-    Produces copies of the dataset with views shuffled according to the
-    specified randomization modes, based on the model's configured views.
+    Writes one copy of the dataset per test of the randomization modes, from the model's
+    configured views. A copy holds the original data and the views a model trained on it shuffles.
     """
     from rich.progress import Progress
 

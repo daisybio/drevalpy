@@ -48,7 +48,7 @@ def assert_reads_by_name(make_featurizer: Callable[[], Featurizer], views: Views
     :param drop_view: View from which the first feature is removed for the missing-feature check.
     """
     source = mock_source(views)
-    ids = source.identifiers
+    ids = source.entity_ids()
     fitted = make_featurizer().fit(source, ids, train_pair_ids=ids, es_pair_ids=ids)
 
     def read(featurizer: Featurizer, other: FeatureSource) -> dict[str, Any]:

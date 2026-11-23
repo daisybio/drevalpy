@@ -43,7 +43,7 @@ class PredictionMode(StrEnum):
 
 
 class RandomizationType(StrEnum):
-    """How a randomization test replaces the values of one view."""
+    """How a randomization test randomizes what the featurizers of a view output."""
 
     PERMUTATION = "permutation"
     """Shuffle the rows, so each sample or drug gets another one's values."""
@@ -53,7 +53,7 @@ class RandomizationType(StrEnum):
 
 
 class RandomizationMode(StrEnum):
-    """Which view a randomization test replaces: sample or drug, one view (``R``) or its complement (``C``)."""
+    """Which view a randomization test randomizes: sample or drug, one view (``R``) or its complement (``C``)."""
 
     SVRC = "SVRC"
     SVCC = "SVCC"

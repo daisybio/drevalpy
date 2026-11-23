@@ -64,15 +64,18 @@ def fit_seed(root_seed: int, identity: RunIdentity) -> int:
     )
 
 
-def drug_seed(root_seed: int, drug_id: str) -> int:
-    """Derive the RNG seed of one drug's fit from a root seed and the drug id.
+def keyed_seed(root_seed: int, key: str) -> int:
+    """Derive the RNG seed of one keyed part of a run from a root seed and the part's key.
 
-    A single-drug predictor fits one model per drug. Seeding each from the drug id, rather than
-    letting them share one RNG stream, makes a drug's model independent of which other drugs are
-    fitted and of the order or process they are fitted in.
+    A single-drug predictor fits one model per drug, keyed by the drug id, and a randomized
+    featurizer draws the values of each entity, keyed by the entity id, and the permutation of each
+    group of views, keyed by their names. Seeding each part from its key, rather than letting the parts
+    share one RNG stream, makes a part independent of which other parts there are and of the order or
+    process they are drawn in.
 
-    :param root_seed: Seed drawn once per fit from the already seeded global RNG.
-    :param drug_id: Identifier of the drug.
+    :param root_seed: Seed of the whole, such as the seed drawn once per fit from the already seeded
+        global RNG.
+    :param key: Identifier of the part, such as a drug id.
     :returns: Deterministic 32-bit unsigned integer, usable with every RNG backend.
     """
-    return _digest32([root_seed, drug_id])
+    return _digest32([root_seed, key])

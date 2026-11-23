@@ -1,6 +1,8 @@
-"""``DRPModel``: lifecycle states, training context, component construction and feature preparation."""
+"""``DRPModel``: lifecycle states, training context, component construction, feature preparation and randomization."""
 
 from __future__ import annotations
+
+import json
 
 import numpy as np
 import pytest
@@ -8,12 +10,19 @@ from sklearn.preprocessing import StandardScaler
 
 from drevalpy._utils import accelerator
 from drevalpy.components.featurizers import FeatureMismatchError
+from drevalpy.components.featurizers._randomized import RandomizedFeaturizer
+from drevalpy.components.featurizers.drug.fingerprints import FingerprintsFeaturizer
 from drevalpy.errors import DrEvalError, InvalidInputError
 from drevalpy.models import DRPModel, ModelSpec
+from drevalpy.models._feature_preparation import prepare_features
 from drevalpy.models.drp_model import ModelState, _build_components, validate_fit_scopes
 from drevalpy.registry.predictor import get as get_predictor
 from drevalpy.types import SelectionMask
-from drevalpy.types.enums import Accelerator
+from drevalpy.types.data.dataset import Dataset
+from drevalpy.types.data.dataset._randomization import ViewRandomization
+from drevalpy.types.data.feature_source import FeatureSource
+from drevalpy.types.data.views import PRECOMPUTED_VIEWS_KEY
+from drevalpy.types.enums import Accelerator, RandomizationType
 from tests.models.synthetic_fixtures import (
     lso_fold,
     small_data_spec,
@@ -231,8 +240,8 @@ def test_components_construct_once_per_training_attempt(monkeypatch) -> None:
     calls = []
     build = drp_model_module._build_components
 
-    def record(spec):
-        components = build(spec)
+    def record(spec, randomization):
+        components = build(spec, randomization)
         calls.append(components)
         return components
 
@@ -392,3 +401,62 @@ class TestResponseLayers:
         )
 
         assert dict(seen[0][1].response_layers) == {}
+
+
+class TestRandomizedDataset:
+    pytestmark = pytest.mark.slow
+
+    def test_a_tuned_featurizer_permutes_its_own_output_not_the_stored_view(self, synthetic_dataset: Dataset) -> None:
+        spec = ModelSpec.from_name("view[gene_expression]:fingerprints:elasticNet").with_hyperparameters(
+            {"n_bits": 512}
+        )
+        randomized = synthetic_dataset.with_randomized_views(["morgan_fingerprint"], random_state=0)
+        record = {"drug": {"morgan_fingerprint": FingerprintsFeaturizer().settings}}
+        randomized.mdata.uns[PRECOMPUTED_VIEWS_KEY] = json.dumps(record)
+        source = FeatureSource(randomized, "drug")
+        ids = randomized.drug_ids
+
+        drug = _build_components(spec, randomized.view_randomization)[1]
+        assert isinstance(drug, RandomizedFeaturizer)
+        permuted = prepare_features(drug, source, ids, train_pair_ids=ids).matrix
+        real = prepare_features(FingerprintsFeaturizer(n_bits=512), source, ids, train_pair_ids=ids).matrix
+
+        assert permuted.shape == real.shape == (len(ids), 512)
+        assert sorted(map(tuple, permuted.tolist())) == sorted(map(tuple, real.tolist()))
+        assert not np.array_equal(permuted, real)
+
+    def test_only_the_leaves_reading_a_randomized_view_are_wrapped(self, synthetic_dataset: Dataset) -> None:
+        spec = ModelSpec.from_name("view[gene_expression]+view[methylation]:fingerprints:elasticNet")
+        randomized = synthetic_dataset.with_randomized_views(["methylation"], random_state=0)
+
+        sample, drug, _ = _build_components(spec, randomized.view_randomization)
+
+        assert isinstance(sample._children[1], RandomizedFeaturizer)
+        assert not isinstance(sample._children[0], RandomizedFeaturizer)
+        assert not isinstance(drug, RandomizedFeaturizer)
+        assert not any(isinstance(child, RandomizedFeaturizer) for child in _build_components(spec)[0]._children)
+
+    def test_the_tuned_hyperparameters_decide_which_views_a_leaf_reads(self) -> None:
+        spec = ModelSpec.from_name("sparsegoOntology:fingerprints:elasticNet").with_hyperparameters(
+            {"input_type": "mutations"}
+        )
+
+        def sample(view: str) -> object:
+            randomization = ViewRandomization(frozenset({view}), RandomizationType.PERMUTATION, 0)
+            return _build_components(spec, randomization)[0]
+
+        assert isinstance(sample("mutations"), RandomizedFeaturizer)
+        assert not isinstance(sample("gene_expression"), RandomizedFeaturizer)
+
+    def test_training_on_a_randomized_dataset_randomizes_the_saved_model(self, tmp_path) -> None:
+        dataset = synthetic_model_dataset_gene_expression_fingerprints()
+        randomized = dataset.with_randomized_views(["gene_expression"], random_state=0)
+        model = DRPModel(small_data_spec("ElasticNet"))
+
+        model.train(randomized, lso_fold().train, model_checkpoint_dir=tmp_path)
+        model.save(tmp_path / "model")
+
+        assert isinstance(model._sample_featurizer, RandomizedFeaturizer)
+        assert isinstance(DRPModel.load(tmp_path / "model")._sample_featurizer, RandomizedFeaturizer)
+        model.train(dataset, lso_fold().train, model_checkpoint_dir=tmp_path)
+        assert not isinstance(model._sample_featurizer, RandomizedFeaturizer)

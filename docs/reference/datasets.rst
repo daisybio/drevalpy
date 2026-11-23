@@ -340,7 +340,8 @@ columns can be used as a grouping for per-group scores, for example ``group_by="
    * - ``pathways_gmt``
      - Pathway definitions
    * - ``randomization``, ``randomization_provenance``
-     - Written on randomized copies; see :doc:`split_modes`
+     - Written on randomized copies: the test's label and the views, type and seed a model
+       randomizes; see :doc:`split_modes`
 
 Concatenated datasets
 ---------------------

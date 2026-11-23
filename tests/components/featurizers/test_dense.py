@@ -18,7 +18,7 @@ _NAMES = [f"g{i}" for i in range(8)]
 
 def _source_and_matrix(names: list[str]):
     source = mock_source(random_views({"v": names}))
-    return source, source.view("v", source.identifiers)
+    return source, source.view("v", source.entity_ids())
 
 
 def test_feature_mismatch_error_is_a_value_error() -> None:
@@ -28,7 +28,7 @@ def test_feature_mismatch_error_is_a_value_error() -> None:
 def test_matching_names_return_the_matrix_values_untouched() -> None:
     source, matrix = _source_and_matrix(_NAMES)
 
-    np.testing.assert_array_equal(view_matrix(source, "v", source.identifiers, tuple(_NAMES)), matrix)
+    np.testing.assert_array_equal(view_matrix(source, "v", source.entity_ids(), tuple(_NAMES)), matrix)
 
 
 def test_a_side_without_names_passes_through() -> None:
@@ -36,10 +36,10 @@ def test_a_side_without_names_passes_through() -> None:
     unnamed = mock_source(random_views({"v": _NAMES}))
     unnamed._meta_info = {}
 
-    np.testing.assert_array_equal(view_matrix(source, "v", source.identifiers, None), matrix)
+    np.testing.assert_array_equal(view_matrix(source, "v", source.entity_ids(), None), matrix)
     np.testing.assert_array_equal(
-        view_matrix(unnamed, "v", unnamed.identifiers, tuple(_NAMES)),
-        unnamed.view("v", unnamed.identifiers),
+        view_matrix(unnamed, "v", unnamed.entity_ids(), tuple(_NAMES)),
+        unnamed.view("v", unnamed.entity_ids()),
     )
 
 
@@ -47,7 +47,7 @@ def test_columns_follow_the_fitted_order_and_extras_are_dropped() -> None:
     source, matrix = _source_and_matrix(_NAMES)
     fitted = ("g5", "g1", "g7")
 
-    aligned = view_matrix(source, "v", source.identifiers, fitted)
+    aligned = view_matrix(source, "v", source.entity_ids(), fitted)
 
     np.testing.assert_array_equal(aligned, matrix[:, [5, 1, 7]])
 
@@ -57,7 +57,7 @@ def test_missing_names_raise_with_view_count_and_first_names() -> None:
     fitted = (*_NAMES, *(f"gone{i}" for i in range(7)))
 
     with pytest.raises(FeatureMismatchError, match=r"view 'v' is missing 7 of the 15 features") as info:
-        view_matrix(source, "v", source.identifiers, fitted)
+        view_matrix(source, "v", source.entity_ids(), fitted)
 
     assert "'gone0'" in str(info.value)
     assert "'gone4'" in str(info.value)
@@ -104,7 +104,7 @@ def test_unknown_categories_are_zero_rows_unless_disabled() -> None:
 
 def test_view_matrix_reads_the_fitted_columns_and_dense_result_wraps_one_block() -> None:
     source, matrix = _source_and_matrix(_NAMES)
-    ids = source.identifiers[::-1]
+    ids = source.entity_ids()[::-1]
 
     values = view_matrix(source, "v", ids, ("g3", "g0"))
     result = dense_result(ids, "v", values, ("g3", "g0"))

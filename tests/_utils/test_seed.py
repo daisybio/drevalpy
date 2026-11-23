@@ -12,7 +12,7 @@ import numpy as np
 import pytest
 import torch
 
-from drevalpy._utils.seed import drug_seed, fit_seed, seed_everything
+from drevalpy._utils.seed import fit_seed, keyed_seed, seed_everything
 from drevalpy.types.results._identity import RunIdentity
 
 
@@ -106,8 +106,8 @@ def test_every_identity_field_changes_the_fit_seed(change: dict) -> None:
     assert fit_seed(42, replace(IDENTITY, **change)) != fit_seed(42, IDENTITY)
 
 
-def test_drug_seed() -> None:
-    assert drug_seed(42, "Afatinib") == 3721085039
-    assert drug_seed(1, "Afatinib") != drug_seed(2, "Afatinib")
-    assert drug_seed(1, "Afatinib") != drug_seed(1, "Erlotinib")
-    assert drug_seed(1, "23") != drug_seed(12, "3")
+def test_keyed_seed() -> None:
+    assert keyed_seed(42, "Afatinib") == 3721085039
+    assert keyed_seed(1, "Afatinib") != keyed_seed(2, "Afatinib")
+    assert keyed_seed(1, "Afatinib") != keyed_seed(1, "Erlotinib")
+    assert keyed_seed(1, "23") != keyed_seed(12, "3")

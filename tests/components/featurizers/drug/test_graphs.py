@@ -67,7 +67,7 @@ def test_drug_graph_raises_for_a_drug_without_a_graph_or_smiles() -> None:
 
 
 def test_drug_graph_computes_graphs_from_the_smiles_when_the_view_is_absent(smiles_only: DrugSource) -> None:
-    drug_ids = smiles_only.identifiers[:2]
+    drug_ids = smiles_only.entity_ids()[:2]
 
     graphs = _graphs(DrugGraphFeaturizer(), smiles_only, drug_ids)
     with_hs = _graphs(DrugGraphFeaturizer(add_hydrogens=True), smiles_only, drug_ids)
@@ -87,7 +87,7 @@ def test_drug_graph_computes_only_the_drugs_missing_from_the_stored_view() -> No
 
 
 def test_fitted_drug_graph_pickles_and_transforms_identically(smiles_only: DrugSource) -> None:
-    ids = smiles_only.identifiers[:3]
+    ids = smiles_only.entity_ids()[:3]
     fitted = DrugGraphFeaturizer(add_hydrogens=True).fit(smiles_only, ids)
 
     restored = pickle.loads(pickle.dumps(fitted))  # noqa: S301 -- pickled on this line

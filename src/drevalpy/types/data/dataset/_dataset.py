@@ -26,7 +26,7 @@ from drevalpy.types.data.views import TISSUE_IDENTIFIER
 from drevalpy.types.enums import RandomizationType, randomization_label
 
 from ._anndata import layer_names, plain_value, stored_randomization, to_dense
-from ._randomization import randomized_mdata
+from ._randomization import ViewRandomization
 
 if TYPE_CHECKING:
     import mudata as md
@@ -142,6 +142,12 @@ class Dataset:
     @randomization_provenance.setter
     def randomization_provenance(self, value: dict[str, Any]) -> None:
         self._mdata.uns["randomization_provenance"] = value
+
+    @property
+    def view_randomization(self) -> ViewRandomization | None:
+        """The views a model trained on this dataset randomizes, how and with which seed, or ``None``."""
+        provenance = self.randomization_provenance
+        return None if provenance is None else ViewRandomization.from_provenance(provenance)
 
     @property
     def mdata(self) -> md.MuData:
@@ -286,25 +292,32 @@ class Dataset:
         *,
         randomization: tuple[str, str] | None = None,
     ) -> Dataset:
-        """Return a copy of this Dataset with specified views randomized.
+        """Return a copy of this Dataset on which models randomize the featurizer output of *views*.
 
-        For sample views (modalities or obsm keys), rows are permuted across
-        samples. For drug views (varm keys), rows are permuted across drugs.
-        For uns dict keys, values are reassigned to shuffled keys.
-
-        Raises ``KeyError`` if a view is not found in any storage location.
+        The data are not changed, and the copy shares the modalities of this dataset. It records
+        the views, the type and the seed as :attr:`view_randomization`, and a model trained on it
+        randomizes the output of each featurizer that reads one of *views*; see
+        :doc:`/reference/split_modes`.
 
         :param views: View names to randomize.
-        :param randomization_type: ``permutation`` shuffles rows; ``invariant`` replaces
-            each row with a random draw matching its mean and std. A value that is
-            not a :class:`RandomizationType` is rejected.
-        :param random_state: Seed for reproducibility.
+        :param randomization_type: ``permutation`` gives each entity the featurizer output of another;
+            ``invariant`` replaces each entity's output with a random draw matching its mean and std.
+            A value that is not a :class:`RandomizationType` is rejected.
+        :param random_state: Seed of the draws; ``None`` draws one, which the copy records.
         :param randomization: Optional (mode, view) tuple to attach to the new dataset.
-        :returns: A new Dataset with the specified views randomized.
+        :returns: The copy.
         """
-        new_mdata = randomized_mdata(self._mdata, views, RandomizationType(randomization_type), random_state)
-        dataset = Dataset(new_mdata, name=self.name, measure=self._measure)
+        import mudata as md
+
+        seed = int(np.random.default_rng().integers(2**32)) if random_state is None else random_state
+        record = ViewRandomization(frozenset(views), RandomizationType(randomization_type), seed)
+        with md.set_options(pull_on_update=False):
+            mdata = md.MuData(dict(self._mdata.mod))
+        mdata.obs = self._mdata.obs.copy()
+        mdata.uns.update(self._mdata.uns)
+        dataset = Dataset(mdata, name=self.name, measure=self._measure)
         dataset.randomization = randomization
+        dataset.randomization_provenance = record.provenance()
         return dataset
 
     # ------------------------------------------------------------------
