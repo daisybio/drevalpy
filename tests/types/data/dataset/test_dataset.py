@@ -70,6 +70,7 @@ class TestRandomizationRoundTrip:
         assert reloaded_provenance == provenance
         assert reloaded_provenance is not None
         assert isinstance(reloaded_provenance["views"], list)
+        assert reloaded.view_randomization == randomized.view_randomization
 
 
 class TestIdentity:

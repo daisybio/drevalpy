@@ -55,10 +55,10 @@ depends on the number of threads or on the hardware can still differ in the last
 digits. The literature models that draw random triplets use the globally seeded
 NumPy stream, which the per-fit seeding fixes (see :doc:`literature_models`).
 
-Randomization tests record how the data were altered
-----------------------------------------------------
+Randomization tests record how the features were altered
+---------------------------------------------------------
 
-A randomization test scrambles an input view (see :doc:`evaluation_design`). Each
+A randomization test scrambles what the model sees of an input view (see :doc:`evaluation_design`). Each
 combination of randomization mode and view gets its own effective seed, derived
 from the randomization seed. The record of what was done is stored in the
 fold's metadata, with the root seed, the effective seed, the type of scrambling and the views

@@ -207,11 +207,11 @@ class TestOnRealFiles:
         assert result.exit_code == 0, result.output
         assert (tmp_path / "rand" / "SVRC__gene_expression.h5mu").is_file()
 
-    def test_a_randomization_the_dataset_cannot_perform_writes_no_file(self, tmp_path: UPath) -> None:
+    def test_a_test_with_nothing_to_randomize_writes_no_file(self, tmp_path: UPath) -> None:
         dataset, _ = write_synthetic_fold(runner, tmp_path)
 
         result = runner.invoke(
-            app, ["data", "randomization", "ElasticNet", str(dataset), str(tmp_path / "rand"), "-m", "SVRD"]
+            app, ["data", "randomization", "ElasticNet", str(dataset), str(tmp_path / "rand"), "-m", "SVCD"]
         )
 
         assert result.exit_code == 0, result.output

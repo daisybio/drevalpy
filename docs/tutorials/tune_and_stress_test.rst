@@ -45,8 +45,8 @@ Three options turn a plain experiment into a tuned, stress-tested one:
    set, and trains the final model with the best one. Tuning is on by default, with 16 trials.
 
 ``--randomization-mode SVRC`` (``randomization_modes=["SVRC"]``)
-   A randomization test. For each sample view of a model, ``SVRC`` permutes that view across the
-   samples and trains the model again on the damaged data. ``ElasticNet`` has one sample view,
+   A randomization test. For each sample view of a model, ``SVRC`` permutes the features the model
+   gets from that view across the samples and trains the model again on the damaged features. ``ElasticNet`` has one sample view,
    ``gene_expression``, so it gets one extra run per fold. A model without views, such as
    ``NaiveMeanEffectsPredictor``, gets none.
 

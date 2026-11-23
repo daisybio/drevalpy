@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 from typing import Any, ClassVar
 
@@ -18,7 +17,6 @@ from drevalpy.registry.featurizer import register
 from drevalpy.types.data.dataset import Dataset
 from drevalpy.types.data.dataset._anndata import precomputed_views
 from drevalpy.types.data.feature_source import FeatureSource
-from drevalpy.types.data.views import PRECOMPUTED_VIEWS_KEY
 from tests.synthetic import N_DRUGS
 
 
@@ -169,29 +167,3 @@ def test_an_unrecorded_shipped_view_is_read_whatever_the_settings(synthetic_data
     assert source.view_settings("morgan_fingerprint") is None
     assert FingerprintsFeaturizer(n_bits=512).reads_view(source)
     assert precompute(synthetic_dataset, "fingerprints", "drug") is None
-
-
-def test_a_randomized_view_is_read_whatever_the_settings_it_was_recorded_with(dataset: Dataset) -> None:
-    recorded = FingerprintsFeaturizer().settings
-    dataset.mdata.uns[PRECOMPUTED_VIEWS_KEY] = json.dumps({"drug": {"morgan_fingerprint": recorded}})
-    tuned = FingerprintsFeaturizer(n_bits=512)
-    assert not tuned.reads_view(FeatureSource(dataset, "drug"))
-
-    randomized = dataset.with_randomized_views(["morgan_fingerprint"], random_state=0)
-    source = FeatureSource(randomized, "drug")
-    ids = np.asarray(randomized.response.var_names, dtype=str)
-
-    assert tuned.reads_view(source)
-    transformed = tuned.fit(source, ids).transform(source, ids).blocks["fingerprints"].values
-    np.testing.assert_array_equal(transformed, source.view("morgan_fingerprint", ids))
-    assert not np.array_equal(transformed, FeatureSource(dataset, "drug").view("morgan_fingerprint", ids))
-
-
-def test_randomizing_a_view_forgets_only_its_recorded_settings(dataset: Dataset) -> None:
-    record = {"drug": {"morgan_fingerprint": {"n_bits": 2048}, "chemberta": {"pooling": "mean"}}}
-    dataset.mdata.uns[PRECOMPUTED_VIEWS_KEY] = json.dumps(record)
-
-    randomized = dataset.with_randomized_views(["morgan_fingerprint"], random_state=0)
-
-    assert precomputed_views(randomized.mdata) == {"drug": {"chemberta": {"pooling": "mean"}}}
-    assert precomputed_views(dataset.mdata) == record

@@ -50,8 +50,7 @@ When a model is trained or predicts, a precomputable featurizer reads its view w
 holds it and either no settings are recorded for it, as for the views a dataset ships, or the
 recorded settings equal its own. Otherwise it computes its output, so a tuned setting such as
 ``n_bits`` of ``fingerprints`` never reads a view computed with another value. Only the default
-settings are stored; there is one view per featurizer. A randomized view
-(:doc:`split_modes`) loses its recorded settings, so every featurizer reads it as it is.
+settings are stored; there is one view per featurizer.
 
 Sample featurizers
 ------------------

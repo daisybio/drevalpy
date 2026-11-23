@@ -87,9 +87,9 @@ def test_molir_omics_unfitted_and_without_metadata() -> None:
         }
     )
 
-    featurizer = MOLIROmicsFeaturizer(n_gene_expression_features=2).fit(features, features.identifiers)
+    featurizer = MOLIROmicsFeaturizer(n_gene_expression_features=2).fit(features, features.entity_ids())
 
-    blocks = featurizer.transform(features, features.identifiers).blocks
+    blocks = featurizer.transform(features, features.entity_ids()).blocks
     assert blocks["gene_expression"].feature_names is None
     assert blocks["gene_expression"].values.shape == (2, 2)
 
@@ -201,9 +201,9 @@ def test_superfeltr_omics_without_metadata_and_before_fit() -> None:
         }
     )
 
-    featurizer = SuperFELTROmicsFeaturizer(n_features_per_view=2).fit(features, features.identifiers)
+    featurizer = SuperFELTROmicsFeaturizer(n_features_per_view=2).fit(features, features.entity_ids())
 
-    blocks = featurizer.transform(features, features.identifiers).blocks
+    blocks = featurizer.transform(features, features.entity_ids()).blocks
     assert blocks["gene_expression"].feature_names == ()
     assert sum(block.values.shape[1] for block in blocks.values()) == 6
 

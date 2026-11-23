@@ -160,6 +160,12 @@ These affect only code, configurations and datasets written for an unreleased 2.
   tune: each is fitted with the best hyperparameters of the original run on the same fold, so the
   search runs once per fold and the stress-test runs have no trials. When the original run fails,
   its stress-test runs are recorded as failures. See :doc:`/how-to/run_stress_tests`.
+- **Randomization tests shuffle what the model sees.** A randomized dataset keeps its data and
+  records the views to randomize; the model randomizes the output of each featurizer that reads
+  one of them. A featurizer tuned to other settings, such as ``fingerprints`` with ``n_bits=512``
+  on a dataset that stores 2048-bit fingerprints, is randomized at its own settings, and a view
+  the featurizer computes, such as a fingerprint from the SMILES, is randomized too instead of
+  the test being skipped. See :ref:`reference/split_modes:Randomization tests`.
 - **The normalization reference is never transformed.** ``NaiveMeanEffectsPredictor`` trains on
   the untransformed response in ``drevalpy.run`` and ``drevalpy run`` too, as it already did
   in ``experiment``, so split + ``run`` + ``aggregate`` gives the same normalized metrics as ``experiment``.

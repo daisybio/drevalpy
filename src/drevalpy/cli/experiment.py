@@ -78,7 +78,7 @@ def experiment_cmd(
         ),
     ] = None,
     randomization_type: Annotated[
-        RandomizationType, typer.Option("--randomization-type", case_sensitive=False, help="How to replace the view.")
+        RandomizationType, typer.Option("--randomization-type", case_sensitive=False, help="How to randomize the view.")
     ] = RandomizationType.PERMUTATION,
     randomization_random_state: Annotated[
         int | None,

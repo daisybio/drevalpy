@@ -32,9 +32,8 @@ class DrugSource(FeatureSource):
         drugs.update(dict.fromkeys(self._smiles or {}))
         self._ids = np.array(list(drugs), dtype=str)
 
-    @property
-    def identifiers(self) -> np.ndarray:
-        """Every drug the mock serves, in first-seen order."""
+    def entity_ids(self) -> np.ndarray:
+        """Return every drug the mock serves, in first-seen order."""
         return self._ids
 
     def __contains__(self, name: str) -> bool:

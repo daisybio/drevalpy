@@ -129,8 +129,8 @@ boolean arrays ``train``, ``test`` and ``val``, and two JSON entries: ``pair_see
 Randomization tests
 -------------------
 
-A randomization test trains a model on a copy of the dataset in which some of the model's
-views are shuffled, to show how much the model depends on them.
+A randomization test trains a model with some of its views shuffled, to show how much the
+model depends on them.
 ``drevalpy.randomization(model_spec, dataset, randomization_mode, *, randomization_type="permutation",
 random_state=42)`` returns the randomized datasets; ``drevalpy experiment -r MODE`` runs them.
 
@@ -154,26 +154,20 @@ random_state=42)`` returns the randomized datasets; ``drevalpy experiment -r MOD
      - drugs
      - One per drug view, with all other drug views randomized
 
-The views come from the model's configuration. A test that would change nothing is skipped
-with a warning and produces no dataset and no run:
+The views come from the model's configuration. ``SVCC`` and ``SVCD`` on a model with a single
+view would change nothing, because no other view is left to randomize: such a test is skipped
+with a warning and produces no dataset and no run.
 
-- ``SVCC`` and ``SVCD`` on a model with a single view, because no other view is left to
-  randomize;
-- a test whose view the dataset does not store, such as ``SVRD`` on a dataset without the
-  drug view.
-
-``Dataset.with_randomized_views`` itself raises ``KeyError`` for a view the dataset does not
-store. The drug graphs are the view ``drug_graph``, stored under ``uns["drug_graphs"]``.
-
-A model reads a randomized view as it is stored: the recorded settings of a randomized view are
-dropped from ``uns["precomputed_views"]``, so a featurizer with tuned settings, such as
-``fingerprints`` with another ``n_bits``, does not compute the view again from the unrandomized SMILES.
-It then reads the randomized view at the settings it was precomputed with. A featurizer that
-computes only from the SMILES, such as ``bpePharmaformer`` and ``smilesTokens``, reads no view, so
-a model built on it has no drug view to randomize. A drug without a stored graph still gets its
-graph computed from its SMILES. A model with no views, such as ``NaiveMeanEffectsPredictor``, gets no randomization
-runs. A mode code that is not in the table is ignored without an error. ``drevalpy.experiment``
-applies the tests to every model it is given.
+A randomized dataset holds the same data as the original. It records which views to randomize,
+and a model trained on it randomizes the output of each featurizer that reads one of those views,
+leaving the other featurizers alone, inside a concatenation too. The featurizer is fitted on
+the real input and runs at its own settings, so ``fingerprints`` tuned to another ``n_bits``
+randomizes fingerprints of that length, and a view the featurizer computes, such as a drug
+graph from the SMILES, is randomized as well. A featurizer that computes only from the SMILES,
+such as ``bpePharmaformer`` and ``smilesTokens``, reads no view, so a model built on it has no
+drug view to randomize. A model with no views, such as ``NaiveMeanEffectsPredictor``, gets no
+randomization runs. A mode code that is not in the table is ignored without an error.
+``drevalpy.experiment`` applies the tests to every model it is given.
 
 .. list-table::
    :header-rows: 1
@@ -182,15 +176,19 @@ applies the tests to every model it is given.
    * - Type
      - Effect
    * - ``permutation``
-     - The default. Rows are permuted across the samples or the drugs
+     - The default. Each sample or drug gets the featurizer output of another, its donor, by one
+       seeded permutation of the samples or drugs the featurizer can use. A sample or drug has the
+       same donor when the model is fitted and when it predicts
    * - ``invariant``
-     - Each row is drawn from a Gaussian with that row's mean and standard deviation (at
-       least ``1e-8``). The edges of drug graphs are also rewired, keeping the degree of every
-       node
+     - Each row of the output (the row of a sample or drug, or of each atom of a graph or
+       per-atom matrix) is drawn from a Gaussian with that row's mean and standard deviation
+       (at least ``1e-8``), seeded per sample or drug. The bonds of drug graphs are also
+       rewired, keeping the degree of every atom
 
 Each randomized dataset has ``randomization = (mode, view)`` and
 ``uns["randomization_provenance"]``, which records ``root_seed``, ``effective_seed``, ``type``
-and ``views``. The effective seed is derived from the SHA-256 of
+and ``views``; ``Dataset.view_randomization`` reads the last three, and a model trained on the
+dataset randomizes by them. The effective seed is derived from the SHA-256 of
 ``[random_state, type, mode, view, sorted views]``, so the same inputs give the same shuffle.
 ``random_state`` is ``--randomization-random-state``, which defaults to ``--seed``.
 
@@ -198,8 +196,8 @@ and ``views``. The effective seed is derived from the SHA-256 of
 name or the path of a ``.h5mu`` file. It writes one file per randomized dataset with
 ``Dataset.save``, named ``<MODE>__<view>.h5mu``, and prints the number of files. Its default
 mode is ``SVRC``. When every test is skipped it writes 0 files and exits with status 0.
-``Dataset.load`` restores the ``randomization`` label of such a file, so ``drevalpy run``
-records it in the run and ``drevalpy aggregate`` keeps those runs apart from the ordinary
+``Dataset.load`` restores the ``randomization`` label and the provenance of such a file, so
+``drevalpy run`` randomizes the same views and records the label in the run and ``drevalpy aggregate`` keeps those runs apart from the ordinary
 ones.
 
 Robustness tests

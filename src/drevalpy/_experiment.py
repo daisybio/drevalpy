@@ -248,7 +248,7 @@ def experiment(
         cross-study dataset (see ``drevalpy.data.concat``). A sequence of one is used as it is.
     :param split_mode: Split mode (LPO, LSO, LDO, LTO, LStO).
     :param randomization_modes: Optional randomization modes (SVRC, SVCC, SVRD, SVCD).
-    :param randomization_type: How to replace the view.
+    :param randomization_type: How to randomize the view.
     :param hyperparameter_tuning: Whether to run HPO. Only the original dataset on each original fold is tuned; its
         randomized datasets and robustness folds reuse the best hyperparameters found there.
     :param hpo_metric: Metric to optimize during HPO.

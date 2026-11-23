@@ -80,8 +80,8 @@ def precompute(dataset: Dataset, featurizer_name: str, side: Side) -> str | None
         msg = f"featurizer {featurizer_name!r} needs fitting or reads no view of its own, so it cannot be precomputed"
         raise ValueError(msg)
     featurizer = cls(**cls.default_hyperparameters())
-    ids = np.asarray(dataset.sample_ids if side == Side.SAMPLE else dataset.drug_ids, dtype=str)
     source = FeatureSource(dataset, side)
+    ids = np.asarray(source.entity_ids(), dtype=str)
     if featurizer.reads_view(source):
         return None
     logger.info("Precomputing %s into view %r", featurizer_name, featurizer.view)

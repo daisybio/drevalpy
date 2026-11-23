@@ -99,6 +99,13 @@ class FeatureSource:
         modalities = (public_view_name(key) for key in self._dataset.mdata.mod if key != "response")
         return sorted({*modalities, *response.obsm})
 
+    def entity_ids(self) -> np.ndarray:
+        """Return the ID of every entity of this side in the response matrix.
+
+        :returns: Sample IDs on a sample source, drug IDs on a drug source.
+        """
+        return self._dataset.sample_ids if self.side == Side.SAMPLE else self._dataset.drug_ids
+
     def __contains__(self, name: str) -> bool:
         """Return whether the dataset holds view *name* for this side.
 

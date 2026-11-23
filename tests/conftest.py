@@ -147,9 +147,8 @@ class MockFeatureSource(FeatureSource):
         self._features = features
         self._meta_info = meta_info or {}
 
-    @property
-    def identifiers(self) -> np.ndarray:
-        """All entity IDs of the mock."""
+    def entity_ids(self) -> np.ndarray:
+        """Return all entity IDs of the mock."""
         return np.array(list(self._features.keys()))
 
     @property

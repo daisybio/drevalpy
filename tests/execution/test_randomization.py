@@ -8,7 +8,6 @@ from typing import Any
 
 import pytest
 
-from drevalpy.data import synthetic
 from drevalpy.execution._randomization import randomization
 from drevalpy.models import ModelSpec
 
@@ -26,8 +25,7 @@ class _StubConfig:
 
 
 class _StubDataset:
-    def __init__(self, missing: tuple[str, ...] = ()) -> None:
-        self.missing = missing
+    def __init__(self) -> None:
         self.calls: list[tuple[list[str], dict[str, Any]]] = []
         self.randomization_provenance: dict[str, Any] | None = None
         self.tag = "dataset"
@@ -35,12 +33,10 @@ class _StubDataset:
 
     def with_randomized_views(self, views: list[str], **kwargs: Any) -> _StubDataset:
         self.calls.append((list(views), kwargs))
-        for view in views:
-            if view in self.missing:
-                raise KeyError(f"View '{view}' not found in any storage location of the dataset.")
         child = _StubDataset()
         child.tag = f"dataset({','.join(views)})"
         child.randomization = kwargs["randomization"]
+        child.randomization_provenance = {"effective_seed": kwargs["random_state"]}
         return child
 
 
@@ -84,11 +80,7 @@ def test_type_and_seed_defaults_and_overrides() -> None:
     _, kwargs = dataset.calls[0]
     assert kwargs["randomization_type"] == "permutation"
     assert isinstance(kwargs["random_state"], int)
-    provenance = result[0].randomization_provenance
-    assert provenance is not None
-    assert provenance["root_seed"] == 42
-    # A plain str, not the enum: anndata cannot write an enum into uns.
-    assert type(provenance["type"]) is str
+    assert result[0].randomization_provenance == {"root_seed": 42, "effective_seed": kwargs["random_state"]}
 
     dataset = _StubDataset()
     randomization(_stub_model(samples=["expr"]), dataset, ["SVRC"], randomization_type="invariant", random_state=7)
@@ -106,20 +98,14 @@ def test_effective_seeds_are_stable_distinct_and_order_independent() -> None:
     assert len(set(forward.values())) == 2
 
 
-def test_missing_view_and_empty_complement_are_skipped_with_warnings(caplog: pytest.LogCaptureFixture) -> None:
+def test_an_empty_complement_is_skipped_with_a_warning(caplog: pytest.LogCaptureFixture) -> None:
     with caplog.at_level("WARNING", logger="drevalpy.execution._randomization"):
-        results = randomization(
-            _stub_model(samples=["expr"], drugs=["fp"]), _StubDataset(missing=("fp",)), ["SVRC", "SVRD"]
-        )
-        assert [result.randomization for result in results] == [("SVRC", "expr")]
-        assert "Skipping the SVRD randomization test of 'fp'" in caplog.text
-
         results = randomization(_stub_model(samples=["expr"], drugs=["fp", "smiles"]), _StubDataset(), ["SVCC", "SVCD"])
     assert [result.randomization for result in results] == [("SVCD", "fp"), ("SVCD", "smiles")]
     assert "Skipping the SVCC randomization test of 'expr': no other view to randomize" in caplog.text
 
 
-def test_real_model_config_views_and_real_dataset(synthetic_dataset, caplog: pytest.LogCaptureFixture) -> None:
+def test_real_model_config_views_and_real_dataset(synthetic_dataset) -> None:
     spec = ModelSpec.from_name("ElasticNet")
     stub = _StubDataset()
     randomization(spec, stub, ["SVRC", "SVRD"])
@@ -131,12 +117,7 @@ def test_real_model_config_views_and_real_dataset(synthetic_dataset, caplog: pyt
     assert synthetic_dataset.randomization is None
     provenance = results[0].randomization_provenance
     assert provenance is not None
-    assert (provenance["root_seed"], provenance["views"]) == (0, ["gene_expression"])
-
-    with caplog.at_level("WARNING", logger="drevalpy.execution._randomization"):
-        bare = synthetic(n_samples=6, n_drugs=2, n_tissues=2)
-        assert randomization(spec, bare, ["SVRD", "SVCD", "SVCC"]) == []
-    assert "'morgan_fingerprint'" in caplog.text
+    assert (provenance["root_seed"], provenance["views"], provenance["type"]) == (0, ["gene_expression"], "permutation")
 
 
 @pytest.mark.parametrize("model", ["PharmaFormer", "PaccMann"])

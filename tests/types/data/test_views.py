@@ -14,7 +14,6 @@ class TestStoredViewName:
             pytest.param("gene_expression", "gene_expression", id="identity"),
             pytest.param("copy_number_variation_gistic", "copy_number_variation", id="suffixed-name"),
             pytest.param("pathway_features", "pathway_features", id="non-omics-view"),
-            pytest.param("drug_graph", "drug_graphs", id="drug-graphs-key"),
             pytest.param("", "", id="empty-string"),
         ],
     )
@@ -28,7 +27,6 @@ class TestPublicViewName:
         [
             pytest.param("copy_number_variation", "copy_number_variation_gistic", id="renamed"),
             pytest.param("methylation", "methylation", id="identity"),
-            pytest.param("drug_graphs", "drug_graph", id="drug-graphs-key"),
             pytest.param("custom_matrix", "custom_matrix", id="unknown-name"),
         ],
     )
@@ -37,15 +35,7 @@ class TestPublicViewName:
 
     @pytest.mark.parametrize(
         "view",
-        [
-            "gene_expression",
-            "methylation",
-            "mutations",
-            "proteomics",
-            "copy_number_variation_gistic",
-            "drug_graph",
-            "custom",
-        ],
+        ["gene_expression", "methylation", "mutations", "proteomics", "copy_number_variation_gistic", "custom"],
     )
     def test_round_trip(self, view):
         assert public_view_name(stored_view_name(view)) == view
@@ -67,14 +57,3 @@ class TestFindView:
     )
     def test_either_stored_generation_is_found(self, available, expected):
         assert find_view("copy_number_variation_gistic", available) == expected
-
-    @pytest.mark.parametrize(
-        ("available", "expected"),
-        [
-            pytest.param({"drug_graphs", "sparsego"}, "drug_graphs", id="uns-key"),
-            pytest.param({"drug_graph"}, "drug_graph", id="public-name"),
-            pytest.param({"sparsego"}, None, id="absent"),
-        ],
-    )
-    def test_the_drug_graph_view_is_found_under_its_uns_key(self, available, expected):
-        assert find_view("drug_graph", available) == expected
