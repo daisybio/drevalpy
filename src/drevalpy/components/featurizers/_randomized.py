@@ -122,9 +122,10 @@ def _resampled_block(block: FeatureBlock, rngs: list[np.random.Generator]) -> Fe
     """
     numeric = block.format == FeatureFormat.NUMERIC_MATRIX
     values = np.empty(block.values.shape, np.float32) if numeric else np.empty(len(block.values), object)
+    resample = _resampled_graph if block.format == FeatureFormat.GRAPH else _resampled_rows
     for i, (value, rng) in enumerate(zip(block.values, rngs, strict=True)):
         if value is not None:
-            values[i] = _resampled_graph(value, rng) if block.format == FeatureFormat.GRAPH else _resampled_rows(value, rng)
+            values[i] = resample(value, rng)
     return FeatureBlock(values, block.format, block.feature_names, block.annotations)
 
 
