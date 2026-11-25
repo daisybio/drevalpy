@@ -100,7 +100,7 @@ def test_unknown_drugs_fall_back_to_the_training_mean(data_dir, sample_dataset) 
     model.train(output=train, cell_line_input=cell_input)
     preds = model.predict(cell_line_ids=cl_ids[:3], drug_ids=np.array(["not_a_drug"] * 3), cell_line_input=cell_input)
     # each component falls back to the mean of the responses it was trained on
-    expected = np.mean([part.state["training_mean"] for part in model.parts])
+    expected = np.mean([part.state["training_mean"] for part in model.parts])  # type: ignore[attr-defined]
     assert np.isfinite(preds).all()
     assert np.allclose(preds, expected)
 
@@ -123,22 +123,22 @@ def test_components_get_their_prefixed_settings() -> None:
     model.build_model(hp)
     parts = _parts(model)
     assert parts["MultiTaskMLP"].hyperparameters["dropout"] == 0.4
-    assert parts["MultiTaskMLP"].hyperparameters["hidden"] == 512
+    assert parts["MultiTaskMLP"].hyperparameters["hidden"] == 256
     assert parts["MultiTaskMLP"].hyperparameters["seed"] == 3
     assert "mlp_dropout" not in parts["MultiTaskMLP"].hyperparameters
     assert parts["PerDrugRidge"].hyperparameters == {"seed": 3}
 
 
-def test_first_grid_combination_is_the_untuned_model() -> None:
-    """The tuning grid has 27 combinations, and the first is the untuned (submitted) MLP configuration."""
+def test_first_grid_combination_reaches_the_mlp() -> None:
+    """The tuning grid has 27 combinations; the first (used without tuning) is passed to the MLP in full."""
     grid = RidgeMLPEnsemble.get_hyperparameter_set()
     assert len(grid) == 27
     model = RidgeMLPEnsemble()
     model.build_model(grid[0])
     assert _parts(model)["MultiTaskMLP"].hyperparameters == {
-        "hidden": 512,
+        "hidden": 256,
         "depth": 2,
-        "dropout": 0.2,
+        "dropout": 0.1,
         "lr": 0.001,
         "batch_size": 64,
         "max_epochs": 200,

@@ -1,4 +1,4 @@
-"""Helper functions shared by the RidgeMLPEnsemble components"""
+"""Helper functions shared by the RidgeMLPEnsemble components."""
 
 import copy
 
