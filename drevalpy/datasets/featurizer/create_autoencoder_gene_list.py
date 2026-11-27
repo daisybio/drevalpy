@@ -32,9 +32,7 @@ MANIFEST_URL = (
     "ampliseq-for-illumina/ampliseq-for-illumina-transcriptome-rna-manifest-20190313.zip"
 )
 #: TCGA gene annotation (GENCODE v23 probemap of the Xena Toil hub), columns ``id`` and ``gene``.
-PROBEMAP_URL = (
-    "https://toil-xena-hub.s3.us-east-1.amazonaws.com/download/probeMap%2Fgencode.v23.annotation.gene.probemap"
-)
+PROBEMAP_URL = "https://toil.xenahubs.net/download/probeMap/gencode.v23.annotation.gene.probemap"
 #: Clinically actionable driver genes that the noise filter never drops, in addition to the landmark genes.
 CLINICAL_DRIVER_GENES = {
     "ALK", "BRAF", "CTNNB1", "DDR2", "ERBB4", "ESR1", "FBXW7", "FGFR1", "FGFR3", "FLT3", "H3-3A", "HRAS", "IDH1",
