@@ -1,0 +1,11 @@
+RidgeMLPEnsemble:
+  gene_list: [landmark_genes]
+  seed: [0]
+  mlp_hidden: [256, 512, 1024]
+  mlp_dropout: [0.1, 0.2, 0.4]
+  mlp_lr: [0.001, 0.003, 0.0003]
+  mlp_depth: [2]
+  mlp_batch_size: [64]
+  mlp_max_epochs: [200]
+  mlp_patience: [10]
+  mlp_n_ensemble: [10]

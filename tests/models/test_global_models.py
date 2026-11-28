@@ -30,6 +30,7 @@ from drevalpy.models.drp_model import DRPModel
         "SparseGO",
         "EnsembleMF",
         "RandomForestAEMolGNet",
+        "RidgeMLPEnsemble",
     ],
 )
 def test_global_models(
@@ -47,7 +48,7 @@ def test_global_models(
     :param test_mode: LPO
     :param cross_study_dataset: from conftest.py
     :param data_dir: path to the data directory
-    :raises ValueError: if drug input is None
+    :raises ValueError: if drug input is None for a model that uses drug features
     """
     drug_response = sample_dataset
     drug_response.split_dataset(n_cv_splits=2, mode=test_mode, validation_ratio=0.4)
@@ -100,6 +101,11 @@ def test_global_models(
         hpam_combi["batch_size"] = 64
         hpam_combi["n_bits"] = 128  # toy data ships only 128-bit fingerprints
         hpam_combi["gene_list"] = None  # gene_expression_intersection is not in the toy bundle
+    elif model_name == "RidgeMLPEnsemble":
+        hpam_combi["mlp_n_ensemble"] = 2
+        hpam_combi["mlp_max_epochs"] = 1
+        hpam_combi["mlp_hidden"] = 16
+        hpam_combi["gene_list"] = None  # landmark_genes is not in the toy bundle
     elif model_name == "AdaBoostDecisionTree":
         hpam_combi["max_depth"] = 2
         hpam_combi["min_samples_split"] = 2
@@ -109,10 +115,10 @@ def test_global_models(
 
     cell_line_input = model.load_cell_line_features(data_path=str(data_dir), dataset_name="TOYv1")
     drug_input = model.load_drug_features(data_path=str(data_dir), dataset_name="TOYv1")
-    if drug_input is None:
+    if drug_input is None and model.drug_views:
         raise ValueError("Drug input is None")
     cell_lines_to_keep = cell_line_input.identifiers
-    drugs_to_keep = drug_input.identifiers
+    drugs_to_keep = drug_input.identifiers if drug_input is not None else None  # no drug features: keep all drugs
 
     train_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)
     val_es_dataset.reduce_to(cell_line_ids=cell_lines_to_keep, drug_ids=drugs_to_keep)

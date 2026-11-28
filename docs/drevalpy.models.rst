@@ -37,6 +37,7 @@ Implemented models
    drevalpy.models.PaccMann
    drevalpy.models.PharmaFormer
    drevalpy.models.Precily
+   drevalpy.models.RidgeMLPEnsemble
    drevalpy.models.SRMF
    drevalpy.models.SparseGO
    drevalpy.models.SimpleNeuralNetwork

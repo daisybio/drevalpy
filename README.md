@@ -40,9 +40,9 @@ Use DrEval to build drug response models that have an impact
 ---
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/_static/img/leaderboard_dark.png?v=4">
-  <source media="(prefers-color-scheme: light)" srcset="docs/_static/img/leaderboard_light.png?v=4">
-  <img alt="DrEvalPy Leaderboard" src="docs/_static/img/leaderboard_dark.png?v=4">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/_static/img/leaderboard_dark.png?v=5">
+  <source media="(prefers-color-scheme: light)" srcset="docs/_static/img/leaderboard_light.png?v=5">
+  <img alt="DrEvalPy Leaderboard" src="docs/_static/img/leaderboard_dark.png?v=5">
 </picture>
 
 In the critical difference diagram, you can see which models outperform which other models significantly.
@@ -52,7 +52,7 @@ is significantly better (if it lies to the left) or worse (if it lies to the rig
 
 <picture>
   <img alt="Critical difference diagram showing which models significantly outperform which other models"
-src="docs/_static/img/critical_difference_algorithms_LCO.svg?v=4">
+src="docs/_static/img/critical_difference_algorithms_LCO.svg?v=5">
 </picture>
 
 ---
